@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788281349740,
+      "tag": "0000_create_budget_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788281722540,
+      "tag": "0001_grant_budget_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788299699712,
+      "tag": "0002_visit_discounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788902804540,
+      "tag": "0003_create_technician_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788911599809,
+      "tag": "0004_create_produtos_e_consumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788912213732,
+      "tag": "0005_multiempresa",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789003804112,
+      "tag": "0006_create_orcamentos",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789010756354,
+      "tag": "0007_quote_margin_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789012587538,
+      "tag": "0008_quote_contribution_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789080755380,
+      "tag": "0009_google_calendar_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789082119703,
+      "tag": "0010_create_os_drive_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789214370268,
+      "tag": "0011_secure_company_creation_and_product_usage_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789214520399,
+      "tag": "0012_isolate_privileged_functions_and_explicit_crm_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789315053191,
+      "tag": "0013_os_drive_folders_customer_share",
+      "breakpoints": true
+    }
+  ]
+}
