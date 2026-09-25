@@ -87,11 +87,9 @@ Escopos a validar na Etapa 2: `calendar.events`, `drive.file`, `documents`.
   descontar a taxa da maquininha.
 - **Percentual por contrato com o cliente** (`contratos_comissao`, com vigência) e apuração mensal
   congelada ao fechar (`apuracoes_comissao` + itens), com status devida / paga / pendente.
-- **Confirmado em 25/09/2026:** a comissão da Nexa é de **5%**. É o valor padrão do contrato de
-  cada empresa, **editável na tela de configurações** (ver D7).
-- **[a confirmar]** Existe um repasse separado da Nexa para cada atendente (os 3% que hoje estão
-  cadastrados nas vendedoras)? Se existir, ele fica como um segundo percentual configurável, sem
-  afetar os 5% cobrados do cliente.
+- **Confirmado em 25/09/2026:** o percentual é **por empresa cliente**: **3% para a Turbine Clean**
+  e **5% para as demais** (padrão para empresas novas). Os dois são editáveis nas configurações
+  da Nexa (ver D7).
 
 ## D6 — Novo lead para contato antigo após 30 dias (25/09/2026)
 
@@ -120,6 +118,20 @@ telas de configuração, com permissão e histórico de alteração.
   do CRM, modelo de mensagem). O que falta é separar por empresa, criar as telas da Nexa e registrar
   quem alterou.
 
+## D8 — Ambientes e momento de criar o Google Cloud (25/09/2026)
+
+**Decidido:** o Google Cloud dá 90 dias e US$ 300 de crédito a partir da criação. Por isso ele será
+criado **só quando o sistema estiver perto de ir ao ar** (fim da Etapa 2 / início do teste real
+do Chatwoot). Até lá, o desenvolvimento e os testes rodam neste ambiente, com um Postgres local, e
+num projeto Supabase de desenvolvimento.
+
+**Observações do Chatwoot (telas de 25/09/2026):**
+- A conta se chama "turbineclean" (ID 187966). Como a decisão é **uma conta da Nexa** com uma caixa
+  por cliente, recomenda-se renomear a conta para "Nexa Performance" antes de conectar outros
+  clientes. O ID não muda.
+- Estão disponíveis: **Webhooks** (desativado), **Robôs** (Agent Bot), caixa de entrada **WhatsApp**
+  e canal **API**. O token de acesso à API só aparece no plano pago.
+
 ## Plano atualizado
 
 | Etapa | Entrega | Depende de você |
@@ -127,7 +139,7 @@ telas de configuração, com permissão e histórico de alteração.
 | **2 — Fundação e isolamento** | Ambiente próprio: Supabase Nexa e Cloud Run; migrações aplicadas do zero; correções de isolamento R1–R7; papéis Nexa; seletor de empresa; cadastro de empresa pela Nexa; Google direto com OAuth por empresa; testes de isolamento e de regras de cálculo | Projeto Google Cloud com faturamento; conta Supabase; domínio |
 | **3 — MVP Chatwoot → Lead** | Conexão, mapeamento de inboxes, webhook, processamento idempotente, log e reprocessamento, reconciliação, leads no painel | Conta Chatwoot Cloud; número da Turbine conectado numa inbox |
 | **4 — Funil e indicadores** | Etapas canônicas, marcos, vínculo orçamento↔lead↔OS, dashboard da empresa | — |
-| **5 — Painel Nexa + comissão** | Consolidado e apuração da comissão conforme D5 | Repasse às atendentes (D5) |
+| **5 — Painel Nexa + comissão** | Consolidado e apuração da comissão conforme D5 | — |
 | 6 / 7 | Refinos, Google Sheets se ainda fizer sentido, IA (Agent Bot) | — |
 
 A Etapa 2 pode começar sem o Chatwoot: o código do MVP (Etapa 3) também pode ser escrito e testado
