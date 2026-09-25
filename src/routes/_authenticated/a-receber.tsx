@@ -22,12 +22,12 @@ export const Route = createFileRoute("/_authenticated/a-receber")({
   }),
   head: () => ({
     meta: [
-      { title: "A receber — Turbine Clean" },
+      { title: "A receber — Nexa OS" },
       {
         name: "description",
         content: "Serviços agendados e concluídos que ainda não foram pagos, com saldo por OS.",
       },
-      { property: "og:title", content: "A receber — Turbine Clean" },
+      { property: "og:title", content: "A receber — Nexa OS" },
       {
         property: "og:description",
         content: "Serviços agendados e concluídos que ainda não foram pagos, com saldo por OS.",

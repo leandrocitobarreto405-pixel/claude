@@ -147,7 +147,10 @@ export function useSetting<T>(key: string, fallback: T) {
 export async function saveSetting(key: string, value: unknown) {
   const { error } = await supabase
     .from("app_settings")
-    .upsert({ key, value: value as never, updated_at: new Date().toISOString() });
+    .upsert(
+      { key, value: value as never, updated_at: new Date().toISOString() },
+      { onConflict: "empresa_id,key" },
+    );
   if (error) throw error;
 }
 

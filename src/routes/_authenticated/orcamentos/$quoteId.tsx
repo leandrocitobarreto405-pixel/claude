@@ -37,12 +37,12 @@ import {
 export const Route = createFileRoute("/_authenticated/orcamentos/$quoteId")({
   head: () => ({
     meta: [
-      { title: "Orçamento — Turbine Clean" },
+      { title: "Orçamento — Nexa OS" },
       {
         name: "description",
         content: "Monte os itens, veja a margem e gere a mensagem do orçamento.",
       },
-      { property: "og:title", content: "Orçamento — Turbine Clean" },
+      { property: "og:title", content: "Orçamento — Nexa OS" },
       {
         property: "og:description",
         content: "Monte os itens, veja a margem e gere a mensagem do orçamento.",

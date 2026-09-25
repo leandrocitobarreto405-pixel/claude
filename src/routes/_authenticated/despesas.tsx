@@ -55,13 +55,13 @@ export const Route = createFileRoute("/_authenticated/despesas")({
   }),
   head: () => ({
     meta: [
-      { title: "Custos e despesas — Turbine Clean" },
+      { title: "Custos e despesas — Nexa OS" },
       {
         name: "description",
         content:
           "Despesas fixas, recorrentes e de quilometragem, com vencimentos, pagamentos e histórico.",
       },
-      { property: "og:title", content: "Custos e despesas — Turbine Clean" },
+      { property: "og:title", content: "Custos e despesas — Nexa OS" },
       {
         property: "og:description",
         content:

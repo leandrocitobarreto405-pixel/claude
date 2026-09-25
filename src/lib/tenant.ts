@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getEmpresaAtiva, setEmpresaAtiva } from "@/lib/empresa-ativa";
 
 export type Papel = "admin" | "atendente" | "tecnico";
 
@@ -17,35 +18,79 @@ export type VinculoEmpresa = {
   empresa: Empresa;
 };
 
-/** Empresa e papel do usuário logado. */
-export function useMinhaEmpresa() {
+export type ContextoTenant = {
+  /** Usuário é administrador da Nexa (vê e administra todas as empresas). */
+  souNexa: boolean;
+  /** Empresas que o usuário pode abrir, com o papel dele em cada uma. */
+  empresas: VinculoEmpresa[];
+  /** Empresa aberta nesta aba (null quando ainda não há nenhuma). */
+  ativa: VinculoEmpresa | null;
+};
+
+export const CONTEXTO_TENANT_KEY = ["contexto_tenant"] as const;
+
+/**
+ * Carrega as empresas acessíveis e define a empresa ativa desta aba: a última escolhida,
+ * se ainda for acessível; senão, a primeira da lista.
+ */
+export function useContextoTenant() {
   return useQuery({
-    queryKey: ["minha_empresa"],
-    queryFn: async (): Promise<VinculoEmpresa | null> => {
-      const { data, error } = await supabase
-        .from("usuarios_empresa")
-        .select(
-          "papel, empresa:empresa_id ( id, nome, cnpj, telefone, plano, controle_insumos_ativo )",
-        )
-        .order("created_at")
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data?.empresa) return null;
-      return {
-        papel: data.papel as Papel,
-        empresa: data.empresa as unknown as Empresa,
-      };
+    queryKey: CONTEXTO_TENANT_KEY,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<ContextoTenant> => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) return { souNexa: false, empresas: [], ativa: null };
+
+      const [nexa, vinculos, empresas] = await Promise.all([
+        supabase.rpc("sou_admin_nexa" as never),
+        supabase.from("usuarios_empresa").select("empresa_id, papel").eq("user_id", userId),
+        supabase
+          .from("empresas")
+          .select("id, nome, cnpj, telefone, plano, controle_insumos_ativo")
+          .eq("ativo", true)
+          .order("nome"),
+      ]);
+      if (vinculos.error) throw vinculos.error;
+      if (empresas.error) throw empresas.error;
+
+      const souNexa = nexa.data === true;
+      const papelPorEmpresa = new Map(
+        (vinculos.data ?? []).map((v) => [v.empresa_id, v.papel as Papel]),
+      );
+      const lista: VinculoEmpresa[] = [];
+      for (const empresa of (empresas.data ?? []) as Empresa[]) {
+        const papel = souNexa ? "admin" : papelPorEmpresa.get(empresa.id);
+        if (papel) lista.push({ papel, empresa });
+      }
+
+      const salva = getEmpresaAtiva();
+      const ativa = lista.find((v) => v.empresa.id === salva) ?? lista[0] ?? null;
+      setEmpresaAtiva(ativa?.empresa.id ?? null);
+
+      return { souNexa, empresas: lista, ativa };
     },
   });
 }
 
-export function usePapel(): { papel: Papel | null; carregando: boolean } {
-  const q = useMinhaEmpresa();
-  return { papel: q.data?.papel ?? null, carregando: q.isLoading };
+/** Troca a empresa desta aba e recarrega o app, para nenhum dado da anterior ficar em cache. */
+export function trocarEmpresa(empresaId: string, destino = "/inicio") {
+  setEmpresaAtiva(empresaId);
+  window.location.assign(destino);
 }
 
-/** Cria a empresa no cadastro (ou aceita o convite recebido por e-mail). */
+/** Empresa ativa e papel do usuário nela. */
+export function useMinhaEmpresa() {
+  const q = useContextoTenant();
+  return { ...q, data: q.data?.ativa ?? null };
+}
+
+export function usePapel(): { papel: Papel | null; carregando: boolean } {
+  const q = useContextoTenant();
+  return { papel: q.data?.ativa?.papel ?? null, carregando: q.isLoading };
+}
+
+/** Aceita convites pendentes do e-mail logado. Empresas novas são criadas pela Nexa. */
 export async function registrarEmpresa(input: {
   nome: string;
   cnpj?: string | null;
@@ -68,7 +113,7 @@ export async function convidarUsuario(email: string, papel: Papel) {
   if (error) throw error;
 }
 
-/** Rotas liberadas por papel. Admin acessa tudo. */
+/** Rotas liberadas por papel. Admin acessa tudo da empresa; /nexa só a Nexa. */
 const ROTAS_ATENDENTE = [
   "/inicio",
   "/nova-os",
@@ -85,10 +130,18 @@ const ROTAS_ATENDENTE = [
 
 const ROTAS_TECNICO = ["/agenda", "/mensagens", "/servicos", "/os"];
 
-export function podeAcessar(papel: Papel | null, pathname: string): boolean {
-  if (!papel || papel === "admin") return true;
+const ROTAS_NEXA = ["/nexa"];
+
+function combina(rotas: string[], pathname: string) {
+  return rotas.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+}
+
+export function podeAcessar(papel: Papel | null, pathname: string, souNexa = false): boolean {
+  if (combina(ROTAS_NEXA, pathname)) return souNexa;
+  if (souNexa || papel === "admin") return true;
+  if (!papel) return false;
   const permitidas = papel === "atendente" ? ROTAS_ATENDENTE : ROTAS_TECNICO;
-  return permitidas.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+  return combina(permitidas, pathname);
 }
 
 export function rotaInicial(papel: Papel | null): string {

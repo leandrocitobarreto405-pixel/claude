@@ -13,25 +13,24 @@ export type Database = {
           empresa_id: string;
           key: string;
           updated_at: string;
-          value: Json;
+          value: NonNullable<Json>;
         };
         Insert: {
           empresa_id?: string;
           key: string;
           updated_at?: string;
-          value?: Json;
+          value?: NonNullable<Json>;
         };
         Update: {
           empresa_id?: string;
           key?: string;
           updated_at?: string;
-          value?: Json;
+          value?: NonNullable<Json>;
         };
         Relationships: [
           {
             foreignKeyName: "app_settings_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -111,42 +110,36 @@ export type Database = {
           {
             foreignKeyName: "budget_visits_crm_lead_id_fkey";
             columns: ["crm_lead_id"];
-            isOneToOne: false;
             referencedRelation: "crm_leads";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "budget_visits_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "budget_visits_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "budget_visits_generated_work_order_id_fkey";
             columns: ["generated_work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "budget_visits_sales_origin_id_fkey";
             columns: ["sales_origin_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "budget_visits_technician_id_fkey";
             columns: ["technician_id"];
-            isOneToOne: false;
             referencedRelation: "technicians";
             referencedColumns: ["id"];
           },
@@ -190,14 +183,12 @@ export type Database = {
           {
             foreignKeyName: "campaign_investments_campaign_id_fkey";
             columns: ["campaign_id"];
-            isOneToOne: false;
             referencedRelation: "crm_campaigns";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "campaign_investments_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -211,7 +202,7 @@ export type Database = {
           empresa_id: string;
           id: string;
           kind: string;
-          metadata: Json;
+          metadata: NonNullable<Json>;
           name: string;
           updated_at: string;
         };
@@ -222,7 +213,7 @@ export type Database = {
           empresa_id?: string;
           id?: string;
           kind: string;
-          metadata?: Json;
+          metadata?: NonNullable<Json>;
           name: string;
           updated_at?: string;
         };
@@ -233,7 +224,7 @@ export type Database = {
           empresa_id?: string;
           id?: string;
           kind?: string;
-          metadata?: Json;
+          metadata?: NonNullable<Json>;
           name?: string;
           updated_at?: string;
         };
@@ -241,7 +232,79 @@ export type Database = {
           {
             foreignKeyName: "config_options_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      configuracoes_plataforma: {
+        Row: {
+          chave: string;
+          descricao: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          valor: NonNullable<Json>;
+        };
+        Insert: {
+          chave: string;
+          descricao?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          valor: NonNullable<Json>;
+        };
+        Update: {
+          chave?: string;
+          descricao?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          valor?: NonNullable<Json>;
+        };
+        Relationships: [];
+      };
+      contratos_comissao: {
+        Row: {
+          base: string;
+          created_at: string;
+          created_by: string | null;
+          empresa_id: string;
+          id: string;
+          observacoes: string | null;
+          percentual: number;
+          somente_atendentes_nexa: boolean;
+          updated_at: string;
+          vigencia_fim: string | null;
+          vigencia_inicio: string;
+        };
+        Insert: {
+          base?: string;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id: string;
+          id?: string;
+          observacoes?: string | null;
+          percentual: number;
+          somente_atendentes_nexa?: boolean;
+          updated_at?: string;
+          vigencia_fim?: string | null;
+          vigencia_inicio: string;
+        };
+        Update: {
+          base?: string;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id?: string;
+          id?: string;
+          observacoes?: string | null;
+          percentual?: number;
+          somente_atendentes_nexa?: boolean;
+          updated_at?: string;
+          vigencia_fim?: string | null;
+          vigencia_inicio?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contratos_comissao_empresa_id_fkey";
+            columns: ["empresa_id"];
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -262,7 +325,7 @@ export type Database = {
           created_at?: string;
           criado_por?: string | null;
           email: string;
-          empresa_id: string;
+          empresa_id?: string;
           id?: string;
           papel?: Database["public"]["Enums"]["papel_empresa"];
         };
@@ -279,7 +342,6 @@ export type Database = {
           {
             foreignKeyName: "convites_empresa_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -335,7 +397,6 @@ export type Database = {
           {
             foreignKeyName: "crm_campaigns_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -385,14 +446,12 @@ export type Database = {
           {
             foreignKeyName: "crm_followups_crm_lead_id_fkey";
             columns: ["crm_lead_id"];
-            isOneToOne: false;
             referencedRelation: "crm_leads";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_followups_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -403,7 +462,7 @@ export type Database = {
           created_at: string;
           created_leads: number;
           empresa_id: string;
-          errors: Json;
+          errors: NonNullable<Json>;
           file_name: string | null;
           id: string;
           imported_by: string | null;
@@ -416,7 +475,7 @@ export type Database = {
           created_at?: string;
           created_leads?: number;
           empresa_id?: string;
-          errors?: Json;
+          errors?: NonNullable<Json>;
           file_name?: string | null;
           id?: string;
           imported_by?: string | null;
@@ -429,7 +488,7 @@ export type Database = {
           created_at?: string;
           created_leads?: number;
           empresa_id?: string;
-          errors?: Json;
+          errors?: NonNullable<Json>;
           file_name?: string | null;
           id?: string;
           imported_by?: string | null;
@@ -442,7 +501,6 @@ export type Database = {
           {
             foreignKeyName: "crm_import_batches_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -470,7 +528,7 @@ export type Database = {
           normalized_phone: string | null;
           notes: string | null;
           phone: string;
-          referral_data: Json;
+          referral_data: NonNullable<Json>;
           sales_origin_id: string | null;
           salesperson_id: string | null;
           service_interest: string | null;
@@ -506,7 +564,7 @@ export type Database = {
           normalized_phone?: string | null;
           notes?: string | null;
           phone?: string;
-          referral_data?: Json;
+          referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
           service_interest?: string | null;
@@ -542,7 +600,7 @@ export type Database = {
           normalized_phone?: string | null;
           notes?: string | null;
           phone?: string;
-          referral_data?: Json;
+          referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
           service_interest?: string | null;
@@ -561,70 +619,60 @@ export type Database = {
           {
             foreignKeyName: "crm_leads_campaign_id_fkey";
             columns: ["campaign_id"];
-            isOneToOne: false;
             referencedRelation: "crm_campaigns";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_import_batch_id_fkey";
             columns: ["import_batch_id"];
-            isOneToOne: false;
             referencedRelation: "crm_import_batches";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_linked_work_order_id_fkey";
             columns: ["linked_work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_loss_reason_id_fkey";
             columns: ["loss_reason_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_sales_origin_id_fkey";
             columns: ["sales_origin_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_salesperson_id_fkey";
             columns: ["salesperson_id"];
-            isOneToOne: false;
             referencedRelation: "salespeople";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_status_id_fkey";
             columns: ["status_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_leads_whatsapp_contact_id_fkey";
             columns: ["whatsapp_contact_id"];
-            isOneToOne: false;
             referencedRelation: "whatsapp_contacts";
             referencedColumns: ["id"];
           },
@@ -637,7 +685,7 @@ export type Database = {
           default_campaign_id: string | null;
           default_salesperson_id: string | null;
           empresa_id: string;
-          field_mapping: Json;
+          field_mapping: NonNullable<Json>;
           id: string;
           name: string;
           secret: string | null;
@@ -651,7 +699,7 @@ export type Database = {
           default_campaign_id?: string | null;
           default_salesperson_id?: string | null;
           empresa_id?: string;
-          field_mapping?: Json;
+          field_mapping?: NonNullable<Json>;
           id?: string;
           name: string;
           secret?: string | null;
@@ -665,7 +713,7 @@ export type Database = {
           default_campaign_id?: string | null;
           default_salesperson_id?: string | null;
           empresa_id?: string;
-          field_mapping?: Json;
+          field_mapping?: NonNullable<Json>;
           id?: string;
           name?: string;
           secret?: string | null;
@@ -677,21 +725,18 @@ export type Database = {
           {
             foreignKeyName: "crm_source_integrations_default_campaign_id_fkey";
             columns: ["default_campaign_id"];
-            isOneToOne: false;
             referencedRelation: "crm_campaigns";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_source_integrations_default_salesperson_id_fkey";
             columns: ["default_salesperson_id"];
-            isOneToOne: false;
             referencedRelation: "salespeople";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_source_integrations_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -741,14 +786,12 @@ export type Database = {
           {
             foreignKeyName: "crm_status_history_crm_lead_id_fkey";
             columns: ["crm_lead_id"];
-            isOneToOne: false;
             referencedRelation: "crm_leads";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "crm_status_history_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -766,7 +809,7 @@ export type Database = {
           id: string;
           lead_created: boolean;
           messages_stored: number;
-          payload: Json;
+          payload: NonNullable<Json>;
           processed_at: string | null;
           processing_status: string;
           received_at: string;
@@ -783,7 +826,7 @@ export type Database = {
           id?: string;
           lead_created?: boolean;
           messages_stored?: number;
-          payload?: Json;
+          payload?: NonNullable<Json>;
           processed_at?: string | null;
           processing_status?: string;
           received_at?: string;
@@ -800,7 +843,7 @@ export type Database = {
           id?: string;
           lead_created?: boolean;
           messages_stored?: number;
-          payload?: Json;
+          payload?: NonNullable<Json>;
           processed_at?: string | null;
           processing_status?: string;
           received_at?: string;
@@ -810,7 +853,6 @@ export type Database = {
           {
             foreignKeyName: "crm_webhook_events_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -887,7 +929,6 @@ export type Database = {
           {
             foreignKeyName: "customers_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -915,7 +956,7 @@ export type Database = {
           real_km: number | null;
           route_date: string;
           route_status: string;
-          segments: Json;
+          segments: NonNullable<Json>;
           technician_id: string | null;
           total_cost: number | null;
           updated_at: string;
@@ -941,7 +982,7 @@ export type Database = {
           real_km?: number | null;
           route_date: string;
           route_status?: string;
-          segments?: Json;
+          segments?: NonNullable<Json>;
           technician_id?: string | null;
           total_cost?: number | null;
           updated_at?: string;
@@ -967,7 +1008,7 @@ export type Database = {
           real_km?: number | null;
           route_date?: string;
           route_status?: string;
-          segments?: Json;
+          segments?: NonNullable<Json>;
           technician_id?: string | null;
           total_cost?: number | null;
           updated_at?: string;
@@ -976,21 +1017,18 @@ export type Database = {
           {
             foreignKeyName: "daily_routes_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "daily_routes_expense_id_fkey";
             columns: ["expense_id"];
-            isOneToOne: false;
             referencedRelation: "expenses";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "daily_routes_technician_id_fkey";
             columns: ["technician_id"];
-            isOneToOne: false;
             referencedRelation: "technicians";
             referencedColumns: ["id"];
           },
@@ -1082,14 +1120,12 @@ export type Database = {
           {
             foreignKeyName: "expense_status_history_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "expense_status_history_expense_id_fkey";
             columns: ["expense_id"];
-            isOneToOne: false;
             referencedRelation: "expenses";
             referencedColumns: ["id"];
           },
@@ -1181,28 +1217,24 @@ export type Database = {
           {
             foreignKeyName: "expenses_daily_route_id_fkey";
             columns: ["daily_route_id"];
-            isOneToOne: false;
             referencedRelation: "daily_routes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "expenses_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "expenses_recurring_expense_id_fkey";
             columns: ["recurring_expense_id"];
-            isOneToOne: false;
             referencedRelation: "recurring_expenses";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "expenses_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1261,21 +1293,18 @@ export type Database = {
           {
             foreignKeyName: "invoice_tasks_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "invoice_tasks_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "invoice_tasks_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1284,9 +1313,9 @@ export type Database = {
       job_runs: {
         Row: {
           created_at: string;
-          details: Json;
+          details: NonNullable<Json>;
           empresa_id: string;
-          errors: Json;
+          errors: NonNullable<Json>;
           expenses_created: number;
           expenses_updated: number;
           finished_at: string | null;
@@ -1302,9 +1331,9 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          details?: Json;
+          details?: NonNullable<Json>;
           empresa_id?: string;
-          errors?: Json;
+          errors?: NonNullable<Json>;
           expenses_created?: number;
           expenses_updated?: number;
           finished_at?: string | null;
@@ -1320,9 +1349,9 @@ export type Database = {
         };
         Update: {
           created_at?: string;
-          details?: Json;
+          details?: NonNullable<Json>;
           empresa_id?: string;
-          errors?: Json;
+          errors?: NonNullable<Json>;
           expenses_created?: number;
           expenses_updated?: number;
           finished_at?: string | null;
@@ -1340,7 +1369,6 @@ export type Database = {
           {
             foreignKeyName: "job_runs_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -1375,7 +1403,6 @@ export type Database = {
           {
             foreignKeyName: "monthly_goals_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -1399,7 +1426,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           destination: string;
-          empresa_id: string;
+          empresa_id?: string;
           file_name: string;
           file_size: number;
           folder_id: string;
@@ -1428,21 +1455,18 @@ export type Database = {
           {
             foreignKeyName: "os_drive_files_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_drive_files_folder_id_fkey";
             columns: ["folder_id"];
-            isOneToOne: false;
             referencedRelation: "os_drive_folders";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_drive_files_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1471,7 +1495,7 @@ export type Database = {
           before_folder_id?: string | null;
           created_at?: string;
           customer_shared_email?: string | null;
-          empresa_id: string;
+          empresa_id?: string;
           folder_month: string;
           folder_name?: string | null;
           folder_year: string;
@@ -1504,14 +1528,12 @@ export type Database = {
           {
             foreignKeyName: "os_drive_folders_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_drive_folders_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: true;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1561,28 +1583,24 @@ export type Database = {
           {
             foreignKeyName: "os_produtos_utilizados_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_produtos_utilizados_produto_id_fkey";
             columns: ["produto_id"];
-            isOneToOne: false;
             referencedRelation: "produtos";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_produtos_utilizados_visit_id_fkey";
             columns: ["visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "os_produtos_utilizados_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1680,21 +1698,18 @@ export type Database = {
           {
             foreignKeyName: "payment_history_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "payment_history_payment_id_fkey";
             columns: ["payment_id"];
-            isOneToOne: false;
             referencedRelation: "payments";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "payment_history_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -1741,7 +1756,6 @@ export type Database = {
           {
             foreignKeyName: "payment_rates_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -1818,25 +1832,43 @@ export type Database = {
           {
             foreignKeyName: "payments_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "payments_visit_id_fkey";
             columns: ["visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "payments_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
         ];
+      };
+      plataforma_usuarios: {
+        Row: {
+          ativo: boolean;
+          created_at: string;
+          papel: string;
+          user_id: string;
+        };
+        Insert: {
+          ativo?: boolean;
+          created_at?: string;
+          papel: string;
+          user_id: string;
+        };
+        Update: {
+          ativo?: boolean;
+          created_at?: string;
+          papel?: string;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       produtos: {
         Row: {
@@ -1855,7 +1887,7 @@ export type Database = {
         Insert: {
           ativo?: boolean;
           created_at?: string;
-          custo_por_ml?: number | null;
+          custo_por_ml?: never;
           empresa_id?: string;
           estoque_atual_ml?: number;
           id?: string;
@@ -1868,7 +1900,7 @@ export type Database = {
         Update: {
           ativo?: boolean;
           created_at?: string;
-          custo_por_ml?: number | null;
+          custo_por_ml?: never;
           empresa_id?: string;
           estoque_atual_ml?: number;
           id?: string;
@@ -1882,7 +1914,6 @@ export type Database = {
           {
             foreignKeyName: "produtos_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -1938,21 +1969,18 @@ export type Database = {
           {
             foreignKeyName: "quote_items_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "quote_items_quote_id_fkey";
             columns: ["quote_id"];
-            isOneToOne: false;
             referencedRelation: "quotes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "quote_items_tabela_preco_item_id_fkey";
             columns: ["tabela_preco_item_id"];
-            isOneToOne: false;
             referencedRelation: "tabela_precos_itens";
             referencedColumns: ["id"];
           },
@@ -2077,21 +2105,18 @@ export type Database = {
           {
             foreignKeyName: "quotes_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "quotes_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "quotes_generated_work_order_id_fkey";
             columns: ["generated_work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -2156,7 +2181,6 @@ export type Database = {
           {
             foreignKeyName: "recurring_expenses_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2206,35 +2230,30 @@ export type Database = {
           {
             foreignKeyName: "route_cost_allocations_budget_visit_id_fkey";
             columns: ["budget_visit_id"];
-            isOneToOne: false;
             referencedRelation: "budget_visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "route_cost_allocations_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "route_cost_allocations_route_id_fkey";
             columns: ["route_id"];
-            isOneToOne: false;
             referencedRelation: "daily_routes";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "route_cost_allocations_service_id_fkey";
             columns: ["service_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "route_cost_allocations_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -2243,6 +2262,7 @@ export type Database = {
       salespeople: {
         Row: {
           active: boolean;
+          atendente_nexa: boolean;
           commission_percentage: number;
           commission_rule: string;
           created_at: string;
@@ -2252,9 +2272,11 @@ export type Database = {
           id: string;
           name: string;
           updated_at: string;
+          user_id: string | null;
         };
         Insert: {
           active?: boolean;
+          atendente_nexa?: boolean;
           commission_percentage?: number;
           commission_rule?: string;
           created_at?: string;
@@ -2264,9 +2286,11 @@ export type Database = {
           id?: string;
           name: string;
           updated_at?: string;
+          user_id?: string | null;
         };
         Update: {
           active?: boolean;
+          atendente_nexa?: boolean;
           commission_percentage?: number;
           commission_rule?: string;
           created_at?: string;
@@ -2276,12 +2300,12 @@ export type Database = {
           id?: string;
           name?: string;
           updated_at?: string;
+          user_id?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "salespeople_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2337,21 +2361,18 @@ export type Database = {
           {
             foreignKeyName: "service_items_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "service_items_upholstery_type_id_fkey";
             columns: ["upholstery_type_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "service_items_visit_id_fkey";
             columns: ["visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
@@ -2395,7 +2416,6 @@ export type Database = {
           {
             foreignKeyName: "tabela_precos_itens_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2448,28 +2468,24 @@ export type Database = {
           {
             foreignKeyName: "technician_expenses_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "technician_expenses_expense_id_fkey";
             columns: ["expense_id"];
-            isOneToOne: false;
             referencedRelation: "expenses";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "technician_expenses_technician_id_fkey";
             columns: ["technician_id"];
-            isOneToOne: false;
             referencedRelation: "technicians";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "technician_expenses_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -2525,7 +2541,6 @@ export type Database = {
           {
             foreignKeyName: "technicians_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2592,7 +2607,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          empresa_id: string;
+          empresa_id?: string;
           id?: string;
           papel?: Database["public"]["Enums"]["papel_empresa"];
           user_id: string;
@@ -2608,7 +2623,6 @@ export type Database = {
           {
             foreignKeyName: "usuarios_empresa_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2739,56 +2753,48 @@ export type Database = {
           {
             foreignKeyName: "visits_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_recurrence_work_order_id_fkey";
             columns: ["recurrence_work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_rescheduled_from_visit_id_fkey";
             columns: ["rescheduled_from_visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_rescheduled_to_visit_id_fkey";
             columns: ["rescheduled_to_visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_service_type_id_fkey";
             columns: ["service_type_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_technician_id_fkey";
             columns: ["technician_id"];
-            isOneToOne: false;
             referencedRelation: "technicians";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_upholstery_type_id_fkey";
             columns: ["upholstery_type_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "visits_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -2853,14 +2859,12 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_contacts_current_customer_id_fkey";
             columns: ["current_customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "whatsapp_contacts_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
@@ -2931,21 +2935,18 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_messages_crm_lead_id_fkey";
             columns: ["crm_lead_id"];
-            isOneToOne: false;
             referencedRelation: "crm_leads";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "whatsapp_messages_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "whatsapp_messages_whatsapp_contact_id_fkey";
             columns: ["whatsapp_contact_id"];
-            isOneToOne: false;
             referencedRelation: "whatsapp_contacts";
             referencedColumns: ["id"];
           },
@@ -3013,14 +3014,12 @@ export type Database = {
           {
             foreignKeyName: "work_order_documents_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_order_documents_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -3031,7 +3030,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           description: string;
-          details: Json;
+          details: NonNullable<Json>;
           empresa_id: string;
           event_type: string;
           id: string;
@@ -3041,7 +3040,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description: string;
-          details?: Json;
+          details?: NonNullable<Json>;
           empresa_id?: string;
           event_type: string;
           id?: string;
@@ -3051,7 +3050,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           description?: string;
-          details?: Json;
+          details?: NonNullable<Json>;
           empresa_id?: string;
           event_type?: string;
           id?: string;
@@ -3061,14 +3060,12 @@ export type Database = {
           {
             foreignKeyName: "work_order_history_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_order_history_work_order_id_fkey";
             columns: ["work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
@@ -3199,42 +3196,36 @@ export type Database = {
           {
             foreignKeyName: "work_orders_collection_visit_id_fkey";
             columns: ["collection_visit_id"];
-            isOneToOne: false;
             referencedRelation: "visits";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_orders_customer_id_fkey";
             columns: ["customer_id"];
-            isOneToOne: false;
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_orders_empresa_id_fkey";
             columns: ["empresa_id"];
-            isOneToOne: false;
             referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_orders_origin_work_order_id_fkey";
             columns: ["origin_work_order_id"];
-            isOneToOne: false;
             referencedRelation: "work_orders";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_orders_sales_origin_id_fkey";
             columns: ["sales_origin_id"];
-            isOneToOne: false;
             referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "work_orders_salesperson_id_fkey";
             columns: ["salesperson_id"];
-            isOneToOne: false;
             referencedRelation: "salespeople";
             referencedColumns: ["id"];
           },
@@ -3252,8 +3243,13 @@ export type Database = {
         };
         Returns: string;
       };
+      definir_comissao_empresa: {
+        Args: { _empresa_id: string; _inicio?: string; _percentual: number };
+        Returns: string;
+      };
+      empresa_ativa: { Args: Record<PropertyKey, never>; Returns: string };
       empresas_do_usuario: { Args: { _user_id: string }; Returns: string[] };
-      ensure_my_access: { Args: never; Returns: undefined };
+      ensure_my_access: { Args: Record<PropertyKey, never>; Returns: undefined };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
@@ -3263,10 +3259,19 @@ export type Database = {
       };
       is_staff: { Args: { _user_id: string }; Returns: boolean };
       meu_papel: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: Database["public"]["Enums"]["papel_empresa"];
       };
-      minha_empresa: { Args: never; Returns: string };
+      minha_empresa: { Args: Record<PropertyKey, never>; Returns: string };
+      provisionar_empresa: {
+        Args: {
+          _cnpj?: string;
+          _nome: string;
+          _percentual_comissao?: number;
+          _telefone?: string;
+        };
+        Returns: string;
+      };
       registrar_consumo_produto: {
         Args: {
           _produto_id: string;
@@ -3280,6 +3285,7 @@ export type Database = {
         Args: { _cnpj?: string; _nome: string; _telefone?: string };
         Returns: string;
       };
+      sou_admin_nexa: { Args: Record<PropertyKey, never>; Returns: boolean };
       tem_papel: {
         Args: { _papel: Database["public"]["Enums"]["papel_empresa"] };
         Returns: boolean;

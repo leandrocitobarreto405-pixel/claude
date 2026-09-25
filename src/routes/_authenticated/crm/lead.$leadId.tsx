@@ -46,12 +46,12 @@ import { useServerFn } from "@tanstack/react-start";
 export const Route = createFileRoute("/_authenticated/crm/lead/$leadId")({
   head: () => ({
     meta: [
-      { title: "Lead do CRM — Turbine Clean" },
+      { title: "Lead do CRM — Nexa OS" },
       {
         name: "description",
         content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS.",
       },
-      { property: "og:title", content: "Lead do CRM — Turbine Clean" },
+      { property: "og:title", content: "Lead do CRM — Nexa OS" },
       {
         property: "og:description",
         content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS.",

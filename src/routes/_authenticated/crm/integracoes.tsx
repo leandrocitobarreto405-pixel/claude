@@ -66,13 +66,13 @@ const DEFAULT_MAPPINGS: Record<string, Record<string, string>> = {
 export const Route = createFileRoute("/_authenticated/crm/integracoes")({
   head: () => ({
     meta: [
-      { title: "Integrações de Leads — Turbine Clean" },
+      { title: "Integrações de Leads — Nexa OS" },
       {
         name: "description",
         content:
           "Conecte Meta, Google Ads e formulários próprios para criar leads automaticamente no CRM.",
       },
-      { property: "og:title", content: "Integrações de Leads — Turbine Clean" },
+      { property: "og:title", content: "Integrações de Leads — Nexa OS" },
       {
         property: "og:description",
         content:

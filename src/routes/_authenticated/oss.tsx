@@ -14,13 +14,13 @@ import { useSalespeople, useTechnicians } from "@/lib/data";
 export const Route = createFileRoute("/_authenticated/oss")({
   head: () => ({
     meta: [
-      { title: "OSs criadas — Turbine Clean" },
+      { title: "OSs criadas — Nexa OS" },
       {
         name: "description",
         content:
           "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
       },
-      { property: "og:title", content: "OSs criadas — Turbine Clean" },
+      { property: "og:title", content: "OSs criadas — Nexa OS" },
       {
         property: "og:description",
         content:

@@ -45,12 +45,12 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   },
   head: () => ({
     meta: [
-      { title: "Agenda — Turbine Clean" },
+      { title: "Agenda — Nexa OS" },
       {
         name: "description",
         content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
       },
-      { property: "og:title", content: "Agenda — Turbine Clean" },
+      { property: "og:title", content: "Agenda — Nexa OS" },
       {
         property: "og:description",
         content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",

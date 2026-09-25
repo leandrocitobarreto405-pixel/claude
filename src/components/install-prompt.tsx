@@ -66,7 +66,7 @@ export function InstallPrompt() {
         {evento ? <Download className="size-4" /> : <Share className="size-4" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-navy">Instalar o Turbine Clean</p>
+        <p className="text-sm font-semibold text-navy">Instalar o Nexa OS</p>
         {evento ? (
           <>
             <p className="mt-1 text-sm text-muted-foreground">

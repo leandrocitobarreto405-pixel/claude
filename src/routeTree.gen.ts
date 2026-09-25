@@ -36,6 +36,7 @@ import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
+import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
@@ -187,6 +188,12 @@ const AuthenticatedCrmWhatsappRoute =
     path: '/crm/whatsapp',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNexaEmpresasRoute =
+  AuthenticatedNexaEmpresasRouteImport.update({
+    id: '/nexa/empresas',
+    path: '/nexa/empresas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOrcamentosIndexRoute =
   AuthenticatedOrcamentosIndexRouteImport.update({
     id: '/orcamentos/',
@@ -261,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
@@ -297,6 +305,7 @@ export interface FileRoutesByTo {
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
@@ -335,6 +344,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
+    | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/orcamentos/'
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
+    | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/orcamentos'
@@ -446,6 +458,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/repescagens'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
+    | '/_authenticated/nexa/empresas'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/orcamentos/'
@@ -657,6 +670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmWhatsappRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/empresas': {
+      id: '/_authenticated/nexa/empresas'
+      path: '/nexa/empresas'
+      fullPath: '/nexa/empresas'
+      preLoaderRoute: typeof AuthenticatedNexaEmpresasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/orcamentos/': {
       id: '/_authenticated/orcamentos/'
       path: '/orcamentos'
@@ -741,6 +761,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
+  AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
   AuthenticatedOrcamentosIndexRoute: typeof AuthenticatedOrcamentosIndexRoute
@@ -772,6 +793,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
+  AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
   AuthenticatedOrcamentosIndexRoute: AuthenticatedOrcamentosIndexRoute,

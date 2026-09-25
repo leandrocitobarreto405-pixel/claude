@@ -12,43 +12,34 @@ function previousMonthSaoPaulo() {
   return `${ano}-${String(mes).padStart(2, "0")}`;
 }
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** Fecha a quilometragem do mês em cada empresa ativa (chamado pelo agendador). */
 export const Route = createFileRoute("/api/public/hooks/monthly-mileage-closing")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const key = request.headers.get("apikey");
-        const allowed = [
-          process.env["SUPABASE_ANON_KEY"],
-          process.env["SUPABASE_PUBLISHABLE_KEY"],
-        ].filter(Boolean);
-        if (!key || !allowed.includes(key)) {
-          return new Response(JSON.stringify({ error: "Não autorizado." }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const { paraCadaEmpresa, tarefaAutorizada } = await import("@/lib/robo.server");
+        if (!tarefaAutorizada(request)) return json({ error: "Não autorizado." }, 401);
 
         let month = previousMonthSaoPaulo();
-        try {
-          const body = (await request.json().catch(() => null)) as { month?: string } | null;
-          if (body?.month && /^\d{4}-\d{2}$/.test(body.month)) month = body.month;
-        } catch {
-          // corpo vazio é aceito: usa o mês anterior em São Paulo
-        }
+        const body = (await request.json().catch(() => null)) as { month?: string } | null;
+        if (body?.month && /^\d{4}-\d{2}$/.test(body.month)) month = body.month;
 
         try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const result = await closeMonthlyMileage(supabaseAdmin, { month });
-          return Response.json({ ok: true, ...result });
+          const empresas = await paraCadaEmpresa((db) => closeMonthlyMileage(db, { month }));
+          return json({ ok: empresas.every((e) => e.ok), month, empresas });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error("Falha no fechamento mensal da quilometragem:", message);
-          return new Response(
-            JSON.stringify({
-              ok: false,
-              error: "Não foi possível calcular a rota automaticamente.",
-            }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
+          return json(
+            { ok: false, error: "Não foi possível calcular a rota automaticamente." },
+            500,
           );
         }
       },

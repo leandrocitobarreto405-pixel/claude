@@ -4,7 +4,6 @@ import { Droplets } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureAccess } from "@/lib/session";
-import { registrarEmpresa } from "@/lib/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,13 +13,13 @@ export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Entrar — Gestão Estofados" },
+      { title: "Entrar — Nexa OS" },
       {
         name: "description",
         content:
           "Acesse o sistema de gestão de pós-venda de higienização e impermeabilização de estofados.",
       },
-      { property: "og:title", content: "Entrar — Gestão Estofados" },
+      { property: "og:title", content: "Entrar — Nexa OS" },
       {
         property: "og:description",
         content: "Sistema de gestão de pós-venda para higienização e impermeabilização.",
@@ -35,8 +34,6 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
-  const [empresa, setEmpresa] = useState("");
-  const [cnpj, setCnpj] = useState("");
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
@@ -81,10 +78,6 @@ function AuthPage() {
       toast.error("Informe o nome completo.");
       return;
     }
-    if (empresa.trim().length < 2) {
-      toast.error("Informe o nome da empresa.");
-      return;
-    }
     if (senha.length < 6) {
       toast.error("A senha deve ter no mínimo 6 caracteres.");
       return;
@@ -116,17 +109,10 @@ function AuthPage() {
       }
     }
     try {
+      // Aceita os convites pendentes deste e-mail (empresas são cadastradas pela Nexa).
       await ensureAccess();
     } catch {
       /* segue mesmo assim */
-    }
-    try {
-      // Cria a empresa e vincula como administrador (ou aceita um convite pendente).
-      await registrarEmpresa({ nome: empresa.trim(), cnpj: cnpj.trim() || null });
-    } catch {
-      toast.error(
-        "Conta criada, mas não foi possível cadastrar a empresa. Tente entrar novamente.",
-      );
     }
     setCarregando(false);
     toast.success("Conta criada com sucesso!");
@@ -140,7 +126,7 @@ function AuthPage() {
           <span className="grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Droplets className="size-6" />
           </span>
-          <span className="text-lg font-semibold text-navy-foreground">Turbine Clean</span>
+          <span className="text-lg font-semibold text-navy-foreground">Nexa OS</span>
         </div>
         <div className="max-w-md space-y-4">
           <h2 className="text-3xl font-semibold leading-tight text-navy-foreground">
@@ -202,22 +188,9 @@ function AuthPage() {
                   <Label htmlFor="nome">Nome completo</Label>
                   <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="empresa">Nome da empresa</Label>
-                  <Input
-                    id="empresa"
-                    value={empresa}
-                    onChange={(e) => setEmpresa(e.target.value)}
-                    placeholder="Minha Empresa Ltda"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Se você recebeu um convite, a empresa do convite é usada automaticamente.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cnpj">CNPJ (opcional)</Label>
-                  <Input id="cnpj" value={cnpj} onChange={(e) => setCnpj(e.target.value)} />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  O acesso é liberado por convite. Use o mesmo e-mail em que recebeu o convite.
+                </p>
                 <div className="space-y-2">
                   <Label htmlFor="email2">E-mail</Label>
                   <Input

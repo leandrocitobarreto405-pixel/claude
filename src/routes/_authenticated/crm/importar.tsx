@@ -22,13 +22,13 @@ import { todayISO } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/crm/importar")({
   head: () => ({
     meta: [
-      { title: "Importar histórico do CRM — Turbine Clean" },
+      { title: "Importar histórico do CRM — Nexa OS" },
       {
         name: "description",
         content:
           "Importe planilhas antigas de leads do WhatsApp com validação e prévia antes de gravar.",
       },
-      { property: "og:title", content: "Importar histórico do CRM — Turbine Clean" },
+      { property: "og:title", content: "Importar histórico do CRM — Nexa OS" },
       {
         property: "og:description",
         content:

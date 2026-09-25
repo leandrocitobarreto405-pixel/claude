@@ -43,12 +43,12 @@ export const Route = createFileRoute("/_authenticated/pagamentos")({
   }),
   head: () => ({
     meta: [
-      { title: "Pagamentos — Turbine Clean" },
+      { title: "Pagamentos — Nexa OS" },
       {
         name: "description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",
       },
-      { property: "og:title", content: "Pagamentos — Turbine Clean" },
+      { property: "og:title", content: "Pagamentos — Nexa OS" },
       {
         property: "og:description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",

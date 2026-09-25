@@ -6,8 +6,7 @@
 -- 2. RLS de todas as tabelas de negócio restrita à empresa ativa.
 -- 3. empresa_id preenchido pela empresa ativa (fim do DEFAULT fixo da Turbine Clean);
 --    gravações com a chave de serviço precisam informar a empresa explicitamente.
--- 4. Chaves estrangeiras compostas (empresa_id, id): um registro nunca aponta para outro
---    de outra empresa.
+-- 4. Gatilhos de referência: um registro nunca aponta para outro de outra empresa.
 -- 5. Unicidades por empresa (nº da OS, configurações, telefone, etc.).
 -- 6. Papéis verificados na empresa certa; cadastro de empresa só pela Nexa.
 -- 7. Configurações da plataforma e contrato de comissão por empresa (editáveis).
@@ -168,13 +167,42 @@ DROP INDEX public.whatsapp_messages_wamid_key;
 CREATE UNIQUE INDEX whatsapp_messages_wamid_key
   ON public.whatsapp_messages (empresa_id, whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL;
 
--- ---------------------------------------------------------------- 3 e 4. empresa_id + FKs compostas
+-- ---------------------------------------------------------------- 3 e 4. empresa_id + referências
+-- Gatilho que impede um registro de apontar para outro de outra empresa.
+-- (Chaves estrangeiras compostas fariam o mesmo, mas quebram as consultas embutidas do
+-- PostgREST que o app usa, como customer:customer_id(...).)
+-- SECURITY DEFINER para enxergar a empresa real do registro referenciado, mesmo que o RLS
+-- o esconda do usuário.
+CREATE OR REPLACE FUNCTION private.validar_empresa_referencias()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  i int := 0;
+  coluna text;
+  tabela text;
+  valor uuid;
+  empresa_ref uuid;
+BEGIN
+  WHILE i < TG_NARGS LOOP
+    coluna := TG_ARGV[i];
+    tabela := TG_ARGV[i + 1];
+    i := i + 2;
+    EXECUTE format('SELECT ($1).%I', coluna) INTO valor USING NEW;
+    CONTINUE WHEN valor IS NULL;
+    EXECUTE format('SELECT empresa_id FROM public.%I WHERE id = $1', tabela) INTO empresa_ref USING valor;
+    IF empresa_ref IS NOT NULL AND empresa_ref IS DISTINCT FROM NEW.empresa_id THEN
+      RAISE EXCEPTION 'Referência inválida: %.% aponta para um registro de outra empresa', TG_TABLE_NAME, coluna
+        USING ERRCODE = '23503';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION private.validar_empresa_referencias() FROM PUBLIC, anon, authenticated;
+
 DO $$
 DECLARE
   t record;
   fk record;
-  acao text;
-  pai_uk text;
+  args text;
 BEGIN
   -- Toda tabela de negócio: empresa_id vem da empresa ativa (sem valor fixo).
   FOR t IN
@@ -185,13 +213,14 @@ BEGIN
     EXECUTE format('ALTER TABLE public.%I ALTER COLUMN empresa_id SET NOT NULL', t.table_name);
   END LOOP;
 
-  -- FKs simples entre tabelas de negócio viram (empresa_id, coluna) -> (empresa_id, id).
+  -- Um gatilho por tabela, cobrindo todas as FKs simples para outras tabelas de negócio.
   FOR fk IN
-    SELECT con.conname,
-           con.conrelid::regclass AS filho,
-           con.confrelid::regclass AS pai,
-           (SELECT attname FROM pg_attribute WHERE attrelid = con.conrelid AND attnum = con.conkey[1]) AS coluna,
-           con.confdeltype
+    SELECT con.conrelid::regclass AS filho,
+           replace(con.conrelid::regclass::text, 'public.', '') AS filho_nome,
+           string_agg(
+             quote_literal((SELECT attname FROM pg_attribute WHERE attrelid = con.conrelid AND attnum = con.conkey[1]))
+             || ', ' || quote_literal(replace(con.confrelid::regclass::text, 'public.', '')),
+             ', ' ORDER BY con.conname) AS pares
       FROM pg_constraint con
      WHERE con.contype = 'f'
        AND con.connamespace = 'public'::regnamespace
@@ -199,23 +228,12 @@ BEGIN
        AND con.confrelid <> 'public.empresas'::regclass
        AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = con.conrelid AND attname = 'empresa_id' AND NOT attisdropped)
        AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = con.confrelid AND attname = 'empresa_id' AND NOT attisdropped)
+     GROUP BY con.conrelid
   LOOP
-    pai_uk := replace(fk.pai::text, 'public.', '') || '_empresa_id_id_key';
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = pai_uk) THEN
-      EXECUTE format('ALTER TABLE %s ADD CONSTRAINT %I UNIQUE (empresa_id, id)', fk.pai, pai_uk);
-    END IF;
-
-    acao := CASE fk.confdeltype
-      WHEN 'c' THEN 'ON DELETE CASCADE'
-      WHEN 'n' THEN format('ON DELETE SET NULL (%I)', fk.coluna)
-      WHEN 'r' THEN 'ON DELETE RESTRICT'
-      ELSE ''
-    END;
-
-    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', fk.filho, fk.conname);
     EXECUTE format(
-      'ALTER TABLE %s ADD CONSTRAINT %I FOREIGN KEY (empresa_id, %I) REFERENCES %s (empresa_id, id) %s',
-      fk.filho, fk.conname, fk.coluna, fk.pai, acao);
+      'CREATE TRIGGER trg_%s_valida_empresa BEFORE INSERT OR UPDATE ON %s
+         FOR EACH ROW EXECUTE FUNCTION private.validar_empresa_referencias(%s)',
+      fk.filho_nome, fk.filho, fk.pares);
   END LOOP;
 END $$;
 
@@ -482,7 +500,12 @@ BEGIN
    WHERE empresa_id = _empresa_id AND vigencia_fim IS NULL FOR UPDATE;
 
   IF atual.id IS NOT NULL THEN
-    IF _inicio <= atual.vigencia_inicio THEN
+    -- Mesma data de início: correção do percentual da vigência atual.
+    IF _inicio = atual.vigencia_inicio THEN
+      UPDATE public.contratos_comissao SET percentual = _percentual WHERE id = atual.id;
+      RETURN atual.id;
+    END IF;
+    IF _inicio < atual.vigencia_inicio THEN
       RAISE EXCEPTION 'a nova vigência precisa começar depois de %', atual.vigencia_inicio;
     END IF;
     UPDATE public.contratos_comissao SET vigencia_fim = _inicio - 1 WHERE id = atual.id;

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export type CalendarStatus = {
   enabled: boolean;
@@ -9,7 +9,7 @@ export type CalendarStatus = {
 };
 
 export const getCalendarSettings = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .handler(async (): Promise<CalendarStatus> => {
     const { readSettings } = await import("@/lib/calendar.server");
     const s = await readSettings();
@@ -17,7 +17,7 @@ export const getCalendarSettings = createServerFn({ method: "GET" })
   });
 
 export const saveCalendarSettings = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdminEmpresa])
   .inputValidator(
     (input: { enabled: boolean; calendarId: string; durationMinutes: number }) => input,
   )
@@ -27,14 +27,14 @@ export const saveCalendarSettings = createServerFn({ method: "POST" })
   });
 
 export const testCalendarIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdminEmpresa])
   .handler(async () => {
     const { testIntegration } = await import("@/lib/calendar.server");
     return testIntegration();
   });
 
 export const syncVisitEvent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { visitId: string; kind: "visit" | "budget" }) => input)
   .handler(async ({ data }) => {
     const { syncEvent } = await import("@/lib/calendar.server");
@@ -42,7 +42,7 @@ export const syncVisitEvent = createServerFn({ method: "POST" })
   });
 
 export const cancelVisitEvent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { visitId: string; kind: "visit" | "budget" }) => input)
   .handler(async ({ data }) => {
     const { cancelEventForVisit } = await import("@/lib/calendar.server");
@@ -50,7 +50,7 @@ export const cancelVisitEvent = createServerFn({ method: "POST" })
   });
 
 export const rescheduleVisitEvent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator(
     (input: { previousVisitId: string; newVisitId: string; kind: "visit" | "budget" }) => input,
   )

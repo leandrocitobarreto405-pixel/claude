@@ -18,12 +18,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/crm/funil")({
   head: () => ({
     meta: [
-      { title: "Funil de vendas — Turbine Clean" },
+      { title: "Funil de vendas — Nexa OS" },
       {
         name: "description",
         content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas.",
       },
-      { property: "og:title", content: "Funil de vendas — Turbine Clean" },
+      { property: "og:title", content: "Funil de vendas — Nexa OS" },
       {
         property: "og:description",
         content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas.",

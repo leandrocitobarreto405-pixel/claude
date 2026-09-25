@@ -10,6 +10,7 @@ import {
   testCalendarConnection,
   updateEvent,
 } from "@/lib/google-calendar.server";
+import { bancoDaEmpresa } from "@/lib/request-db.server";
 
 const SETTINGS_KEY = "google_calendar_settings";
 
@@ -21,9 +22,9 @@ export type CalendarSettings = {
 
 export type VisitKind = "visit" | "budget";
 
+/** Banco da requisição: cliente do usuário, restrito pelo RLS à empresa ativa. */
 async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
+  return bancoDaEmpresa();
 }
 
 export async function readSettings(): Promise<CalendarSettings> {
@@ -54,7 +55,7 @@ export async function saveSettings(input: {
   };
   const { error } = await db
     .from("app_settings")
-    .upsert({ key: SETTINGS_KEY, value } as never, { onConflict: "key" });
+    .upsert({ key: SETTINGS_KEY, value } as never, { onConflict: "empresa_id,key" });
   if (error) throw error;
   return value;
 }

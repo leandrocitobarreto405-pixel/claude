@@ -14,9 +14,9 @@ import { convidarUsuario, useMinhaEmpresa, type Papel } from "@/lib/tenant";
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
     meta: [
-      { title: "Usuários — Turbine Clean" },
+      { title: "Usuários — Nexa OS" },
       { name: "description", content: "Equipe com acesso ao sistema, com papéis e convites." },
-      { property: "og:title", content: "Usuários — Turbine Clean" },
+      { property: "og:title", content: "Usuários — Nexa OS" },
       {
         property: "og:description",
         content: "Convide pessoas e defina o papel de cada uma na empresa.",
@@ -41,12 +41,16 @@ function Usuarios() {
   const [papel, setPapel] = useState<Papel>("atendente");
   const [enviando, setEnviando] = useState(false);
 
+  const empresaId = vinculo?.empresa.id ?? null;
+
   const equipe = useQuery({
-    queryKey: ["equipe_empresa"],
+    queryKey: ["equipe_empresa", empresaId],
+    enabled: Boolean(empresaId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("usuarios_empresa")
         .select("id, user_id, papel, created_at")
+        .eq("empresa_id", empresaId!)
         .order("created_at");
       if (error) throw error;
       const ids = (data ?? []).map((m) => m.user_id);
@@ -66,12 +70,13 @@ function Usuarios() {
   });
 
   const convites = useQuery({
-    queryKey: ["convites_empresa"],
-    enabled: admin,
+    queryKey: ["convites_empresa", empresaId],
+    enabled: admin && Boolean(empresaId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("convites_empresa")
         .select("id, email, papel, aceito_em, created_at")
+        .eq("empresa_id", empresaId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];

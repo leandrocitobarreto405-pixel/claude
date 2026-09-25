@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireEmpresa } from "@/lib/empresa.middleware";
 import type { Database } from "@/integrations/supabase/types";
 
 async function assertWorkOrderAccess(workOrderId: string, supabase: SupabaseClient<Database>) {
@@ -13,7 +13,7 @@ async function assertWorkOrderAccess(workOrderId: string, supabase: SupabaseClie
 }
 
 export const getOsMedia = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
     await assertWorkOrderAccess(data.workOrderId, context.supabase);
@@ -22,7 +22,7 @@ export const getOsMedia = createServerFn({ method: "POST" })
   });
 
 export const createCustomerFolderLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
     await assertWorkOrderAccess(data.workOrderId, context.supabase);
@@ -31,7 +31,7 @@ export const createCustomerFolderLink = createServerFn({ method: "POST" })
   });
 
 export const uploadOsMedia = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: FormData) => {
     if (!(input instanceof FormData)) throw new Error("Envio inválido.");
     return input;
@@ -62,7 +62,7 @@ export const uploadOsMedia = createServerFn({ method: "POST" })
   });
 /** Destinos válidos para a OS e situação do compartilhamento com o e-mail do cliente. */
 export const getOsMediaOptions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
     await assertWorkOrderAccess(data.workOrderId, context.supabase);
@@ -75,7 +75,7 @@ export const getOsMediaOptions = createServerFn({ method: "POST" })
  * compartilha a pasta da OS com o e-mail do cliente (uma única vez).
  */
 export const finishOsSharing = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
     await assertWorkOrderAccess(data.workOrderId, context.supabase);

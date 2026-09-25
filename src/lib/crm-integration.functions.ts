@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireEmpresa } from "@/lib/empresa.middleware";
 import { processWhatsappPayload } from "./crm-webhook.server";
 
 async function assertStaff(
@@ -37,7 +37,7 @@ const SECRET_LABELS: { name: string; label: string }[] = [
 ];
 
 export const getWhatsappStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .handler(async ({ context }): Promise<WhatsappIntegrationStatus> => {
     await assertStaff(context.supabase as never, context.userId);
 
@@ -81,7 +81,7 @@ export const getWhatsappStatus = createServerFn({ method: "GET" })
   });
 
 export const listWebhookEvents = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .handler(async ({ context }) => {
     await assertStaff(context.supabase as never, context.userId);
     const { data, error } = await context.supabase
@@ -97,7 +97,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
 
 /** Reprocessa um evento que ficou com erro, sem duplicar mensagens já gravadas. */
 export const reprocessWebhookEvent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
   .handler(async ({ data, context }) => {
     await assertStaff(context.supabase as never, context.userId);
@@ -113,6 +113,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
     try {
       const result = await processWhatsappPayload(
         supabaseAdmin,
+        context.empresaId,
         event.payload,
         event.event_reference ?? `retry_${event.id}`,
       );
@@ -126,6 +127,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
           messages_stored: result.messagesStored,
           duplicated_messages: result.duplicated,
         })
+        .eq("empresa_id", context.empresaId)
         .eq("id", event.id);
       return { ok: true, ...result };
     } catch (err) {
@@ -137,6 +139,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
           error_message: message.slice(0, 800),
           retry_count: Number(event.retry_count ?? 0) + 1,
         })
+        .eq("empresa_id", context.empresaId)
         .eq("id", event.id);
       throw new Error("Não foi possível reprocessar o evento.");
     }
@@ -144,7 +147,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
 
 /** Simula um recebimento para validar o fluxo antes de conectar a Meta. */
 export const simulateWhatsappMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { phone: string; name: string; text: string }) => ({
     phone: String(input.phone ?? "").slice(0, 20),
     name: String(input.name ?? "").slice(0, 120),
@@ -179,8 +182,14 @@ export const simulateWhatsappMessage = createServerFn({ method: "POST" })
       ],
     };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const result = await processWhatsappPayload(supabaseAdmin, payload, reference);
+    const result = await processWhatsappPayload(
+      supabaseAdmin,
+      context.empresaId,
+      payload,
+      reference,
+    );
     await supabaseAdmin.from("crm_webhook_events").insert({
+      empresa_id: context.empresaId,
       event_reference: reference,
       processing_status: "Processado",
       processed_at: new Date().toISOString(),

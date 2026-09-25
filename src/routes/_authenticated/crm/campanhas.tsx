@@ -23,13 +23,13 @@ import { brl, dateBR, parseNumberBR, todayISO } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/crm/campanhas")({
   head: () => ({
     meta: [
-      { title: "Campanhas do CRM — Turbine Clean" },
+      { title: "Campanhas do CRM — Nexa OS" },
       {
         name: "description",
         content:
           "Campanhas de anúncios, vínculo com anúncios do WhatsApp e investimento por período.",
       },
-      { property: "og:title", content: "Campanhas do CRM — Turbine Clean" },
+      { property: "og:title", content: "Campanhas do CRM — Nexa OS" },
       {
         property: "og:description",
         content:

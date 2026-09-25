@@ -194,6 +194,14 @@ SELECT pg_temp.ok(
   (SELECT vigencia_fim FROM public.contratos_comissao
     WHERE empresa_id = current_setting('teste.b')::uuid AND percentual = 5) = CURRENT_DATE + 29,
   'vigência anterior encerrada na véspera');
+SELECT public.definir_comissao_empresa(current_setting('teste.b')::uuid, 6.5, CURRENT_DATE + 30);
+SELECT pg_temp.ok(
+  (SELECT percentual FROM public.contratos_comissao
+    WHERE empresa_id = current_setting('teste.b')::uuid AND vigencia_fim IS NULL) = 6.5,
+  'mesma data de início corrige o percentual da vigência atual');
+SELECT pg_temp.deve_falhar(
+  $q$SELECT public.definir_comissao_empresa(current_setting('teste.b')::uuid, 7, CURRENT_DATE)$q$,
+  'vigência nova começando antes da atual');
 RESET ROLE;
 
 -- ---------------------------------------------------------------- Chave de serviço sem empresa

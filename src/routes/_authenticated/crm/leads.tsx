@@ -34,13 +34,13 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/crm/leads")({
   head: () => ({
     meta: [
-      { title: "Leads do CRM — Turbine Clean" },
+      { title: "Leads do CRM — Nexa OS" },
       {
         name: "description",
         content:
           "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora.",
       },
-      { property: "og:title", content: "Leads do CRM — Turbine Clean" },
+      { property: "og:title", content: "Leads do CRM — Nexa OS" },
       {
         property: "og:description",
         content:

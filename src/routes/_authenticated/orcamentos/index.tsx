@@ -10,13 +10,13 @@ import { STATUS_CLASS, STATUS_LABEL, resumoDoMes, useQuotes, type QuoteStatus } 
 export const Route = createFileRoute("/_authenticated/orcamentos/")({
   head: () => ({
     meta: [
-      { title: "Orçamentos — Turbine Clean" },
+      { title: "Orçamentos — Nexa OS" },
       {
         name: "description",
         content:
           "Crie orçamentos de higienização e impermeabilização, acompanhe a conversão em OS.",
       },
-      { property: "og:title", content: "Orçamentos — Turbine Clean" },
+      { property: "og:title", content: "Orçamentos — Nexa OS" },
       {
         property: "og:description",
         content:

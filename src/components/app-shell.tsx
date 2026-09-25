@@ -27,6 +27,7 @@ import {
   Route as RouteIcon,
   Settings,
   Droplets,
+  Building2,
   Users,
   Wallet,
 } from "lucide-react";
@@ -37,7 +38,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { podeAcessar, useMinhaEmpresa } from "@/lib/tenant";
+import { podeAcessar, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
 
 const NAV_GROUPS = [
@@ -90,15 +98,23 @@ const NAV_GROUPS = [
       { to: "/usuarios", label: "Usuários", icon: Users },
     ],
   },
+  {
+    label: "Nexa",
+    items: [{ to: "/nexa/empresas", label: "Empresas e comissões", icon: Building2 }],
+  },
 ] as const;
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { data: vinculo } = useMinhaEmpresa();
-  const papel = vinculo?.papel ?? null;
+  const { data: ctx } = useContextoTenant();
+  const papel = ctx?.ativa?.papel ?? null;
+  const souNexa = ctx?.souNexa ?? false;
+  const temEmpresa = Boolean(ctx?.ativa);
   const grupos = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => podeAcessar(papel, item.to)),
+    items: group.items.filter(
+      (item) => (temEmpresa || item.to.startsWith("/nexa")) && podeAcessar(papel, item.to, souNexa),
+    ),
   })).filter((group) => group.items.length > 0);
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
@@ -141,14 +157,17 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function Brand() {
+  const { data: ctx } = useContextoTenant();
   return (
     <div className="flex items-center gap-3 border-b border-navy-foreground/10 px-4 py-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
         <Droplets className="size-5" />
       </span>
       <div className="min-w-0 leading-tight">
-        <p className="truncate text-sm font-semibold text-navy-foreground">Turbine Clean</p>
-        <p className="truncate text-xs text-navy-foreground/60">Pós-venda e financeiro</p>
+        <p className="truncate text-sm font-semibold text-navy-foreground">Nexa OS</p>
+        <p className="truncate text-xs text-navy-foreground/60">
+          {ctx?.ativa?.empresa.nome ?? "Nexa Performance"}
+        </p>
       </div>
     </div>
   );
@@ -161,8 +180,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (st) => st.location.pathname });
-  const { data: vinculo, isLoading: carregandoVinculo } = useMinhaEmpresa();
-  const liberado = carregandoVinculo || podeAcessar(vinculo?.papel ?? null, pathname);
+  const { data: ctx, isLoading: carregandoVinculo, error: erroVinculo } = useContextoTenant();
+  const vinculo = ctx?.ativa ?? null;
+  const rotaNexa = pathname === "/nexa" || pathname.startsWith("/nexa/");
+  const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
 
   async function sair() {
     await queryClient.cancelQueries();
@@ -208,6 +229,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
 
+          {ctx && ctx.empresas.length > 1 ? (
+            <Select
+              value={vinculo?.empresa.id ?? ""}
+              onValueChange={(id) => {
+                if (id !== vinculo?.empresa.id) trocarEmpresa(id);
+              }}
+            >
+              <SelectTrigger className="w-[180px] sm:w-[240px]" aria-label="Empresa">
+                <SelectValue placeholder="Escolha a empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {ctx.empresas.map((v) => (
+                  <SelectItem key={v.empresa.id} value={v.empresa.id}>
+                    {v.empresa.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
           <Button variant="ghost" size="sm" onClick={sair} className="gap-2">
             <LogOut className="size-4" />
             <span className="hidden sm:inline">Sair</span>
@@ -216,7 +257,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 md:p-6 lg:p-8">
           <InstallPrompt />
-          {liberado ? (
+          {carregandoVinculo ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : erroVinculo ? (
+            <div className="card-surface mx-auto max-w-md p-6 text-center">
+              <h1 className="text-lg font-semibold text-navy">
+                Não foi possível carregar sua empresa
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Recarregue a página em instantes.
+              </p>
+            </div>
+          ) : !vinculo && !rotaNexa ? (
+            <div className="card-surface mx-auto max-w-md p-6 text-center">
+              <h1 className="text-lg font-semibold text-navy">
+                {ctx?.souNexa ? "Nenhuma empresa cadastrada" : "Conta sem empresa vinculada"}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {ctx?.souNexa
+                  ? "Cadastre a primeira empresa cliente para começar."
+                  : "Sua conta ainda não foi vinculada a uma empresa. Peça um convite ao administrador."}
+              </p>
+              {ctx?.souNexa ? (
+                <Button
+                  className="mt-4"
+                  onClick={() => navigate({ to: "/nexa/empresas" as never })}
+                >
+                  Cadastrar empresa
+                </Button>
+              ) : null}
+            </div>
+          ) : liberado ? (
             children
           ) : (
             <div className="card-surface mx-auto max-w-md p-6 text-center">

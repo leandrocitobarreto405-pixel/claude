@@ -13,13 +13,13 @@ import { brl, currentMonth, dateTimeBR, monthEnd, monthStart, pct } from "@/lib/
 export const Route = createFileRoute("/_authenticated/crm/visao-geral")({
   head: () => ({
     meta: [
-      { title: "Visão geral do CRM — Turbine Clean" },
+      { title: "Visão geral do CRM — Nexa OS" },
       {
         name: "description",
         content:
           "Leads do WhatsApp, conversão, custo por lead e desempenho das campanhas no período.",
       },
-      { property: "og:title", content: "Visão geral do CRM — Turbine Clean" },
+      { property: "og:title", content: "Visão geral do CRM — Nexa OS" },
       {
         property: "og:description",
         content:

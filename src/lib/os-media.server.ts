@@ -6,6 +6,7 @@ import {
   shareFolderWithEmail,
   uploadFile,
 } from "@/lib/google-docs.server";
+import { bancoDaEmpresa } from "@/lib/request-db.server";
 
 export type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
@@ -13,13 +14,14 @@ type WorkOrderFolderData = {
   id: string;
   empresa_id: string;
   os_number: string;
+  empresa: { nome: string } | null;
   customer: { full_name: string; email: string | null } | null;
   visits: { status: string; service_type: { name: string } | null }[];
 };
 
+/** Banco da requisição: cliente do usuário, restrito pelo RLS à empresa ativa. */
 async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
+  return bancoDaEmpresa();
 }
 
 async function configuredRootFolder() {
@@ -55,7 +57,7 @@ async function loadWorkOrder(workOrderId: string): Promise<WorkOrderFolderData> 
   const { data, error } = await db
     .from("work_orders")
     .select(
-      `id, empresa_id, os_number,
+      `id, empresa_id, os_number, empresa:empresa_id ( nome ),
        customer:customer_id ( full_name, email ),
        visits!visits_work_order_id_fkey ( status, service_type:service_type_id ( name ) )`,
     )
@@ -86,7 +88,7 @@ export function allowedDestinationsFor(hig: boolean, imp: boolean): MediaDestina
 
 function customerFolderName(wo: WorkOrderFolderData) {
   return cleanFolderName(
-    `OS ${wo.os_number} - ${wo.customer?.full_name ?? "Cliente"} - Turbine Clean`,
+    `OS ${wo.os_number} - ${wo.customer?.full_name ?? "Cliente"} - ${wo.empresa?.nome ?? "Empresa"}`,
   );
 }
 

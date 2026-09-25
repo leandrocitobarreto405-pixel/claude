@@ -114,8 +114,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Turbine" },
-      { name: "application-name", content: "Turbine Clean" },
+      { name: "apple-mobile-web-app-title", content: "Nexa OS" },
+      { name: "application-name", content: "Nexa OS" },
     ],
     links: [
       {

@@ -120,32 +120,36 @@ export function parseMetaPayload(payload: unknown): IncomingMessage[] {
   return out;
 }
 
-async function initialStatusId(db: AnyClient): Promise<string | null> {
+async function initialStatusId(db: AnyClient, empresaId: string): Promise<string | null> {
   const { data } = await db
     .from("config_options")
     .select("id")
+    .eq("empresa_id", empresaId)
     .eq("kind", "crm_status")
     .eq("name", "Novo contato")
     .maybeSingle();
   return data?.id ?? null;
 }
 
-async function findCampaign(db: AnyClient, sourceId: string | null) {
+async function findCampaign(db: AnyClient, empresaId: string, sourceId: string | null) {
   if (!sourceId) return null;
   const { data } = await db
     .from("crm_campaigns")
     .select("id")
+    .eq("empresa_id", empresaId)
     .eq("ad_external_id", sourceId)
     .maybeSingle();
   return data?.id ?? null;
 }
 
-async function whatsappOriginId(db: AnyClient): Promise<string | null> {
+async function whatsappOriginId(db: AnyClient, empresaId: string): Promise<string | null> {
   const { data } = await db
     .from("config_options")
     .select("id, name")
+    .eq("empresa_id", empresaId)
     .eq("kind", "sales_origin")
     .ilike("name", "%whats%")
+    .limit(1)
     .maybeSingle();
   return data?.id ?? null;
 }
@@ -162,9 +166,11 @@ export type WebhookProcessResult = {
 /**
  * Processa um payload da Meta de forma idempotente:
  * contato -> oportunidade aberta -> mensagem. Nunca duplica nem sobrescreve dado confirmado.
+ * Todas as leituras e gravações ficam restritas à empresa informada.
  */
 export async function processWhatsappPayload(
   db: AnyClient,
+  empresaId: string,
   payload: unknown,
   eventReference: string,
 ): Promise<WebhookProcessResult> {
@@ -179,8 +185,8 @@ export async function processWhatsappPayload(
   };
   if (messages.length === 0) return result;
 
-  const statusId = await initialStatusId(db);
-  const originId = await whatsappOriginId(db);
+  const statusId = await initialStatusId(db, empresaId);
+  const originId = await whatsappOriginId(db, empresaId);
 
   for (const message of messages) {
     const normalized = normalizePhoneServer(message.waId);
@@ -191,6 +197,7 @@ export async function processWhatsappPayload(
     const { data: contact } = await db
       .from("whatsapp_contacts")
       .select("id, profile_name, total_inbound_messages")
+      .eq("empresa_id", empresaId)
       .eq("normalized_phone", normalized)
       .maybeSingle();
 
@@ -205,16 +212,20 @@ export async function processWhatsappPayload(
           last_message_at: message.timestamp,
           total_inbound_messages: Number(contact.total_inbound_messages ?? 0) + 1,
         })
+        .eq("empresa_id", empresaId)
         .eq("id", contact.id);
     } else {
       const { data: customer } = await db
         .from("customers")
         .select("id")
+        .eq("empresa_id", empresaId)
         .or(`phone.eq.${normalized},phone.eq.${normalized.slice(2)}`)
+        .limit(1)
         .maybeSingle();
       const { data: created, error } = await db
         .from("whatsapp_contacts")
         .insert({
+          empresa_id: empresaId,
           normalized_phone: normalized,
           display_phone: message.waId,
           wa_id: message.waId,
@@ -239,6 +250,7 @@ export async function processWhatsappPayload(
     const { data: openLead } = await db
       .from("crm_leads")
       .select("id, lead_name, campaign_id, ad_id, referral_data")
+      .eq("empresa_id", empresaId)
       .eq("whatsapp_contact_id", contactId)
       .eq("is_open", true)
       .order("created_at", { ascending: false })
@@ -246,17 +258,20 @@ export async function processWhatsappPayload(
       .maybeSingle();
 
     let leadId: string | null = openLead?.id ?? null;
-    const campaignId = await findCampaign(db, message.referral?.sourceId ?? null);
+    const campaignId = await findCampaign(db, empresaId, message.referral?.sourceId ?? null);
 
     if (!leadId) {
       const { data: customerLink } = await db
         .from("customers")
         .select("id")
+        .eq("empresa_id", empresaId)
         .or(`phone.eq.${normalized},phone.eq.${normalized.slice(2)}`)
+        .limit(1)
         .maybeSingle();
       const { data: createdLead, error } = await db
         .from("crm_leads")
         .insert({
+          empresa_id: empresaId,
           whatsapp_contact_id: contactId,
           customer_id: customerLink?.id ?? null,
           lead_name: message.profileName ?? "Sem nome",
@@ -280,6 +295,7 @@ export async function processWhatsappPayload(
       result.leadsCreated += 1;
       if (statusId) {
         await db.from("crm_status_history").insert({
+          empresa_id: empresaId,
           crm_lead_id: leadId,
           new_status_id: statusId,
           new_status_name: "Novo contato",
@@ -299,12 +315,14 @@ export async function processWhatsappPayload(
           campaign_id: openLead?.campaign_id ?? campaignId,
           ad_id: openLead?.ad_id ?? message.referral?.sourceId ?? null,
         })
+        .eq("empresa_id", empresaId)
         .eq("id", leadId);
     }
     result.leadId = leadId;
 
     // Mensagem (idempotente pelo id do WhatsApp)
     const { error: msgError } = await db.from("whatsapp_messages").insert({
+      empresa_id: empresaId,
       whatsapp_contact_id: contactId,
       crm_lead_id: leadId,
       whatsapp_message_id: message.wamid,

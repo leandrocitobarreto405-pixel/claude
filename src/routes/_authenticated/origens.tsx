@@ -20,12 +20,12 @@ import {
 export const Route = createFileRoute("/_authenticated/origens")({
   head: () => ({
     meta: [
-      { title: "Origens da venda — Turbine Clean" },
+      { title: "Origens da venda — Nexa OS" },
       {
         name: "description",
         content: "Faturamento e clientes por origem da venda e por recorrência de cliente.",
       },
-      { property: "og:title", content: "Origens da venda — Turbine Clean" },
+      { property: "og:title", content: "Origens da venda — Nexa OS" },
       {
         property: "og:description",
         content: "Faturamento e clientes por origem da venda e por recorrência de cliente.",

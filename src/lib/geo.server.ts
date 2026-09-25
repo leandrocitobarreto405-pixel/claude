@@ -16,7 +16,7 @@ export type RouteResult = {
   failures: string[];
 };
 
-const UA = "TurbineClean/1.0 (roteirizacao interna)";
+const UA = "NexaOS/1.0 (roteirizacao interna)";
 
 export type AddressParts = {
   street?: string | null;

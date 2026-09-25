@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export type OsDocStatus = {
   enabled: boolean;
@@ -25,7 +25,7 @@ export type OsDocumentInfo = {
 };
 
 export const getOsDocSettings = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .handler(async (): Promise<OsDocStatus> => {
     const { readSettings } = await import("@/lib/os-docs.server");
     const s = await readSettings();
@@ -44,7 +44,7 @@ export const getOsDocSettings = createServerFn({ method: "GET" })
   });
 
 export const saveOsDocSettings = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdminEmpresa])
   .inputValidator(
     (input: {
       enabled: boolean;
@@ -62,14 +62,14 @@ export const saveOsDocSettings = createServerFn({ method: "POST" })
   });
 
 export const testOsDocIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAdminEmpresa])
   .handler(async () => {
     const { testIntegration } = await import("@/lib/os-docs.server");
     return testIntegration();
   });
 
 export const getOsDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data }): Promise<OsDocumentInfo | null> => {
     const { loadDocument } = await import("@/lib/os-docs.server");
@@ -77,7 +77,7 @@ export const getOsDocument = createServerFn({ method: "POST" })
   });
 
 export const generateOsDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string; mode?: "novo" | "atualizar" | "versao" }) => input)
   .handler(async ({ data, context }) => {
     const { generateDocument } = await import("@/lib/os-docs.server");
@@ -98,7 +98,7 @@ export type OsWarrantyInfo = {
 };
 
 export const getOsWarranty = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data }): Promise<OsWarrantyInfo> => {
     const { loadWarranty } = await import("@/lib/os-docs.server");
@@ -106,7 +106,7 @@ export const getOsWarranty = createServerFn({ method: "POST" })
   });
 
 export const generateOsWarranty = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
     const { generateWarranty } = await import("@/lib/os-docs.server");

@@ -130,7 +130,7 @@ export const simulateSourceIntegration = createServerFn({ method: "POST" })
     const { data: row } = await context.supabase
       .from("crm_source_integrations")
       .select(
-        "id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
+        "id, empresa_id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
       )
       .eq("source_type", data.source_type)
       .eq("active", true)

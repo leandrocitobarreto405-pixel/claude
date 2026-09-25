@@ -87,7 +87,7 @@ export async function uploadFile(input: {
   parentId: string;
   bytes: Uint8Array;
 }): Promise<DriveFile> {
-  const boundary = `turbine_clean_${crypto.randomUUID()}`;
+  const boundary = `nexa_os_${crypto.randomUUID()}`;
   const encoder = new TextEncoder();
   const metadata = JSON.stringify({
     name: input.name,

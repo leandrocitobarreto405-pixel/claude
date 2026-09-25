@@ -5,35 +5,30 @@ function currentMonthSaoPaulo() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
 }
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** Gera as despesas recorrentes do mês em cada empresa ativa (chamado pelo agendador). */
 export const Route = createFileRoute("/api/public/hooks/recurring-expenses")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const key = request.headers.get("apikey");
-        const allowed = [
-          process.env["SUPABASE_ANON_KEY"],
-          process.env["SUPABASE_PUBLISHABLE_KEY"],
-        ].filter(Boolean);
-        if (!key || !allowed.includes(key)) {
-          return new Response(JSON.stringify({ error: "Não autorizado." }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const { paraCadaEmpresa, tarefaAutorizada } = await import("@/lib/robo.server");
+        if (!tarefaAutorizada(request)) return json({ error: "Não autorizado." }, 401);
         try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const month = currentMonthSaoPaulo();
-          const result = await syncRecurringMonth(supabaseAdmin, month);
-          return Response.json({ ok: true, month, ...result });
+          const empresas = await paraCadaEmpresa((db) => syncRecurringMonth(db, month));
+          return json({ ok: empresas.every((e) => e.ok), month, empresas });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error("Falha na geração automática de despesas recorrentes:", message);
-          return new Response(
-            JSON.stringify({
-              ok: false,
-              error: "Não foi possível sincronizar as despesas recorrentes.",
-            }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
+          return json(
+            { ok: false, error: "Não foi possível sincronizar as despesas recorrentes." },
+            500,
           );
         }
       },

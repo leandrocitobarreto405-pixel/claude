@@ -24,13 +24,13 @@ import { dateTimeBR, todayISO, whatsappLink } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/crm/repescagens")({
   head: () => ({
     meta: [
-      { title: "Repescagens do CRM — Turbine Clean" },
+      { title: "Repescagens do CRM — Nexa OS" },
       {
         name: "description",
         content:
           "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato.",
       },
-      { property: "og:title", content: "Repescagens do CRM — Turbine Clean" },
+      { property: "og:title", content: "Repescagens do CRM — Nexa OS" },
       {
         property: "og:description",
         content:

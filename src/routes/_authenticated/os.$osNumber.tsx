@@ -52,12 +52,12 @@ type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 export const Route = createFileRoute("/_authenticated/os/$osNumber")({
   head: () => ({
     meta: [
-      { title: "Detalhe da OS — Turbine Clean" },
+      { title: "Detalhe da OS — Nexa OS" },
       {
         name: "description",
         content: "Dados da ordem de serviço, itens e documento no Google Docs.",
       },
-      { property: "og:title", content: "Detalhe da OS — Turbine Clean" },
+      { property: "og:title", content: "Detalhe da OS — Nexa OS" },
       {
         property: "og:description",
         content: "Dados da ordem de serviço, itens e documento no Google Docs.",

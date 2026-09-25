@@ -21,12 +21,12 @@ import {
 export const Route = createFileRoute("/_authenticated/crm/whatsapp")({
   head: () => ({
     meta: [
-      { title: "Integração do WhatsApp — Turbine Clean" },
+      { title: "Integração do WhatsApp — Nexa OS" },
       {
         name: "description",
         content: "Status da conexão do WhatsApp Business, webhook e registros de eventos.",
       },
-      { property: "og:title", content: "Integração do WhatsApp — Turbine Clean" },
+      { property: "og:title", content: "Integração do WhatsApp — Nexa OS" },
       {
         property: "og:description",
         content: "Status da conexão do WhatsApp Business, webhook e registros de eventos.",

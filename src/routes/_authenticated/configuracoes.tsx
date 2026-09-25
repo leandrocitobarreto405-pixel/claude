@@ -265,7 +265,7 @@ function MetaCustos() {
     }
     const { error } = await supabase
       .from("monthly_goals")
-      .upsert({ month: `${mes}-01`, goal_amount: valor }, { onConflict: "month" });
+      .upsert({ month: `${mes}-01`, goal_amount: valor }, { onConflict: "empresa_id,month" });
     if (error) {
       toast.error("Não foi possível salvar a meta.");
       return;

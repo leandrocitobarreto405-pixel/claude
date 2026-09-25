@@ -8,6 +8,7 @@ export type CrmSourceType = "meta_lead_ads" | "google_ads" | "custom_form";
 
 export type SourceIntegration = {
   id: string;
+  empresa_id: string;
   name: string;
   source_type: CrmSourceType;
   webhook_token: string;
@@ -49,7 +50,7 @@ export async function findIntegration(
   const { data, error } = await db
     .from("crm_source_integrations")
     .select(
-      "id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
+      "id, empresa_id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
     )
     .eq("source_type", sourceType)
     .eq("webhook_token", token)
@@ -255,6 +256,7 @@ async function resolveCampaign(
   const { data } = await db
     .from("crm_campaigns")
     .select("id")
+    .eq("empresa_id", integration.empresa_id)
     .or(
       `campaign_external_id.eq.${payload.campaignId},ad_set_external_id.eq.${payload.campaignId},ad_external_id.eq.${payload.campaignId}`,
     )
@@ -262,29 +264,37 @@ async function resolveCampaign(
   return data?.id ?? null;
 }
 
-async function initialStatusId(db: AnyClient): Promise<string | null> {
+async function initialStatusId(db: AnyClient, empresaId: string): Promise<string | null> {
   const { data } = await db
     .from("config_options")
     .select("id")
+    .eq("empresa_id", empresaId)
     .eq("kind", "crm_status")
     .eq("name", "Novo contato")
     .maybeSingle();
   return data?.id ?? null;
 }
 
-async function originIdForSource(db: AnyClient, sourceType: CrmSourceType): Promise<string | null> {
+async function originIdForSource(
+  db: AnyClient,
+  empresaId: string,
+  sourceType: CrmSourceType,
+): Promise<string | null> {
   const searchTerm =
     sourceType === "meta_lead_ads" ? "meta" : sourceType === "google_ads" ? "google" : "site";
   const { data } = await db
     .from("config_options")
     .select("id, name")
+    .eq("empresa_id", empresaId)
     .eq("kind", "sales_origin")
     .ilike("name", `%${searchTerm}%`)
+    .limit(1)
     .maybeSingle();
   if (data) return data.id;
   const { data: fallback } = await db
     .from("config_options")
     .select("id")
+    .eq("empresa_id", empresaId)
     .eq("kind", "sales_origin")
     .eq("active", true)
     .order("display_order")
@@ -295,6 +305,7 @@ async function originIdForSource(db: AnyClient, sourceType: CrmSourceType): Prom
 
 async function ensureContactFromSource(
   db: AnyClient,
+  empresaId: string,
   payload: LeadSourcePayload,
 ): Promise<{ contactId: string | null; customerId: string | null }> {
   const normalized = normalizePhoneServer(payload.phone);
@@ -303,6 +314,7 @@ async function ensureContactFromSource(
   const { data: existing, error } = await db
     .from("whatsapp_contacts")
     .select("id, profile_name, current_customer_id")
+    .eq("empresa_id", empresaId)
     .eq("normalized_phone", normalized)
     .maybeSingle();
   if (error) throw error;
@@ -312,6 +324,7 @@ async function ensureContactFromSource(
       await db
         .from("whatsapp_contacts")
         .update({ profile_name: payload.name, last_contact_at: new Date().toISOString() })
+        .eq("empresa_id", empresaId)
         .eq("id", existing.id);
     }
     return { contactId: existing.id, customerId: existing.current_customer_id ?? null };
@@ -320,12 +333,15 @@ async function ensureContactFromSource(
   const { data: customer } = await db
     .from("customers")
     .select("id")
+    .eq("empresa_id", empresaId)
     .or(`phone.eq.${normalized},phone.eq.${normalized.slice(2)}`)
+    .limit(1)
     .maybeSingle();
 
   const { data: created, error: insertError } = await db
     .from("whatsapp_contacts")
     .insert({
+      empresa_id: empresaId,
       normalized_phone: normalized,
       display_phone: payload.phone,
       profile_name: payload.name ?? null,
@@ -372,7 +388,8 @@ export async function processLeadSourcePayload(
   result.normalizedPhone = normalized;
   if (!normalized) return result;
 
-  const { contactId, customerId } = await ensureContactFromSource(db, parsed);
+  const empresaId = integration.empresa_id;
+  const { contactId, customerId } = await ensureContactFromSource(db, empresaId, parsed);
   result.contactId = contactId;
   if (!contactId) return result;
 
@@ -380,6 +397,7 @@ export async function processLeadSourcePayload(
   const { data: openLead } = await db
     .from("crm_leads")
     .select("id, status_id")
+    .eq("empresa_id", empresaId)
     .or(`whatsapp_contact_id.eq.${contactId},normalized_phone.eq.${normalized}`)
     .eq("is_open", true)
     .order("created_at", { ascending: false })
@@ -396,17 +414,19 @@ export async function processLeadSourcePayload(
         lead_name: parsed.name !== "Sem nome" ? parsed.name : undefined,
         campaign_id: await resolveCampaign(db, integration, parsed),
       })
+      .eq("empresa_id", empresaId)
       .eq("id", openLead.id);
     return result;
   }
 
-  const statusId = await initialStatusId(db);
-  const originId = await originIdForSource(db, integration.source_type);
+  const statusId = await initialStatusId(db, empresaId);
+  const originId = await originIdForSource(db, empresaId, integration.source_type);
   const campaignId = await resolveCampaign(db, integration, parsed);
 
   const { data: createdLead, error } = await db
     .from("crm_leads")
     .insert({
+      empresa_id: empresaId,
       whatsapp_contact_id: contactId,
       customer_id: customerId ?? null,
       lead_name: parsed.name || "Sem nome",
@@ -439,6 +459,7 @@ export async function processLeadSourcePayload(
 
   if (statusId) {
     await db.from("crm_status_history").insert({
+      empresa_id: empresaId,
       crm_lead_id: createdLead.id,
       new_status_id: statusId,
       new_status_name: "Novo contato",
