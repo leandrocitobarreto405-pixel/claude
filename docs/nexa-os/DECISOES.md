@@ -53,9 +53,8 @@ será migrado.
 - A Etapa 2 cria um **Supabase próprio da Nexa** (região São Paulo) aplicando todas as migrações e as
   correções de isolamento. A Turbine Clean entra como a **primeira empresa cliente** criada pelo
   processo normal de cadastro de empresa.
-- **[a confirmar]** se existem OSs, pagamentos ou despesas **reais** da Turbine no Lovable que
-  precisam ser mantidos (histórico, DRE de meses anteriores). Se existirem, fazemos uma importação
-  pontual depois. Se não, começamos do zero.
+- **Confirmado em 25/09/2026:** começamos do zero. Nenhum dado do Lovable será importado.
+- A organização da Nexa no Supabase já foi criada (login via GitHub).
 - Este repositório **não está ligado ao Lovable**; o aviso do `AGENTS.md` veio do código original.
   Mesmo assim, o histórico do Git não será reescrito.
 
@@ -84,13 +83,15 @@ Escopos a validar na Etapa 2: `calendar.events`, `drive.file`, `documents`.
   - A OS já guarda quem vendeu (`work_orders.salesperson_id`) → define se a venda é comissionável.
 - **Base de cálculo:** soma do **valor bruto recebido** (`payments.gross_amount`, pagamentos ativos
   e com status pago) de atendimentos **concluídos**, em OS cuja vendedora é atendente Nexa, no
-  período de apuração. **[a confirmar]** "Valor recebido total" foi interpretado como **bruto**, sem
+  período de apuração. **Confirmado em 25/09/2026:** é o **valor recebido total (bruto)**, sem
   descontar a taxa da maquininha.
 - **Percentual por contrato com o cliente** (`contratos_comissao`, com vigência) e apuração mensal
   congelada ao fechar (`apuracoes_comissao` + itens), com status devida / paga / pendente.
-- **[a confirmar]** O percentual que a Nexa cobra do cliente é o mesmo que hoje está em
-  cada vendedora (3%)? Ou são duas coisas diferentes: o % que o cliente paga à Nexa e o % que a
-  Nexa repassa à atendente? A estrutura suporta as duas; a resposta define as telas.
+- **Confirmado em 25/09/2026:** a comissão da Nexa é de **5%**. É o valor padrão do contrato de
+  cada empresa, **editável na tela de configurações** (ver D7).
+- **[a confirmar]** Existe um repasse separado da Nexa para cada atendente (os 3% que hoje estão
+  cadastrados nas vendedoras)? Se existir, ele fica como um segundo percentual configurável, sem
+  afetar os 5% cobrados do cliente.
 
 ## D6 — Novo lead para contato antigo após 30 dias (25/09/2026)
 
@@ -101,6 +102,24 @@ vínculo com `customers`) para sempre, independentemente de novos leads.
 
 ---
 
+## D7 — Tudo que é regra de negócio é configurável no app (25/09/2026)
+
+**Decidido:** percentuais, prazos e parâmetros **não ficam fixos no código**. Eles são editáveis em
+telas de configuração, com permissão e histórico de alteração.
+
+**Impacto:**
+- **Nível Nexa** (só `nexa_admin`): contrato de comissão por empresa (percentual, base, vigência,
+  quais atendentes contam, periodicidade), conexão com o Chatwoot, ligação de cada caixa do Chatwoot
+  a uma empresa e valores padrão para empresas novas.
+- **Nível empresa** (`admin` da empresa): prazo para abrir lead novo (padrão 30 dias), tempo para
+  considerar "sem resposta", validade do orçamento, metas de margem do semáforo, imposto, custo por
+  km, taxas de maquininha, tabela de preços, status do CRM e textos (mensagens, termo de garantia).
+- Mudança de percentual de comissão cria **nova vigência** em vez de sobrescrever. Assim, meses já
+  apurados não mudam.
+- Hoje parte dessas configurações já é editável (tabela de preços, taxas, metas de margem, status
+  do CRM, modelo de mensagem). O que falta é separar por empresa, criar as telas da Nexa e registrar
+  quem alterou.
+
 ## Plano atualizado
 
 | Etapa | Entrega | Depende de você |
@@ -108,7 +127,7 @@ vínculo com `customers`) para sempre, independentemente de novos leads.
 | **2 — Fundação e isolamento** | Ambiente próprio: Supabase Nexa e Cloud Run; migrações aplicadas do zero; correções de isolamento R1–R7; papéis Nexa; seletor de empresa; cadastro de empresa pela Nexa; Google direto com OAuth por empresa; testes de isolamento e de regras de cálculo | Projeto Google Cloud com faturamento; conta Supabase; domínio |
 | **3 — MVP Chatwoot → Lead** | Conexão, mapeamento de inboxes, webhook, processamento idempotente, log e reprocessamento, reconciliação, leads no painel | Conta Chatwoot Cloud; número da Turbine conectado numa inbox |
 | **4 — Funil e indicadores** | Etapas canônicas, marcos, vínculo orçamento↔lead↔OS, dashboard da empresa | — |
-| **5 — Painel Nexa + comissão** | Consolidado e apuração da comissão conforme D5 | Respostas [a confirmar] da D5 |
+| **5 — Painel Nexa + comissão** | Consolidado e apuração da comissão conforme D5 | Repasse às atendentes (D5) |
 | 6 / 7 | Refinos, Google Sheets se ainda fizer sentido, IA (Agent Bot) | — |
 
 A Etapa 2 pode começar sem o Chatwoot: o código do MVP (Etapa 3) também pode ser escrito e testado
