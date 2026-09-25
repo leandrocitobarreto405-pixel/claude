@@ -289,7 +289,11 @@ para os vínculos (um atendente Nexa terá N vínculos). `empresas_do_usuario()`
 7. **Testes de isolamento** automatizados: para cada tabela, "usuário da empresa A não lê/grava B".
 8. Auditoria: `created_by/updated_by` e histórico onde afeta dinheiro (OS, pagamento, comissão).
 
-### 14.3 Comissão da Nexa (nova, diferente da comissão da vendedora)
+### 14.3 Comissão da Nexa
+
+> **Atualizado em 25/09/2026:** a comissão Nexa reaproveita a comissão por vendedora já existente
+> (Maria e Carol são atendentes da Nexa). Ver `DECISOES.md`, D5. O modelo abaixo continua válido
+> para contratos e apurações.
 
 ```text
 contratos_comissao (id, empresa_id, vigencia_inicio, vigencia_fim,
@@ -534,22 +538,11 @@ Chatwoot e Meta (conversas de WhatsApp) são custos à parte.
 | **6 — Refino operacional** | Escritas críticas transacionais no servidor; geografia própria; Google Sheets → Nexa OS (serviços/preços/parâmetros) se ainda fizer sentido — hoje a tabela de preços e as configurações já cobrem isso dentro do sistema | — |
 | **7 — IA (Gemini/Vertex)** | Classificação, resumo, objeções, follow-up; depois atendimento automático | — |
 
-## 20. Decisões que preciso de você para seguir
+## 20. Decisões
 
-1. **Chatwoot**: Cloud ou self-hosted? Qual versão? Organização **A** (uma conta, inbox por cliente)
-   ou **B** (conta por cliente)? Os clientes vão operar o Chatwoot ou só o Nexa OS?
-2. **Banco atual**: o Supabase é o Lovable Cloud? Você consegue exportar o banco (dados + usuários)?
-   Posso assumir **Supabase próprio da Nexa + Cloud Run** como destino?
-3. **Lovable**: o projeto vai continuar sendo editado no Lovable em paralelo? (Recomendo congelar
-   para evitar divergência.)
-4. **Google**: os clientes usam Google Workspace ou Gmail pessoal? Cada cliente terá sua própria
-   conta/pasta/agenda (recomendado) ou tudo fica numa conta da Nexa?
-5. **Comissão Nexa**: a base é **serviço realizado** ou **valor recebido**? Incide só sobre leads que
-   chegaram pela Nexa ou sobre todo o faturamento do cliente? Hoje as "vendedoras" (ex.: Maria, Carol)
-   são atendentes da Nexa ou da Turbine?
-6. **Lead reaberto**: depois de quantos dias um contato antigo gera **novo** lead?
-7. **Webhook direto da Meta** hoje está em produção para o número da Turbine? Pode ser desativado
-   quando o número for para o Chatwoot?
+As respostas de 25/09/2026 (Chatwoot Cloud com uma conta, WhatsApp pelo Chatwoot, projeto novo
+sem migrar o Lovable Cloud, OAuth Google por empresa, regra da comissão e novo lead após 30 dias)
+estão registradas em [`DECISOES.md`](./DECISOES.md), junto com o plano atualizado e o checklist.
 
 ## Fontes externas consultadas
 
