@@ -180,7 +180,12 @@ export function computeQuote(input: QuoteInput, params: MargemParams) {
   const custo_imposto = round((total * Math.max(impostoPct, 0)) / 100);
   const custo_fixo_alocado = round(Math.max(custoFixoPorServico, 0));
   const custo_total = round(
-    custo_deslocamento + custo_produtos + custo_mao_obra + custo_taxa + custo_imposto + custo_fixo_alocado,
+    custo_deslocamento +
+      custo_produtos +
+      custo_mao_obra +
+      custo_taxa +
+      custo_imposto +
+      custo_fixo_alocado,
   );
   const margem_valor = round(total - custo_total);
   const margem_percentual = total > 0 ? round((margem_valor / total) * 100) : 0;
@@ -238,7 +243,8 @@ export async function saveQuote(db: DB, input: QuoteInput, userId: string | null
     subtotal: calc.subtotal,
     desconto: calc.desconto,
     total: calc.total,
-    valor_a_vista: input.valor_a_vista && input.valor_a_vista > 0 ? round(input.valor_a_vista) : null,
+    valor_a_vista:
+      input.valor_a_vista && input.valor_a_vista > 0 ? round(input.valor_a_vista) : null,
     km_ida_volta: calc.km_ida_volta,
     custo_deslocamento: calc.custo_deslocamento,
     custo_produtos: calc.custo_produtos,
@@ -263,7 +269,10 @@ export async function saveQuote(db: DB, input: QuoteInput, userId: string | null
 
   let quoteId = input.id ?? null;
   if (quoteId) {
-    const { error } = await db.from("quotes").update(row as never).eq("id", quoteId);
+    const { error } = await db
+      .from("quotes")
+      .update(row as never)
+      .eq("id", quoteId);
     if (error) throw error;
     const { error: delErr } = await db.from("quote_items").delete().eq("quote_id", quoteId);
     if (delErr) throw delErr;
@@ -392,7 +401,13 @@ export async function estimateKmByCep(db: DB, cepRaw: string): Promise<CepEstima
 
   const destino = await geocodeParts(parts);
   if (!destino) {
-    return { cep, endereco, km: null, base: null, aviso: "Não foi possível localizar esse CEP no mapa." };
+    return {
+      cep,
+      endereco,
+      km: null,
+      base: null,
+      aviso: "Não foi possível localizar esse CEP no mapa.",
+    };
   }
 
   const { data: tecnicos } = await db
@@ -425,5 +440,11 @@ export async function estimateKmByCep(db: DB, cepRaw: string): Promise<CepEstima
     }
   }
 
-  return { cep, endereco, km: null, base: null, aviso: "Cadastre o endereço-base do técnico para estimar o deslocamento." };
+  return {
+    cep,
+    endereco,
+    km: null,
+    base: null,
+    aviso: "Cadastre o endereço-base do técnico para estimar o deslocamento.",
+  };
 }

@@ -36,7 +36,10 @@ export const Route = createFileRoute("/_authenticated/inicio")({
       { title: "Início — Gestão Estofados" },
       { name: "description", content: "Painel do dia com meta do mês, agenda e pendências." },
       { property: "og:title", content: "Início — Gestão Estofados" },
-      { property: "og:description", content: "Painel do dia com meta do mês, agenda e pendências." },
+      {
+        property: "og:description",
+        content: "Painel do dia com meta do mês, agenda e pendências.",
+      },
     ],
   }),
   component: Inicio,
@@ -80,47 +83,51 @@ function usePendencias() {
     queryFn: async () => {
       const hoje = todayISO();
       const mesAtual = currentMonth();
-      const [semTecnico, atrasadas, notas, naoPagos, despesas, despesasMes, rotasPend, rotasDif] = await Promise.all([
-        supabase
-          .from("visits")
-          .select("id", { count: "exact", head: true })
-          .is("technician_id", null)
-          .neq("status", "Cancelado"),
-        supabase
-          .from("visits")
-          .select("id", { count: "exact", head: true })
-          .lt("scheduled_date", hoje)
-          .in("status", ["Agendado", "Em execução", "Reagendado"]),
-        supabase.from("invoice_tasks").select("id", { count: "exact", head: true }).eq("status", "Pendente"),
-        supabase
-          .from("payments")
-          .select("id", { count: "exact", head: true })
-          .in("payment_status", ["Não pago", "Parcialmente pago"]),
-        supabase
-          .from("expenses")
-          .select("id", { count: "exact", head: true })
-          .lt("due_date", hoje)
-          .in("status", ["Pendente", "Parcialmente pago", "Vencido"])
-          .is("deleted_at", null),
-        supabase
-          .from("expenses")
-          .select("id", { count: "exact", head: true })
-          .gte("competence_date", `${mesAtual}-01`)
-          .in("status", ["Pendente", "Parcialmente pago", "Vencido"])
-          .is("deleted_at", null),
-        supabase
-          .from("daily_routes")
-          .select("id", { count: "exact", head: true })
-          .in("route_status", [
-            "Aguardando conclusão dos serviços",
-            "Aguardando custo por km",
-            "Erro no cálculo",
-          ]),
-        supabase
-          .from("daily_routes")
-          .select("id", { count: "exact", head: true })
-          .eq("financial_difference", true),
-      ]);
+      const [semTecnico, atrasadas, notas, naoPagos, despesas, despesasMes, rotasPend, rotasDif] =
+        await Promise.all([
+          supabase
+            .from("visits")
+            .select("id", { count: "exact", head: true })
+            .is("technician_id", null)
+            .neq("status", "Cancelado"),
+          supabase
+            .from("visits")
+            .select("id", { count: "exact", head: true })
+            .lt("scheduled_date", hoje)
+            .in("status", ["Agendado", "Em execução", "Reagendado"]),
+          supabase
+            .from("invoice_tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "Pendente"),
+          supabase
+            .from("payments")
+            .select("id", { count: "exact", head: true })
+            .in("payment_status", ["Não pago", "Parcialmente pago"]),
+          supabase
+            .from("expenses")
+            .select("id", { count: "exact", head: true })
+            .lt("due_date", hoje)
+            .in("status", ["Pendente", "Parcialmente pago", "Vencido"])
+            .is("deleted_at", null),
+          supabase
+            .from("expenses")
+            .select("id", { count: "exact", head: true })
+            .gte("competence_date", `${mesAtual}-01`)
+            .in("status", ["Pendente", "Parcialmente pago", "Vencido"])
+            .is("deleted_at", null),
+          supabase
+            .from("daily_routes")
+            .select("id", { count: "exact", head: true })
+            .in("route_status", [
+              "Aguardando conclusão dos serviços",
+              "Aguardando custo por km",
+              "Erro no cálculo",
+            ]),
+          supabase
+            .from("daily_routes")
+            .select("id", { count: "exact", head: true })
+            .eq("financial_difference", true),
+        ]);
       return {
         semTecnico: semTecnico.count ?? 0,
         atrasadas: atrasadas.count ?? 0,
@@ -176,7 +183,9 @@ function Inicio() {
             <p className="text-sm font-medium text-muted-foreground">Meta de faturamento do mês</p>
             <p className="mt-1 text-3xl font-bold text-navy md:text-4xl">
               {brl(realizado)}{" "}
-              <span className="text-base font-medium text-muted-foreground">de {brl(metaValor)}</span>
+              <span className="text-base font-medium text-muted-foreground">
+                de {brl(metaValor)}
+              </span>
             </p>
           </div>
           <div className="text-right text-sm">
@@ -205,8 +214,16 @@ function Inicio() {
       <section className="mb-6">
         <h2 className="section-title mb-3">Operação</h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Kpi icon={CalendarClock} label="Serviços de hoje" value={String(visitasHoje.data?.length ?? 0)} />
-          <Kpi icon={BadgeCheck} label="Serviços concluídos no mês" value={String(resumo?.completedCount ?? 0)} />
+          <Kpi
+            icon={CalendarClock}
+            label="Serviços de hoje"
+            value={String(visitasHoje.data?.length ?? 0)}
+          />
+          <Kpi
+            icon={BadgeCheck}
+            label="Serviços concluídos no mês"
+            value={String(resumo?.completedCount ?? 0)}
+          />
           <Kpi
             icon={CalendarClock}
             label="Serviços atrasados"
@@ -252,7 +269,12 @@ function Inicio() {
             to="/despesas"
             search={{ aba: "Pendentes" }}
           />
-          <Kpi icon={TrendingUp} label="Lucro líquido estimado" value={brl(resumo?.netProfit)} accent="navy" />
+          <Kpi
+            icon={TrendingUp}
+            label="Lucro líquido estimado"
+            value={brl(resumo?.netProfit)}
+            accent="navy"
+          />
         </div>
       </section>
 
@@ -311,7 +333,6 @@ function Inicio() {
           <Pend label="Rotas alteradas após o pagamento" value={pend?.rotasDif ?? 0} to="/rotas" />
         </div>
       </SectionCard>
-
 
       <VisitDialog
         visit={selecionada}
@@ -398,7 +419,6 @@ function Pend({
     </Link>
   );
 }
-
 
 function DayList({
   title,

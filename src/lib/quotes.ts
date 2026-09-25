@@ -212,7 +212,11 @@ export function useQuote(id: string | null) {
     queryKey: ["quote", id],
     enabled: Boolean(id) && id !== "novo",
     queryFn: async () => {
-      const { data, error } = await supabase.from("quotes").select(QUOTE_SELECT).eq("id", id!).single();
+      const { data, error } = await supabase
+        .from("quotes")
+        .select(QUOTE_SELECT)
+        .eq("id", id!)
+        .single();
       if (error) throw error;
       const { data: items, error: itemsErr } = await supabase
         .from("quote_items")
@@ -229,7 +233,10 @@ export function useQuote(id: string | null) {
 }
 
 export async function setQuoteStatus(id: string, status: QuoteStatus) {
-  const { error } = await supabase.from("quotes").update({ status } as never).eq("id", id);
+  const { error } = await supabase
+    .from("quotes")
+    .update({ status } as never)
+    .eq("id", id);
   if (error) throw error;
 }
 

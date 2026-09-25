@@ -32,7 +32,11 @@ import {
   type ExpenseFull,
   type ExpenseStatus,
 } from "@/lib/expenses";
-import { planRecurringMonth, syncRecurringMonth, type RecurringTemplate } from "@/lib/recurring-core";
+import {
+  planRecurringMonth,
+  syncRecurringMonth,
+  type RecurringTemplate,
+} from "@/lib/recurring-core";
 import {
   brl,
   currentMonth,
@@ -52,16 +56,23 @@ export const Route = createFileRoute("/_authenticated/despesas")({
   head: () => ({
     meta: [
       { title: "Custos e despesas — Turbine Clean" },
-      { name: "description", content: "Despesas fixas, recorrentes e de quilometragem, com vencimentos, pagamentos e histórico." },
+      {
+        name: "description",
+        content:
+          "Despesas fixas, recorrentes e de quilometragem, com vencimentos, pagamentos e histórico.",
+      },
       { property: "og:title", content: "Custos e despesas — Turbine Clean" },
-      { property: "og:description", content: "Despesas fixas, recorrentes e de quilometragem, com vencimentos, pagamentos e histórico." },
+      {
+        property: "og:description",
+        content:
+          "Despesas fixas, recorrentes e de quilometragem, com vencimentos, pagamentos e histórico.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Despesas,
 });
-
 
 const CATEGORIAS = [
   "Salários",
@@ -244,24 +255,35 @@ function Despesas() {
       if (aba === "Pendentes") return e.status === "Pendente";
       if (aba === "Pagas") return e.status === "Pago";
       if (aba === "Parcialmente pagas") return e.status === "Parcialmente pago";
-      if (aba === "Vencidas") return e.status === "Vencido" || (e.status === "Pendente" && e.due_date && e.due_date < todayISO());
+      if (aba === "Vencidas")
+        return (
+          e.status === "Vencido" ||
+          (e.status === "Pendente" && e.due_date && e.due_date < todayISO())
+        );
       if (aba === "Recorrentes") return !!e.recurring_expense_id;
-      if (aba === "Quilometragem") return e.category === "Quilometragem" || e.category === "Combustível";
+      if (aba === "Quilometragem")
+        return e.category === "Quilometragem" || e.category === "Combustível";
       if (aba === "Canceladas") return e.status === "Cancelado";
       return true;
     })
     .filter((e) => {
       const termo = busca.trim().toLowerCase();
       if (!termo) return true;
-      return `${e.description} ${e.category} ${e.beneficiary ?? ""} ${e.origin}`.toLowerCase().includes(termo);
+      return `${e.description} ${e.category} ${e.beneficiary ?? ""} ${e.origin}`
+        .toLowerCase()
+        .includes(termo);
     });
 
-  const previsto = lista.filter((e) => e.status !== "Cancelado").reduce((s, e) => s + Number(e.expected_amount ?? 0), 0);
+  const previsto = lista
+    .filter((e) => e.status !== "Cancelado")
+    .reduce((s, e) => s + Number(e.expected_amount ?? 0), 0);
   const pago = lista.reduce((s, e) => s + cashPaidAmount(e), 0);
 
   const recorrentesGeradas = recorrentes.length;
   const recorrentesPagas = recorrentes.filter((e) => e.status === "Pago").length;
-  const recorrentesPendentes = recorrentes.filter((e) => e.status !== "Pago" && e.status !== "Cancelado").length;
+  const recorrentesPendentes = recorrentes.filter(
+    (e) => e.status !== "Pago" && e.status !== "Cancelado",
+  ).length;
   const totalRecorrentePrevisto = planejadas.reduce((s, p) => s + p.amount, 0);
   const totalRecorrentePago = recorrentes.reduce((s, e) => s + cashPaidAmount(e), 0);
 
@@ -271,7 +293,9 @@ function Despesas() {
       const res = await syncRecurringMonth(supabase, mes);
       toast.success(res.message);
       if (res.missingDueDay.length) {
-        toast.warning(`Existem despesas recorrentes sem dia de vencimento configurado: ${res.missingDueDay.join(", ")}.`);
+        toast.warning(
+          `Existem despesas recorrentes sem dia de vencimento configurado: ${res.missingDueDay.join(", ")}.`,
+        );
       }
       query.refetch();
       invalidateFinanceQueries(queryClient);
@@ -485,7 +509,11 @@ function Despesas() {
         )}
         {faltantes.length > 0 && (
           <p className="text-sm text-muted-foreground">
-            Faltando gerar: {faltantes.map((p) => `${p.name}${p.dueDate ? ` (${dateBR(p.dueDate)})` : ""}`).join(", ")}.
+            Faltando gerar:{" "}
+            {faltantes
+              .map((p) => `${p.name}${p.dueDate ? ` (${dateBR(p.dueDate)})` : ""}`)
+              .join(", ")}
+            .
           </p>
         )}
       </div>
@@ -493,7 +521,13 @@ function Despesas() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="mes">Mês</Label>
-          <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-[170px]" />
+          <Input
+            id="mes"
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="w-[170px]"
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="busca">Buscar</Label>
@@ -507,7 +541,12 @@ function Despesas() {
         </div>
         <div className="flex flex-wrap gap-2">
           {ABAS.map((a) => (
-            <Button key={a} size="sm" variant={aba === a ? "default" : "outline"} onClick={() => setAba(a)}>
+            <Button
+              key={a}
+              size="sm"
+              variant={aba === a ? "default" : "outline"}
+              onClick={() => setAba(a)}
+            >
               {a}
             </Button>
           ))}
@@ -548,16 +587,26 @@ function Despesas() {
                   <td className="px-3 py-3">{e.origin}</td>
                   <td className="px-3 py-3">{dateBR(e.competence_date)}</td>
                   <td className="px-3 py-3">
-                    {e.due_date ? dateBR(e.due_date) : <span className="text-warning-foreground">Dia de vencimento não configurado</span>}
+                    {e.due_date ? (
+                      dateBR(e.due_date)
+                    ) : (
+                      <span className="text-warning-foreground">
+                        Dia de vencimento não configurado
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-3">{brl(e.expected_amount)}</td>
-                  <td className="px-3 py-3">{cashPaidAmount(e) > 0 ? brl(cashPaidAmount(e)) : "—"}</td>
+                  <td className="px-3 py-3">
+                    {cashPaidAmount(e) > 0 ? brl(cashPaidAmount(e)) : "—"}
+                  </td>
                   <td className="px-3 py-3">{brl(remainingAmount(e))}</td>
                   <td className="px-3 py-3">
                     <StatusBadge status={e.status} />
                   </td>
                   <td className="px-3 py-3">
-                    {e.payment_date ? `${dateBR(e.payment_date)}${e.payment_method ? ` · ${e.payment_method}` : ""}` : "—"}
+                    {e.payment_date
+                      ? `${dateBR(e.payment_date)}${e.payment_method ? ` · ${e.payment_method}` : ""}`
+                      : "—"}
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">{dateTimeBR(e.updated_at)}</td>
                   <td className="px-3 py-3">
@@ -601,7 +650,9 @@ function Despesas() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nova despesa</DialogTitle>
-            <DialogDescription>Cadastre uma despesa avulsa para o mês selecionado.</DialogDescription>
+            <DialogDescription>
+              Cadastre uma despesa avulsa para o mês selecionado.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -619,7 +670,11 @@ function Despesas() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="benef">Beneficiário (opcional)</Label>
-              <Input id="benef" value={beneficiario} onChange={(e) => setBeneficiario(e.target.value)} />
+              <Input
+                id="benef"
+                value={beneficiario}
+                onChange={(e) => setBeneficiario(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="valor">Valor previsto</Label>
@@ -627,7 +682,12 @@ function Despesas() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="venc">Vencimento</Label>
-              <Input id="venc" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
+              <Input
+                id="venc"
+                type="date"
+                value={vencimento}
+                onChange={(e) => setVencimento(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -642,7 +702,9 @@ function Despesas() {
       <Dialog open={!!pagando} onOpenChange={(v) => !v && setPagando(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{parcial ? "Registrar pagamento parcial" : "Registrar pagamento"}</DialogTitle>
+            <DialogTitle>
+              {parcial ? "Registrar pagamento parcial" : "Registrar pagamento"}
+            </DialogTitle>
             <DialogDescription>{pagando?.description}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -652,11 +714,20 @@ function Despesas() {
             </p>
             <div className="space-y-2">
               <Label htmlFor="valor-pago">Valor pago</Label>
-              <Input id="valor-pago" value={valorPago} onChange={(e) => setValorPago(e.target.value)} />
+              <Input
+                id="valor-pago"
+                value={valorPago}
+                onChange={(e) => setValorPago(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="data-pag">Data do pagamento</Label>
-              <Input id="data-pag" type="date" value={dataPagamento} onChange={(e) => setDataPagamento(e.target.value)} />
+              <Input
+                id="data-pag"
+                type="date"
+                value={dataPagamento}
+                onChange={(e) => setDataPagamento(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="forma">Forma de pagamento</Label>
@@ -669,10 +740,19 @@ function Despesas() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="obs-pag">Observação (opcional)</Label>
-              <Textarea id="obs-pag" value={obsPagamento} onChange={(e) => setObsPagamento(e.target.value)} rows={2} />
+              <Textarea
+                id="obs-pag"
+                value={obsPagamento}
+                onChange={(e) => setObsPagamento(e.target.value)}
+                rows={2}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={parcial} onChange={(e) => setParcial(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={parcial}
+                onChange={(e) => setParcial(e.target.checked)}
+              />
               Pagamento parcial
             </label>
           </div>
@@ -703,7 +783,11 @@ function Despesas() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="motivo-status">Motivo (opcional)</Label>
-              <Input id="motivo-status" value={motivoStatus} onChange={(e) => setMotivoStatus(e.target.value)} />
+              <Input
+                id="motivo-status"
+                value={motivoStatus}
+                onChange={(e) => setMotivoStatus(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -724,7 +808,11 @@ function Despesas() {
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="ed-desc">Descrição</Label>
-              <Input id="ed-desc" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
+              <Input
+                id="ed-desc"
+                value={editDescricao}
+                onChange={(e) => setEditDescricao(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ed-cat">Categoria</Label>
@@ -737,19 +825,37 @@ function Despesas() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="ed-benef">Beneficiário</Label>
-              <Input id="ed-benef" value={editBeneficiario} onChange={(e) => setEditBeneficiario(e.target.value)} />
+              <Input
+                id="ed-benef"
+                value={editBeneficiario}
+                onChange={(e) => setEditBeneficiario(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ed-valor">Valor previsto</Label>
-              <Input id="ed-valor" value={editValor} onChange={(e) => setEditValor(e.target.value)} />
+              <Input
+                id="ed-valor"
+                value={editValor}
+                onChange={(e) => setEditValor(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ed-venc">Vencimento</Label>
-              <Input id="ed-venc" type="date" value={editVencimento} onChange={(e) => setEditVencimento(e.target.value)} />
+              <Input
+                id="ed-venc"
+                type="date"
+                value={editVencimento}
+                onChange={(e) => setEditVencimento(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ed-obs">Observação</Label>
-              <Textarea id="ed-obs" value={editObs} onChange={(e) => setEditObs(e.target.value)} rows={2} />
+              <Textarea
+                id="ed-obs"
+                value={editObs}
+                onChange={(e) => setEditObs(e.target.value)}
+                rows={2}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -778,8 +884,8 @@ function Despesas() {
                   </p>
                   <p className="text-muted-foreground">{dateTimeBR(h.changed_at)}</p>
                   <p className="text-muted-foreground">
-                    Pago: {brl(h.previous_paid_amount ?? 0)} → {brl(h.new_paid_amount ?? 0)} · pagamento em{" "}
-                    {h.new_payment_date ? dateBR(h.new_payment_date) : "—"}
+                    Pago: {brl(h.previous_paid_amount ?? 0)} → {brl(h.new_paid_amount ?? 0)} ·
+                    pagamento em {h.new_payment_date ? dateBR(h.new_payment_date) : "—"}
                   </p>
                   {h.reason && <p>{h.reason}</p>}
                   {h.notes && <p className="text-muted-foreground">{h.notes}</p>}

@@ -10,14 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { PAYMENT_TYPES, useConfigOptions, useSalespeople, useTechnicians } from "@/lib/data";
-import {
-  brl,
-  buildFullAddress,
-  dateBR,
-  onlyDigits,
-  parseNumberBR,
-  todayISO,
-} from "@/lib/format";
+import { brl, buildFullAddress, dateBR, onlyDigits, parseNumberBR, todayISO } from "@/lib/format";
 import {
   createWorkOrder,
   findCustomerByPhone,
@@ -34,31 +27,35 @@ import { linkBudgetVisitToWorkOrder } from "@/lib/budget-visits";
 import { linkQuoteToWorkOrder } from "@/lib/quotes";
 import { useSession } from "@/lib/session";
 
-
-
 export const Route = createFileRoute("/_authenticated/nova-os")({
   validateSearch: (
     search: Record<string, unknown>,
   ): { editar?: string; lead?: string; orcamento?: string; cotacao?: string } => ({
     ...(typeof search["editar"] === "string" ? { editar: search["editar"] as string } : {}),
     ...(typeof search["lead"] === "string" ? { lead: search["lead"] as string } : {}),
-    ...(typeof search["orcamento"] === "string" ? { orcamento: search["orcamento"] as string } : {}),
+    ...(typeof search["orcamento"] === "string"
+      ? { orcamento: search["orcamento"] as string }
+      : {}),
     ...(typeof search["cotacao"] === "string" ? { cotacao: search["cotacao"] as string } : {}),
   }),
-
 
   head: () => ({
     meta: [
       { title: "Nova OS — Gestão Estofados" },
-      { name: "description", content: "Cadastre cliente, venda e agende os serviços da ordem de serviço." },
+      {
+        name: "description",
+        content: "Cadastre cliente, venda e agende os serviços da ordem de serviço.",
+      },
       { property: "og:title", content: "Nova OS — Gestão Estofados" },
-      { property: "og:description", content: "Cadastre cliente, venda e agende os serviços da ordem de serviço." },
+      {
+        property: "og:description",
+        content: "Cadastre cliente, venda e agende os serviços da ordem de serviço.",
+      },
     ],
   }),
   component: NovaOS,
   errorComponent: NovaOSError,
 });
-
 
 function NativeSelect({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -141,8 +138,6 @@ function totalVisita(v: VisitForm) {
   return Math.round(v.items.reduce((s, i) => s + subtotalItem(i), 0) * 100) / 100;
 }
 
-
-
 function NovaOS() {
   const navigate = useNavigate();
   const {
@@ -155,7 +150,6 @@ function NovaOS() {
   const lerConfigDoc = useServerFn(getOsDocSettings);
   const gerarDoc = useServerFn(generateOsDocument);
   const { data: motivosAjuste } = useConfigOptions("adjustment_reason");
-
 
   const { data: origens } = useConfigOptions("sales_origin");
   const { data: servicos } = useConfigOptions("service_type");
@@ -271,7 +265,6 @@ function NovaOS() {
             display_order: number;
             active: boolean;
           }>;
-
         }>;
       };
       setOsId(wo.id);
@@ -324,7 +317,9 @@ function NovaOS() {
               upholstery_type_id: i.upholstery_type_id ?? "",
               description: i.description ?? "",
               quantity: String(i.quantity ?? 1),
-              unit_price: Number(i.unit_price ?? 0).toFixed(2).replace(".", ","),
+              unit_price: Number(i.unit_price ?? 0)
+                .toFixed(2)
+                .replace(".", ","),
               item_group_id: i.item_group_id,
             })),
         })),
@@ -551,7 +546,9 @@ function NovaOS() {
             it.tipo_servico === "impermeabilizacao" ? "Impermeabilização" : "Higienização"
           }`.slice(0, 200),
           quantity: String(it.quantidade ?? 1),
-          unit_price: Number(it.preco_aplicado ?? 0).toFixed(2).replace(".", ","),
+          unit_price: Number(it.preco_aplicado ?? 0)
+            .toFixed(2)
+            .replace(".", ","),
           item_group_id: novoId(),
         };
       });
@@ -578,8 +575,6 @@ function NovaOS() {
     };
   }, [cotacaoIdParam, editar]);
 
-
-
   const somaVisitas = useMemo(
     () => Math.round(visitas.reduce((s, v) => s + totalVisita(v), 0) * 100) / 100,
     [visitas],
@@ -591,7 +586,9 @@ function NovaOS() {
 
   const totalOS = parseNumberBR(valorNegociado);
   const diferenca = Math.round((totalOS - somaVisitas) * 100) / 100;
-  const comissaoPct = Number(vendedoras?.find((v) => v.id === vendedoraId)?.commission_percentage ?? 0);
+  const comissaoPct = Number(
+    vendedoras?.find((v) => v.id === vendedoraId)?.commission_percentage ?? 0,
+  );
   const comissao = Math.round(((totalOS * comissaoPct) / 100) * 100) / 100;
   const visitasCobranca = visitas.map((v, idx) => ({
     id: String(idx),
@@ -607,7 +604,6 @@ function NovaOS() {
     ),
   }));
   const regraSugerida = defaultCollectionRule(visitasCobranca);
-
 
   const enderecoCompleto = buildFullAddress({
     street: rua,
@@ -643,7 +639,9 @@ function NovaOS() {
     try {
       const cliente = await findCustomerByPhone(telefone);
       if (!cliente) {
-        toast.info("Nenhum cliente encontrado com este telefone. Preencha os dados para cadastrar.");
+        toast.info(
+          "Nenhum cliente encontrado com este telefone. Preencha os dados para cadastrar.",
+        );
         setClienteExistente(null);
         return;
       }
@@ -661,7 +659,9 @@ function NovaOS() {
       setReferencia(cliente.reference_point ?? "");
       toast.success("Cliente encontrado! Dados preenchidos automaticamente.");
     } catch {
-      toast.error("Não foi possível buscar o cliente agora. Você pode preencher os dados manualmente.");
+      toast.error(
+        "Não foi possível buscar o cliente agora. Você pode preencher os dados manualmente.",
+      );
     }
   }
 
@@ -706,9 +706,7 @@ function NovaOS() {
 
   function removerItem(i: number, j: number) {
     setVisitas((prev) =>
-      prev.map((v, idx) =>
-        idx === i ? { ...v, items: v.items.filter((_, k) => k !== j) } : v,
-      ),
+      prev.map((v, idx) => (idx === i ? { ...v, items: v.items.filter((_, k) => k !== j) } : v)),
     );
   }
 
@@ -738,38 +736,78 @@ function NovaOS() {
     toast.success("Itens copiados. Ajuste os valores se necessário.");
   }
 
-
   async function salvar(): Promise<void> {
-    if (!osNumber.trim()) { toast.error("Informe o número da OS."); return; }
+    if (!osNumber.trim()) {
+      toast.error("Informe o número da OS.");
+      return;
+    }
     if (!editar && (osDuplicada || (await verificarOs()))) {
       toast.error("Este número de OS já existe. Use outro número.");
       return;
     }
-    if (!origemId) { toast.error("Selecione a origem da venda."); return; }
-    if (!vendedoraId) { toast.error("Selecione a vendedora responsável."); return; }
-    if (nome.trim().length < 3) { toast.error("Informe o nome completo do cliente."); return; }
-    if (onlyDigits(telefone).length < 10) { toast.error("Informe um telefone válido com DDD."); return; }
-    if (!rua.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !uf.trim())
-      { toast.error("Preencha o endereço completo do cliente."); return; }
-    if (!visitas.length) { toast.error("Adicione pelo menos um serviço."); return; }
+    if (!origemId) {
+      toast.error("Selecione a origem da venda.");
+      return;
+    }
+    if (!vendedoraId) {
+      toast.error("Selecione a vendedora responsável.");
+      return;
+    }
+    if (nome.trim().length < 3) {
+      toast.error("Informe o nome completo do cliente.");
+      return;
+    }
+    if (onlyDigits(telefone).length < 10) {
+      toast.error("Informe um telefone válido com DDD.");
+      return;
+    }
+    if (!rua.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !uf.trim()) {
+      toast.error("Preencha o endereço completo do cliente.");
+      return;
+    }
+    if (!visitas.length) {
+      toast.error("Adicione pelo menos um serviço.");
+      return;
+    }
 
     for (const [i, v] of visitas.entries()) {
-      if (!v.service_type_id) { toast.error(`Selecione o serviço do atendimento ${i + 1}.`); return; }
-      if (!v.scheduled_date || !v.scheduled_time)
-        { toast.error(`Informe data e horário do atendimento ${i + 1}.`); return; }
-      if (!v.items.length) { toast.error(`Adicione pelo menos um item no atendimento ${i + 1}.`); return; }
+      if (!v.service_type_id) {
+        toast.error(`Selecione o serviço do atendimento ${i + 1}.`);
+        return;
+      }
+      if (!v.scheduled_date || !v.scheduled_time) {
+        toast.error(`Informe data e horário do atendimento ${i + 1}.`);
+        return;
+      }
+      if (!v.items.length) {
+        toast.error(`Adicione pelo menos um item no atendimento ${i + 1}.`);
+        return;
+      }
       for (const [j, it] of v.items.entries()) {
-        if (!it.upholstery_type_id && !it.description.trim())
-          { toast.error(`Informe o item ${j + 1} do atendimento ${i + 1}.`); return; }
-        if ((Number(it.quantity) || 0) < 1)
-          { toast.error(`Quantidade inválida no item ${j + 1} do atendimento ${i + 1}.`); return; }
-        if (parseNumberBR(it.unit_price) <= 0)
-          { toast.error(`Informe o valor unitário do item ${j + 1} do atendimento ${i + 1}.`); return; }
+        if (!it.upholstery_type_id && !it.description.trim()) {
+          toast.error(`Informe o item ${j + 1} do atendimento ${i + 1}.`);
+          return;
+        }
+        if ((Number(it.quantity) || 0) < 1) {
+          toast.error(`Quantidade inválida no item ${j + 1} do atendimento ${i + 1}.`);
+          return;
+        }
+        if (parseNumberBR(it.unit_price) <= 0) {
+          toast.error(`Informe o valor unitário do item ${j + 1} do atendimento ${i + 1}.`);
+          return;
+        }
       }
     }
-    if (Math.abs(diferenca) >= 0.01 && motivoAjuste.trim().length < 3)
-      { toast.error("Informe o motivo do ajuste comercial (valor negociado diferente da soma dos itens)."); return; }
-    if (totalOS <= 0) { toast.error("O valor negociado da OS deve ser maior que zero."); return; }
+    if (Math.abs(diferenca) >= 0.01 && motivoAjuste.trim().length < 3) {
+      toast.error(
+        "Informe o motivo do ajuste comercial (valor negociado diferente da soma dos itens).",
+      );
+      return;
+    }
+    if (totalOS <= 0) {
+      toast.error("O valor negociado da OS deve ser maior que zero.");
+      return;
+    }
 
     const customer = {
       full_name: nome.trim(),
@@ -848,7 +886,9 @@ function NovaOS() {
         });
         numeroOS = wo.os_number;
         workOrderId = wo.id;
-        toast.success(`OS ${wo.os_number} criada com ${visitas.length} atendimento(s) agendado(s).`);
+        toast.success(
+          `OS ${wo.os_number} criada com ${visitas.length} atendimento(s) agendado(s).`,
+        );
 
         if (leadIdParam) {
           try {
@@ -875,7 +915,6 @@ function NovaOS() {
         }
       }
 
-
       try {
         const settings = await lerConfigDoc();
         if (settings.enabled && settings.autoGenerate && settings.configured && workOrderId) {
@@ -899,7 +938,6 @@ function NovaOS() {
       setSalvando(false);
     }
   }
-
 
   return (
     <>
@@ -938,16 +976,26 @@ function NovaOS() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="origem-venda">Origem da venda</Label>
-              <NativeSelect id="origem-venda" value={origemId} onChange={(e) => setOrigemId(e.target.value)}>
+              <NativeSelect
+                id="origem-venda"
+                value={origemId}
+                onChange={(e) => setOrigemId(e.target.value)}
+              >
                 <option value="">Selecione</option>
                 {(origens ?? []).map((o) => (
-                  <option key={o.id} value={o.id}>{o.name}</option>
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
                 ))}
               </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor="vendedora">Vendedora responsável</Label>
-              <NativeSelect id="vendedora" value={vendedoraId} onChange={(e) => setVendedoraId(e.target.value)}>
+              <NativeSelect
+                id="vendedora"
+                value={vendedoraId}
+                onChange={(e) => setVendedoraId(e.target.value)}
+              >
                 <option value="">Selecione</option>
                 {(vendedoras ?? []).map((v) => (
                   <option key={v.id} value={v.id}>
@@ -982,11 +1030,20 @@ function NovaOS() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-mail (opcional)</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="documento">CPF ou CNPJ (opcional)</Label>
-              <Input id="documento" value={documento} onChange={(e) => setDocumento(e.target.value)} />
+              <Input
+                id="documento"
+                value={documento}
+                onChange={(e) => setDocumento(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="cep">CEP</Label>
@@ -1035,7 +1092,9 @@ function NovaOS() {
             </div>
           </div>
           {enderecoCompleto ? (
-            <p className="mt-3 text-sm text-muted-foreground">Endereço completo: {enderecoCompleto}</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Endereço completo: {enderecoCompleto}
+            </p>
           ) : null}
         </section>
 
@@ -1045,7 +1104,9 @@ function NovaOS() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setVisitas((prev) => [...prev, novaVisita(prev[prev.length - 1]?.technician_id)])}
+              onClick={() =>
+                setVisitas((prev) => [...prev, novaVisita(prev[prev.length - 1]?.technician_id)])
+              }
             >
               <PlusCircle className="mr-2 size-4" /> Adicionar serviço
             </Button>
@@ -1081,7 +1142,9 @@ function NovaOS() {
                     >
                       <option value="">Selecione</option>
                       {(servicos ?? []).map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
                       ))}
                     </NativeSelect>
                   </div>
@@ -1110,7 +1173,9 @@ function NovaOS() {
                     >
                       <option value="">Selecione</option>
                       {(tecnicos ?? []).map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
                       ))}
                     </NativeSelect>
                   </div>
@@ -1141,7 +1206,9 @@ function NovaOS() {
                           <option value="">Copiar itens de...</option>
                           {visitas.map((_, idx) =>
                             idx === i ? null : (
-                              <option key={idx} value={idx}>Atendimento {idx + 1}</option>
+                              <option key={idx} value={idx}>
+                                Atendimento {idx + 1}
+                              </option>
                             ),
                           )}
                         </NativeSelect>
@@ -1162,11 +1229,15 @@ function NovaOS() {
                           <Label>Tipo de estofado</Label>
                           <NativeSelect
                             value={it.upholstery_type_id}
-                            onChange={(e) => atualizarItem(i, j, { upholstery_type_id: e.target.value })}
+                            onChange={(e) =>
+                              atualizarItem(i, j, { upholstery_type_id: e.target.value })
+                            }
                           >
                             <option value="">Selecione</option>
                             {(estofados ?? []).map((s) => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
                             ))}
                           </NativeSelect>
                         </div>
@@ -1213,14 +1284,13 @@ function NovaOS() {
                     ))}
                   </div>
                   <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Copy className="size-3" /> Ao copiar itens, os mesmos estofados são vinculados entre os
-                    atendimentos (usado no modelo combinado do Google Docs).
+                    <Copy className="size-3" /> Ao copiar itens, os mesmos estofados são vinculados
+                    entre os atendimentos (usado no modelo combinado do Google Docs).
                   </p>
                 </div>
               </div>
             ))}
           </div>
-
         </section>
 
         <section className="card-surface p-5">
@@ -1255,7 +1325,9 @@ function NovaOS() {
               >
                 <option value="">Selecione ou escreva abaixo</option>
                 {(motivosAjuste ?? []).map((m) => (
-                  <option key={m.id} value={m.name}>{m.name}</option>
+                  <option key={m.id} value={m.name}>
+                    {m.name}
+                  </option>
                 ))}
               </NativeSelect>
               <Input
@@ -1282,7 +1354,9 @@ function NovaOS() {
                 onChange={(e) => setFormaPagamento(e.target.value)}
               >
                 {PAYMENT_TYPES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
               </NativeSelect>
             </div>
@@ -1298,7 +1372,11 @@ function NovaOS() {
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="obs-pag">Observações do pagamento</Label>
-              <Input id="obs-pag" value={obsPagamento} onChange={(e) => setObsPagamento(e.target.value)} />
+              <Input
+                id="obs-pag"
+                value={obsPagamento}
+                onChange={(e) => setObsPagamento(e.target.value)}
+              />
             </div>
             <div className="space-y-2 sm:col-span-2 xl:col-span-3">
               <Label htmlFor="regra-cobranca">Momento da cobrança</Label>
@@ -1307,11 +1385,11 @@ function NovaOS() {
                 value={regraCobranca}
                 onChange={(e) => setRegraCobranca(e.target.value)}
               >
-                <option value="">
-                  Automático — {collectionRuleLabel(regraSugerida)}
-                </option>
+                <option value="">Automático — {collectionRuleLabel(regraSugerida)}</option>
                 {COLLECTION_RULES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
                 ))}
               </NativeSelect>
               <p className="text-xs text-muted-foreground">
@@ -1348,7 +1426,11 @@ function NovaOS() {
             </div>
             <div className="space-y-2 sm:col-span-2 xl:col-span-3">
               <Label htmlFor="obs-gerais">Observações gerais da OS</Label>
-              <Textarea id="obs-gerais" value={obsGerais} onChange={(e) => setObsGerais(e.target.value)} />
+              <Textarea
+                id="obs-gerais"
+                value={obsGerais}
+                onChange={(e) => setObsGerais(e.target.value)}
+              />
             </div>
           </div>
 

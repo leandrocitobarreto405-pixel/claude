@@ -37,7 +37,6 @@ import {
   weekStart,
 } from "@/lib/format";
 
-
 export const Route = createFileRoute("/_authenticated/pagamentos")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: search["status"] ? String(search["status"]) : undefined,
@@ -45,9 +44,15 @@ export const Route = createFileRoute("/_authenticated/pagamentos")({
   head: () => ({
     meta: [
       { title: "Pagamentos — Turbine Clean" },
-      { name: "description", content: "Controle de recebimentos, taxas por canal e valores líquidos." },
+      {
+        name: "description",
+        content: "Controle de recebimentos, taxas por canal e valores líquidos.",
+      },
       { property: "og:title", content: "Pagamentos — Turbine Clean" },
-      { property: "og:description", content: "Controle de recebimentos, taxas por canal e valores líquidos." },
+      {
+        property: "og:description",
+        content: "Controle de recebimentos, taxas por canal e valores líquidos.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -69,10 +74,10 @@ function Pagamentos() {
   const [busca, setBusca] = useState("");
   const [referencia, setReferencia] = useState<"pagamento" | "servico">("pagamento");
 
-
-  const [dialogo, setDialogo] = useState<{ payment: PaymentRow; mode: "registrar" | "reabrir" } | null>(
-    null,
-  );
+  const [dialogo, setDialogo] = useState<{
+    payment: PaymentRow;
+    mode: "registrar" | "reabrir";
+  } | null>(null);
   const [historico, setHistorico] = useState<PaymentRow | null>(null);
 
   const { from, to, periodoLabel } = useMemo(() => {
@@ -98,21 +103,18 @@ function Pagamentos() {
         : fetchPayments(from, to, true),
   });
 
-
   const lista = useMemo(
     () =>
-      (query.data ?? []).filter(
-        (p) => {
-          const termo = busca.trim().toLowerCase();
-          const cliente = p.work_order?.customer?.full_name?.toLowerCase() ?? "";
-          const os = p.work_order?.os_number?.toLowerCase() ?? "";
-          return (
-            (canal === "todos" || p.payment_channel === canal) &&
-            (status === "todos" || p.payment_status === status) &&
-            (!termo || cliente.includes(termo) || os.includes(termo))
-          );
-        },
-      ),
+      (query.data ?? []).filter((p) => {
+        const termo = busca.trim().toLowerCase();
+        const cliente = p.work_order?.customer?.full_name?.toLowerCase() ?? "";
+        const os = p.work_order?.os_number?.toLowerCase() ?? "";
+        return (
+          (canal === "todos" || p.payment_channel === canal) &&
+          (status === "todos" || p.payment_status === status) &&
+          (!termo || cliente.includes(termo) || os.includes(termo))
+        );
+      }),
     [query.data, canal, status, busca],
   );
 
@@ -141,7 +143,6 @@ function Pagamentos() {
     setDialogo({ payment: p, mode });
   }
 
-
   return (
     <>
       <PageHeader
@@ -155,11 +156,13 @@ function Pagamentos() {
         <Card label="Valor líquido" value={brl(liquido)} />
       </div>
 
-
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label>Referência</Label>
-          <Select value={referencia} onValueChange={(v) => setReferencia(v as "pagamento" | "servico")}>
+          <Select
+            value={referencia}
+            onValueChange={(v) => setReferencia(v as "pagamento" | "servico")}
+          >
             <SelectTrigger className="w-[190px]">
               <SelectValue />
             </SelectTrigger>
@@ -187,24 +190,48 @@ function Pagamentos() {
         {modo === "mes" ? (
           <div className="space-y-1">
             <Label htmlFor="mes">Mês</Label>
-            <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-[170px]" />
+            <Input
+              id="mes"
+              type="month"
+              value={mes}
+              onChange={(e) => setMes(e.target.value)}
+              className="w-[170px]"
+            />
           </div>
         ) : null}
         {modo === "dia" || modo === "semana" ? (
           <div className="space-y-1">
             <Label htmlFor="dia">{modo === "dia" ? "Data" : "Semana de"}</Label>
-            <Input id="dia" type="date" value={dia} onChange={(e) => setDia(e.target.value)} className="w-[170px]" />
+            <Input
+              id="dia"
+              type="date"
+              value={dia}
+              onChange={(e) => setDia(e.target.value)}
+              className="w-[170px]"
+            />
           </div>
         ) : null}
         {modo === "personalizado" ? (
           <>
             <div className="space-y-1">
               <Label htmlFor="de">De</Label>
-              <Input id="de" type="date" value={de} onChange={(e) => setDe(e.target.value)} className="w-[160px]" />
+              <Input
+                id="de"
+                type="date"
+                value={de}
+                onChange={(e) => setDe(e.target.value)}
+                className="w-[160px]"
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="ate">Até</Label>
-              <Input id="ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} className="w-[160px]" />
+              <Input
+                id="ate"
+                type="date"
+                value={ate}
+                onChange={(e) => setAte(e.target.value)}
+                className="w-[160px]"
+              />
             </div>
           </>
         ) : null}
@@ -325,7 +352,6 @@ function Pagamentos() {
                       </Button>
                     </div>
                   </td>
-
                 </tr>
               ))}
             </tbody>
@@ -341,7 +367,6 @@ function Pagamentos() {
                 <td className="px-4 py-3" colSpan={2} />
               </tr>
             </tfoot>
-
           </table>
         </div>
       )}
@@ -406,7 +431,6 @@ function HistoryDialog({ payment, onClose }: { payment: PaymentRow | null; onClo
     </Dialog>
   );
 }
-
 
 function Card({ label, value }: { label: string; value: string }) {
   return (

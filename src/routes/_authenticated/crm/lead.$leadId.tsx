@@ -2,13 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  CalendarClock,
-  ClipboardPlus,
-  MessageCircle,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, CalendarClock, ClipboardPlus, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,9 +47,15 @@ export const Route = createFileRoute("/_authenticated/crm/lead/$leadId")({
   head: () => ({
     meta: [
       { title: "Lead do CRM — Turbine Clean" },
-      { name: "description", content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS." },
+      {
+        name: "description",
+        content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS.",
+      },
       { property: "og:title", content: "Lead do CRM — Turbine Clean" },
-      { property: "og:description", content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS." },
+      {
+        property: "og:description",
+        content: "Histórico completo do lead: conversas, status, repescagens e conversão em OS.",
+      },
     ],
   }),
   component: LeadDetalhe,
@@ -164,7 +164,8 @@ function LeadDetalhe() {
     return items.sort((a, b) => (a.at < b.at ? 1 : -1));
   }, [timeline.data]);
 
-  if (leadQuery.isLoading) return <p className="text-sm text-muted-foreground">Carregando lead...</p>;
+  if (leadQuery.isLoading)
+    return <p className="text-sm text-muted-foreground">Carregando lead...</p>;
   if (!lead)
     return (
       <SectionCard title="Lead não encontrado" accent="danger">
@@ -175,7 +176,10 @@ function LeadDetalhe() {
     );
 
   const meta = statusMeta(lead.status);
-  const mensagemPronta = modelo.replace(/\{\{nome\}\}/g, (lead.lead_name || "").split(" ")[0] ?? "");
+  const mensagemPronta = modelo.replace(
+    /\{\{nome\}\}/g,
+    (lead.lead_name || "").split(" ")[0] ?? "",
+  );
   const linkWhats = whatsappLink(lead.phone, mensagemPronta);
 
   async function aplicarStatus(statusId: string) {
@@ -267,7 +271,9 @@ function LeadDetalhe() {
       invalidate();
       void leadQuery.refetch();
       if (r.temperature) {
-        toast.info(`Temperatura sugerida pela IA: ${r.temperature === "QUENTE" ? "Quente" : "Frio"}.`);
+        toast.info(
+          `Temperatura sugerida pela IA: ${r.temperature === "QUENTE" ? "Quente" : "Frio"}.`,
+        );
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar a sugestão.");
@@ -276,7 +282,9 @@ function LeadDetalhe() {
     }
   }
 
-  const repescagensPendentes = (timeline.data?.followups ?? []).filter((f) => f.status === "Pendente");
+  const repescagensPendentes = (timeline.data?.followups ?? []).filter(
+    (f) => f.status === "Pendente",
+  );
 
   return (
     <>
@@ -319,10 +327,14 @@ function LeadDetalhe() {
           <SectionCard title="Dados comerciais" accent="navy">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <StatusPill status={lead.status} />
-              <TemperatureBadge temperature={lead.temperature} suggested={!lead.temperature_confirmed} />
+              <TemperatureBadge
+                temperature={lead.temperature}
+                suggested={!lead.temperature_confirmed}
+              />
               {lead.work_order ? (
                 <span className="text-xs text-muted-foreground">
-                  Convertido em OS {lead.work_order.os_number} · {brl(lead.work_order.total_gross_value)}
+                  Convertido em OS {lead.work_order.os_number} ·{" "}
+                  {brl(lead.work_order.total_gross_value)}
                 </span>
               ) : null}
             </div>
@@ -356,7 +368,9 @@ function LeadDetalhe() {
                   id="d-estofado"
                   defaultValue={lead.upholstery_description ?? ""}
                   maxLength={500}
-                  onBlur={(e) => void salvarCampos({ upholstery_description: e.target.value.slice(0, 500) })}
+                  onBlur={(e) =>
+                    void salvarCampos({ upholstery_description: e.target.value.slice(0, 500) })
+                  }
                 />
               </div>
               <div className="grid gap-1.5">
@@ -425,16 +439,27 @@ function LeadDetalhe() {
                   maxLength={2000}
                   rows={4}
                   onBlur={(e) =>
-                    void salvarCampos({ summary: e.target.value.slice(0, 2000), summary_source: "Manual" })
+                    void salvarCampos({
+                      summary: e.target.value.slice(0, 2000),
+                      summary_source: "Manual",
+                    })
                   }
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-2" onClick={gerarResumoIA} disabled={gerandoIA}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={gerarResumoIA}
+                    disabled={gerandoIA}
+                  >
                     <Sparkles className="size-4" />
                     {gerandoIA ? "Gerando..." : "Sugerir resumo com IA"}
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    {lead.summary_source === "IA" ? "Resumo sugerido pela IA — revise" : `Origem: ${lead.summary_source}`}
+                    {lead.summary_source === "IA"
+                      ? "Resumo sugerido pela IA — revise"
+                      : `Origem: ${lead.summary_source}`}
                   </span>
                 </div>
               </div>
@@ -452,7 +477,10 @@ function LeadDetalhe() {
             {salvando ? <p className="mt-2 text-xs text-muted-foreground">Salvando...</p> : null}
           </SectionCard>
 
-          <SectionCard title="Linha do tempo" description="Mensagens, status, repescagens e conversão.">
+          <SectionCard
+            title="Linha do tempo"
+            description="Mensagens, status, repescagens e conversão."
+          >
             {eventos.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum evento registrado ainda.</p>
             ) : (
@@ -484,7 +512,12 @@ function LeadDetalhe() {
               />
               <div className="mt-2 grid gap-2">
                 {DEFAULT_FOLLOWUP_HOURS.map((h) => (
-                  <Button key={h} variant="outline" className="gap-2" onClick={() => void agendarRepescagem(h)}>
+                  <Button
+                    key={h}
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => void agendarRepescagem(h)}
+                  >
                     <CalendarClock className="size-4" /> Repescar em {h}h
                   </Button>
                 ))}
@@ -528,7 +561,12 @@ function LeadDetalhe() {
                 onChange={(v) => setModelo(v)}
                 options={MODELOS_MENSAGEM.map((m) => ({ value: m.text, label: m.label }))}
               />
-              <Textarea value={modelo} rows={5} maxLength={1000} onChange={(e) => setModelo(e.target.value)} />
+              <Textarea
+                value={modelo}
+                rows={5}
+                maxLength={1000}
+                onChange={(e) => setModelo(e.target.value)}
+              />
               {linkWhats ? (
                 <Button asChild className="gap-2">
                   <a href={linkWhats} target="_blank" rel="noreferrer">
@@ -536,18 +574,23 @@ function LeadDetalhe() {
                   </a>
                 </Button>
               ) : (
-                <p className="text-xs text-muted-foreground">Telefone inválido para abrir o WhatsApp.</p>
+                <p className="text-xs text-muted-foreground">
+                  Telefone inválido para abrir o WhatsApp.
+                </p>
               )}
             </div>
           </SectionCard>
 
           <SectionCard title="Histórico do cliente">
             {(historicoOs.data ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma OS anterior para este telefone.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhuma OS anterior para este telefone.
+              </p>
             ) : (
               <>
                 <p className="mb-2 text-sm text-navy">
-                  Cliente existente — possui {historicoOs.data!.length} ordem(ns) de serviço anterior(es).
+                  Cliente existente — possui {historicoOs.data!.length} ordem(ns) de serviço
+                  anterior(es).
                 </p>
                 <ul className="grid gap-2 text-sm">
                   {historicoOs.data!.map((os) => (
@@ -575,7 +618,9 @@ function LeadDetalhe() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Registrar desistência</DialogTitle>
-            <DialogDescription>Informe o motivo para manter o histórico completo.</DialogDescription>
+            <DialogDescription>
+              Informe o motivo para manter o histórico completo.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5">

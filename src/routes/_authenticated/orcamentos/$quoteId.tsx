@@ -38,9 +38,15 @@ export const Route = createFileRoute("/_authenticated/orcamentos/$quoteId")({
   head: () => ({
     meta: [
       { title: "Orçamento — Turbine Clean" },
-      { name: "description", content: "Monte os itens, veja a margem e gere a mensagem do orçamento." },
+      {
+        name: "description",
+        content: "Monte os itens, veja a margem e gere a mensagem do orçamento.",
+      },
       { property: "og:title", content: "Orçamento — Turbine Clean" },
-      { property: "og:description", content: "Monte os itens, veja a margem e gere a mensagem do orçamento." },
+      {
+        property: "og:description",
+        content: "Monte os itens, veja a margem e gere a mensagem do orçamento.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -256,7 +262,8 @@ function OrcamentoDetalhe() {
       return;
     }
     const semMotivo = validas.find(
-      (l) => l.preco_tabela > 0 && l.preco_aplicado < l.preco_tabela * 0.9 && !l.motivo_desconto.trim(),
+      (l) =>
+        l.preco_tabela > 0 && l.preco_aplicado < l.preco_tabela * 0.9 && !l.motivo_desconto.trim(),
     );
     if (semMotivo) {
       toast.error(`Informe o motivo do desconto em "${semMotivo.nome_snapshot}".`);
@@ -347,7 +354,12 @@ function OrcamentoDetalhe() {
         </div>
         <div>
           <Label htmlFor="tel">Celular</Label>
-          <Input id="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} inputMode="tel" />
+          <Input
+            id="tel"
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+            inputMode="tel"
+          />
         </div>
         <div>
           <Label htmlFor="cep">CEP</Label>
@@ -378,7 +390,12 @@ function OrcamentoDetalhe() {
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="obs">Observações</Label>
-          <Textarea id="obs" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} />
+          <Textarea
+            id="obs"
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            rows={2}
+          />
         </div>
       </section>
 
@@ -388,18 +405,16 @@ function OrcamentoDetalhe() {
         titulo="Melhores dias para este CEP (uso interno)"
         onEscolher={(dia) => {
           setDataServico(dia);
-          toast.success(`Dia escolhido guardado no orçamento: ${dia.split("-").reverse().join("/")}.`);
+          toast.success(
+            `Dia escolhido guardado no orçamento: ${dia.split("-").reverse().join("/")}.`,
+          );
         }}
       />
       {dataServico ? (
         <p className="-mt-4 mb-6 text-sm text-muted-foreground">
           Dia escolhido (interno): <strong>{dataServico.split("-").reverse().join("/")}</strong> —
           será usado quando o orçamento virar OS.{" "}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => setDataServico("")}
-          >
+          <button type="button" className="underline" onClick={() => setDataServico("")}>
             limpar
           </button>
         </p>
@@ -546,7 +561,9 @@ function OrcamentoDetalhe() {
               <div>
                 <Label className="text-xs">Km ida e volta</Label>
                 <MoneyInput value={km} onValueChange={setKm} />
-                <p className="mt-1 text-xs text-muted-foreground">Sugerido pelo CEP; pode ajustar.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sugerido pelo CEP; pode ajustar.
+                </p>
               </div>
               <div>
                 <Label className="text-xs">Custo de deslocamento</Label>
@@ -638,11 +655,13 @@ function OrcamentoDetalhe() {
               }}
               className="flex h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
             >
-              {(["rascunho", "enviado", "aprovado", "recusado", "convertido"] as QuoteStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
+              {(["rascunho", "enviado", "aprovado", "recusado", "convertido"] as QuoteStatus[]).map(
+                (s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ),
+              )}
             </select>
             <Button variant="outline" onClick={gerarMensagem} disabled={ocupado}>
               <MessageCircle className="mr-2 h-4 w-4" /> Gerar mensagem WhatsApp
@@ -655,7 +674,8 @@ function OrcamentoDetalhe() {
                 void duplicar({ data: { id: quoteId } })
                   .then((r) => {
                     toast.success("Orçamento duplicado.");
-                    if (r.id) void navigate({ to: "/orcamentos/$quoteId", params: { quoteId: r.id } });
+                    if (r.id)
+                      void navigate({ to: "/orcamentos/$quoteId", params: { quoteId: r.id } });
                   })
                   .catch(() => toast.error("Não foi possível duplicar."))
                   .finally(() => setAcao(null));

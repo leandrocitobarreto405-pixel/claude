@@ -25,7 +25,6 @@ import {
   MessageSquareText,
   Receipt,
   Route as RouteIcon,
-
   Settings,
   Droplets,
   Users,
@@ -40,7 +39,6 @@ import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { podeAcessar, useMinhaEmpresa } from "@/lib/tenant";
 import { InstallPrompt } from "@/components/install-prompt";
-
 
 const NAV_GROUPS = [
   {
@@ -69,7 +67,6 @@ const NAV_GROUPS = [
     ],
   },
   {
-
     label: "Financeiro",
     items: [
       { to: "/a-receber", label: "A receber", icon: HandCoins },
@@ -82,10 +79,7 @@ const NAV_GROUPS = [
   },
   {
     label: "Logística",
-    items: [
-      { to: "/rotas", label: "Rotas e quilometragem", icon: RouteIcon },
-    ],
-
+    items: [{ to: "/rotas", label: "Rotas e quilometragem", icon: RouteIcon }],
   },
   {
     label: "Administração",
@@ -223,16 +217,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 md:p-6 lg:p-8">
           <InstallPrompt />
           {liberado ? (
-
             children
           ) : (
             <div className="card-surface mx-auto max-w-md p-6 text-center">
               <h1 className="text-lg font-semibold text-navy">Acesso não liberado</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Seu perfil não tem permissão para esta página. Fale com o administrador da
-                empresa.
+                Seu perfil não tem permissão para esta página. Fale com o administrador da empresa.
               </p>
-              <Button className="mt-4" onClick={() => navigate({ to: "/agenda", search: {} as never })}>
+              <Button
+                className="mt-4"
+                onClick={() => navigate({ to: "/agenda", search: {} as never })}
+              >
                 Ir para a agenda
               </Button>
             </div>
@@ -256,9 +251,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight text-navy md:text-3xl">{title}</h1>
-        {description ? (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        ) : null}
+        {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>

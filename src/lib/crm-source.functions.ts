@@ -103,7 +103,10 @@ export const deleteSourceIntegration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("crm_source_integrations").delete().eq("id", data.id);
+    const { error } = await context.supabase
+      .from("crm_source_integrations")
+      .delete()
+      .eq("id", data.id);
     if (error) throw error;
     return { ok: true };
   });
@@ -119,13 +122,16 @@ export const simulateSourceIntegration = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { processLeadSourcePayload, parseLeadSourcePayload } = await import("@/lib/crm-source.server");
+    const { processLeadSourcePayload, parseLeadSourcePayload } =
+      await import("@/lib/crm-source.server");
     const mapped = parseLeadSourcePayload(data.source_type, data.payload, {});
     if (!mapped) throw new Error("Não foi possível extrair nome e telefone do payload de teste.");
 
     const { data: row } = await context.supabase
       .from("crm_source_integrations")
-      .select("id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active")
+      .select(
+        "id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
+      )
       .eq("source_type", data.source_type)
       .eq("active", true)
       .limit(1)

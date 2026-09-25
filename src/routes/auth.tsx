@@ -124,7 +124,9 @@ function AuthPage() {
       // Cria a empresa e vincula como administrador (ou aceita um convite pendente).
       await registrarEmpresa({ nome: empresa.trim(), cnpj: cnpj.trim() || null });
     } catch {
-      toast.error("Conta criada, mas não foi possível cadastrar a empresa. Tente entrar novamente.");
+      toast.error(
+        "Conta criada, mas não foi possível cadastrar a empresa. Tente entrar novamente.",
+      );
     }
     setCarregando(false);
     toast.success("Conta criada com sucesso!");
@@ -145,8 +147,8 @@ function AuthPage() {
             Do fechamento da venda ao lucro líquido, em um único lugar.
           </h2>
           <p className="text-sm opacity-80">
-            Cadastre a OS uma única vez e alimente automaticamente a agenda, as mensagens da
-            equipe, os pagamentos, as comissões, a quilometragem, as notas fiscais e o DRE.
+            Cadastre a OS uma única vez e alimente automaticamente a agenda, as mensagens da equipe,
+            os pagamentos, as comissões, a quilometragem, as notas fiscais e o DRE.
           </p>
         </div>
         <p className="text-xs opacity-70">Higienização e impermeabilização de estofados</p>

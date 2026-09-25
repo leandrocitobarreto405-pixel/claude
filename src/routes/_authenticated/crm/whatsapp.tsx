@@ -22,9 +22,15 @@ export const Route = createFileRoute("/_authenticated/crm/whatsapp")({
   head: () => ({
     meta: [
       { title: "Integração do WhatsApp — Turbine Clean" },
-      { name: "description", content: "Status da conexão do WhatsApp Business, webhook e registros de eventos." },
+      {
+        name: "description",
+        content: "Status da conexão do WhatsApp Business, webhook e registros de eventos.",
+      },
       { property: "og:title", content: "Integração do WhatsApp — Turbine Clean" },
-      { property: "og:description", content: "Status da conexão do WhatsApp Business, webhook e registros de eventos." },
+      {
+        property: "og:description",
+        content: "Status da conexão do WhatsApp Business, webhook e registros de eventos.",
+      },
     ],
   }),
   component: WhatsappConfig,
@@ -67,7 +73,9 @@ function WhatsappConfig() {
       void status.refetch();
       void eventos.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível simular o recebimento.");
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível simular o recebimento.",
+      );
     } finally {
       setTestando(false);
     }
@@ -93,13 +101,19 @@ function WhatsappConfig() {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Status da integração" description="Situação atual da conexão." accent="navy">
+        <SectionCard
+          title="Status da integração"
+          description="Situação atual da conexão."
+          accent="navy"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <InfoBadge>{status.data?.state ?? "Carregando..."}</InfoBadge>
             {status.data?.processedCount ? (
               <InfoBadge>{status.data.processedCount} evento(s) processado(s)</InfoBadge>
             ) : null}
-            {status.data?.errorCount ? <InfoBadge>{status.data.errorCount} erro(s)</InfoBadge> : null}
+            {status.data?.errorCount ? (
+              <InfoBadge>{status.data.errorCount} erro(s)</InfoBadge>
+            ) : null}
           </div>
           <dl className="mt-4 grid gap-2 text-sm">
             <div className="flex justify-between gap-3">
@@ -108,7 +122,9 @@ function WhatsappConfig() {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Último evento processado</dt>
-              <dd>{status.data?.lastProcessedAt ? dateTimeBR(status.data.lastProcessedAt) : "—"}</dd>
+              <dd>
+                {status.data?.lastProcessedAt ? dateTimeBR(status.data.lastProcessedAt) : "—"}
+              </dd>
             </div>
           </dl>
           {status.data?.lastError ? (
@@ -122,7 +138,10 @@ function WhatsappConfig() {
           </p>
         </SectionCard>
 
-        <SectionCard title="Webhook" description="Cole esta URL na configuração do aplicativo da Meta.">
+        <SectionCard
+          title="Webhook"
+          description="Cole esta URL na configuração do aplicativo da Meta."
+        >
           <div className="flex gap-2">
             <Input readOnly value={webhookUrl} className="font-mono text-xs" />
             <Button variant="outline" size="icon" aria-label="Copiar URL" onClick={copiar}>
@@ -198,7 +217,11 @@ function WhatsappConfig() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Registros de eventos" description="Últimos 50 eventos recebidos." accent="warning">
+        <SectionCard
+          title="Registros de eventos"
+          description="Últimos 50 eventos recebidos."
+          accent="warning"
+        >
           {(eventos.data ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum evento recebido até agora.</p>
           ) : (

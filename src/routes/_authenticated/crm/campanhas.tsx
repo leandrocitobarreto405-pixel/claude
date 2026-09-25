@@ -24,9 +24,17 @@ export const Route = createFileRoute("/_authenticated/crm/campanhas")({
   head: () => ({
     meta: [
       { title: "Campanhas do CRM — Turbine Clean" },
-      { name: "description", content: "Campanhas de anúncios, vínculo com anúncios do WhatsApp e investimento por período." },
+      {
+        name: "description",
+        content:
+          "Campanhas de anúncios, vínculo com anúncios do WhatsApp e investimento por período.",
+      },
       { property: "og:title", content: "Campanhas do CRM — Turbine Clean" },
-      { property: "og:description", content: "Campanhas de anúncios, vínculo com anúncios do WhatsApp e investimento por período." },
+      {
+        property: "og:description",
+        content:
+          "Campanhas de anúncios, vínculo com anúncios do WhatsApp e investimento por período.",
+      },
     ],
   }),
   component: Campanhas,
@@ -113,7 +121,10 @@ function Campanhas() {
     };
     try {
       if (editando) {
-        const { error } = await supabase.from("crm_campaigns").update(payload as never).eq("id", editando);
+        const { error } = await supabase
+          .from("crm_campaigns")
+          .update(payload as never)
+          .eq("id", editando);
         if (error) throw error;
       } else {
         const { data: created, error } = await supabase
@@ -220,10 +231,13 @@ function Campanhas() {
               }
             >
               <p className="text-sm">
-                Investimento total: <span className="font-semibold text-navy">{brl(totalPorCampanha(c.id))}</span>
+                Investimento total:{" "}
+                <span className="font-semibold text-navy">{brl(totalPorCampanha(c.id))}</span>
               </p>
               {c.ad_external_id ? (
-                <p className="text-xs text-muted-foreground">Anúncio vinculado: {c.ad_external_id}</p>
+                <p className="text-xs text-muted-foreground">
+                  Anúncio vinculado: {c.ad_external_id}
+                </p>
               ) : (
                 <p className="text-xs text-amber-700">
                   Sem id de anúncio: os leads precisarão ser vinculados manualmente.

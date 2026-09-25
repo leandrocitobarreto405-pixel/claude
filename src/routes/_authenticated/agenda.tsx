@@ -21,7 +21,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import { VISIT_STATUSES, useTechnicians } from "@/lib/data";
-import { addDaysISO, brl, dateBR, monthEnd, monthStart, timeBR, todayISO, weekdayPT } from "@/lib/format";
+import {
+  addDaysISO,
+  brl,
+  dateBR,
+  monthEnd,
+  monthStart,
+  timeBR,
+  todayISO,
+  weekdayPT,
+} from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -37,9 +46,15 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({
     meta: [
       { title: "Agenda — Turbine Clean" },
-      { name: "description", content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico." },
+      {
+        name: "description",
+        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+      },
       { property: "og:title", content: "Agenda — Turbine Clean" },
-      { property: "og:description", content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico." },
+      {
+        property: "og:description",
+        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -200,7 +215,6 @@ function Agenda() {
       />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
-
         <Tabs
           value={modo}
           onValueChange={(v) => setModo(v as Modo)}
@@ -215,13 +229,17 @@ function Agenda() {
           </TabsList>
         </Tabs>
 
-
         {especial ? null : (
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" onClick={() => setRef(addDaysISO(ref, -step))}>
               <ChevronLeft className="size-4" />
             </Button>
-            <Input type="date" value={ref} onChange={(e) => setRef(e.target.value)} className="w-[160px]" />
+            <Input
+              type="date"
+              value={ref}
+              onChange={(e) => setRef(e.target.value)}
+              className="w-[160px]"
+            />
             <Button variant="outline" size="icon" onClick={() => setRef(addDaysISO(ref, step))}>
               <ChevronRight className="size-4" />
             </Button>
@@ -230,7 +248,6 @@ function Agenda() {
             </Button>
           </div>
         )}
-
 
         <div className="space-y-1">
           <Label>Técnico</Label>

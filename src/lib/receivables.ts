@@ -148,7 +148,9 @@ export async function fetchReceivables(): Promise<Receivables> {
     }
   }
 
-  items.sort((a, b) => (a.completionDate ?? a.scheduledDate).localeCompare(b.completionDate ?? b.scheduledDate));
+  items.sort((a, b) =>
+    (a.completionDate ?? a.scheduledDate).localeCompare(b.completionDate ?? b.scheduledDate),
+  );
 
   const scheduled = round2(
     items.filter((i) => i.kind === "agendado").reduce((s, i) => s + i.balance, 0),

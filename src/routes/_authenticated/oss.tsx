@@ -17,12 +17,14 @@ export const Route = createFileRoute("/_authenticated/oss")({
       { title: "OSs criadas — Turbine Clean" },
       {
         name: "description",
-        content: "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
+        content:
+          "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
       },
       { property: "og:title", content: "OSs criadas — Turbine Clean" },
       {
         property: "og:description",
-        content: "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
+        content:
+          "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
       },
     ],
   }),
@@ -121,7 +123,10 @@ function OssCriadas() {
       if (documento === "pendente" && temDoc) return false;
       if (!termo) return true;
       const estofados = r.visits
-        .flatMap((v) => [v.upholstery_description ?? "", ...v.service_items.filter((i) => i.active !== false).map((i) => i.description ?? "")])
+        .flatMap((v) => [
+          v.upholstery_description ?? "",
+          ...v.service_items.filter((i) => i.active !== false).map((i) => i.description ?? ""),
+        ])
         .join(" ");
       const alvo = `${r.os_number} ${r.customer?.full_name ?? ""} ${estofados}`.toLowerCase();
       const telefone = onlyDigits(r.customer?.phone ?? "");
@@ -200,7 +205,11 @@ function OssCriadas() {
           </div>
           <div>
             <Label htmlFor="statusOs">Status da OS</Label>
-            <NativeSelect id="statusOs" value={statusOs} onChange={(e) => setStatusOs(e.target.value)}>
+            <NativeSelect
+              id="statusOs"
+              value={statusOs}
+              onChange={(e) => setStatusOs(e.target.value)}
+            >
               <option value="">Todos</option>
               {OS_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -211,7 +220,11 @@ function OssCriadas() {
           </div>
           <div>
             <Label htmlFor="vendedora">Vendedora</Label>
-            <NativeSelect id="vendedora" value={vendedora} onChange={(e) => setVendedora(e.target.value)}>
+            <NativeSelect
+              id="vendedora"
+              value={vendedora}
+              onChange={(e) => setVendedora(e.target.value)}
+            >
               <option value="">Todas</option>
               {(vendedoras ?? []).map((v) => (
                 <option key={v.id} value={v.id}>
@@ -233,7 +246,11 @@ function OssCriadas() {
           </div>
           <div>
             <Label htmlFor="documento">Documento</Label>
-            <NativeSelect id="documento" value={documento} onChange={(e) => setDocumento(e.target.value)}>
+            <NativeSelect
+              id="documento"
+              value={documento}
+              onChange={(e) => setDocumento(e.target.value)}
+            >
               <option value="">Todos</option>
               <option value="gerado">Gerado</option>
               <option value="pendente">Pendente</option>

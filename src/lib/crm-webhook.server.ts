@@ -10,7 +10,11 @@ export function normalizePhoneServer(input: string | null | undefined): string {
   return digits.length <= 11 ? `55${digits}` : digits;
 }
 
-export function verifyMetaSignature(rawBody: string, header: string | null, appSecret: string): boolean {
+export function verifyMetaSignature(
+  rawBody: string,
+  header: string | null,
+  appSecret: string,
+): boolean {
   if (!header) return false;
   const received = header.startsWith("sha256=") ? header.slice(7) : header;
   const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
@@ -53,8 +57,10 @@ const TYPE_LABELS: Record<string, string> = {
 function extractText(message: Record<string, any>): string | null {
   if (message["text"]?.body) return String(message["text"].body);
   if (message["button"]?.text) return String(message["button"].text);
-  if (message["interactive"]?.button_reply?.title) return String(message["interactive"].button_reply.title);
-  if (message["interactive"]?.list_reply?.title) return String(message["interactive"].list_reply.title);
+  if (message["interactive"]?.button_reply?.title)
+    return String(message["interactive"].button_reply.title);
+  if (message["interactive"]?.list_reply?.title)
+    return String(message["interactive"].list_reply.title);
   for (const key of ["image", "video", "document", "audio"]) {
     if (message[key]?.caption) return String(message[key].caption);
   }
@@ -286,9 +292,10 @@ export async function processWhatsappPayload(
         .from("crm_leads")
         .update({
           last_interaction_at: message.timestamp,
-          lead_name: openLead?.lead_name && openLead.lead_name !== "Sem nome"
-            ? openLead.lead_name
-            : (message.profileName ?? "Sem nome"),
+          lead_name:
+            openLead?.lead_name && openLead.lead_name !== "Sem nome"
+              ? openLead.lead_name
+              : (message.profileName ?? "Sem nome"),
           campaign_id: openLead?.campaign_id ?? campaignId,
           ad_id: openLead?.ad_id ?? message.referral?.sourceId ?? null,
         })
@@ -316,7 +323,9 @@ export async function processWhatsappPayload(
     if (msgError) {
       const duplicate =
         String(msgError.code) === "23505" ||
-        String(msgError.message ?? "").toLowerCase().includes("duplicate");
+        String(msgError.message ?? "")
+          .toLowerCase()
+          .includes("duplicate");
       if (duplicate) result.duplicated += 1;
       else throw msgError;
     } else {

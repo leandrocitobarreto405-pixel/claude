@@ -49,7 +49,10 @@ export function MargemOrcamento({
   modo,
   custoFixoFonte,
 }: Props) {
-  const { custoTotal, lucro, lucroPct, contribuicao, contribuicaoPct } = lucroOrcamento(total, custos);
+  const { custoTotal, lucro, lucroPct, contribuicao, contribuicaoPct } = lucroOrcamento(
+    total,
+    custos,
+  );
   const custosVariaveisDoServico = custos.deslocamento + custos.produtos + custos.maoObra;
   const avaliacao = avaliarMargem({
     total,
@@ -142,9 +145,8 @@ export function MargemOrcamento({
           </p>
         ) : (
           <p className="mt-1 text-sm text-destructive">
-            Sem margem para desconto. O valor mínimo é{" "}
-            <strong>{brl(avaliacao.pisoPreco)}</strong> — falta subir{" "}
-            {brl(avaliacao.pisoPreco - total)}.
+            Sem margem para desconto. O valor mínimo é <strong>{brl(avaliacao.pisoPreco)}</strong> —
+            falta subir {brl(avaliacao.pisoPreco - total)}.
           </p>
         )}
       </div>

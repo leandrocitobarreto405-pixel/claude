@@ -13,12 +13,14 @@ export const Route = createFileRoute("/_authenticated/orcamentos/")({
       { title: "Orçamentos — Turbine Clean" },
       {
         name: "description",
-        content: "Crie orçamentos de higienização e impermeabilização, acompanhe a conversão em OS.",
+        content:
+          "Crie orçamentos de higienização e impermeabilização, acompanhe a conversão em OS.",
       },
       { property: "og:title", content: "Orçamentos — Turbine Clean" },
       {
         property: "og:description",
-        content: "Crie orçamentos de higienização e impermeabilização, acompanhe a conversão em OS.",
+        content:
+          "Crie orçamentos de higienização e impermeabilização, acompanhe a conversão em OS.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -100,7 +102,13 @@ function Orcamentos() {
           <label className="text-xs text-muted-foreground" htmlFor="mes">
             Mês
           </label>
-          <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-40" />
+          <Input
+            id="mes"
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="w-40"
+          />
         </div>
         <div>
           <label className="text-xs text-muted-foreground" htmlFor="status">
@@ -161,7 +169,9 @@ function Orcamentos() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-semibold">{brl(q.total)}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[q.status]}`}>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[q.status]}`}
+                  >
                     {STATUS_LABEL[q.status]}
                   </span>
                 </div>

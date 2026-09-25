@@ -10,9 +10,15 @@ export const Route = createFileRoute("/_authenticated/dre")({
   head: () => ({
     meta: [
       { title: "DRE gerencial — Gestão Estofados" },
-      { name: "description", content: "Demonstrativo mensal por competência: receita, custos e lucro líquido." },
+      {
+        name: "description",
+        content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
+      },
       { property: "og:title", content: "DRE gerencial — Gestão Estofados" },
-      { property: "og:description", content: "Demonstrativo mensal por competência: receita, custos e lucro líquido." },
+      {
+        property: "og:description",
+        content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
+      },
     ],
   }),
   component: DRE,
@@ -29,7 +35,13 @@ function DRE() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="mes">Mês de competência</Label>
-          <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-[170px]" />
+          <Input
+            id="mes"
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="w-[170px]"
+          />
         </div>
       </div>
 
@@ -60,8 +72,8 @@ function DRE() {
         <h2 className="mb-1 text-lg font-semibold">Demonstrativo por competência</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           A receita considera apenas o que foi recebido, alocado no mês em que o serviço foi
-          concluído. As despesas entram no mês de competência, mas somente pelo valor já pago —
-          uma despesa de um mês paga no mês seguinte aparece aqui automaticamente.
+          concluído. As despesas entram no mês de competência, mas somente pelo valor já pago — uma
+          despesa de um mês paga no mês seguinte aparece aqui automaticamente.
         </p>
         <table className="w-full text-sm">
           <tbody>
@@ -90,8 +102,8 @@ function DRE() {
       <section className="card-surface mb-6 p-5">
         <h2 className="mb-1 text-lg font-semibold">Despesas pagas no mês</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Cada despesa da competência de {monthLabelPT(mes)} pelo valor efetivamente pago, na data em
-          que o pagamento aconteceu.
+          Cada despesa da competência de {monthLabelPT(mes)} pelo valor efetivamente pago, na data
+          em que o pagamento aconteceu.
         </p>
         {(r?.expensesPaidList?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma despesa paga neste mês.</p>
@@ -163,7 +175,6 @@ function DRE() {
         </div>
       </section>
 
-
       <div className="grid gap-6 lg:grid-cols-2">
         <Breakdown title="Receita por origem da venda" data={r?.revenueByOrigin} />
         <Breakdown title="Receita por vendedora" data={r?.revenueBySalesperson} />
@@ -210,7 +221,9 @@ function Line({
 }) {
   return (
     <tr className="border-t border-border">
-      <td className={`py-2 ${muted ? "text-muted-foreground" : ""} ${strong ? "font-semibold" : ""}`}>
+      <td
+        className={`py-2 ${muted ? "text-muted-foreground" : ""} ${strong ? "font-semibold" : ""}`}
+      >
         {label}
       </td>
       <td className={`py-2 text-right ${strong ? "font-semibold" : ""}`}>{brl(value ?? 0)}</td>

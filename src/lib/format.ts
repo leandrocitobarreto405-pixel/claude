@@ -144,7 +144,6 @@ export function weekEnd(iso: string): string {
   return addDaysISO(weekStart(iso), 6);
 }
 
-
 export function daysInMonth(month: string): number {
   return Number(monthEnd(month).slice(8));
 }

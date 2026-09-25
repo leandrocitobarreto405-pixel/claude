@@ -19,9 +19,15 @@ export const Route = createFileRoute("/_authenticated/crm/funil")({
   head: () => ({
     meta: [
       { title: "Funil de vendas — Turbine Clean" },
-      { name: "description", content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas." },
+      {
+        name: "description",
+        content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas.",
+      },
       { property: "og:title", content: "Funil de vendas — Turbine Clean" },
-      { property: "og:description", content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas." },
+      {
+        property: "og:description",
+        content: "Quadro do funil de leads do WhatsApp, com arrastar e soltar entre etapas.",
+      },
     ],
   }),
   component: Funil,
@@ -97,7 +103,9 @@ function Funil() {
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <StatusPill status={col.status} />
-                <span className="text-xs font-medium text-muted-foreground">{col.leads.length}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {col.leads.length}
+                </span>
               </div>
               <div className="flex flex-col gap-2">
                 {col.leads.map((lead: CrmLeadRow) => (
@@ -117,7 +125,9 @@ function Funil() {
                     </div>
                     <p className="text-xs text-muted-foreground">{formatPhoneBR(lead.phone)}</p>
                     {lead.upholstery_description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-navy">{lead.upholstery_description}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-navy">
+                        {lead.upholstery_description}
+                      </p>
                     ) : null}
                     <p className="mt-1 text-[0.7rem] text-muted-foreground">
                       {dateBR(lead.first_contact_date)}

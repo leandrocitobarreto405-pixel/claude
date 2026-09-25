@@ -60,14 +60,21 @@ export function extractGoogleId(value: string): string {
 export type DriveFile = { id: string; name?: string; mimeType?: string; webViewLink?: string };
 
 export async function getFile(fileId: string): Promise<DriveFile> {
-  return call<DriveFile>("drive", `/files/${fileId}?fields=id,name,mimeType,webViewLink&supportsAllDrives=true`);
+  return call<DriveFile>(
+    "drive",
+    `/files/${fileId}?fields=id,name,mimeType,webViewLink&supportsAllDrives=true`,
+  );
 }
 
 export async function copyFile(fileId: string, name: string, parentId?: string | null) {
-  return call<DriveFile>("drive", `/files/${fileId}/copy?fields=id,name,webViewLink&supportsAllDrives=true`, {
-    method: "POST",
-    body: { name, ...(parentId ? { parents: [parentId] } : {}) },
-  });
+  return call<DriveFile>(
+    "drive",
+    `/files/${fileId}/copy?fields=id,name,webViewLink&supportsAllDrives=true`,
+    {
+      method: "POST",
+      body: { name, ...(parentId ? { parents: [parentId] } : {}) },
+    },
+  );
 }
 
 export async function deleteFile(fileId: string) {
@@ -340,10 +347,7 @@ export async function fillItemsTable(documentId: string, items: DocItem[]) {
 }
 
 /** Substitui os placeholders simples; valores vazios removem o placeholder. */
-export async function replacePlaceholders(
-  documentId: string,
-  values: Record<string, string>,
-) {
+export async function replacePlaceholders(documentId: string, values: Record<string, string>) {
   const requests = Object.entries(values).map(([key, value]) => ({
     replaceAllText: {
       containsText: { text: `{{${key}}}`, matchCase: true },

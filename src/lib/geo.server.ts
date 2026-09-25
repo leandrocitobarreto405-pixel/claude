@@ -70,12 +70,23 @@ function matchesExpected(hit: NominatimHit, expected: Expected) {
   if (expected.state) {
     const st = normalizeName(addr["state"] ?? "");
     const wanted = normalizeName(expected.state);
-    const UF: Record<string, string> = { sp: "sao paulo", rj: "rio de janeiro", mg: "minas gerais", pr: "parana" };
+    const UF: Record<string, string> = {
+      sp: "sao paulo",
+      rj: "rio de janeiro",
+      mg: "minas gerais",
+      pr: "parana",
+    };
     const wantedFull = UF[wanted] ?? wanted;
     if (st && wantedFull && st !== wantedFull) return false;
   }
   if (expected.city) {
-    const candidates = [addr["city"], addr["town"], addr["municipality"], addr["village"], addr["county"]]
+    const candidates = [
+      addr["city"],
+      addr["town"],
+      addr["municipality"],
+      addr["village"],
+      addr["county"],
+    ]
       .filter(Boolean)
       .map((v) => normalizeName(String(v)));
     const wanted = normalizeName(expected.city);
@@ -90,7 +101,10 @@ function matchesExpected(hit: NominatimHit, expected: Expected) {
   return true;
 }
 
-async function nominatim(params: Record<string, string>, expected?: Expected): Promise<Coords | null> {
+async function nominatim(
+  params: Record<string, string>,
+  expected?: Expected,
+): Promise<Coords | null> {
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", "5");
@@ -146,20 +160,31 @@ export async function geocodeParts(parts: AddressParts): Promise<Coords | null> 
       expected: base,
     });
     attempts.push({
-      params: { q: [`${street}${number ? `, ${number}` : ""}`, city, state].filter(Boolean).join(", ") },
+      params: {
+        q: [`${street}${number ? `, ${number}` : ""}`, city, state].filter(Boolean).join(", "),
+      },
       expected: base,
     });
-    attempts.push({ params: { q: [street, city, state].filter(Boolean).join(", ") }, expected: base });
+    attempts.push({
+      params: { q: [street, city, state].filter(Boolean).join(", ") },
+      expected: base,
+    });
   }
   if (cep.length === 8) {
     const expected: Expected = { ...base, postcodePrefix: cep.slice(0, 5) };
-    attempts.push({ params: { postalcode: cep, ...(city ? { city } : {}), country: "Brazil" }, expected });
+    attempts.push({
+      params: { postalcode: cep, ...(city ? { city } : {}), country: "Brazil" },
+      expected,
+    });
     attempts.push({ params: { q: [cep, city, state].filter(Boolean).join(", ") }, expected });
   }
   const free = clean(parts.full_address);
   if (free.length > 8) attempts.push({ params: { q: free }, expected: base });
   if (neighborhood && city) {
-    attempts.push({ params: { q: [neighborhood, city, state].filter(Boolean).join(", ") }, expected: base });
+    attempts.push({
+      params: { q: [neighborhood, city, state].filter(Boolean).join(", ") },
+      expected: base,
+    });
   }
 
   for (const { params, expected } of attempts) {
@@ -169,9 +194,7 @@ export async function geocodeParts(parts: AddressParts): Promise<Coords | null> 
     if (coords) return coords;
   }
   return null;
-
 }
-
 
 /** Compatibilidade: aceita o endereço já montado em texto. */
 export async function geocode(address: string | AddressParts): Promise<Coords | null> {
@@ -190,7 +213,6 @@ export async function geocode(address: string | AddressParts): Promise<Coords | 
   return null;
 }
 
-
 /** Distância rodoviária na ordem informada, sem volta ao ponto inicial. */
 export async function drivingRoute(points: Array<{ label: string; coords: Coords }>): Promise<{
   legs: RouteLeg[];
@@ -205,7 +227,11 @@ export async function drivingRoute(points: Array<{ label: string; coords: Coords
     if (!res.ok) return null;
     const json = (await res.json()) as {
       code?: string;
-      routes?: Array<{ distance: number; duration: number; legs?: Array<{ distance: number; duration: number }> }>;
+      routes?: Array<{
+        distance: number;
+        duration: number;
+        legs?: Array<{ distance: number; duration: number }>;
+      }>;
     };
     const route = json.routes?.[0];
     if (json.code !== "Ok" || !route) return null;

@@ -29,9 +29,15 @@ export const Route = createFileRoute("/_authenticated/notas")({
   head: () => ({
     meta: [
       { title: "Notas fiscais a emitir — Gestão Estofados" },
-      { name: "description", content: "Controle das notas fiscais pendentes e emitidas por ordem de serviço." },
+      {
+        name: "description",
+        content: "Controle das notas fiscais pendentes e emitidas por ordem de serviço.",
+      },
       { property: "og:title", content: "Notas fiscais a emitir — Gestão Estofados" },
-      { property: "og:description", content: "Controle das notas fiscais pendentes e emitidas por ordem de serviço." },
+      {
+        property: "og:description",
+        content: "Controle das notas fiscais pendentes e emitidas por ordem de serviço.",
+      },
     ],
   }),
   component: Notas,
@@ -46,7 +52,10 @@ type Task = {
   service_date: string | null;
   document_number: string | null;
   notes: string | null;
-  work_order: { os_number: string; customer: { full_name: string; document_number: string | null } | null } | null;
+  work_order: {
+    os_number: string;
+    customer: { full_name: string; document_number: string | null } | null;
+  } | null;
 };
 
 function Notas() {
@@ -125,7 +134,10 @@ function Notas() {
       ) : (
         <div className="space-y-3">
           {lista.map((t) => (
-            <section key={t.id} className="card-surface flex flex-wrap items-center justify-between gap-3 p-4">
+            <section
+              key={t.id}
+              className="card-surface flex flex-wrap items-center justify-between gap-3 p-4"
+            >
               <div>
                 <p className="font-medium">
                   OS {t.work_order?.os_number} · {t.work_order?.customer?.full_name}
@@ -148,7 +160,9 @@ function Notas() {
                   onClick={() =>
                     copiar(
                       `${t.work_order?.customer?.full_name} — CPF/CNPJ ${
-                        t.document_number || t.work_order?.customer?.document_number || "não informado"
+                        t.document_number ||
+                        t.work_order?.customer?.document_number ||
+                        "não informado"
                       } — ${brl(t.invoice_amount)} — serviço em ${dateBR(t.service_date)}`,
                       "Dados da nota copiados!",
                     )

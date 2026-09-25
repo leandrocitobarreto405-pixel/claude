@@ -276,7 +276,12 @@ export function TabelaPrecosConfig() {
         <SortableContext items={ordem.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           <div className="mt-2 space-y-2">
             {ordem.map((item) => (
-              <Linha key={item.id} item={item} onSalvar={salvarCampos} onExcluir={(i) => void excluir(i)} />
+              <Linha
+                key={item.id}
+                item={item}
+                onSalvar={salvarCampos}
+                onExcluir={(i) => void excluir(i)}
+              />
             ))}
           </div>
         </SortableContext>

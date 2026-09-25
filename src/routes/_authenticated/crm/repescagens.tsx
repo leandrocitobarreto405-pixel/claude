@@ -25,9 +25,17 @@ export const Route = createFileRoute("/_authenticated/crm/repescagens")({
   head: () => ({
     meta: [
       { title: "Repescagens do CRM — Turbine Clean" },
-      { name: "description", content: "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato." },
+      {
+        name: "description",
+        content:
+          "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato.",
+      },
       { property: "og:title", content: "Repescagens do CRM — Turbine Clean" },
-      { property: "og:description", content: "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato." },
+      {
+        property: "og:description",
+        content:
+          "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato.",
+      },
     ],
   }),
   component: Repescagens,
@@ -79,7 +87,9 @@ function Repescagens() {
       const limite = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
       const { data, error } = await supabase
         .from("crm_leads")
-        .select("id, lead_name, phone, temperature, temperature_confirmed, last_interaction_at, next_follow_up_at")
+        .select(
+          "id, lead_name, phone, temperature, temperature_confirmed, last_interaction_at, next_follow_up_at",
+        )
         .eq("is_open", true)
         .is("next_follow_up_at", null)
         .lt("last_interaction_at", limite)
@@ -124,13 +134,20 @@ function Repescagens() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            {f.lead ? <LeadLink id={f.lead.id}>{f.lead.lead_name || "Sem nome"}</LeadLink> : "Lead removido"}
+            {f.lead ? (
+              <LeadLink id={f.lead.id}>{f.lead.lead_name || "Sem nome"}</LeadLink>
+            ) : (
+              "Lead removido"
+            )}
             <p className="text-xs text-muted-foreground">
               {formatPhoneBR(f.lead?.phone)} · agendado para {dateTimeBR(f.scheduled_at)}
             </p>
           </div>
           {f.lead ? (
-            <TemperatureBadge temperature={f.lead.temperature} suggested={!f.lead.temperature_confirmed} />
+            <TemperatureBadge
+              temperature={f.lead.temperature}
+              suggested={!f.lead.temperature_confirmed}
+            />
           ) : null}
         </div>
         {f.lead?.summary ? (

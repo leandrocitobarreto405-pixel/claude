@@ -149,7 +149,10 @@ export async function searchCustomers(term: string) {
   const t = term.trim();
   if (t.length < 2) return [];
   const digits = t.replace(/\D/g, "");
-  const filtro = digits.length >= 4 ? `phone.ilike.%${digits}%,full_name.ilike.%${t}%` : `full_name.ilike.%${t}%`;
+  const filtro =
+    digits.length >= 4
+      ? `phone.ilike.%${digits}%,full_name.ilike.%${t}%`
+      : `full_name.ilike.%${t}%`;
   const { data, error } = await supabase
     .from("customers")
     .select("id, full_name, phone, full_address")

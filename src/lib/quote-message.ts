@@ -42,14 +42,11 @@ Primeiro fazemos a higienização profunda com extração a quente, removendo po
 export function quoteWhatsappMessage(quote: Quote, items: QuoteItem[]): string {
   const tipos = new Set(items.map((it) => it.tipo_servico));
   const base =
-    tipos.size > 1
-      ? COMBINADO
-      : tipos.has("impermeabilizacao")
-        ? IMPERMEABILIZACAO
-        : HIGIENIZACAO;
+    tipos.size > 1 ? COMBINADO : tipos.has("impermeabilizacao") ? IMPERMEABILIZACAO : HIGIENIZACAO;
 
   const total = Number(quote.total ?? 0);
-  const aVista = quote.valor_a_vista && quote.valor_a_vista > 0 ? Number(quote.valor_a_vista) : total;
+  const aVista =
+    quote.valor_a_vista && quote.valor_a_vista > 0 ? Number(quote.valor_a_vista) : total;
   const parcela = total / 5;
 
   const partes = [

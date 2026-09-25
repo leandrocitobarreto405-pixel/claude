@@ -35,9 +35,17 @@ export const Route = createFileRoute("/_authenticated/crm/leads")({
   head: () => ({
     meta: [
       { title: "Leads do CRM — Turbine Clean" },
-      { name: "description", content: "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora." },
+      {
+        name: "description",
+        content:
+          "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora.",
+      },
       { property: "og:title", content: "Leads do CRM — Turbine Clean" },
-      { property: "og:description", content: "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora." },
+      {
+        property: "og:description",
+        content:
+          "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora.",
+      },
     ],
   }),
   component: Leads,
@@ -97,11 +105,21 @@ function Leads() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="f-de">De</Label>
-            <Input id="f-de" type="date" value={filters.from ?? ""} onChange={(e) => set({ from: e.target.value })} />
+            <Input
+              id="f-de"
+              type="date"
+              value={filters.from ?? ""}
+              onChange={(e) => set({ from: e.target.value })}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="f-ate">Até</Label>
-            <Input id="f-ate" type="date" value={filters.to ?? ""} onChange={(e) => set({ to: e.target.value })} />
+            <Input
+              id="f-ate"
+              type="date"
+              value={filters.to ?? ""}
+              onChange={(e) => set({ to: e.target.value })}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="f-status">Status</Label>
@@ -235,13 +253,18 @@ function Leads() {
                       <p className="text-xs text-muted-foreground">{l.service_interest ?? "—"}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <TemperatureBadge temperature={l.temperature} suggested={!l.temperature_confirmed} />
+                      <TemperatureBadge
+                        temperature={l.temperature}
+                        suggested={!l.temperature_confirmed}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill status={l.status} />
                     </td>
                     <td className="max-w-[12rem] px-4 py-3">
-                      <p className="truncate text-xs">{l.campaign?.campaign_name ?? l.origem?.name ?? "—"}</p>
+                      <p className="truncate text-xs">
+                        {l.campaign?.campaign_name ?? l.origem?.name ?? "—"}
+                      </p>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                       {l.last_interaction_at ? dateTimeBR(l.last_interaction_at) : "—"}
@@ -274,11 +297,16 @@ function Leads() {
                     <LeadLink id={l.id}>{l.lead_name || "Sem nome"}</LeadLink>
                     <p className="text-xs text-muted-foreground">{formatPhoneBR(l.phone)}</p>
                   </div>
-                  <TemperatureBadge temperature={l.temperature} suggested={!l.temperature_confirmed} />
+                  <TemperatureBadge
+                    temperature={l.temperature}
+                    suggested={!l.temperature_confirmed}
+                  />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={l.status} />
-                  <span className="text-xs text-muted-foreground">{dateBR(l.first_contact_date)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {dateBR(l.first_contact_date)}
+                  </span>
                 </div>
                 {l.upholstery_description ? (
                   <p className="mt-2 text-sm">{l.upholstery_description}</p>
@@ -297,7 +325,13 @@ function Leads() {
   );
 }
 
-function NovoLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function NovoLeadDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const invalidate = useCrmInvalidate();
   const { data: statuses } = useCrmCatalog(CRM_STATUS_KIND);
   const { data: servicos } = useCrmCatalog(CRM_SERVICE_KIND);
@@ -388,7 +422,12 @@ function NovoLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="n-nome">Nome</Label>
-            <Input id="n-nome" value={nome} maxLength={120} onChange={(e) => setNome(e.target.value)} />
+            <Input
+              id="n-nome"
+              value={nome}
+              maxLength={120}
+              onChange={(e) => setNome(e.target.value)}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="n-tel">Telefone com DDD</Label>

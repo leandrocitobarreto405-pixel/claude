@@ -26,7 +26,6 @@ import {
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { brl, currentMonth, dateBR, mapsLink, parseNumberBR, timeBR, todayISO } from "@/lib/format";
 
-
 export const Route = createFileRoute("/_authenticated/rotas")({
   validateSearch: (search: Record<string, unknown>) => ({
     dia: typeof search["dia"] === "string" ? (search["dia"] as string).slice(0, 10) : undefined,
@@ -34,9 +33,15 @@ export const Route = createFileRoute("/_authenticated/rotas")({
   head: () => ({
     meta: [
       { title: "Rotas e quilometragem — Gestão Estofados" },
-      { name: "description", content: "Roteiro do dia, quilometragem e custo rateado por serviço." },
+      {
+        name: "description",
+        content: "Roteiro do dia, quilometragem e custo rateado por serviço.",
+      },
       { property: "og:title", content: "Rotas e quilometragem — Gestão Estofados" },
-      { property: "og:description", content: "Roteiro do dia, quilometragem e custo rateado por serviço." },
+      {
+        property: "og:description",
+        content: "Roteiro do dia, quilometragem e custo rateado por serviço.",
+      },
     ],
   }),
   component: Rotas,
@@ -116,8 +121,7 @@ function Rotas() {
   });
 
   const visitas = useMemo(
-    () =>
-      (query.data ?? []).filter((v) => tecnicoId === "todos" || v.technician?.id === tecnicoId),
+    () => (query.data ?? []).filter((v) => tecnicoId === "todos" || v.technician?.id === tecnicoId),
     [query.data, tecnicoId],
   );
 
@@ -128,7 +132,10 @@ function Rotas() {
   const rateio = visitas.length ? Math.round((custoTotal / visitas.length) * 100) / 100 : 0;
 
   const enderecos = visitas
-    .map((v, i) => `${i + 1}. ${timeBR(v.scheduled_time)} — ${v.work_order?.customer?.full_address ?? ""}`)
+    .map(
+      (v, i) =>
+        `${i + 1}. ${timeBR(v.scheduled_time)} — ${v.work_order?.customer?.full_address ?? ""}`,
+    )
     .join("\n");
 
   async function calcularAutomatico() {
@@ -230,7 +237,9 @@ function Rotas() {
       }
       const difs = res.technicians.filter((t) => t.financialDifference);
       for (const t of difs) {
-        toast.warning(`${t.technicianName}: a despesa do mês já foi paga e o valor recalculado é ${brl(t.amountDue)}.`);
+        toast.warning(
+          `${t.technicianName}: a despesa do mês já foi paga e o valor recalculado é ${brl(t.amountDue)}.`,
+        );
       }
       rotaQuery.refetch();
       query.refetch();
@@ -240,9 +249,6 @@ function Rotas() {
       setFechando(false);
     }
   }
-
-
-
 
   return (
     <>
@@ -254,7 +260,13 @@ function Rotas() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="dia">Dia</Label>
-          <Input id="dia" type="date" value={dia} onChange={(e) => setDia(e.target.value)} className="w-[170px]" />
+          <Input
+            id="dia"
+            type="date"
+            value={dia}
+            onChange={(e) => setDia(e.target.value)}
+            className="w-[170px]"
+          />
         </div>
         <div className="space-y-1">
           <Label>Técnico</Label>
@@ -284,7 +296,12 @@ function Rotas() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="motivo">Motivo do ajuste (opcional)</Label>
-          <Input id="motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} className="w-[220px]" />
+          <Input
+            id="motivo"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            className="w-[220px]"
+          />
         </div>
         <Button onClick={calcularAutomatico} disabled={calculando}>
           {calculando ? "Calculando..." : "Calcular quilometragem automaticamente"}
@@ -361,7 +378,6 @@ function Rotas() {
         ) : null}
       </section>
 
-
       <div className="card-surface mb-6 p-4">
         <p className="text-sm text-muted-foreground">Situação da rota</p>
         <p className="text-lg font-semibold">
@@ -393,7 +409,11 @@ function Rotas() {
         <Card
           label="Quilometragem do dia"
           value={`${km.toFixed(1).replace(".", ",")} km`}
-          hint={kmManual > 0 && kmAuto > 0 ? `Automático: ${kmAuto.toFixed(1).replace(".", ",")} km` : undefined}
+          hint={
+            kmManual > 0 && kmAuto > 0
+              ? `Automático: ${kmAuto.toFixed(1).replace(".", ",")} km`
+              : undefined
+          }
         />
         <Card
           label="Combustível a pagar ao técnico"
@@ -403,7 +423,11 @@ function Rotas() {
         <Card label="Custo rateado por serviço" value={brl(rateio)} />
         <Card
           label="Tempo estimado de deslocamento"
-          value={auto?.totalMinutes ? `${Math.floor(auto.totalMinutes / 60)}h ${auto.totalMinutes % 60}min` : "—"}
+          value={
+            auto?.totalMinutes
+              ? `${Math.floor(auto.totalMinutes / 60)}h ${auto.totalMinutes % 60}min`
+              : "—"
+          }
         />
       </div>
 
@@ -447,7 +471,6 @@ function Rotas() {
         </section>
       ) : null}
 
-
       {visitas.length === 0 ? (
         <EmptyState title="Nenhum serviço neste dia" description="Escolha outra data." />
       ) : (
@@ -460,7 +483,9 @@ function Rotas() {
                   <p className="font-medium">
                     {i + 1}. {timeBR(v.scheduled_time)} · {v.work_order?.customer?.full_name}
                   </p>
-                  <p className="text-sm text-muted-foreground">{v.work_order?.customer?.full_address}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {v.work_order?.customer?.full_address}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Custo rateado atual: {brl(v.mileage_cost_allocated)}
                   </p>

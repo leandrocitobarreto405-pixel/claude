@@ -21,11 +21,7 @@ import {
 } from "@/lib/data";
 import { templateText } from "@/lib/os";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  getOsDocSettings,
-  saveOsDocSettings,
-  testOsDocIntegration,
-} from "@/lib/os-docs.functions";
+import { getOsDocSettings, saveOsDocSettings, testOsDocIntegration } from "@/lib/os-docs.functions";
 import {
   getCalendarSettings,
   saveCalendarSettings,
@@ -41,9 +37,15 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
     meta: [
       { title: "Configurações — Gestão Estofados" },
-      { name: "description", content: "Metas, taxas de pagamento, comissões, custo por km e mensagens." },
+      {
+        name: "description",
+        content: "Metas, taxas de pagamento, comissões, custo por km e mensagens.",
+      },
       { property: "og:title", content: "Configurações — Gestão Estofados" },
-      { property: "og:description", content: "Metas, taxas de pagamento, comissões, custo por km e mensagens." },
+      {
+        property: "og:description",
+        content: "Metas, taxas de pagamento, comissões, custo por km e mensagens.",
+      },
     ],
   }),
   component: Configuracoes,
@@ -100,11 +102,9 @@ function Configuracoes() {
           <GoogleAgenda />
         </TabsContent>
       </Tabs>
-
     </>
   );
 }
-
 
 type TemplateRow = {
   id: string;
@@ -126,7 +126,9 @@ function Recorrentes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recurring_expenses")
-        .select("id, name, beneficiary, category, default_amount, recurrence, due_day, weekday, active")
+        .select(
+          "id, name, beneficiary, category, default_amount, recurrence, due_day, weekday, active",
+        )
         .order("category")
         .order("name");
       if (error) throw error;
@@ -153,7 +155,8 @@ function Recorrentes() {
     <div className="card-surface overflow-x-auto p-4">
       <h2 className="mb-1 text-lg font-semibold">Despesas recorrentes</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Estes modelos geram automaticamente as despesas de cada mês. Total mensal fixo: {brl(totalMensal)}.
+        Estes modelos geram automaticamente as despesas de cada mês. Total mensal fixo:{" "}
+        {brl(totalMensal)}.
       </p>
       <table className="w-full min-w-[900px] text-sm">
         <thead className="bg-secondary text-left">
@@ -183,9 +186,7 @@ function Recorrentes() {
               </td>
               <td className="px-3 py-2">{t.category}</td>
               <td className="px-3 py-2">
-                {t.recurrence === "weekly"
-                  ? `Semanal (${DIAS_SEMANA[t.weekday ?? 1]})`
-                  : "Mensal"}
+                {t.recurrence === "weekly" ? `Semanal (${DIAS_SEMANA[t.weekday ?? 1]})` : "Mensal"}
               </td>
               <td className="px-3 py-2">
                 {t.recurrence === "weekly" ? (
@@ -209,7 +210,8 @@ function Recorrentes() {
                   className="w-[130px]"
                   onBlur={(e) => {
                     const valor = parseNumberBR(e.target.value);
-                    if (valor !== Number(t.default_amount)) atualizar(t.id, { default_amount: valor });
+                    if (valor !== Number(t.default_amount))
+                      atualizar(t.id, { default_amount: valor });
                   }}
                 />
               </td>
@@ -293,7 +295,12 @@ function MetaCustos() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="mes-meta">Mês</Label>
-            <Input id="mes-meta" type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
+            <Input
+              id="mes-meta"
+              type="month"
+              value={mes}
+              onChange={(e) => setMes(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="meta">Meta (R$)</Label>
@@ -400,8 +407,6 @@ function RegrasMargem() {
     }
   }
 
-
-
   return (
     <section className="card-surface p-5">
       <h2 className="mb-1 text-lg font-semibold">Regras de margem do orçamento</h2>
@@ -437,9 +442,7 @@ function RegrasMargem() {
             onClick={() => void salvarOrigem("automatico")}
           >
             Usar a média automática
-            {custoFixo && custoFixo.mediaHistorico > 0
-              ? ` (${custoFixo.mediaHistorico}/mês)`
-              : ""}
+            {custoFixo && custoFixo.mediaHistorico > 0 ? ` (${custoFixo.mediaHistorico}/mês)` : ""}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -587,7 +590,10 @@ function Taxas() {
 
   async function atualizar(id: string, valor: string) {
     const pct = parseNumberBR(valor);
-    const { error } = await supabase.from("payment_rates").update({ rate_percent: pct }).eq("id", id);
+    const { error } = await supabase
+      .from("payment_rates")
+      .update({ rate_percent: pct })
+      .eq("id", id);
     if (error) {
       toast.error("Não foi possível atualizar a taxa.");
       return;
@@ -645,7 +651,10 @@ function Equipe() {
   }
 
   async function salvarBase(id: string, valor: string) {
-    const { error } = await supabase.from("technicians").update({ base_address: valor }).eq("id", id);
+    const { error } = await supabase
+      .from("technicians")
+      .update({ base_address: valor })
+      .eq("id", id);
     if (error) {
       toast.error("Não foi possível salvar o endereço base.");
       return;
@@ -787,8 +796,8 @@ function GoogleAgenda() {
     <section className="card-surface max-w-3xl p-5">
       <h2 className="mb-1 text-lg font-semibold">Google Agenda</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Com a integração ligada, cada serviço agendado (e cada visita de orçamento) cria um evento na
-        agenda da empresa e convida o técnico pelo e-mail cadastrado em Equipe. Situação atual:{" "}
+        Com a integração ligada, cada serviço agendado (e cada visita de orçamento) cria um evento
+        na agenda da empresa e convida o técnico pelo e-mail cadastrado em Equipe. Situação atual:{" "}
         <strong>{status || "Não configurada"}</strong>.
       </p>
 
@@ -919,7 +928,6 @@ function Mensagem() {
     if (t) setTexto(t);
   }, [template]);
 
-
   async function salvar() {
     try {
       await saveSetting("message_template", texto);
@@ -937,7 +945,11 @@ function Mensagem() {
         {"{{nome_cliente}}"}, {"{{telefone}}"}, {"{{descricao_estofado}}"}, {"{{servico}}"},{" "}
         {"{{endereco_completo}}"}, {"{{valor_formatado}}"}, {"{{tecnico}}"} e {"{{observacao}}"}.
       </p>
-      <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} className="min-h-[260px] font-mono text-sm" />
+      <Textarea
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        className="min-h-[260px] font-mono text-sm"
+      />
       <Button className="mt-4" onClick={salvar}>
         Salvar modelo
       </Button>
@@ -1020,8 +1032,9 @@ function ModelosOS() {
     <section className="card-surface max-w-3xl p-5">
       <h2 className="mb-1 text-lg font-semibold">Modelos de ordem de serviço (Google Docs)</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Cole o link (ou o ID) de cada modelo e da pasta de destino no Google Drive. Deixe em branco para
-        manter o que já está salvo. Situação atual: <strong>{status || "Não configurada"}</strong>.
+        Cole o link (ou o ID) de cada modelo e da pasta de destino no Google Drive. Deixe em branco
+        para manter o que já está salvo. Situação atual:{" "}
+        <strong>{status || "Não configurada"}</strong>.
       </p>
 
       <div className="space-y-4">
@@ -1029,23 +1042,45 @@ function ModelosOS() {
           <Label htmlFor="tpl-hig">
             Modelo Higienização {d?.hasHigienizacao ? "(salvo)" : "(pendente)"}
           </Label>
-          <Input id="tpl-hig" value={hig} onChange={(e) => setHig(e.target.value)} placeholder="Link do Google Docs" />
+          <Input
+            id="tpl-hig"
+            value={hig}
+            onChange={(e) => setHig(e.target.value)}
+            placeholder="Link do Google Docs"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-imp">
             Modelo Impermeabilização {d?.hasImpermeabilizacao ? "(salvo)" : "(pendente)"}
           </Label>
-          <Input id="tpl-imp" value={imp} onChange={(e) => setImp(e.target.value)} placeholder="Link do Google Docs" />
+          <Input
+            id="tpl-imp"
+            value={imp}
+            onChange={(e) => setImp(e.target.value)}
+            placeholder="Link do Google Docs"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-comb">
             Modelo Higienização e Impermeabilização {d?.hasCombinado ? "(salvo)" : "(pendente)"}
           </Label>
-          <Input id="tpl-comb" value={comb} onChange={(e) => setComb(e.target.value)} placeholder="Link do Google Docs" />
+          <Input
+            id="tpl-comb"
+            value={comb}
+            onChange={(e) => setComb(e.target.value)}
+            placeholder="Link do Google Docs"
+          />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="tpl-pasta">Pasta de destino {d?.hasFolder ? "(salva)" : "(pendente)"}</Label>
-          <Input id="tpl-pasta" value={pasta} onChange={(e) => setPasta(e.target.value)} placeholder="Link da pasta do Google Drive" />
+          <Label htmlFor="tpl-pasta">
+            Pasta de destino {d?.hasFolder ? "(salva)" : "(pendente)"}
+          </Label>
+          <Input
+            id="tpl-pasta"
+            value={pasta}
+            onChange={(e) => setPasta(e.target.value)}
+            placeholder="Link da pasta do Google Drive"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-nome">Padrão do nome do documento</Label>

@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Copy, MapPin, Phone, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
@@ -51,18 +57,29 @@ import {
   useControleInsumos,
   useProdutos,
 } from "@/lib/produtos";
-import {
-  TECHNICIAN_EXPENSE_CATEGORIES,
-  saveTechnicianExpense,
-} from "@/lib/technician-expenses";
+import { TECHNICIAN_EXPENSE_CATEGORIES, saveTechnicianExpense } from "@/lib/technician-expenses";
 import { finishOsSharing, getOsMediaOptions, uploadOsMedia } from "@/lib/os-media.functions";
 
 type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
 export function statusTone(status: string) {
-  if (["Concluído", "Concluída", "Pago", "Emitida", "Documento gerado", "Meta atingida"].includes(status))
+  if (
+    ["Concluído", "Concluída", "Pago", "Emitida", "Documento gerado", "Meta atingida"].includes(
+      status,
+    )
+  )
     return "border-success/25 bg-success/12 text-success";
-  if (["Cancelado", "Cancelada", "Não pago", "Vencido", "Erro", "Erro no cálculo", "Falha na geração"].includes(status))
+  if (
+    [
+      "Cancelado",
+      "Cancelada",
+      "Não pago",
+      "Vencido",
+      "Erro",
+      "Erro no cálculo",
+      "Falha na geração",
+    ].includes(status)
+  )
     return "border-destructive/25 bg-destructive/10 text-destructive";
   if (
     [
@@ -78,7 +95,11 @@ export function statusTone(status: string) {
     ].includes(status)
   )
     return "border-warning/40 bg-warning/18 text-[color:var(--warning-foreground)]";
-  if (["Agendado", "Agendada", "Confirmado", "Em execução", "Em andamento", "Calculando"].includes(status))
+  if (
+    ["Agendado", "Agendada", "Confirmado", "Em execução", "Em andamento", "Calculando"].includes(
+      status,
+    )
+  )
     return "border-primary/25 bg-primary/12 text-primary";
   return "border-border bg-muted text-muted-foreground";
 }
@@ -216,7 +237,6 @@ export function VisitDialog({
     }
   }
 
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -241,7 +261,10 @@ export function VisitDialog({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Info label="Estofado" value={visit.upholstery_description || visit.upholstery_type?.name} />
+              <Info
+                label="Estofado"
+                value={visit.upholstery_description || visit.upholstery_type?.name}
+              />
               <Info label="Técnico" value={visit.technician?.name} />
               <Info label="Vendedora" value={wo?.salesperson?.name} />
               <Info label="Origem da venda" value={wo?.sales_origin?.name} />
@@ -269,7 +292,11 @@ export function VisitDialog({
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => copiar(endereco, "Endereço copiado!")}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copiar(endereco, "Endereço copiado!")}
+              >
                 <Copy className="mr-2 size-4" /> Copiar endereço
               </Button>
               {mapsLink(endereco) ? (
@@ -344,27 +371,25 @@ export function VisitDialog({
           </DialogHeader>
 
           <div className="space-y-2">
-            {(
-              [
-                {
-                  value: "no_travel" as const,
-                  titulo: "Reagendar sem deslocamento",
-                  descricao: "O técnico ainda não se deslocou até o cliente.",
-                },
-                {
-                  value: "with_travel" as const,
-                  titulo: "Reagendar mantendo o deslocamento",
-                  descricao:
-                    "O técnico foi até o endereço, mas o serviço precisará ser realizado em outro dia.",
-                },
-                {
-                  value: "recurrence" as const,
-                  titulo: "Reincidência (retorno ao cliente)",
-                  descricao:
-                    "O serviço foi feito, mas o cliente precisa de um retorno. Cria uma nova OS vinculada, sem valor.",
-                },
-              ]
-            ).map((op) => (
+            {[
+              {
+                value: "no_travel" as const,
+                titulo: "Reagendar sem deslocamento",
+                descricao: "O técnico ainda não se deslocou até o cliente.",
+              },
+              {
+                value: "with_travel" as const,
+                titulo: "Reagendar mantendo o deslocamento",
+                descricao:
+                  "O técnico foi até o endereço, mas o serviço precisará ser realizado em outro dia.",
+              },
+              {
+                value: "recurrence" as const,
+                titulo: "Reincidência (retorno ao cliente)",
+                descricao:
+                  "O serviço foi feito, mas o cliente precisa de um retorno. Cria uma nova OS vinculada, sem valor.",
+              },
+            ].map((op) => (
               <button
                 key={op.value}
                 type="button"
@@ -384,7 +409,12 @@ export function VisitDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="nova-data">Nova data</Label>
-              <Input id="nova-data" type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} />
+              <Input
+                id="nova-data"
+                type="date"
+                value={novaData}
+                onChange={(e) => setNovaData(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="novo-horario">Novo horário</Label>
@@ -416,8 +446,9 @@ export function VisitDialog({
           {tipoReagendamento === "with_travel" ? (
             <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
               <p className="text-sm">
-                O atendimento de {dateBR(visit.scheduled_date)} continuará na rota do dia, com o custo de
-                quilometragem preservado, e um novo atendimento será criado para a nova data.
+                O atendimento de {dateBR(visit.scheduled_date)} continuará na rota do dia, com o
+                custo de quilometragem preservado, e um novo atendimento será criado para a nova
+                data.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="motivo-reagendamento">Motivo</Label>
@@ -450,8 +481,8 @@ export function VisitDialog({
           {tipoReagendamento === "recurrence" ? (
             <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <p className="text-sm">
-                Será criada uma nova OS de reincidência vinculada à OS {wo?.os_number}, com valor
-                R$ 0,00 e os mesmos itens. Se o técnico constatar que a causa foi do cliente, o valor
+                Será criada uma nova OS de reincidência vinculada à OS {wo?.os_number}, com valor R$
+                0,00 e os mesmos itens. Se o técnico constatar que a causa foi do cliente, o valor
                 pode ser alterado na nova OS. O atendimento original continua concluído.
               </p>
               <div className="space-y-2">
@@ -492,7 +523,6 @@ export function VisitDialog({
           </div>
         </DialogContent>
       </Dialog>
-
 
       <CompletionDialog
         visit={visit}
@@ -550,7 +580,6 @@ export function CompletionDialog({
   const [arquivosMidia, setArquivosMidia] = useState<File[]>([]);
   const [avisosVideo, setAvisosVideo] = useState<string[]>([]);
 
-
   const { ativo: controleInsumos } = useControleInsumos();
   const tipoProduto = tipoProdutoDoServico(visit.service_type?.name);
   const { data: produtos } = useProdutos(tipoProduto, true);
@@ -592,8 +621,12 @@ export function CompletionDialog({
     enabled: open && Boolean(workOrderId),
     queryFn: () => buscarOpcoesMidia({ data: { workOrderId } }),
   });
-  const destinos: MediaDestination[] = (midiaOpcoesQuery.data?.destinations ??
-    ["Antes", "Depois", "Vídeos", "Controle interno"]) as MediaDestination[];
+  const destinos: MediaDestination[] = (midiaOpcoesQuery.data?.destinations ?? [
+    "Antes",
+    "Depois",
+    "Vídeos",
+    "Controle interno",
+  ]) as MediaDestination[];
   const emailCliente = midiaOpcoesQuery.data?.customerEmail ?? null;
 
   useEffect(() => {
@@ -660,7 +693,6 @@ export function CompletionDialog({
   const gastosSelecionados = TECHNICIAN_EXPENSE_CATEGORIES.filter((c) => c in gastos);
   const totalGastos = gastosSelecionados.reduce((s, c) => s + parseNumberBR(gastos[c] ?? "0"), 0);
 
-
   /** Visitas irmãs da OS: definem se a cobrança acontece neste atendimento. */
   const irmasQuery = useQuery({
     queryKey: ["cobranca_os", workOrderId],
@@ -685,7 +717,8 @@ export function CompletionDialog({
   const totalOs = Number(setupCobranca.negotiatedTotal ?? 0);
   const maisDeUmaVisita = irmas.filter((v) => v.status !== "Cancelado").length > 1;
   /** Última visita da OS combinada: recebe o valor total, não só o valor deste serviço. */
-  const cobrarTotal = cobranca.isCollectionVisit && maisDeUmaVisita && totalOs > valorPrevisto + 0.01;
+  const cobrarTotal =
+    cobranca.isCollectionVisit && maisDeUmaVisita && totalOs > valorPrevisto + 0.01;
   /** Visita sem cobrança prevista (ex.: higienização de uma OS que cobra na impermeabilização). */
   const semCobranca = !cobranca.valorACobrar && maisDeUmaVisita;
 
@@ -898,9 +931,7 @@ export function CompletionDialog({
           {etapas.map((nome, i) => (
             <span
               key={nome}
-              className={`h-1.5 flex-1 rounded-full ${
-                i < indiceEtapa ? "bg-primary" : "bg-muted"
-              }`}
+              className={`h-1.5 flex-1 rounded-full ${i < indiceEtapa ? "bg-primary" : "bg-muted"}`}
             />
           ))}
         </div>
@@ -914,8 +945,8 @@ export function CompletionDialog({
             </p>
             {(produtos ?? []).length === 0 ? (
               <p className="rounded-lg border border-warning/40 bg-warning/10 p-3">
-                Nenhum produto ativo cadastrado para este tipo de serviço. Cadastre em
-                Configurações &gt; Produtos ou siga para a próxima etapa.
+                Nenhum produto ativo cadastrado para este tipo de serviço. Cadastre em Configurações
+                &gt; Produtos ou siga para a próxima etapa.
               </p>
             ) : null}
             {(produtos ?? []).map((p) => (
@@ -986,9 +1017,7 @@ export function CompletionDialog({
                         id={`gasto-${cat}`}
                         inputMode="decimal"
                         value={gastos[cat] ?? ""}
-                        onChange={(e) =>
-                          setGastos((prev) => ({ ...prev, [cat]: e.target.value }))
-                        }
+                        onChange={(e) => setGastos((prev) => ({ ...prev, [cat]: e.target.value }))}
                         placeholder="0,00"
                       />
                     </div>
@@ -1064,7 +1093,6 @@ export function CompletionDialog({
         ) : null}
 
         <div className={`space-y-5 text-sm ${etapa === 3 ? "" : "hidden"}`}>
-
           {semCobranca ? (
             <p className="rounded-lg border border-border bg-muted/40 p-3">
               Sem cobrança neste atendimento.{" "}
@@ -1094,7 +1122,12 @@ export function CompletionDialog({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="valor-final">Valor final do serviço</Label>
-              <Input id="valor-final" inputMode="decimal" value={valorFinal} onChange={(e) => setValorFinal(e.target.value)} />
+              <Input
+                id="valor-final"
+                inputMode="decimal"
+                value={valorFinal}
+                onChange={(e) => setValorFinal(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="data-conclusao">Data da conclusão</Label>
@@ -1292,7 +1325,11 @@ export function CompletionDialog({
           {precisaNota && notaEmitida ? (
             <div className="space-y-2">
               <Label htmlFor="numero-nota">Número da nota fiscal</Label>
-              <Input id="numero-nota" value={numeroNota} onChange={(e) => setNumeroNota(e.target.value)} />
+              <Input
+                id="numero-nota"
+                value={numeroNota}
+                onChange={(e) => setNumeroNota(e.target.value)}
+              />
             </div>
           ) : null}
 
@@ -1305,7 +1342,6 @@ export function CompletionDialog({
               placeholder={integral ? "" : "Descreva o que ficou pendente"}
             />
           </div>
-
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">

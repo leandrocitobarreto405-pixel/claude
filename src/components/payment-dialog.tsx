@@ -171,9 +171,7 @@ export function PaymentDialog({
               {payment.payment_date ? ` · ${dateBR(payment.payment_date)}` : ""}
             </p>
             {payment.reopen_reason ? (
-              <p className="mt-1 text-muted-foreground">
-                Reaberto por: {payment.reopen_reason}
-              </p>
+              <p className="mt-1 text-muted-foreground">Reaberto por: {payment.reopen_reason}</p>
             ) : null}
           </div>
         ) : null}
@@ -196,7 +194,6 @@ export function PaymentDialog({
             </select>
           </div>
         ) : null}
-
 
         {mode === "reabrir" ? (
           <div className="space-y-4">
@@ -325,7 +322,11 @@ export function PaymentDialog({
             Cancelar
           </Button>
           <Button onClick={confirmar} disabled={saving}>
-            {saving ? "Salvando..." : mode === "reabrir" ? "Reabrir pagamento" : "Confirmar pagamento"}
+            {saving
+              ? "Salvando..."
+              : mode === "reabrir"
+                ? "Reabrir pagamento"
+                : "Confirmar pagamento"}
           </Button>
         </div>
       </DialogContent>

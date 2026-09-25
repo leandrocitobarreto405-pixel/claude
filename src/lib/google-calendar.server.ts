@@ -87,7 +87,10 @@ export async function createEvent(input: CalendarEventInput): Promise<CalendarEv
   );
 }
 
-export async function updateEvent(eventId: string, input: CalendarEventInput): Promise<CalendarEvent> {
+export async function updateEvent(
+  eventId: string,
+  input: CalendarEventInput,
+): Promise<CalendarEvent> {
   return call<CalendarEvent>(
     `/calendars/${cal(input.calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
     { method: "PATCH", body: eventBody(input) },
@@ -101,16 +104,22 @@ export async function cancelEvent(calendarId: string, eventId: string) {
   );
   const titulo = atual.summary ?? "";
   const summary = titulo.startsWith("CANCELADO") ? titulo : `CANCELADO — ${titulo}`;
-  await call(`/calendars/${cal(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
-    method: "PATCH",
-    body: { summary, attendees: [] },
-  });
+  await call(
+    `/calendars/${cal(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: "PATCH",
+      body: { summary, attendees: [] },
+    },
+  );
 }
 
 export async function deleteEvent(calendarId: string, eventId: string) {
-  await call(`/calendars/${cal(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
-    method: "DELETE",
-  });
+  await call(
+    `/calendars/${cal(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 /** Confere se a agenda configurada está acessível. */

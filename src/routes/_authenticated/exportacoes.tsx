@@ -13,9 +13,15 @@ export const Route = createFileRoute("/_authenticated/exportacoes")({
   head: () => ({
     meta: [
       { title: "Exportações — Gestão Estofados" },
-      { name: "description", content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês." },
+      {
+        name: "description",
+        content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês.",
+      },
       { property: "og:title", content: "Exportações — Gestão Estofados" },
-      { property: "og:description", content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês." },
+      {
+        property: "og:description",
+        content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês.",
+      },
     ],
   }),
   component: Exportacoes,
@@ -95,7 +101,13 @@ function Exportacoes() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="mes">Mês</Label>
-          <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-[170px]" />
+          <Input
+            id="mes"
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="w-[170px]"
+          />
         </div>
       </div>
 

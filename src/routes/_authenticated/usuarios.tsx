@@ -51,12 +51,12 @@ function Usuarios() {
       if (error) throw error;
       const ids = (data ?? []).map((m) => m.user_id);
       const perfis = ids.length
-        ? (
+        ? ((
             await supabase
               .from("users_profiles")
               .select("id, full_name, email, active")
               .in("id", ids)
-          ).data ?? []
+          ).data ?? [])
         : [];
       return (data ?? []).map((m) => ({
         ...m,
@@ -204,7 +204,9 @@ function Usuarios() {
                 <span>
                   {c.email} · {c.papel}
                 </span>
-                <Badge className={c.aceito_em ? "bg-success text-success-foreground" : "bg-secondary"}>
+                <Badge
+                  className={c.aceito_em ? "bg-success text-success-foreground" : "bg-secondary"}
+                >
                   {c.aceito_em ? "Ativo" : "Aguardando cadastro"}
                 </Badge>
               </div>

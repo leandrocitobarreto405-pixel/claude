@@ -5,7 +5,6 @@ import { cashPaidAmount } from "@/lib/expenses";
 import { fetchReceivables } from "@/lib/receivables";
 import { effectiveVisitValue } from "@/lib/visit-value";
 
-
 export type CompletedVisit = {
   id: string;
   completion_date: string | null;
@@ -30,7 +29,6 @@ export type CompletedVisit = {
   } | null;
 };
 
-
 export type PaymentRow = {
   id: string;
   work_order_id: string;
@@ -50,7 +48,6 @@ export type PaymentRow = {
   reopen_reason: string | null;
   work_order: { id: string; os_number: string; customer: { full_name: string } | null } | null;
 };
-
 
 export type ExpenseRow = {
   id: string;
@@ -89,7 +86,6 @@ const COMPLETED_SELECT = `
     customer:customer_id ( full_name, document_number )
   )
 `;
-
 
 export async function fetchCompletedVisits(from: string, to: string) {
   const { data, error } = await supabase
@@ -156,7 +152,9 @@ export async function fetchPaymentsByServiceMonth(
        is_active, reopened_at, reopen_reason,
        work_order:work_order_id ( id, os_number, customer:customer_id ( full_name ) )`;
 
-  const monthOrderIds = [...new Set(completed.map((v) => v.work_order?.id).filter(Boolean))] as string[];
+  const monthOrderIds = [
+    ...new Set(completed.map((v) => v.work_order?.id).filter(Boolean)),
+  ] as string[];
 
   const queries = [
     supabase
@@ -283,7 +281,13 @@ export async function fetchServiceMonthRevenue(
   // Atendimentos concluídos (qualquer data) das OSs envolvidas, para o rateio.
   const allCompleted = new Map<
     string,
-    { id: string; work_order_id: string; completion_date: string | null; value: number; discount: number }[]
+    {
+      id: string;
+      work_order_id: string;
+      completion_date: string | null;
+      value: number;
+      discount: number;
+    }[]
   >();
   if (orderIds.length > 0) {
     const { data, error } = await supabase
@@ -299,7 +303,9 @@ export async function fetchServiceMonthRevenue(
         id: v.id as string,
         work_order_id: wo,
         completion_date: (v.completion_date as string | null) ?? null,
-        value: round2(effectiveVisitValue(v as { final_value: number | null; visit_value: number })),
+        value: round2(
+          effectiveVisitValue(v as { final_value: number | null; visit_value: number }),
+        ),
         discount: round2(Math.max(0, Number(v.discount_amount ?? 0))),
       });
       allCompleted.set(wo, list);
@@ -487,7 +493,6 @@ export async function fetchServiceMonthRevenue(
   };
 }
 
-
 export async function fetchExpenses(from: string, to: string) {
   const { data, error } = await supabase
     .from("expenses")
@@ -622,15 +627,12 @@ export async function fetchOriginBreakdown(from: string, to: string): Promise<Or
   };
 }
 
-
 export function useOriginBreakdown(from: string, to: string) {
   return useQuery({
     queryKey: ["origin_breakdown", from, to],
     queryFn: () => fetchOriginBreakdown(from, to),
   });
 }
-
-
 
 export type MonthSummary = {
   soldGross: number;
@@ -677,7 +679,6 @@ export type MonthSummary = {
   expensesUnpaid: number;
   /** Desembolso de caixa no mês, pela data do pagamento. */
   cashOut: number;
-
 };
 
 export function useMonthSummary(month: string) {
@@ -696,7 +697,10 @@ export function useMonthSummary(month: string) {
           .select("id, total_gross_value, status")
           .gte("sale_date", from)
           .lte("sale_date", to),
-        supabase.from("invoice_tasks").select("id", { count: "exact", head: true }).eq("status", "Pendente"),
+        supabase
+          .from("invoice_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "Pendente"),
         supabase
           .from("expenses")
           .select("status, paid_amount, actual_amount")
@@ -709,7 +713,6 @@ export function useMonthSummary(month: string) {
           .gte("created_at", `${from}T00:00:00`)
           .lte("created_at", `${to}T23:59:59`),
       ]);
-
 
       const payments = revenueBase.payments;
 
@@ -769,20 +772,14 @@ export function useMonthSummary(month: string) {
       const expensesPaid = fixedCosts;
       const expensesUnpaid = round2(
         validExpenses.reduce(
-          (s, e) =>
-            s + Math.max(0, Number(e.expected_amount ?? 0) - round2(cashPaidAmount(e))),
+          (s, e) => s + Math.max(0, Number(e.expected_amount ?? 0) - round2(cashPaidAmount(e))),
           0,
         ),
       );
       const expensesPending = expensesUnpaid;
       const cashOut = round2(
-        (cashOutRes.data ?? []).reduce(
-          (s, e) => s + cashPaidAmount(e as unknown as ExpenseRow),
-          0,
-        ),
+        (cashOutRes.data ?? []).reduce((s, e) => s + cashPaidAmount(e as unknown as ExpenseRow), 0),
       );
-
-
 
       // CMV: produtos consumidos nos serviços do período (custo congelado no lançamento).
       const cmv = round2(
@@ -792,7 +789,6 @@ export function useMonthSummary(month: string) {
       const variableCosts = fees + commissions + mileage + cmv;
       const netProfit = revenue - variableCosts - fixedCosts;
       const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-
 
       const receivables = await fetchReceivables();
 

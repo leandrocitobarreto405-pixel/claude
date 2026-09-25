@@ -67,9 +67,17 @@ export const Route = createFileRoute("/_authenticated/crm/integracoes")({
   head: () => ({
     meta: [
       { title: "Integrações de Leads — Turbine Clean" },
-      { name: "description", content: "Conecte Meta, Google Ads e formulários próprios para criar leads automaticamente no CRM." },
+      {
+        name: "description",
+        content:
+          "Conecte Meta, Google Ads e formulários próprios para criar leads automaticamente no CRM.",
+      },
       { property: "og:title", content: "Integrações de Leads — Turbine Clean" },
-      { property: "og:description", content: "Conecte Meta, Google Ads e formulários próprios para criar leads automaticamente no CRM." },
+      {
+        property: "og:description",
+        content:
+          "Conecte Meta, Google Ads e formulários próprios para criar leads automaticamente no CRM.",
+      },
     ],
   }),
   component: LeadIntegrations,
@@ -210,11 +218,7 @@ function LeadIntegrations() {
         description="Conecte Meta Lead Ads, Google Ads e formulários do site para criar leads automaticamente no CRM."
         actions={
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => void integrations.refetch()}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={() => void integrations.refetch()} className="gap-2">
               <RefreshCw className="size-4" /> Atualizar
             </Button>
             <Button onClick={abrirCriar} className="gap-2">
@@ -271,8 +275,8 @@ function LeadIntegrations() {
               <span className="font-mono">Authorization</span>.
             </li>
             <li className="flex gap-2">
-              <span className="text-primary">•</span>
-              O token no path é único por integração e pode ser revogado a qualquer momento.
+              <span className="text-primary">•</span>O token no path é único por integração e pode
+              ser revogado a qualquer momento.
             </li>
           </ul>
         </SectionCard>
@@ -281,7 +285,10 @@ function LeadIntegrations() {
       <h2 className="mt-8 text-lg font-semibold text-navy">Integrações cadastradas</h2>
       <div className="mt-4 grid gap-4">
         {!items.length && !integrations.isLoading ? (
-          <SectionCard title="Nenhuma integração" description="Cadastre sua primeira fonte de leads.">
+          <SectionCard
+            title="Nenhuma integração"
+            description="Cadastre sua primeira fonte de leads."
+          >
             <Button onClick={abrirCriar} className="gap-2">
               <Plus className="size-4" /> Nova integração
             </Button>
@@ -290,8 +297,12 @@ function LeadIntegrations() {
         {items.map((item) => {
           const source = SOURCE_OPTIONS.find((s) => s.value === item.source_type);
           const url = `${baseUrl}/api/public/hooks/leads/${item.source_type}/${item.webhook_token}`;
-          const campaignName = campaigns.data?.find((c) => c.id === item.default_campaign_id)?.campaign_name;
-          const salespersonName = salespeople.data?.find((s) => s.id === item.default_salesperson_id)?.name;
+          const campaignName = campaigns.data?.find(
+            (c) => c.id === item.default_campaign_id,
+          )?.campaign_name;
+          const salespersonName = salespeople.data?.find(
+            (s) => s.id === item.default_salesperson_id,
+          )?.name;
           return (
             <SectionCard
               key={item.id}
@@ -372,7 +383,13 @@ function LeadIntegrations() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="name">Nome da integração</Label>
-                <Input id="name" name="name" defaultValue={editing?.name ?? ""} required maxLength={120} />
+                <Input
+                  id="name"
+                  name="name"
+                  defaultValue={editing?.name ?? ""}
+                  required
+                  maxLength={120}
+                />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="source_type">Tipo de fonte</Label>
@@ -385,7 +402,12 @@ function LeadIntegrations() {
                   }}
                   options={SOURCE_OPTIONS}
                 />
-                <input id="source_type_input" type="hidden" name="source_type" value={editing?.source_type ?? "meta_lead_ads"} />
+                <input
+                  id="source_type_input"
+                  type="hidden"
+                  name="source_type"
+                  value={editing?.source_type ?? "meta_lead_ads"}
+                />
               </div>
             </div>
 
@@ -420,15 +442,23 @@ function LeadIntegrations() {
                   id="default_campaign_id"
                   value={editing?.default_campaign_id ?? ""}
                   onChange={(v) => {
-                    const input = document.getElementById("default_campaign_id_input") as HTMLInputElement;
+                    const input = document.getElementById(
+                      "default_campaign_id_input",
+                    ) as HTMLInputElement;
                     if (input) input.value = v;
                   }}
                   options={[
                     { value: "", label: "Nenhuma" },
-                    ...(campaigns.data?.map((c) => ({ value: c.id, label: c.campaign_name })) ?? []),
+                    ...(campaigns.data?.map((c) => ({ value: c.id, label: c.campaign_name })) ??
+                      []),
                   ]}
                 />
-                <input id="default_campaign_id_input" type="hidden" name="default_campaign_id" value={editing?.default_campaign_id ?? ""} />
+                <input
+                  id="default_campaign_id_input"
+                  type="hidden"
+                  name="default_campaign_id"
+                  value={editing?.default_campaign_id ?? ""}
+                />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="default_salesperson_id">Vendedor padrão</Label>
@@ -436,7 +466,9 @@ function LeadIntegrations() {
                   id="default_salesperson_id"
                   value={editing?.default_salesperson_id ?? ""}
                   onChange={(v) => {
-                    const input = document.getElementById("default_salesperson_id_input") as HTMLInputElement;
+                    const input = document.getElementById(
+                      "default_salesperson_id_input",
+                    ) as HTMLInputElement;
                     if (input) input.value = v;
                   }}
                   options={[
@@ -444,7 +476,12 @@ function LeadIntegrations() {
                     ...(salespeople.data?.map((s) => ({ value: s.id, label: s.name })) ?? []),
                   ]}
                 />
-                <input id="default_salesperson_id_input" type="hidden" name="default_salesperson_id" value={editing?.default_salesperson_id ?? ""} />
+                <input
+                  id="default_salesperson_id_input"
+                  type="hidden"
+                  name="default_salesperson_id"
+                  value={editing?.default_salesperson_id ?? ""}
+                />
               </div>
             </div>
 
@@ -462,7 +499,11 @@ function LeadIntegrations() {
                   <Input
                     id={`map_${key}`}
                     name={`map_${key}`}
-                    defaultValue={defaultNameFor(key, editing?.source_type ?? "meta_lead_ads", editing?.field_mapping ?? {})}
+                    defaultValue={defaultNameFor(
+                      key,
+                      editing?.source_type ?? "meta_lead_ads",
+                      editing?.field_mapping ?? {},
+                    )}
                     placeholder={key === "phone" ? "obrigatório" : "nome no JSON"}
                   />
                 </div>
@@ -497,7 +538,12 @@ function LeadIntegrations() {
           <div className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="test_source">Tipo de fonte</Label>
-              <NativeSelect id="test_source" value={testSource} onChange={setTestSource} options={SOURCE_OPTIONS} />
+              <NativeSelect
+                id="test_source"
+                value={testSource}
+                onChange={setTestSource}
+                options={SOURCE_OPTIONS}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="test_payload">Payload JSON</Label>

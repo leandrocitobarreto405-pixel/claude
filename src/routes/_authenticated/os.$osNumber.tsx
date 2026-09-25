@@ -29,7 +29,12 @@ import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { clearVisitDiscount } from "@/lib/discounts";
 import { brl, dateBR, dateTimeBR, timeBR, whatsappLink } from "@/lib/format";
-import { generateOsDocument, generateOsWarranty, getOsDocument, getOsWarranty } from "@/lib/os-docs.functions";
+import {
+  generateOsDocument,
+  generateOsWarranty,
+  getOsDocument,
+  getOsWarranty,
+} from "@/lib/os-docs.functions";
 import {
   createCustomerFolderLink,
   getOsMedia,
@@ -48,9 +53,15 @@ export const Route = createFileRoute("/_authenticated/os/$osNumber")({
   head: () => ({
     meta: [
       { title: "Detalhe da OS — Turbine Clean" },
-      { name: "description", content: "Dados da ordem de serviço, itens e documento no Google Docs." },
+      {
+        name: "description",
+        content: "Dados da ordem de serviço, itens e documento no Google Docs.",
+      },
       { property: "og:title", content: "Detalhe da OS — Turbine Clean" },
-      { property: "og:description", content: "Dados da ordem de serviço, itens e documento no Google Docs." },
+      {
+        property: "og:description",
+        content: "Dados da ordem de serviço, itens e documento no Google Docs.",
+      },
     ],
   }),
   component: OsDetalhe,
@@ -142,7 +153,12 @@ type Os = {
   cancellation_reason: string | null;
   deleted_at: string | null;
   deletion_reason: string | null;
-  customer: { id: string; full_name: string; phone: string | null; full_address: string | null } | null;
+  customer: {
+    id: string;
+    full_name: string;
+    phone: string | null;
+    full_address: string | null;
+  } | null;
   salesperson: { name: string } | null;
   visits: Visit[];
   payments: PaymentFull[];
@@ -151,9 +167,10 @@ type Os = {
 function OsDetalhe() {
   const queryClient = useQueryClient();
   const [desfazendoDesconto, setDesfazendoDesconto] = useState<string | null>(null);
-  const [dialogoPagamento, setDialogoPagamento] = useState<
-    { payment: PaymentFull | null; mode: "registrar" | "reabrir" | "criar" } | null
-  >(null);
+  const [dialogoPagamento, setDialogoPagamento] = useState<{
+    payment: PaymentFull | null;
+    mode: "registrar" | "reabrir" | "criar";
+  } | null>(null);
   const { osNumber } = Route.useParams();
   const navigate = useNavigate();
   const { user } = useSession();
@@ -242,24 +259,26 @@ function OsDetalhe() {
     setArquivosMidia(selected);
     const longVideos: string[] = [];
     await Promise.all(
-      selected.filter((file) => file.type.startsWith("video/")).map(
-        (file) =>
-          new Promise<void>((resolve) => {
-            const video = document.createElement("video");
-            const url = URL.createObjectURL(file);
-            video.preload = "metadata";
-            video.onloadedmetadata = () => {
-              if (video.duration > 60) longVideos.push(file.name);
-              URL.revokeObjectURL(url);
-              resolve();
-            };
-            video.onerror = () => {
-              URL.revokeObjectURL(url);
-              resolve();
-            };
-            video.src = url;
-          }),
-      ),
+      selected
+        .filter((file) => file.type.startsWith("video/"))
+        .map(
+          (file) =>
+            new Promise<void>((resolve) => {
+              const video = document.createElement("video");
+              const url = URL.createObjectURL(file);
+              video.preload = "metadata";
+              video.onloadedmetadata = () => {
+                if (video.duration > 60) longVideos.push(file.name);
+                URL.revokeObjectURL(url);
+                resolve();
+              };
+              video.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve();
+              };
+              video.src = url;
+            }),
+        ),
     );
     setAvisosVideo(longVideos);
   }
@@ -323,7 +342,6 @@ function OsDetalhe() {
       setGerandoTermo(false);
     }
   }
-
 
   const historicoQuery = useQuery({
     queryKey: ["os_historico", workOrderId],
@@ -573,7 +591,9 @@ function OsDetalhe() {
             <Button variant="outline" asChild>
               <Link to="/oss">Voltar</Link>
             </Button>
-            <Button onClick={() => void navigate({ to: "/nova-os", search: { editar: os.os_number } })}>
+            <Button
+              onClick={() => void navigate({ to: "/nova-os", search: { editar: os.os_number } })}
+            >
               <Pencil className="mr-2 size-4" /> Editar OS
             </Button>
           </div>
@@ -758,7 +778,9 @@ function OsDetalhe() {
                 >
                   <option value="">Automático — {collectionRuleLabel(regraSugerida)}</option>
                   {COLLECTION_RULES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -892,7 +914,9 @@ function OsDetalhe() {
                   <tbody>
                     {os.payments.map((p) => (
                       <tr key={p.id} className="border-t border-border">
-                        <td className="px-3 py-2">{p.payment_date ? dateBR(p.payment_date) : "—"}</td>
+                        <td className="px-3 py-2">
+                          {p.payment_date ? dateBR(p.payment_date) : "—"}
+                        </td>
                         <td className="px-3 py-2">
                           {p.payment_channel} · {p.payment_type}
                           {p.installments > 1 ? ` ${p.installments}x` : ""}
@@ -907,7 +931,9 @@ function OsDetalhe() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setDialogoPagamento({ payment: p, mode: "registrar" })}
+                                onClick={() =>
+                                  setDialogoPagamento({ payment: p, mode: "registrar" })
+                                }
                               >
                                 {p.reopen_reason ? "Registrar novo pagamento" : "Marcar como pago"}
                               </Button>
@@ -916,14 +942,18 @@ function OsDetalhe() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => setDialogoPagamento({ payment: p, mode: "registrar" })}
+                                  onClick={() =>
+                                    setDialogoPagamento({ payment: p, mode: "registrar" })
+                                  }
                                 >
                                   Editar
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => setDialogoPagamento({ payment: p, mode: "reabrir" })}
+                                  onClick={() =>
+                                    setDialogoPagamento({ payment: p, mode: "reabrir" })
+                                  }
                                 >
                                   Reabrir
                                 </Button>
@@ -1037,8 +1067,8 @@ function OsDetalhe() {
               ) : null}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              “Atualizar documento” substitui o arquivo atual. “Gerar nova versão” mantém o anterior e
-              cria uma versão nova.
+              “Atualizar documento” substitui o arquivo atual. “Gerar nova versão” mantém o anterior
+              e cria uma versão nova.
             </p>
           </section>
 
@@ -1124,7 +1154,8 @@ function OsDetalhe() {
                   </p>
                 ) : opcoesMidia.data?.customerEmail ? (
                   <p className="text-sm text-muted-foreground">
-                    Ao concluir o serviço a pasta é compartilhada com {opcoesMidia.data.customerEmail}.
+                    Ao concluir o serviço a pasta é compartilhada com{" "}
+                    {opcoesMidia.data.customerEmail}.
                   </p>
                 ) : (
                   <p className="text-sm text-warning">
@@ -1150,16 +1181,24 @@ function OsDetalhe() {
                 ) : null}
                 {avisosVideo.length ? (
                   <p className="text-sm text-warning">
-                    {avisosVideo.length} vídeo(s) têm mais de 60 segundos. O envio continua permitido.
+                    {avisosVideo.length} vídeo(s) têm mais de 60 segundos. O envio continua
+                    permitido.
                   </p>
                 ) : null}
               </div>
 
-              <Button onClick={() => void enviarArquivos()} disabled={!arquivosMidia.length || enviandoMidia}>
+              <Button
+                onClick={() => void enviarArquivos()}
+                disabled={!arquivosMidia.length || enviandoMidia}
+              >
                 <Upload className="mr-2 size-4" />
                 {enviandoMidia ? "Enviando arquivos..." : "Enviar arquivos"}
               </Button>
-              <Button variant="outline" onClick={() => void copiarLinkCliente()} disabled={copiandoPasta}>
+              <Button
+                variant="outline"
+                onClick={() => void copiarLinkCliente()}
+                disabled={copiandoPasta}
+              >
                 <FolderOpen className="mr-2 size-4" />
                 {copiandoPasta ? "Preparando link..." : "Copiar link para o cliente"}
               </Button>
@@ -1174,7 +1213,10 @@ function OsDetalhe() {
               ) : (
                 <ul className="grid gap-2 text-sm">
                   {(midiasQuery.data ?? []).map((arquivo) => (
-                    <li key={arquivo.id} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0">
+                    <li
+                      key={arquivo.id}
+                      className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"
+                    >
                       <div className="min-w-0">
                         <p className="truncate font-medium">{arquivo.file_name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -1183,7 +1225,12 @@ function OsDetalhe() {
                       </div>
                       {arquivo.google_file_url ? (
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={arquivo.google_file_url} target="_blank" rel="noreferrer" aria-label={`Abrir ${arquivo.file_name}`}>
+                          <a
+                            href={arquivo.google_file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Abrir ${arquivo.file_name}`}
+                          >
                             <ExternalLink className="size-4" />
                           </a>
                         </Button>
@@ -1194,7 +1241,6 @@ function OsDetalhe() {
               )}
             </div>
           </section>
-
 
           <section className="card-surface p-5">
             <h2 className="mb-3 text-lg font-semibold">Ações da OS</h2>
@@ -1221,7 +1267,9 @@ function OsDetalhe() {
                   placeholder="Ex.: cliente desistiu"
                 />
                 <div className="flex gap-2">
-                  <Button onClick={() => void confirmarCancelamento()}>Confirmar cancelamento</Button>
+                  <Button onClick={() => void confirmarCancelamento()}>
+                    Confirmar cancelamento
+                  </Button>
                   <Button variant="ghost" onClick={() => setAcaoAberta(null)}>
                     Voltar
                   </Button>
@@ -1273,6 +1321,5 @@ function OsDetalhe() {
         onDone={() => void osQuery.refetch()}
       />
     </>
-
   );
 }

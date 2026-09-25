@@ -79,17 +79,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Lovable App" },
-      { name: "description", content: "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização." },
+      {
+        name: "description",
+        content:
+          "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização.",
+      },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização." },
+      {
+        property: "og:description",
+        content:
+          "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5e54605-7fb3-44c8-9f9b-7120f6f4085b/id-preview-67e71186--be2075a7-0c81-417d-8280-5ebccc9a7987.lovable.app-1785727604517.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5e54605-7fb3-44c8-9f9b-7120f6f4085b/id-preview-67e71186--be2075a7-0c81-417d-8280-5ebccc9a7987.lovable.app-1785727604517.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Serviço Certo gerencia operações pós-venda para empresas de limpeza e impermeabilização.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5e54605-7fb3-44c8-9f9b-7120f6f4085b/id-preview-67e71186--be2075a7-0c81-417d-8280-5ebccc9a7987.lovable.app-1785727604517.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5e54605-7fb3-44c8-9f9b-7120f6f4085b/id-preview-67e71186--be2075a7-0c81-417d-8280-5ebccc9a7987.lovable.app-1785727604517.png",
+      },
       { name: "theme-color", content: "#123B5D" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -106,7 +126,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
     ],
-
   }),
   shellComponent: RootShell,
   component: RootComponent,

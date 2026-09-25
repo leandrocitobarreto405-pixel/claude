@@ -23,8 +23,7 @@ export function InstallPrompt() {
     if (instalado) return;
 
     const ua = window.navigator.userAgent;
-    const iosSafari =
-      /iPad|iPhone|iPod/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+    const iosSafari = /iPad|iPhone|iPod/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
     const telaPequena = window.innerWidth < 1024;
 
     if (iosSafari && telaPequena) setMostrarIos(true);
@@ -85,12 +84,7 @@ export function InstallPrompt() {
           </p>
         )}
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Fechar aviso de instalação"
-        onClick={fechar}
-      >
+      <Button variant="ghost" size="icon" aria-label="Fechar aviso de instalação" onClick={fechar}>
         <X className="size-4" />
       </Button>
     </div>

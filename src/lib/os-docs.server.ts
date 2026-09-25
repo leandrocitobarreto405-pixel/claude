@@ -32,7 +32,11 @@ async function admin() {
 
 export async function readSettings(): Promise<OsDocSettings> {
   const db = await admin();
-  const { data } = await db.from("app_settings").select("value").eq("key", SETTINGS_KEY).maybeSingle();
+  const { data } = await db
+    .from("app_settings")
+    .select("value")
+    .eq("key", SETTINGS_KEY)
+    .maybeSingle();
   const v = (data?.value ?? {}) as Partial<OsDocSettings>;
   return {
     enabled: v.enabled ?? false,
@@ -55,7 +59,8 @@ export async function saveSettings(input: {
   pasta: string;
 }) {
   const current = await readSettings();
-  type IdKey = "templateHigienizacao" | "templateImpermeabilizacao" | "templateCombinado" | "folderId";
+  type IdKey =
+    "templateHigienizacao" | "templateImpermeabilizacao" | "templateCombinado" | "folderId";
   const campos: Array<[IdKey, string, string, "doc" | "pasta"]> = [
     ["templateHigienizacao", input.higienizacao, "modelo de higienização", "doc"],
     ["templateImpermeabilizacao", input.impermeabilizacao, "modelo de impermeabilização", "doc"],
@@ -86,7 +91,6 @@ export async function saveSettings(input: {
     next[key] = id;
   }
 
-
   const db = await admin();
   const { error } = await db
     .from("app_settings")
@@ -97,7 +101,12 @@ export async function saveSettings(input: {
 
 export async function testIntegration() {
   const s = await readSettings();
-  if (!s.templateHigienizacao || !s.templateImpermeabilizacao || !s.templateCombinado || !s.folderId)
+  if (
+    !s.templateHigienizacao ||
+    !s.templateImpermeabilizacao ||
+    !s.templateCombinado ||
+    !s.folderId
+  )
     throw new Error("Integração não configurada. Informe os três modelos e a pasta de destino.");
 
   for (const [id, rotulo] of [
@@ -110,7 +119,11 @@ export async function testIntegration() {
       throw new Error(`O modelo de ${rotulo} não é um documento do Google Docs.`);
   }
 
-  const copia = await copyFile(s.templateHigienizacao, "Teste de integração — Turbine Clean", s.folderId);
+  const copia = await copyFile(
+    s.templateHigienizacao,
+    "Teste de integração — Turbine Clean",
+    s.folderId,
+  );
   await replacePlaceholders(copia.id, { NUMERO_OS: "TESTE" });
   await deleteFile(copia.id);
   return { ok: true };
@@ -164,7 +177,11 @@ const SELECT = `
 
 async function loadWorkOrder(workOrderId: string): Promise<WorkOrderData> {
   const db = await admin();
-  const { data, error } = await db.from("work_orders").select(SELECT).eq("id", workOrderId).single();
+  const { data, error } = await db
+    .from("work_orders")
+    .select(SELECT)
+    .eq("id", workOrderId)
+    .single();
   if (error || !data) throw new Error("Ordem de serviço não encontrada.");
   return data as unknown as WorkOrderData;
 }
@@ -347,7 +364,12 @@ export async function generateDocument(
 ) {
   const s = await readSettings();
   if (!s.enabled) throw new Error("A integração com o Google está desativada nas Configurações.");
-  if (!s.templateHigienizacao || !s.templateImpermeabilizacao || !s.templateCombinado || !s.folderId)
+  if (
+    !s.templateHigienizacao ||
+    !s.templateImpermeabilizacao ||
+    !s.templateCombinado ||
+    !s.folderId
+  )
     throw new Error("Integração não configurada. Informe os três modelos e a pasta de destino.");
 
   const db = await admin();
@@ -379,11 +401,13 @@ export async function generateDocument(
     })
     .select("id")
     .single();
-  if (registroError || !registro) throw new Error("Não foi possível registrar a geração do documento.");
+  if (registroError || !registro)
+    throw new Error("Não foi possível registrar a geração do documento.");
 
   try {
     const pastas = await ensureMaterialsFolders(workOrderId);
-    if (!pastas.materials_folder_id) throw new Error("A pasta desta OS não foi criada no Google Drive.");
+    if (!pastas.materials_folder_id)
+      throw new Error("A pasta desta OS não foi criada no Google Drive.");
     const copia = await copyFile(templateId, nome, pastas.materials_folder_id);
     const combinado = tipo === "Higienização e Impermeabilização";
 
@@ -495,7 +519,9 @@ function warrantyData(wo: WarrantyOrder) {
 
   const estofados = new Set<string>();
   for (const v of imper) {
-    const itens = (v.service_items ?? []).filter((i) => i.active !== false && Number(i.quantity) > 0);
+    const itens = (v.service_items ?? []).filter(
+      (i) => i.active !== false && Number(i.quantity) > 0,
+    );
     if (itens.length) {
       for (const i of itens) {
         const nome = (i.description || i.upholstery_type?.name || "").trim();
@@ -528,22 +554,19 @@ function warrantyBlocks(d: NonNullable<ReturnType<typeof warrantyData>>) {
   b.push({ text: "" });
   b.push({ text: "Garantia Turbine Clean – 12 Meses de Proteção e Cuidado", heading: 2 });
   b.push({
-    text:
-      "A Turbine Clean assegura ao cliente que o serviço de impermeabilização de estofados realizado está coberto por garantia de 1 (um) ano a partir da data do serviço.",
+    text: "A Turbine Clean assegura ao cliente que o serviço de impermeabilização de estofados realizado está coberto por garantia de 1 (um) ano a partir da data do serviço.",
   });
   b.push({ text: "" });
   b.push({ text: "Cobertura da Garantia", heading: 2 });
   b.push({ text: "Durante o período de vigência, o cliente tem direito a:" });
   b.push({
-    text:
-      "• 1 ano de proteção contra penetração imediata de líquidos (quando limpos corretamente após o derramamento).",
+    text: "• 1 ano de proteção contra penetração imediata de líquidos (quando limpos corretamente após o derramamento).",
   });
   b.push({
     text: "• 3 visitas técnicas gratuitas, mediante agendamento, para avaliação preventiva ou corretiva.",
   });
   b.push({
-    text:
-      "• Reaplicação sem custo adicional, caso o serviço tenha sido comprometido por falha de execução ou baixa fixação do produto.",
+    text: "• Reaplicação sem custo adicional, caso o serviço tenha sido comprometido por falha de execução ou baixa fixação do produto.",
   });
   b.push({ text: "" });
   b.push({ text: "A Garantia NÃO cobre:", heading: 2 });
@@ -551,33 +574,30 @@ function warrantyBlocks(d: NonNullable<ReturnType<typeof warrantyData>>) {
     text: "• Danos causados por uso inadequado do estofado (arranhões, rasgos, fogo, corte, tinta, etc.).",
   });
   b.push({
-    text:
-      "• Problemas decorrentes de limpeza com produtos abrasivos ou sem orientação da Turbine Clean.",
+    text: "• Problemas decorrentes de limpeza com produtos abrasivos ou sem orientação da Turbine Clean.",
   });
   b.push({
     text: "• Uso do estofado antes da secagem completa (mínimo de 2 horas após a aplicação).",
   });
   b.push({
-    text:
-      "• Infiltrações/manchas causadas por fluídos corporais de pets/humanos (urina, sangue, fezes, vômito etc).",
+    text: "• Infiltrações/manchas causadas por fluídos corporais de pets/humanos (urina, sangue, fezes, vômito etc).",
   });
   b.push({
-    text:
-      "• Sujeiras superficiais decorrentes do uso diário, como marcas de mãos, pés, roupas sujas, gordura corporal, poeira, resíduos ou encardimento natural do tecido.",
+    text: "• Sujeiras superficiais decorrentes do uso diário, como marcas de mãos, pés, roupas sujas, gordura corporal, poeira, resíduos ou encardimento natural do tecido.",
   });
   b.push({ text: "" });
   b.push({
-    text:
-      "A impermeabilização tem como principal função proteger o tecido contra a penetração de líquidos e reduzir o risco de manchas permanentes por infiltração, não impedindo o acúmulo de sujeiras superficiais causadas pelo uso cotidiano.",
+    text: "A impermeabilização tem como principal função proteger o tecido contra a penetração de líquidos e reduzir o risco de manchas permanentes por infiltração, não impedindo o acúmulo de sujeiras superficiais causadas pelo uso cotidiano.",
   });
   b.push({
-    text:
-      "Para manter o estofado conservado, o cliente deverá seguir corretamente as orientações do Guia de Cuidados Pós-Impermeabilização. Caso deseje, a Turbine Clean poderá realizar limpeza profissional de manutenção mediante cobrança adicional.",
+    text: "Para manter o estofado conservado, o cliente deverá seguir corretamente as orientações do Guia de Cuidados Pós-Impermeabilização. Caso deseje, a Turbine Clean poderá realizar limpeza profissional de manutenção mediante cobrança adicional.",
   });
   b.push({ text: "" });
   b.push({ text: "Como Acionar a Garantia", heading: 2 });
   b.push({ text: "Em caso de necessidade, o cliente deverá:" });
-  b.push({ text: "• Entrar em contato pelo WhatsApp da Turbine Clean no número: (11) 96807-0853." });
+  b.push({
+    text: "• Entrar em contato pelo WhatsApp da Turbine Clean no número: (11) 96807-0853.",
+  });
   b.push({ text: "• Enviar foto ou vídeo do problema identificado." });
   b.push({ text: "• Informar nome completo e data do serviço." });
   b.push({
@@ -585,13 +605,14 @@ function warrantyBlocks(d: NonNullable<ReturnType<typeof warrantyData>>) {
   });
   b.push({ text: "" });
   b.push({ text: "Observações Importantes", heading: 2 });
-  b.push({ text: "A garantia é intransferível e válida apenas para o estofado atendido originalmente." });
+  b.push({
+    text: "A garantia é intransferível e válida apenas para o estofado atendido originalmente.",
+  });
   b.push({
     text: "O cliente deverá seguir as orientações do Manual Pós-Serviço, entregue junto a este termo.",
   });
   b.push({
-    text:
-      "Após a aplicação do produto impermeabilizante, é expressamente proibido ao cliente realizar testes por conta própria, como derramar líquidos ou pressionar a superfície propositalmente. Somente o técnico responsável está autorizado a realizar testes de eficácia, seguindo os critérios técnicos e o tempo de cura adequado. Qualquer tentativa de teste feita pelo cliente pode comprometer o desempenho do produto e invalidar a garantia.",
+    text: "Após a aplicação do produto impermeabilizante, é expressamente proibido ao cliente realizar testes por conta própria, como derramar líquidos ou pressionar a superfície propositalmente. Somente o técnico responsável está autorizado a realizar testes de eficácia, seguindo os critérios técnicos e o tempo de cura adequado. Qualquer tentativa de teste feita pelo cliente pode comprometer o desempenho do produto e invalidar a garantia.",
   });
   b.push({ text: "" });
   b.push({ text: "Turbine Clean – Excelência em Higienização e Impermeabilização", bold: true });
@@ -648,7 +669,9 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
   const wo = await loadWarrantyOrder(workOrderId);
   const dados = warrantyData(wo);
   if (!dados)
-    throw new Error("Esta OS não tem serviço de impermeabilização, então não gera termo de garantia.");
+    throw new Error(
+      "Esta OS não tem serviço de impermeabilização, então não gera termo de garantia.",
+    );
 
   const anterior = await loadWarranty(workOrderId);
   const versao = (anterior.document?.version ?? 0) + 1;
@@ -673,7 +696,8 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
   try {
     const { createDocument, moveFile, writeBlocks } = await import("@/lib/google-docs.server");
     const pastas = await ensureMaterialsFolders(workOrderId);
-    if (!pastas.materials_folder_id) throw new Error("A pasta desta OS não foi criada no Google Drive.");
+    if (!pastas.materials_folder_id)
+      throw new Error("A pasta desta OS não foi criada no Google Drive.");
 
     const doc = await createDocument(nome);
     await writeBlocks(doc.documentId, warrantyBlocks(dados));
@@ -695,7 +719,10 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
       .eq("id", registro.id);
 
     if (anterior.document) {
-      await db.from("work_order_documents").update({ is_active: false }).eq("id", anterior.document.id);
+      await db
+        .from("work_order_documents")
+        .update({ is_active: false })
+        .eq("id", anterior.document.id);
     }
 
     return { ok: true, url, name: nome, version: versao };

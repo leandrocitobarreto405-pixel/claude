@@ -20,7 +20,8 @@ export type Produto = {
   ativo: boolean;
 };
 
-const SELECT = "id, nome, tipo_servico, volume_embalagem_ml, preco_pago, custo_por_ml, estoque_atual_ml, ativo";
+const SELECT =
+  "id, nome, tipo_servico, volume_embalagem_ml, preco_pago, custo_por_ml, estoque_atual_ml, ativo";
 
 /** Produtos cadastrados. `tipo` filtra por tipo de serviço. */
 export function useProdutos(tipo?: ProdutoTipo | null, onlyActive = false) {

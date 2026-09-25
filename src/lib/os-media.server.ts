@@ -37,7 +37,10 @@ async function configuredRootFolder() {
 }
 
 function cleanFolderName(value: string) {
-  return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isHig(name: string) {
@@ -288,9 +291,6 @@ export async function shareWithCustomerEmail(workOrderId: string) {
   if (!folders.materials_folder_id) throw new Error("A pasta desta OS não existe no Drive.");
   await shareFolderWithEmail(folders.materials_folder_id, email);
   const db = await admin();
-  await db
-    .from("os_drive_folders")
-    .update({ customer_shared_email: email })
-    .eq("id", folders.id);
+  await db.from("os_drive_folders").update({ customer_shared_email: email }).eq("id", folders.id);
   return { shared: true, email, alreadyShared: false };
 }

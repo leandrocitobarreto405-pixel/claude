@@ -29,7 +29,10 @@ export const Route = createFileRoute("/api/public/hooks/recurring-expenses")({
           const message = error instanceof Error ? error.message : String(error);
           console.error("Falha na geração automática de despesas recorrentes:", message);
           return new Response(
-            JSON.stringify({ ok: false, error: "Não foi possível sincronizar as despesas recorrentes." }),
+            JSON.stringify({
+              ok: false,
+              error: "Não foi possível sincronizar as despesas recorrentes.",
+            }),
             { status: 500, headers: { "Content-Type": "application/json" } },
           );
         }

@@ -2,9 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { processWhatsappPayload } from "./crm-webhook.server";
 
-async function assertStaff(supabase: {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-}, userId: string) {
+async function assertStaff(
+  supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  },
+  userId: string,
+) {
   const { data } = await supabase.rpc("is_staff", { _user_id: userId });
   if (data !== true) throw new Error("Acesso restrito à equipe.");
 }

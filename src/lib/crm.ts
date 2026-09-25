@@ -197,7 +197,10 @@ export function useCrmLeads(filters: LeadFilters = {}) {
   return useQuery({
     queryKey: ["crm_leads", filters],
     queryFn: async () => {
-      let q = supabase.from("crm_leads").select(LEAD_SELECT).order("first_contact_date", { ascending: false });
+      let q = supabase
+        .from("crm_leads")
+        .select(LEAD_SELECT)
+        .order("first_contact_date", { ascending: false });
       if (filters.from) q = q.gte("first_contact_date", filters.from);
       if (filters.to) q = q.lte("first_contact_date", filters.to);
       if (filters.statusId) q = q.eq("status_id", filters.statusId);
@@ -230,7 +233,10 @@ export function useCrmLeads(filters: LeadFilters = {}) {
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
-        return haystack.includes(term) || (digits.length >= 4 && (l.normalized_phone ?? "").includes(digits));
+        return (
+          haystack.includes(term) ||
+          (digits.length >= 4 && (l.normalized_phone ?? "").includes(digits))
+        );
       });
     },
   });
@@ -241,7 +247,11 @@ export function useCrmLead(leadId: string) {
     queryKey: ["crm_lead", leadId],
     enabled: Boolean(leadId),
     queryFn: async () => {
-      const { data, error } = await supabase.from("crm_leads").select(LEAD_SELECT).eq("id", leadId).maybeSingle();
+      const { data, error } = await supabase
+        .from("crm_leads")
+        .select(LEAD_SELECT)
+        .eq("id", leadId)
+        .maybeSingle();
       if (error) throw error;
       return (data ?? null) as unknown as CrmLeadRow | null;
     },
@@ -270,7 +280,9 @@ export function useLeadTimeline(leadId: string, contactId: string | null) {
         contactId
           ? supabase
               .from("whatsapp_messages")
-              .select("id, crm_lead_id, whatsapp_contact_id, direction, message_type, text_content, message_timestamp, referral_headline, referral_source_id")
+              .select(
+                "id, crm_lead_id, whatsapp_contact_id, direction, message_type, text_content, message_timestamp, referral_headline, referral_source_id",
+              )
               .eq("whatsapp_contact_id", contactId)
               .order("message_timestamp", { ascending: false })
               .limit(300)
@@ -326,11 +338,14 @@ async function currentUserId(): Promise<string | null> {
 export async function changeLeadStatus(
   lead: CrmLeadRow | CrmLead,
   newStatus: CrmStatus,
-  options: { notes?: string | undefined; source?: string | undefined; lossReasonId?: string | null | undefined } = {},
+  options: {
+    notes?: string | undefined;
+    source?: string | undefined;
+    lossReasonId?: string | null | undefined;
+  } = {},
 ) {
   const meta = statusMeta(newStatus);
-  const previousName =
-    "status" in lead && lead.status ? lead.status.name : null;
+  const previousName = "status" in lead && lead.status ? lead.status.name : null;
 
   const patch: Record<string, unknown> = {
     status_id: newStatus.id,
@@ -340,7 +355,10 @@ export async function changeLeadStatus(
   };
   if (meta.lost) patch["loss_reason_id"] = options.lossReasonId ?? lead.loss_reason_id ?? null;
 
-  const { error } = await supabase.from("crm_leads").update(patch as never).eq("id", lead.id);
+  const { error } = await supabase
+    .from("crm_leads")
+    .update(patch as never)
+    .eq("id", lead.id);
   if (error) throw error;
 
   const { error: histError } = await supabase.from("crm_status_history").insert({
@@ -381,7 +399,10 @@ export async function ensureContact(input: {
   if (error) throw error;
   if (existing) {
     if (input.name && !existing.profile_name) {
-      await supabase.from("whatsapp_contacts").update({ profile_name: input.name } as never).eq("id", existing.id);
+      await supabase
+        .from("whatsapp_contacts")
+        .update({ profile_name: input.name } as never)
+        .eq("id", existing.id);
     }
     return existing.id;
   }
@@ -425,7 +446,8 @@ export async function createLead(input: {
   contactId?: string | null | undefined;
   importBatchId?: string | null | undefined;
 }): Promise<string> {
-  const contactId = input.contactId ?? (await ensureContact({ phone: input.phone, name: input.name }));
+  const contactId =
+    input.contactId ?? (await ensureContact({ phone: input.phone, name: input.name }));
   const normalized = normalizePhone(input.phone);
 
   const { data: customer } = normalized
@@ -467,7 +489,10 @@ export async function scheduleFollowup(leadId: string, scheduledAt: string, note
     assigned_to: await currentUserId(),
   } as never);
   if (error) throw error;
-  await supabase.from("crm_leads").update({ next_follow_up_at: scheduledAt } as never).eq("id", leadId);
+  await supabase
+    .from("crm_leads")
+    .update({ next_follow_up_at: scheduledAt } as never)
+    .eq("id", leadId);
 }
 
 export async function completeFollowup(

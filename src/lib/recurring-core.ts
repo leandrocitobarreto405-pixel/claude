@@ -31,7 +31,10 @@ export type PlannedExpense = {
 };
 
 /** Monta a lista de despesas esperadas do mês a partir dos modelos ativos. */
-export function planRecurringMonth(templates: RecurringTemplate[], month: string): PlannedExpense[] {
+export function planRecurringMonth(
+  templates: RecurringTemplate[],
+  month: string,
+): PlannedExpense[] {
   const start = monthStart(month);
   const end = monthEnd(month);
   const out: PlannedExpense[] = [];
@@ -119,7 +122,13 @@ export async function syncRecurringMonth(db: DB, month: string): Promise<SyncRes
 
   const planned = planRecurringMonth((templates ?? []) as RecurringTemplate[], month);
   if (!planned.length) {
-    return { checked: 0, created: 0, existing: 0, missingDueDay: [], message: "Nenhum modelo recorrente ativo para o mês." };
+    return {
+      checked: 0,
+      created: 0,
+      existing: 0,
+      missingDueDay: [],
+      message: "Nenhum modelo recorrente ativo para o mês.",
+    };
   }
 
   const { data: existingRows, error: existingError } = await db

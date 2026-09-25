@@ -23,9 +23,17 @@ export const Route = createFileRoute("/_authenticated/crm/importar")({
   head: () => ({
     meta: [
       { title: "Importar histórico do CRM — Turbine Clean" },
-      { name: "description", content: "Importe planilhas antigas de leads do WhatsApp com validação e prévia antes de gravar." },
+      {
+        name: "description",
+        content:
+          "Importe planilhas antigas de leads do WhatsApp com validação e prévia antes de gravar.",
+      },
       { property: "og:title", content: "Importar histórico do CRM — Turbine Clean" },
-      { property: "og:description", content: "Importe planilhas antigas de leads do WhatsApp com validação e prévia antes de gravar." },
+      {
+        property: "og:description",
+        content:
+          "Importe planilhas antigas de leads do WhatsApp com validação e prévia antes de gravar.",
+      },
     ],
   }),
   component: ImportarCrm,
@@ -68,9 +76,11 @@ function ImportarCrm() {
   const [mapa, setMapa] = useState<Record<string, string>>({});
   const [campanhaId, setCampanhaId] = useState("");
   const [importando, setImportando] = useState(false);
-  const [resultado, setResultado] = useState<{ criados: number; atualizados: number; erros: string[] } | null>(
-    null,
-  );
+  const [resultado, setResultado] = useState<{
+    criados: number;
+    atualizados: number;
+    erros: string[];
+  } | null>(null);
   const { data: statuses } = useCrmCatalog(CRM_STATUS_KIND, false);
   const { data: campanhas } = useCrmCampaigns();
   const invalidate = useCrmInvalidate();
@@ -96,7 +106,13 @@ function ImportarCrm() {
             .toLowerCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
-            .includes(campo.label.split(" ")[0]!.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
+            .includes(
+              campo.label
+                .split(" ")[0]!
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, ""),
+            ),
         );
         if (alvo) auto[campo.key] = alvo;
       }
@@ -140,7 +156,8 @@ function ImportarCrm() {
         const temperaturaTexto = get("temperature").toUpperCase();
         const temperatura = temperaturaTexto.startsWith("Q") ? "QUENTE" : "FRIO";
         const dataContato =
-          (mapa["first_contact_date"] ? excelDate(row[mapa["first_contact_date"]!]) : null) ?? todayISO();
+          (mapa["first_contact_date"] ? excelDate(row[mapa["first_contact_date"]!]) : null) ??
+          todayISO();
 
         try {
           const contatoId = await ensureContact({ phone: telefone, name: nome || null });
@@ -183,7 +200,9 @@ function ImportarCrm() {
             criados += 1;
           }
         } catch (error) {
-          erros.push(`Linha ${index + 2}: ${error instanceof Error ? error.message : "falha ao gravar"}.`);
+          erros.push(
+            `Linha ${index + 2}: ${error instanceof Error ? error.message : "falha ao gravar"}.`,
+          );
         }
       }
 

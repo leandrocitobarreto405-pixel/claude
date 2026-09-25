@@ -1,12 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import {
-  brl,
-  buildFullAddress,
-  dateBR,
-  timeBR,
-  todayISO,
-  weekdayPT,
-} from "@/lib/format";
+import { brl, buildFullAddress, dateBR, timeBR, todayISO, weekdayPT } from "@/lib/format";
 import { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/data";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { syncRecurringMonth } from "@/lib/recurring-core";
@@ -22,7 +15,6 @@ import {
   type CollectionSetup,
   type CollectionVisit,
 } from "@/lib/collection";
-
 
 export type CustomerInput = {
   full_name: string;
@@ -85,8 +77,6 @@ export type WorkOrderInput = {
   collection_visit_index?: number | null;
   payment_instruction?: string | null;
 };
-
-
 
 export async function osNumberExists(osNumber: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -223,7 +213,6 @@ async function saveVisitItems(visitId: string, items: ServiceItemInput[]) {
   }
 }
 
-
 function orderPayload(order: WorkOrderInput, itemsSum: number) {
   return {
     sale_date: order.sale_date,
@@ -320,12 +309,15 @@ export async function createWorkOrder(args: {
   return wo;
 }
 
-
 /**
  * Repassa o valor total negociado da OS para os atendimentos concluídos.
  * O rateio segue o valor de cada atendimento; a sobra de arredondamento fica no último.
  */
-async function syncCompletedVisitValues(workOrderId: string, negotiatedTotal: number, userId: string | null) {
+async function syncCompletedVisitValues(
+  workOrderId: string,
+  negotiatedTotal: number,
+  userId: string | null,
+) {
   const { data } = await supabase
     .from("visits")
     .select("id, status, visit_value, final_value")
@@ -341,7 +333,8 @@ async function syncCompletedVisitValues(workOrderId: string, negotiatedTotal: nu
       : Math.round((negotiatedTotal / active.length) * 100) / 100,
   );
   const diff = Math.round((negotiatedTotal - shares.reduce((s, n) => s + n, 0)) * 100) / 100;
-  if (shares.length) shares[shares.length - 1] = Math.round((shares[shares.length - 1]! + diff) * 100) / 100;
+  if (shares.length)
+    shares[shares.length - 1] = Math.round((shares[shares.length - 1]! + diff) * 100) / 100;
 
   const ajustes: Array<{ id: string; de: number; para: number }> = [];
   for (const [idx, v] of active.entries()) {
@@ -441,11 +434,8 @@ export async function updateWorkOrder(args: {
       const { error: delError } = await supabase.from("visits").delete().eq("id", v.id);
       // Sem permissão de exclusão o atendimento é cancelado, para não voltar na agenda.
       if (delError) await supabase.from("visits").update({ status: "Cancelado" }).eq("id", v.id);
-
     }
   }
-
-
 
   for (const id of visitIds) await sincronizarEventoAgenda("visit", id);
 
@@ -536,7 +526,6 @@ export async function restoreWorkOrder(args: { workOrderId: string; userId: stri
     userId: args.userId,
   });
 }
-
 
 export type PaymentPart = {
   payment_channel: string;
@@ -712,7 +701,6 @@ export async function recalcWorkOrder(workOrderId: string, userId: string | null
       updated_by: userId,
     })
     .eq("id", workOrderId);
-
 }
 
 export type MessageContext = {
@@ -735,7 +723,8 @@ export type MessageContext = {
 export function templateText(value: unknown): string {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
-    const body = (value as { body?: unknown; template?: unknown }).body ??
+    const body =
+      (value as { body?: unknown; template?: unknown }).body ??
       (value as { template?: unknown }).template;
     if (typeof body === "string") return body;
   }
@@ -767,7 +756,6 @@ export function renderMessage(template: unknown, ctx: MessageContext): string {
   const raw = templateText(template);
   const base = normalizeMessageTemplate(raw.trim() ? raw : DEFAULT_MESSAGE_TEMPLATE);
   const c = ctx.collection ?? null;
-
 
   return base
     .replaceAll("{{dia_da_semana}}", ctx.weekday)
@@ -839,8 +827,18 @@ export type VisitRow = {
   original_scheduled_date?: string | null;
   rescheduled_from_visit_id?: string | null;
   rescheduled_to_visit_id?: string | null;
-  rescheduled_to?: { id: string; scheduled_date: string; scheduled_time: string; status: string } | null;
-  rescheduled_from?: { id: string; scheduled_date: string; scheduled_time: string; status: string } | null;
+  rescheduled_to?: {
+    id: string;
+    scheduled_date: string;
+    scheduled_time: string;
+    status: string;
+  } | null;
+  rescheduled_from?: {
+    id: string;
+    scheduled_date: string;
+    scheduled_time: string;
+    status: string;
+  } | null;
   service_type: { id: string; name: string } | null;
   upholstery_type: { id: string; name: string } | null;
   technician: { id: string; name: string; base_address: string | null } | null;
@@ -880,7 +878,9 @@ export async function fetchCollectionVisits(workOrderIds: string[]) {
   if (!ids.length) return map;
   const { data, error } = await supabase
     .from("visits")
-    .select("id, work_order_id, scheduled_date, scheduled_time, status, visit_value, final_value, service_type:service_type_id ( name )")
+    .select(
+      "id, work_order_id, scheduled_date, scheduled_time, status, visit_value, final_value, service_type:service_type_id ( name )",
+    )
     .in("work_order_id", ids);
   if (error) return map;
   type Row = {
@@ -1174,7 +1174,7 @@ export async function rescheduleVisit(args: {
       visit_value: Number(o["visit_value"] ?? 0),
       item_quantity: Number(o["item_quantity"] ?? 1) || 1,
       item_unit_label: (o["item_unit_label"] as string | null) ?? null,
-      visit_notes: args.notes ?? ((o["visit_notes"] as string | null) ?? null),
+      visit_notes: args.notes ?? (o["visit_notes"] as string | null) ?? null,
       status: "Agendado",
       reschedule_type: "with_travel",
       rescheduled_from_visit_id: args.visitId,
@@ -1190,7 +1190,9 @@ export async function rescheduleVisit(args: {
   // Copia os itens de serviço, mantendo o total negociado da OS intacto.
   const { data: itens } = await supabase
     .from("service_items")
-    .select("upholstery_type_id, description, quantity, unit_price, subtotal, item_group_id, display_order")
+    .select(
+      "upholstery_type_id, description, quantity, unit_price, subtotal, item_group_id, display_order",
+    )
     .eq("visit_id", args.visitId)
     .eq("active", true);
   if (itens?.length) {
@@ -1198,7 +1200,6 @@ export async function rescheduleVisit(args: {
       .from("service_items")
       .insert(itens.map((i) => ({ ...i, visit_id: novaId, active: true })) as never);
   }
-
 
   const { error: updateError } = await supabase
     .from("visits")
@@ -1255,7 +1256,10 @@ export async function rescheduleVisit(args: {
 }
 
 async function markRouteForRecalculation(date: string, technicianId: string | null) {
-  let q = supabase.from("daily_routes").update({ needs_recalculation: true }).eq("route_date", date);
+  let q = supabase
+    .from("daily_routes")
+    .update({ needs_recalculation: true })
+    .eq("route_date", date);
   q = technicianId ? q.eq("technician_id", technicianId) : q.is("technician_id", null);
   await q;
 }
@@ -1266,8 +1270,6 @@ export async function generateRecurringExpenses(month: string) {
   return result.created;
 }
 
-
 export function todayLabel() {
   return dateBR(todayISO());
 }
-

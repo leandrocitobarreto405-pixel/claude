@@ -22,7 +22,9 @@ export const sugerirResumoDoLead = createServerFn({ method: "POST" })
 
     const { data: lead, error } = await context.supabase
       .from("crm_leads")
-      .select("id, lead_name, whatsapp_contact_id, temperature_confirmed, upholstery_description, service_interest")
+      .select(
+        "id, lead_name, whatsapp_contact_id, temperature_confirmed, upholstery_description, service_interest",
+      )
       .eq("id", data.leadId)
       .maybeSingle();
     if (error) throw error;
@@ -37,7 +39,10 @@ export const sugerirResumoDoLead = createServerFn({ method: "POST" })
         .order("message_timestamp", { ascending: true })
         .limit(120);
       conversa = (msgs ?? [])
-        .map((m) => `${m.direction === "Recebida" ? "Cliente" : "Empresa"}: ${m.text_content ?? `(${m.message_type})`}`)
+        .map(
+          (m) =>
+            `${m.direction === "Recebida" ? "Cliente" : "Empresa"}: ${m.text_content ?? `(${m.message_type})`}`,
+        )
         .join("\n")
         .slice(0, 12000);
     }
@@ -82,8 +87,10 @@ export const sugerirResumoDoLead = createServerFn({ method: "POST" })
       summary_source: "IA",
     };
     // Não sobrescreve dados já preenchidos manualmente.
-    if (!lead.upholstery_description && str("upholstery")) patch["upholstery_description"] = str("upholstery");
-    if (!lead.service_interest && str("service_interest")) patch["service_interest"] = str("service_interest");
+    if (!lead.upholstery_description && str("upholstery"))
+      patch["upholstery_description"] = str("upholstery");
+    if (!lead.service_interest && str("service_interest"))
+      patch["service_interest"] = str("service_interest");
     if (!lead.temperature_confirmed) {
       patch["temperature"] = temperature;
       patch["temperature_confirmed"] = false;

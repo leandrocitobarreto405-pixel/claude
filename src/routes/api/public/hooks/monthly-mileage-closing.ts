@@ -3,7 +3,9 @@ import { closeMonthlyMileage } from "@/lib/route-auto.server";
 
 /** Mês anterior no fuso de São Paulo (o job roda no dia 1º). */
 function previousMonthSaoPaulo() {
-  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).slice(0, 10);
+  const hoje = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    .slice(0, 10);
   const [y, m] = hoje.split("-").map(Number);
   const ano = (m ?? 1) === 1 ? (y ?? 2026) - 1 : (y ?? 2026);
   const mes = (m ?? 1) === 1 ? 12 : (m ?? 1) - 1;
@@ -42,7 +44,10 @@ export const Route = createFileRoute("/api/public/hooks/monthly-mileage-closing"
           const message = error instanceof Error ? error.message : String(error);
           console.error("Falha no fechamento mensal da quilometragem:", message);
           return new Response(
-            JSON.stringify({ ok: false, error: "Não foi possível calcular a rota automaticamente." }),
+            JSON.stringify({
+              ok: false,
+              error: "Não foi possível calcular a rota automaticamente.",
+            }),
             { status: 500, headers: { "Content-Type": "application/json" } },
           );
         }

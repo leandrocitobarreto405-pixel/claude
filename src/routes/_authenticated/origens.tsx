@@ -135,11 +135,23 @@ function Origens() {
           <>
             <div className="space-y-1">
               <Label htmlFor="de">De</Label>
-              <Input id="de" type="date" value={de} onChange={(e) => setDe(e.target.value)} className="w-[160px]" />
+              <Input
+                id="de"
+                type="date"
+                value={de}
+                onChange={(e) => setDe(e.target.value)}
+                className="w-[160px]"
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="ate">Até</Label>
-              <Input id="ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} className="w-[160px]" />
+              <Input
+                id="ate"
+                type="date"
+                value={ate}
+                onChange={(e) => setAte(e.target.value)}
+                className="w-[160px]"
+              />
             </div>
           </>
         ) : null}
@@ -191,7 +203,6 @@ function Origens() {
         </div>
       </div>
 
-
       <StatTable
         title="Por origem da venda"
         rows={data?.byOrigin ?? []}
@@ -224,7 +235,10 @@ function Origens() {
           </Button>
         </div>
         {(data?.cross.length ?? 0) === 0 ? (
-          <EmptyState title="Sem dados no período" description="Nenhum atendimento concluído nesse intervalo." />
+          <EmptyState
+            title="Sem dados no período"
+            description="Nenhum atendimento concluído nesse intervalo."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -293,7 +307,10 @@ function StatTable({
       {loading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : rows.length === 0 ? (
-        <EmptyState title="Sem dados no período" description="Nenhum atendimento concluído nesse intervalo." />
+        <EmptyState
+          title="Sem dados no período"
+          description="Nenhum atendimento concluído nesse intervalo."
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

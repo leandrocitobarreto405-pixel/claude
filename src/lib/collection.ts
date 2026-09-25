@@ -50,7 +50,9 @@ export function activeCollectionVisits(visits: CollectionVisit[]) {
     .filter((v) => !INACTIVE_COLLECTION_STATUSES.includes(v.status))
     .slice()
     .sort((a, b) =>
-      `${a.scheduled_date} ${a.scheduled_time}`.localeCompare(`${b.scheduled_date} ${b.scheduled_time}`),
+      `${a.scheduled_date} ${a.scheduled_time}`.localeCompare(
+        `${b.scheduled_date} ${b.scheduled_time}`,
+      ),
     );
 }
 
@@ -183,6 +185,11 @@ export function collectionFields(
 }
 
 /** Instrução automática (sem instrução personalizada), usada nas telas de configuração. */
-export function autoInstruction(visitId: string, visits: CollectionVisit[], setup: CollectionSetup) {
-  return collectionFields(visitId, visits, { ...setup, customInstruction: null }).instrucaoPagamento;
+export function autoInstruction(
+  visitId: string,
+  visits: CollectionVisit[],
+  setup: CollectionSetup,
+) {
+  return collectionFields(visitId, visits, { ...setup, customInstruction: null })
+    .instrucaoPagamento;
 }

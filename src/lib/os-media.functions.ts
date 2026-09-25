@@ -3,10 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-async function assertWorkOrderAccess(
-  workOrderId: string,
-  supabase: SupabaseClient<Database>,
-) {
+async function assertWorkOrderAccess(workOrderId: string, supabase: SupabaseClient<Database>) {
   const { data, error } = await supabase
     .from("work_orders")
     .select("id")

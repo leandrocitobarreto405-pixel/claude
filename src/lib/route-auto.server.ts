@@ -24,12 +24,7 @@ export const ACTIVE_PENDING_STATUSES = [
 ];
 
 /** Status das visitas de orçamento equivalentes a pendente e a deslocamento realizado. */
-export const BUDGET_PENDING_STATUSES = [
-  "Agendado",
-  "Confirmado",
-  "Em deslocamento",
-  "Reagendado",
-];
+export const BUDGET_PENDING_STATUSES = ["Agendado", "Confirmado", "Em deslocamento", "Reagendado"];
 
 export const BUDGET_FINALIZED_STATUSES = ["Realizado"];
 
@@ -133,7 +128,9 @@ export async function syncDailyRoute(
   // 1) Serviços do dia para o técnico
   let visitQuery = db
     .from("visits")
-    .select("id, status, scheduled_time, work_order_id, work_order:work_orders!visits_work_order_id_fkey(deleted_at, status)")
+    .select(
+      "id, status, scheduled_time, work_order_id, work_order:work_orders!visits_work_order_id_fkey(deleted_at, status)",
+    )
     .eq("scheduled_date", input.date)
     .order("scheduled_time");
   visitQuery = input.technicianId
@@ -149,7 +146,8 @@ export async function syncDailyRoute(
     work_order: { deleted_at: string | null; status: string } | null;
   };
   const visits = ((visitRows ?? []) as unknown as Row[]).filter(
-    (v) => !v.work_order?.deleted_at && v.work_order?.status !== "Cancelada" && v.status !== "Cancelado",
+    (v) =>
+      !v.work_order?.deleted_at && v.work_order?.status !== "Cancelada" && v.status !== "Cancelado",
   );
 
   // 1b) Visitas de orçamento do dia (sem OS) participam da rota e do rateio
@@ -178,10 +176,14 @@ export async function syncDailyRoute(
   ];
 
   const pendentes = stops.filter((v) =>
-    v.budget ? BUDGET_PENDING_STATUSES.includes(v.status) : ACTIVE_PENDING_STATUSES.includes(v.status),
+    v.budget
+      ? BUDGET_PENDING_STATUSES.includes(v.status)
+      : ACTIVE_PENDING_STATUSES.includes(v.status),
   );
   const concluidos = stops.filter((v) =>
-    v.budget ? BUDGET_FINALIZED_STATUSES.includes(v.status) : ROUTE_FINALIZED_STATUSES.includes(v.status),
+    v.budget
+      ? BUDGET_FINALIZED_STATUSES.includes(v.status)
+      : ROUTE_FINALIZED_STATUSES.includes(v.status),
   );
 
   if (!stops.length) {
@@ -290,7 +292,10 @@ export async function syncDailyRoute(
           .update({ mileage_cost_allocated: r.allocated_cost })
           .eq("id", r.budget_visit_id);
       } else if (r.service_id) {
-        await db.from("visits").update({ mileage_cost_allocated: r.allocated_cost }).eq("id", r.service_id);
+        await db
+          .from("visits")
+          .update({ mileage_cost_allocated: r.allocated_cost })
+          .eq("id", r.service_id);
       }
     }
   }
@@ -348,7 +353,8 @@ export async function syncDailyRoute(
   let paidAmount: number | null = null;
 
   if (despesa?.id) {
-    const jaPago = Number(despesa.paid_amount ?? despesa.actual_amount ?? 0) > 0 || despesa.status === "Pago";
+    const jaPago =
+      Number(despesa.paid_amount ?? despesa.actual_amount ?? 0) > 0 || despesa.status === "Pago";
     if (jaPago) {
       paidAmount = Number(despesa.paid_amount ?? despesa.actual_amount ?? 0);
       financialDifference = round2(paidAmount) !== totalCost;
@@ -439,7 +445,12 @@ export type DailyClosingResult = {
   expensesCreated: number;
   expensesUpdated: number;
   errors: string[];
-  results: Array<{ technicianId: string | null; technicianName: string; status: string; message: string }>;
+  results: Array<{
+    technicianId: string | null;
+    technicianName: string;
+    status: string;
+    message: string;
+  }>;
 };
 
 /**
@@ -565,7 +576,12 @@ export type RetryFailedRoutesResult = {
   fixed: number;
   stillFailing: number;
   errors: string[];
-  results: Array<{ technicianId: string | null; technicianName: string; status: string; message: string }>;
+  results: Array<{
+    technicianId: string | null;
+    technicianName: string;
+    status: string;
+    message: string;
+  }>;
 };
 
 /**
@@ -578,7 +594,13 @@ export async function retryFailedRoutes(
 ): Promise<RetryFailedRoutesResult> {
   const days = input?.days ?? 45;
   const limit = input?.limit ?? 15;
-  const out: RetryFailedRoutesResult = { attempted: 0, fixed: 0, stillFailing: 0, errors: [], results: [] };
+  const out: RetryFailedRoutesResult = {
+    attempted: 0,
+    fixed: 0,
+    stillFailing: 0,
+    errors: [],
+    results: [],
+  };
 
   const reference = input?.before ? new Date(`${input.before}T00:00:00Z`) : new Date();
   const fromDate = new Date(reference.getTime() - days * 24 * 60 * 60 * 1000)
@@ -626,13 +648,14 @@ export async function retryFailedRoutes(
       });
     } catch (err) {
       out.stillFailing += 1;
-      out.errors.push(`${technicianName} (${row.route_date}): ${err instanceof Error ? err.message : String(err)}`);
+      out.errors.push(
+        `${technicianName} (${row.route_date}): ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
   return out;
 }
-
 
 export type MonthlyMileageTechnicianResult = {
   technicianId: string | null;
@@ -661,8 +684,18 @@ function lastDayOfMonth(month: string) {
 
 function monthLabel(month: string) {
   const nomes = [
-    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
   ];
   const [y, m] = month.split("-");
   return `${nomes[Number(m) - 1]}/${y}`;
@@ -719,7 +752,11 @@ export async function closeMonthlyMileage(
   const byTech = new Map<string | null, Set<string>>();
   for (const r of rows) {
     if (r.status === "Cancelado") continue;
-    if (input.technicianId !== undefined && input.technicianId !== null && r.technician_id !== input.technicianId) {
+    if (
+      input.technicianId !== undefined &&
+      input.technicianId !== null &&
+      r.technician_id !== input.technicianId
+    ) {
       continue;
     }
     const set = byTech.get(r.technician_id) ?? new Set<string>();
@@ -803,7 +840,10 @@ export async function closeMonthlyMileage(
       }
 
       const detalhe = item.days
-        .map((d) => `${dateBRShort(d.date)}: ${d.km.toFixed(1).replace(".", ",")} km · R$ ${d.cost.toFixed(2).replace(".", ",")}`)
+        .map(
+          (d) =>
+            `${dateBRShort(d.date)}: ${d.km.toFixed(1).replace(".", ",")} km · R$ ${d.cost.toFixed(2).replace(".", ",")}`,
+        )
         .join("\n");
       const observacao = [
         `${item.days.length} dia(s) de rota · ${item.totalKm.toFixed(1).replace(".", ",")} km no mês`,
@@ -911,9 +951,7 @@ export async function closeMonthlyMileage(
       technicianId: input.technicianId ?? null,
     });
   } catch (error) {
-    out.errors.push(
-      `Gastos do técnico: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    out.errors.push(`Gastos do técnico: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (jobId) {

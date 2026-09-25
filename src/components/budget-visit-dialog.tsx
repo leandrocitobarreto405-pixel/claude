@@ -116,7 +116,11 @@ export function BudgetVisitDialog({
       setOrigemId(visit.sales_origin_id ?? "");
       setDescricao(visit.upholstery_description ?? "");
       setObs(visit.notes ?? "");
-      setTaxa(Number(visit.visit_fee ?? 0).toFixed(2).replace(".", ","));
+      setTaxa(
+        Number(visit.visit_fee ?? 0)
+          .toFixed(2)
+          .replace(".", ","),
+      );
       setClienteId(visit.customer_id);
       return;
     }
@@ -244,7 +248,9 @@ export function BudgetVisitDialog({
       atualizar();
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar a visita de orçamento.");
+      toast.error(
+        e instanceof Error ? e.message : "Não foi possível salvar a visita de orçamento.",
+      );
     } finally {
       setSalvando(false);
     }
@@ -265,7 +271,11 @@ export function BudgetVisitDialog({
     if (!visit) return;
     setSalvando(true);
     try {
-      await completeBudgetVisit({ id: visit.id, result: resultado, resultNotes: resultadoObs.trim() || null });
+      await completeBudgetVisit({
+        id: visit.id,
+        result: resultado,
+        resultNotes: resultadoObs.trim() || null,
+      });
       toast.success("Visita de orçamento concluída.");
       setConcluir(false);
       atualizar();
@@ -303,7 +313,9 @@ export function BudgetVisitDialog({
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? `Visita de orçamento — ${cliente?.full_name ?? ""}` : "Nova visita de orçamento"}
+            {isEdit
+              ? `Visita de orçamento — ${cliente?.full_name ?? ""}`
+              : "Nova visita de orçamento"}
           </DialogTitle>
           <DialogDescription>
             Visita técnica para orçamento, sem abrir OS. O deslocamento entra na rota do técnico.
@@ -348,7 +360,10 @@ export function BudgetVisitDialog({
             ) : null}
             {visit.generated_work_order ? (
               <p className="text-muted-foreground">
-                OS gerada: <span className="font-medium text-foreground">{visit.generated_work_order.os_number}</span>
+                OS gerada:{" "}
+                <span className="font-medium text-foreground">
+                  {visit.generated_work_order.os_number}
+                </span>
               </p>
             ) : null}
           </div>
@@ -371,12 +386,20 @@ export function BudgetVisitDialog({
                 </div>
                 <div className="space-y-1">
                   <Label>Telefone</Label>
-                  <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} inputMode="tel" />
+                  <Input
+                    value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)}
+                    inputMode="tel"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label>CEP</Label>
                   <div className="flex gap-2">
-                    <Input value={cep} onChange={(e) => setCep(e.target.value)} inputMode="numeric" />
+                    <Input
+                      value={cep}
+                      onChange={(e) => setCep(e.target.value)}
+                      inputMode="numeric"
+                    />
                     <Button type="button" variant="outline" onClick={() => void buscarCep()}>
                       Buscar
                     </Button>
@@ -439,7 +462,10 @@ export function BudgetVisitDialog({
                   </Button>
                 </div>
                 {resultados.length ? (
-                  <NativeSelect value={clienteId ?? ""} onChange={(e) => setClienteId(e.target.value || null)}>
+                  <NativeSelect
+                    value={clienteId ?? ""}
+                    onChange={(e) => setClienteId(e.target.value || null)}
+                  >
                     <option value="">Selecione o cliente</option>
                     {resultados.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -498,7 +524,9 @@ export function BudgetVisitDialog({
           <div className="space-y-1">
             <Label>Taxa da visita (R$)</Label>
             <Input value={taxa} onChange={(e) => setTaxa(e.target.value)} inputMode="decimal" />
-            <p className="text-xs text-muted-foreground">Deixe 0,00 quando a visita for gratuita.</p>
+            <p className="text-xs text-muted-foreground">
+              Deixe 0,00 quando a visita for gratuita.
+            </p>
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label>Observações</Label>
@@ -539,7 +567,11 @@ export function BudgetVisitDialog({
                 </div>
                 <div className="space-y-1">
                   <Label>Observações do resultado</Label>
-                  <Textarea value={resultadoObs} onChange={(e) => setResultadoObs(e.target.value)} rows={3} />
+                  <Textarea
+                    value={resultadoObs}
+                    onChange={(e) => setResultadoObs(e.target.value)}
+                    rows={3}
+                  />
                 </div>
                 <Button disabled={salvando} onClick={() => void confirmarConclusao()}>
                   Confirmar conclusão

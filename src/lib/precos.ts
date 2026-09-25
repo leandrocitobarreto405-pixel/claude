@@ -34,7 +34,10 @@ export type ItemPrecoInput = {
 
 export async function saveItemPreco(input: ItemPrecoInput, id?: string | null) {
   if (id) {
-    const { error } = await supabase.from("tabela_precos_itens").update(input as never).eq("id", id);
+    const { error } = await supabase
+      .from("tabela_precos_itens")
+      .update(input as never)
+      .eq("id", id);
     if (error) throw error;
     return id;
   }
@@ -55,7 +58,10 @@ export async function saveItemPreco(input: ItemPrecoInput, id?: string | null) {
 }
 
 export async function setItemPrecoAtivo(id: string, ativo: boolean) {
-  const { error } = await supabase.from("tabela_precos_itens").update({ ativo } as never).eq("id", id);
+  const { error } = await supabase
+    .from("tabela_precos_itens")
+    .update({ ativo } as never)
+    .eq("id", id);
   if (error) throw error;
 }
 

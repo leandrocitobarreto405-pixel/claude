@@ -125,7 +125,10 @@ export function ProdutosConfig() {
                         </td>
                         <td className="px-3 py-2">{brl(p.preco_pago)}</td>
                         <td className="px-3 py-2">
-                          R$ {Number(p.custo_por_ml ?? 0).toFixed(4).replace(".", ",")}
+                          R${" "}
+                          {Number(p.custo_por_ml ?? 0)
+                            .toFixed(4)
+                            .replace(".", ",")}
                         </td>
                         <td className="px-3 py-2">{brl(custoPorLitro(p))}</td>
                         <td className="px-3 py-2">

@@ -48,7 +48,9 @@ export async function findIntegration(
 ): Promise<SourceIntegration | null> {
   const { data, error } = await db
     .from("crm_source_integrations")
-    .select("id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active")
+    .select(
+      "id, name, source_type, webhook_token, secret, field_mapping, default_campaign_id, default_salesperson_id, active",
+    )
     .eq("source_type", sourceType)
     .eq("webhook_token", token)
     .eq("active", true)
@@ -99,7 +101,10 @@ function mapFieldKey(mapping: Record<string, string>, key: string, fallback: str
   return sourceKey || fallback;
 }
 
-function parseMetaLeadAds(payload: unknown, mapping: Record<string, string>): LeadSourcePayload | null {
+function parseMetaLeadAds(
+  payload: unknown,
+  mapping: Record<string, string>,
+): LeadSourcePayload | null {
   const body = (payload ?? {}) as Record<string, any>;
   const entry = body["entry"]?.[0];
   const change = entry?.["changes"]?.[0];
@@ -134,7 +139,9 @@ function parseMetaLeadAds(payload: unknown, mapping: Record<string, string>): Le
     city: fields[mapFieldKey(mapping, "city", "city")] || fields["city"] || null,
     service: fields[mapFieldKey(mapping, "service", "service")] || null,
     message: fields[mapFieldKey(mapping, "message", "message")] || null,
-    campaignId: String(value["ad_campaign_id"] ?? value["campaign_id"] ?? lead["campaign_id"] ?? ""),
+    campaignId: String(
+      value["ad_campaign_id"] ?? value["campaign_id"] ?? lead["campaign_id"] ?? "",
+    ),
     adId: String(value["ad_id"] ?? value["adgroup_id"] ?? ""),
     formId: String(lead["form_id"] ?? value["form_id"] ?? ""),
     createdAt: lead["created_time"]
@@ -143,7 +150,10 @@ function parseMetaLeadAds(payload: unknown, mapping: Record<string, string>): Le
   };
 }
 
-function parseGoogleAds(payload: unknown, mapping: Record<string, string>): LeadSourcePayload | null {
+function parseGoogleAds(
+  payload: unknown,
+  mapping: Record<string, string>,
+): LeadSourcePayload | null {
   const body = (payload ?? {}) as Record<string, any>;
   const userColumnData = body["userColumnData"] ?? [];
   const fields: Record<string, string> = {};
@@ -181,7 +191,10 @@ function parseGoogleAds(payload: unknown, mapping: Record<string, string>): Lead
   };
 }
 
-function parseCustomForm(payload: unknown, mapping: Record<string, string>): LeadSourcePayload | null {
+function parseCustomForm(
+  payload: unknown,
+  mapping: Record<string, string>,
+): LeadSourcePayload | null {
   const body = (payload ?? {}) as Record<string, any>;
   const rawName =
     body[mapFieldKey(mapping, "name", "nome")] ||
@@ -203,12 +216,22 @@ function parseCustomForm(payload: unknown, mapping: Record<string, string>): Lea
     phone: String(rawPhone),
     email: body[mapFieldKey(mapping, "email", "email")] || body["email"] || null,
     city: body[mapFieldKey(mapping, "city", "cidade")] || body["cidade"] || body["city"] || null,
-    service: body[mapFieldKey(mapping, "service", "servico")] || body["servico"] || body["service"] || null,
-    message: body[mapFieldKey(mapping, "message", "mensagem")] || body["mensagem"] || body["message"] || null,
+    service:
+      body[mapFieldKey(mapping, "service", "servico")] ||
+      body["servico"] ||
+      body["service"] ||
+      null,
+    message:
+      body[mapFieldKey(mapping, "message", "mensagem")] ||
+      body["mensagem"] ||
+      body["message"] ||
+      null,
     campaignId: String(body["campanha"] ?? body["campaignId"] ?? ""),
     adId: String(body["adId"] ?? body["anuncio"] ?? ""),
     formId: String(body["formId"] ?? body["formulario"] ?? ""),
-    createdAt: body["createdAt"] ? new Date(body["createdAt"]).toISOString() : new Date().toISOString(),
+    createdAt: body["createdAt"]
+      ? new Date(body["createdAt"]).toISOString()
+      : new Date().toISOString(),
   };
 }
 
@@ -222,7 +245,11 @@ export function parseLeadSourcePayload(
   return parseCustomForm(payload, mapping);
 }
 
-async function resolveCampaign(db: AnyClient, integration: SourceIntegration, payload: LeadSourcePayload) {
+async function resolveCampaign(
+  db: AnyClient,
+  integration: SourceIntegration,
+  payload: LeadSourcePayload,
+) {
   if (integration.default_campaign_id) return integration.default_campaign_id;
   if (!payload.campaignId) return null;
   const { data } = await db
@@ -246,7 +273,8 @@ async function initialStatusId(db: AnyClient): Promise<string | null> {
 }
 
 async function originIdForSource(db: AnyClient, sourceType: CrmSourceType): Promise<string | null> {
-  const searchTerm = sourceType === "meta_lead_ads" ? "meta" : sourceType === "google_ads" ? "google" : "site";
+  const searchTerm =
+    sourceType === "meta_lead_ads" ? "meta" : sourceType === "google_ads" ? "google" : "site";
   const { data } = await db
     .from("config_options")
     .select("id, name")
@@ -324,7 +352,11 @@ export async function processLeadSourcePayload(
   integration: SourceIntegration,
   payload: unknown,
 ): Promise<LeadSourceResult> {
-  const parsed = parseLeadSourcePayload(integration.source_type, payload, integration.field_mapping);
+  const parsed = parseLeadSourcePayload(
+    integration.source_type,
+    payload,
+    integration.field_mapping,
+  );
   const result: LeadSourceResult = {
     integrationId: integration.id,
     contactId: null,
@@ -392,7 +424,9 @@ export async function processLeadSourcePayload(
       ad_id: parsed.adId || null,
       source_type: integration.source_type,
       referral_data: { external_id: parsed.externalId, form_id: parsed.formId },
-      first_contact_date: parsed.createdAt ? parsed.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      first_contact_date: parsed.createdAt
+        ? parsed.createdAt.slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
       last_interaction_at: new Date().toISOString(),
       is_open: true,
     })

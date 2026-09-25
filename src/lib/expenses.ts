@@ -115,9 +115,8 @@ export async function payExpense(args: {
   userId: string | null;
 }) {
   const paid = Math.round(Math.max(0, args.amount) * 100) / 100;
-  const status: ExpenseStatus = args.partial && paid < Number(args.expense.expected_amount ?? 0)
-    ? "Parcialmente pago"
-    : "Pago";
+  const status: ExpenseStatus =
+    args.partial && paid < Number(args.expense.expected_amount ?? 0) ? "Parcialmente pago" : "Pago";
   const { error } = await supabase
     .from("expenses")
     .update({
@@ -177,7 +176,8 @@ export async function setExpenseStatus(args: {
   reason?: string | null;
   userId: string | null;
 }) {
-  const clearsPayment = args.status === "Pendente" || args.status === "Cancelado" || args.status === "Vencido";
+  const clearsPayment =
+    args.status === "Pendente" || args.status === "Cancelado" || args.status === "Vencido";
   const { error } = await supabase
     .from("expenses")
     .update({

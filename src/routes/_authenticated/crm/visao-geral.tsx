@@ -14,9 +14,17 @@ export const Route = createFileRoute("/_authenticated/crm/visao-geral")({
   head: () => ({
     meta: [
       { title: "Visão geral do CRM — Turbine Clean" },
-      { name: "description", content: "Leads do WhatsApp, conversão, custo por lead e desempenho das campanhas no período." },
+      {
+        name: "description",
+        content:
+          "Leads do WhatsApp, conversão, custo por lead e desempenho das campanhas no período.",
+      },
       { property: "og:title", content: "Visão geral do CRM — Turbine Clean" },
-      { property: "og:description", content: "Leads do WhatsApp, conversão, custo por lead e desempenho das campanhas no período." },
+      {
+        property: "og:description",
+        content:
+          "Leads do WhatsApp, conversão, custo por lead e desempenho das campanhas no período.",
+      },
     ],
   }),
   component: VisaoGeral,
@@ -143,7 +151,8 @@ function VisaoGeral() {
       const key = r.campaign_id ?? "sem-campanha";
       const atual = map.get(key);
       const wo = r.work_order as { total_gross_value?: number; status?: string } | null;
-      if (atual && wo && wo.status !== "Cancelada") atual.receita += Number(wo.total_gross_value ?? 0);
+      if (atual && wo && wo.status !== "Cancelada")
+        atual.receita += Number(wo.total_gross_value ?? 0);
     }
     return [...map.values()].sort((a, b) => b.leads - a.leads);
   }, [leads.data, investimentos.data, receita.data]);
@@ -199,7 +208,11 @@ function VisaoGeral() {
           icon={TrendingUp}
           label="Receita das vendas"
           value={brl(resumo.receitaTotal)}
-          hint={resumo.investido > 0 ? `Retorno de ${resumo.roi.toFixed(2)}x` : "Sem investimento lançado"}
+          hint={
+            resumo.investido > 0
+              ? `Retorno de ${resumo.roi.toFixed(2)}x`
+              : "Sem investimento lançado"
+          }
           accent="success"
         />
         <KpiCard
@@ -281,7 +294,10 @@ function VisaoGeral() {
                     {l.last_interaction_at ? dateTimeBR(l.last_interaction_at) : "sem interação"}
                   </p>
                 </div>
-                <TemperatureBadge temperature={l.temperature} suggested={!l.temperature_confirmed} />
+                <TemperatureBadge
+                  temperature={l.temperature}
+                  suggested={!l.temperature_confirmed}
+                />
               </div>
             ))}
             {recentes.length === 0 ? (

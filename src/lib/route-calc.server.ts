@@ -9,7 +9,6 @@ import {
   type RouteResult,
 } from "./geo.server";
 
-
 type DB = SupabaseClient<Database>;
 
 const SELECT = `
@@ -157,7 +156,9 @@ export async function calculateDayRoute(
     const c = stop.customer;
     if (!c) continue;
     let coords: Coords | null =
-      c.latitude != null && c.longitude != null ? { lat: Number(c.latitude), lon: Number(c.longitude) } : null;
+      c.latitude != null && c.longitude != null
+        ? { lat: Number(c.latitude), lon: Number(c.longitude) }
+        : null;
     const address = buildAddress(c);
     if (!coords) {
       coords = await geocodeParts(c);
@@ -175,18 +176,34 @@ export async function calculateDayRoute(
       );
       continue;
     }
-    points.push({ label: `${c.full_name} — ${address || c.full_address || ""} (${stop.ref})`, coords });
+    points.push({
+      label: `${c.full_name} — ${address || c.full_address || ""} (${stop.ref})`,
+      coords,
+    });
   }
 
-
   if (points.length < 2) {
-    return { legs: [], totalKm: 0, totalMinutes: 0, stops: 0, baseAddress: tech.base_address, failures };
+    return {
+      legs: [],
+      totalKm: 0,
+      totalMinutes: 0,
+      stops: 0,
+      baseAddress: tech.base_address,
+      failures,
+    };
   }
 
   const result = await drivingRoute(points);
   if (!result) {
     failures.push("O serviço de mapas não respondeu. Tente novamente em alguns instantes.");
-    return { legs: [], totalKm: 0, totalMinutes: 0, stops: points.length - 1, baseAddress: tech.base_address, failures };
+    return {
+      legs: [],
+      totalKm: 0,
+      totalMinutes: 0,
+      stops: points.length - 1,
+      baseAddress: tech.base_address,
+      failures,
+    };
   }
 
   return { ...result, stops: points.length - 1, baseAddress: tech.base_address, failures };

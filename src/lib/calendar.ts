@@ -2,11 +2,7 @@
  * Atalhos de agenda usados pelo app: nunca bloqueiam nem quebram o salvamento.
  * Se a integração estiver desligada ou o Google falhar, apenas registramos o log.
  */
-import {
-  cancelVisitEvent,
-  rescheduleVisitEvent,
-  syncVisitEvent,
-} from "@/lib/calendar.functions";
+import { cancelVisitEvent, rescheduleVisitEvent, syncVisitEvent } from "@/lib/calendar.functions";
 
 export type AgendaKind = "visit" | "budget";
 

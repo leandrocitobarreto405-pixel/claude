@@ -11,7 +11,6 @@ export type ConfigKind =
   | "adjustment_reason"
   | "recurrence_reason";
 
-
 export type ConfigOption = {
   id: string;
   kind: string;
@@ -199,7 +198,13 @@ export const PAYMENT_STATUSES = [
 
 export const INVOICE_STATUSES = ["Pendente", "Emitida", "Cancelada", "Não necessária"] as const;
 
-export const EXPENSE_STATUSES = ["Pendente", "Pago", "Parcialmente pago", "Vencido", "Cancelado"] as const;
+export const EXPENSE_STATUSES = [
+  "Pendente",
+  "Pago",
+  "Parcialmente pago",
+  "Vencido",
+  "Cancelado",
+] as const;
 
 export const PAYMENT_CHANNELS = [
   "Pix direto",
@@ -210,7 +215,14 @@ export const PAYMENT_CHANNELS = [
   "Outro",
 ] as const;
 
-export const PAYMENT_TYPES = ["Pix", "Dinheiro", "Débito", "Crédito", "Transferência", "Outro"] as const;
+export const PAYMENT_TYPES = [
+  "Pix",
+  "Dinheiro",
+  "Débito",
+  "Crédito",
+  "Transferência",
+  "Outro",
+] as const;
 
 export const DEFAULT_MESSAGE_TEMPLATE = `{{dia_da_semana}}, {{data}}, às {{horario}}
 

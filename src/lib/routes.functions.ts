@@ -69,5 +69,3 @@ export const consolidarGastosDoTecnico = createServerFn({ method: "POST" })
       technicianId: data.technicianId,
     });
   });
-
-

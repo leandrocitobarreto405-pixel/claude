@@ -22,9 +22,15 @@ export const Route = createFileRoute("/_authenticated/mensagens")({
   head: () => ({
     meta: [
       { title: "Mensagens de amanhã — Gestão Estofados" },
-      { name: "description", content: "Copie as mensagens de confirmação dos serviços do dia seguinte." },
+      {
+        name: "description",
+        content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",
+      },
       { property: "og:title", content: "Mensagens de amanhã — Gestão Estofados" },
-      { property: "og:description", content: "Copie as mensagens de confirmação dos serviços do dia seguinte." },
+      {
+        property: "og:description",
+        content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",
+      },
     ],
   }),
   component: Mensagens,
@@ -101,7 +107,6 @@ function Mensagens() {
 
   const todas = cartoes.map((c) => c.message).join("\n\n———\n\n");
 
-
   return (
     <>
       <PageHeader
@@ -119,7 +124,13 @@ function Mensagens() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="dia">Dia dos serviços</Label>
-          <Input id="dia" type="date" value={dia} onChange={(e) => setDia(e.target.value)} className="w-[180px]" />
+          <Input
+            id="dia"
+            type="date"
+            value={dia}
+            onChange={(e) => setDia(e.target.value)}
+            className="w-[180px]"
+          />
         </div>
         <Button variant="outline" onClick={() => setDia(tomorrowISO())}>
           Amanhã
@@ -166,7 +177,6 @@ function Mensagens() {
           ))}
         </div>
       )}
-
     </>
   );
 }

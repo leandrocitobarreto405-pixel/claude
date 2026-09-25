@@ -185,7 +185,9 @@ export async function suggestDaysByCep(
   let budgetCalls = 12;
   for (const c of missing.values()) {
     if (budgetCalls-- <= 0) {
-      failures.push("Alguns endereços ainda não têm localização salva; repita a busca em instantes.");
+      failures.push(
+        "Alguns endereços ainda não têm localização salva; repita a busca em instantes.",
+      );
       break;
     }
     const coords = await geocodeParts(c);

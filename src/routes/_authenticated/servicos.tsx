@@ -15,15 +15,29 @@ import { StatusBadge, VisitDialog } from "@/components/visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { useSalespeople, useTechnicians } from "@/lib/data";
-import { brl, currentMonth, dateBR, monthEnd, monthLabelPT, monthStart, timeBR } from "@/lib/format";
+import {
+  brl,
+  currentMonth,
+  dateBR,
+  monthEnd,
+  monthLabelPT,
+  monthStart,
+  timeBR,
+} from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({
     meta: [
       { title: "Serviços realizados — Gestão Estofados" },
-      { name: "description", content: "Histórico de serviços concluídos com valores, técnicos e vendedoras." },
+      {
+        name: "description",
+        content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",
+      },
       { property: "og:title", content: "Serviços realizados — Gestão Estofados" },
-      { property: "og:description", content: "Histórico de serviços concluídos com valores, técnicos e vendedoras." },
+      {
+        property: "og:description",
+        content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",
+      },
     ],
   }),
   component: Servicos,
@@ -77,7 +91,13 @@ function Servicos() {
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
           <Label htmlFor="mes">Mês</Label>
-          <Input id="mes" type="month" value={mes} onChange={(e) => setMes(e.target.value)} className="w-[170px]" />
+          <Input
+            id="mes"
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="w-[170px]"
+          />
         </div>
         <div className="space-y-1">
           <Label>Técnico</Label>
@@ -113,7 +133,12 @@ function Servicos() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="busca">Buscar cliente ou OS</Label>
-          <Input id="busca" value={busca} onChange={(e) => setBusca(e.target.value)} className="w-[220px]" />
+          <Input
+            id="busca"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="w-[220px]"
+          />
         </div>
       </div>
 
@@ -145,7 +170,11 @@ function Servicos() {
                     {dateBR(v.completion_date)} {timeBR(v.completion_time)}
                   </Td>
                   <Td>
-                    <Link to="/os/$osNumber" params={{ osNumber: v.work_order?.os_number ?? "" }} className="text-primary underline">
+                    <Link
+                      to="/os/$osNumber"
+                      params={{ osNumber: v.work_order?.os_number ?? "" }}
+                      className="text-primary underline"
+                    >
                       {v.work_order?.os_number}
                     </Link>
                   </Td>

@@ -121,7 +121,11 @@ function AReceber() {
             <tbody>
               {items.map((i) => (
                 <tr key={i.visitId} className="border-t border-border hover:bg-accent">
-                  <Td>{dateBR(aba === "concluido" ? (i.completionDate ?? i.scheduledDate) : i.scheduledDate)}</Td>
+                  <Td>
+                    {dateBR(
+                      aba === "concluido" ? (i.completionDate ?? i.scheduledDate) : i.scheduledDate,
+                    )}
+                  </Td>
                   <Td>
                     <Link
                       to="/os/$osNumber"
@@ -172,7 +176,9 @@ function AReceber() {
         mode="criar"
         workOrderId={pagamento?.workOrderId ?? null}
         visitOptions={
-          pagamento ? [{ id: pagamento.visitId, label: pagamento.serviceLabel || "Atendimento" }] : []
+          pagamento
+            ? [{ id: pagamento.visitId, label: pagamento.serviceLabel || "Atendimento" }]
+            : []
         }
         suggestedAmount={pagamento?.balance ?? 0}
         osLabel={pagamento ? `OS ${pagamento.osNumber} · ${pagamento.customer}` : ""}
