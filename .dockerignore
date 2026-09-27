@@ -1,0 +1,12 @@
+.git
+node_modules
+.output
+.cache
+.nitro
+.tanstack
+dist
+.env
+.env.*
+*.local
+docs
+supabase/tests

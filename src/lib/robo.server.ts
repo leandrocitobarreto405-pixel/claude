@@ -15,8 +15,9 @@ import type { Database } from "@/integrations/supabase/types";
 let sessao: { token: string; expiraEm: number } | null = null;
 
 function ambiente() {
-  const url = process.env["SUPABASE_URL"];
-  const chave = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const url = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
+  const chave =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   const email = process.env["NEXA_ROBO_EMAIL"];
   const senha = process.env["NEXA_ROBO_SENHA"];
   if (!url || !chave || !email || !senha) {
