@@ -146,6 +146,9 @@ A Etapa 2 pode começar sem o Chatwoot: o código do MVP (Etapa 3) também pode 
 com eventos de exemplo antes de a conta existir. Só a validação com a conversa real depende da
 conta e do número conectados.
 
+Andamento: Etapa 2 em `ETAPA-2-ISOLAMENTO.md`; Etapa 3 (código do MVP Chatwoot pronto e testado com
+eventos simulados) em `ETAPA-3-CHATWOOT.md`.
+
 ## Checklist para você providenciar (em paralelo)
 
 1. **Chatwoot Cloud**: criar conta (teste), confirmar no plano que há WhatsApp e

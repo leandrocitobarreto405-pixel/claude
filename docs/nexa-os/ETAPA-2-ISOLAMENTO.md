@@ -98,9 +98,9 @@ Pré-requisito local: Postgres 16 em `/tmp:54329`. Os scripts aceitam `PGHOST`, 
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | App e usuário-robô |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Navegador |
-| `SUPABASE_SERVICE_ROLE_KEY` | Webhook de leads, reprocessamento/simulação de WhatsApp (sempre com empresa explícita) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Webhooks de leads e do Chatwoot, reprocessamento/simulação de WhatsApp (sempre com empresa explícita) |
 | `NEXA_ROBO_EMAIL`, `NEXA_ROBO_SENHA` | Usuário-robô das tarefas mensais |
-| `NEXA_TAREFAS_SEGREDO` | Segredo (32+ caracteres) exigido no cabeçalho `Authorization: Bearer …` de `/api/public/hooks/recurring-expenses` e `/monthly-mileage-closing` |
+| `NEXA_TAREFAS_SEGREDO` | Segredo (32+ caracteres) exigido no cabeçalho `Authorization: Bearer …` de `/api/public/hooks/recurring-expenses`, `/monthly-mileage-closing` e `/chatwoot-reprocessar` |
 
 ## Pendências conhecidas
 

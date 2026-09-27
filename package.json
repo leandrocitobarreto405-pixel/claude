@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit -p .",
     "test:db": "scripts/db-test.sh",
     "test:api": "scripts/api-test.sh",
-    "test:unit": "tsx --test \"src/**/*.test.ts\""
+    "test:unit": "tsx --test \"src/**/*.test.ts\"",
+    "test:webhook": "scripts/webhook-test.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

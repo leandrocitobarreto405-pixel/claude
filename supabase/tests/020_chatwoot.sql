@@ -248,6 +248,27 @@ SELECT pg_temp.deve_falhar($q$SELECT * FROM public.chatwoot_conexao_segredos$q$,
 SELECT pg_temp.deve_falhar($q$SELECT public.receber_evento_chatwoot('token-teste', 'x', '{"event":"x"}')$q$,
   'usuário comum chamando a entrada do webhook');
 SELECT pg_temp.deve_falhar($q$SELECT public.reprocessar_eventos_chatwoot(1)$q$, 'cliente reprocessando eventos');
+SELECT pg_temp.ok((SELECT count(*) FROM public.chatwoot_inboxes
+  WHERE empresa_id <> '11111111-1111-1111-1111-111111111111') = 0, 'Turbine não vê caixas de outra empresa');
+SELECT pg_temp.ok((SELECT count(*) FROM public.chatwoot_inboxes) > 0, 'Turbine vê a própria caixa');
+SELECT pg_temp.deve_falhar($q$INSERT INTO public.chatwoot_inboxes (conexao_id, inbox_id, empresa_id)
+  SELECT conexao_id, 999, empresa_id FROM public.chatwoot_inboxes LIMIT 1$q$, 'cliente mapeando caixa');
+WITH u AS (UPDATE public.chatwoot_inboxes SET empresa_id = '22222222-2222-2222-2222-222222222222' RETURNING 1)
+SELECT pg_temp.ok(count(*) = 0, 'cliente não altera o mapeamento das caixas') FROM u;
+RESET ROLE;
+
+-- 19. Admin da Nexa vê e gerencia as caixas de todas as empresas.
+INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-0000000000a9', 'nexa@teste.dev');
+INSERT INTO public.plataforma_usuarios (user_id, papel)
+VALUES ('00000000-0000-0000-0000-0000000000a9', 'nexa_admin');
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a9","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(DISTINCT empresa_id) FROM public.chatwoot_inboxes) = 2, 'Nexa vê caixas das duas empresas');
+SELECT pg_temp.ok((SELECT count(DISTINCT empresa_id) FROM public.integracao_eventos) = 2, 'Nexa vê eventos das duas empresas');
+SELECT pg_temp.ok((SELECT count(*) FROM public.chatwoot_conexoes) = 1, 'Nexa vê a conexão');
+WITH u AS (UPDATE public.chatwoot_inboxes SET nome = 'renomeada' RETURNING 1)
+SELECT pg_temp.ok(count(*) >= 2, 'Nexa altera caixas') FROM u;
+SELECT pg_temp.deve_falhar($q$SELECT * FROM public.chatwoot_conexao_segredos$q$, 'Nexa lendo segredos pelo app');
 RESET ROLE;
 
 ROLLBACK;

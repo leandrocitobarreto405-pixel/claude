@@ -400,7 +400,7 @@ function ChatwootNexa() {
                 <Label htmlFor="cw-inbox-nome">Nome (opcional)</Label>
                 <Input
                   id="cw-inbox-nome"
-                  placeholder="WhatsApp Turbine"
+                  placeholder="ex.: WhatsApp Turbine"
                   value={inboxNome}
                   onChange={(e) => setInboxNome(e.target.value)}
                 />
