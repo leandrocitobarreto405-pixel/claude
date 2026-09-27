@@ -23,6 +23,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  MessagesSquare,
   Receipt,
   Route as RouteIcon,
   Settings,
@@ -100,7 +101,10 @@ const NAV_GROUPS = [
   },
   {
     label: "Nexa",
-    items: [{ to: "/nexa/empresas", label: "Empresas e comissões", icon: Building2 }],
+    items: [
+      { to: "/nexa/empresas", label: "Empresas e comissões", icon: Building2 },
+      { to: "/nexa/chatwoot", label: "Chatwoot", icon: MessagesSquare },
+    ],
   },
 ] as const;
 

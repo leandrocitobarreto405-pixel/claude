@@ -12,6 +12,8 @@ export PGUSER="${PGUSER:-postgres}"
 DB_NAME="${DB_NAME:-nexa_test}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+"${ROOT}/scripts/pg-local.sh" >/dev/null
+
 psql -q -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME}" -c "CREATE DATABASE ${DB_NAME}"
 
 run() { PGOPTIONS="-c client_min_messages=warning" psql -q -X -v ON_ERROR_STOP=1 -d "${DB_NAME}" "$@"; }

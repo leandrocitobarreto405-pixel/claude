@@ -36,14 +36,17 @@ import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
+import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
+import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
 import { Route as ApiPublicHooksWhatsappRouteImport } from './routes/api/public/hooks/whatsapp'
+import { Route as ApiPublicHooksChatwootTokenRouteImport } from './routes/api/public/hooks/chatwoot.$token'
 import { Route as ApiPublicHooksLeadsSourceTypeTokenRouteImport } from './routes/api/public/hooks/leads.$sourceType.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -188,6 +191,12 @@ const AuthenticatedCrmWhatsappRoute =
     path: '/crm/whatsapp',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNexaChatwootRoute =
+  AuthenticatedNexaChatwootRouteImport.update({
+    id: '/nexa/chatwoot',
+    path: '/nexa/chatwoot',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNexaEmpresasRoute =
   AuthenticatedNexaEmpresasRouteImport.update({
     id: '/nexa/empresas',
@@ -217,6 +226,12 @@ const AuthenticatedCrmLeadLeadIdRoute =
     path: '/crm/lead/$leadId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicHooksChatwootReprocessarRoute =
+  ApiPublicHooksChatwootReprocessarRouteImport.update({
+    id: '/api/public/hooks/chatwoot-reprocessar',
+    path: '/api/public/hooks/chatwoot-reprocessar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksMonthlyMileageClosingRoute =
   ApiPublicHooksMonthlyMileageClosingRouteImport.update({
     id: '/api/public/hooks/monthly-mileage-closing',
@@ -234,6 +249,12 @@ const ApiPublicHooksWhatsappRoute = ApiPublicHooksWhatsappRouteImport.update({
   path: '/api/public/hooks/whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksChatwootTokenRoute =
+  ApiPublicHooksChatwootTokenRouteImport.update({
+    id: '/api/public/hooks/chatwoot/$token',
+    path: '/api/public/hooks/chatwoot/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksLeadsSourceTypeTokenRoute =
   ApiPublicHooksLeadsSourceTypeTokenRouteImport.update({
     id: '/api/public/hooks/leads/$sourceType/$token',
@@ -268,14 +289,17 @@ export interface FileRoutesByFullPath {
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
 export interface FileRoutesByTo {
@@ -305,14 +329,17 @@ export interface FileRoutesByTo {
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
 export interface FileRoutesById {
@@ -344,14 +371,17 @@ export interface FileRoutesById {
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
+  '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
 export interface FileRouteTypes {
@@ -383,14 +413,17 @@ export interface FileRouteTypes {
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
+    | '/nexa/chatwoot'
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
+    | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -420,14 +453,17 @@ export interface FileRouteTypes {
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
+    | '/nexa/chatwoot'
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/orcamentos'
     | '/crm/lead/$leadId'
+    | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   id:
     | '__root__'
@@ -458,14 +494,17 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/repescagens'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
+    | '/_authenticated/nexa/chatwoot'
     | '/_authenticated/nexa/empresas'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
+    | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   fileRoutesById: FileRoutesById
 }
@@ -473,9 +512,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
   ApiPublicHooksWhatsappRoute: typeof ApiPublicHooksWhatsappRoute
+  ApiPublicHooksChatwootTokenRoute: typeof ApiPublicHooksChatwootTokenRoute
   ApiPublicHooksLeadsSourceTypeTokenRoute: typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
 
@@ -670,6 +711,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmWhatsappRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/chatwoot': {
+      id: '/_authenticated/nexa/chatwoot'
+      path: '/nexa/chatwoot'
+      fullPath: '/nexa/chatwoot'
+      preLoaderRoute: typeof AuthenticatedNexaChatwootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nexa/empresas': {
       id: '/_authenticated/nexa/empresas'
       path: '/nexa/empresas'
@@ -705,6 +753,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmLeadLeadIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/chatwoot-reprocessar': {
+      id: '/api/public/hooks/chatwoot-reprocessar'
+      path: '/api/public/hooks/chatwoot-reprocessar'
+      fullPath: '/api/public/hooks/chatwoot-reprocessar'
+      preLoaderRoute: typeof ApiPublicHooksChatwootReprocessarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/monthly-mileage-closing': {
       id: '/api/public/hooks/monthly-mileage-closing'
       path: '/api/public/hooks/monthly-mileage-closing'
@@ -724,6 +779,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/whatsapp'
       fullPath: '/api/public/hooks/whatsapp'
       preLoaderRoute: typeof ApiPublicHooksWhatsappRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/chatwoot/$token': {
+      id: '/api/public/hooks/chatwoot/$token'
+      path: '/api/public/hooks/chatwoot/$token'
+      fullPath: '/api/public/hooks/chatwoot/$token'
+      preLoaderRoute: typeof ApiPublicHooksChatwootTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/leads/$sourceType/$token': {
@@ -761,6 +823,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
+  AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
@@ -793,6 +856,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
+  AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
@@ -807,10 +871,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksChatwootReprocessarRoute:
+    ApiPublicHooksChatwootReprocessarRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:
     ApiPublicHooksMonthlyMileageClosingRoute,
   ApiPublicHooksRecurringExpensesRoute: ApiPublicHooksRecurringExpensesRoute,
   ApiPublicHooksWhatsappRoute: ApiPublicHooksWhatsappRoute,
+  ApiPublicHooksChatwootTokenRoute: ApiPublicHooksChatwootTokenRoute,
   ApiPublicHooksLeadsSourceTypeTokenRoute:
     ApiPublicHooksLeadsSourceTypeTokenRoute,
 }

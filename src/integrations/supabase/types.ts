@@ -194,6 +194,122 @@ export type Database = {
           },
         ];
       };
+      chatwoot_conexao_segredos: {
+        Row: {
+          api_token: string | null;
+          conexao_id: string;
+          updated_at: string;
+          webhook_secret: string | null;
+        };
+        Insert: {
+          api_token?: string | null;
+          conexao_id: string;
+          updated_at?: string;
+          webhook_secret?: string | null;
+        };
+        Update: {
+          api_token?: string | null;
+          conexao_id?: string;
+          updated_at?: string;
+          webhook_secret?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chatwoot_conexao_segredos_conexao_id_fkey";
+            columns: ["conexao_id"];
+            referencedRelation: "chatwoot_conexoes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chatwoot_conexoes: {
+        Row: {
+          account_id: number;
+          ativo: boolean;
+          base_url: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          nome: string;
+          ultimo_evento_em: string | null;
+          updated_at: string;
+          verificar_assinatura: boolean;
+          webhook_token: string;
+        };
+        Insert: {
+          account_id: number;
+          ativo?: boolean;
+          base_url?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome: string;
+          ultimo_evento_em?: string | null;
+          updated_at?: string;
+          verificar_assinatura?: boolean;
+          webhook_token?: string;
+        };
+        Update: {
+          account_id?: number;
+          ativo?: boolean;
+          base_url?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          nome?: string;
+          ultimo_evento_em?: string | null;
+          updated_at?: string;
+          verificar_assinatura?: boolean;
+          webhook_token?: string;
+        };
+        Relationships: [];
+      };
+      chatwoot_inboxes: {
+        Row: {
+          ativo: boolean;
+          canal: string | null;
+          conexao_id: string;
+          created_at: string;
+          empresa_id: string;
+          id: string;
+          inbox_id: number;
+          nome: string | null;
+        };
+        Insert: {
+          ativo?: boolean;
+          canal?: string | null;
+          conexao_id: string;
+          created_at?: string;
+          empresa_id: string;
+          id?: string;
+          inbox_id: number;
+          nome?: string | null;
+        };
+        Update: {
+          ativo?: boolean;
+          canal?: string | null;
+          conexao_id?: string;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          inbox_id?: number;
+          nome?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chatwoot_inboxes_conexao_id_fkey";
+            columns: ["conexao_id"];
+            referencedRelation: "chatwoot_conexoes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chatwoot_inboxes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       config_options: {
         Row: {
           active: boolean;
@@ -306,6 +422,97 @@ export type Database = {
             foreignKeyName: "contratos_comissao_empresa_id_fkey";
             columns: ["empresa_id"];
             referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      conversas: {
+        Row: {
+          aguardando_desde: string | null;
+          atualizado_chatwoot_em: string | null;
+          chatwoot_conversation_id: number;
+          conexao_id: string;
+          created_at: string;
+          criada_em: string | null;
+          crm_lead_id: string | null;
+          empresa_id: string;
+          etiquetas: string[];
+          id: string;
+          inbox_id: number | null;
+          primeira_resposta_em: string | null;
+          responsavel_id: number | null;
+          responsavel_nome: string | null;
+          status: string | null;
+          time_nome: string | null;
+          ultima_atividade_em: string | null;
+          updated_at: string;
+          whatsapp_contact_id: string | null;
+        };
+        Insert: {
+          aguardando_desde?: string | null;
+          atualizado_chatwoot_em?: string | null;
+          chatwoot_conversation_id: number;
+          conexao_id: string;
+          created_at?: string;
+          criada_em?: string | null;
+          crm_lead_id?: string | null;
+          empresa_id?: string;
+          etiquetas?: string[];
+          id?: string;
+          inbox_id?: number | null;
+          primeira_resposta_em?: string | null;
+          responsavel_id?: number | null;
+          responsavel_nome?: string | null;
+          status?: string | null;
+          time_nome?: string | null;
+          ultima_atividade_em?: string | null;
+          updated_at?: string;
+          whatsapp_contact_id?: string | null;
+        };
+        Update: {
+          aguardando_desde?: string | null;
+          atualizado_chatwoot_em?: string | null;
+          chatwoot_conversation_id?: number;
+          conexao_id?: string;
+          created_at?: string;
+          criada_em?: string | null;
+          crm_lead_id?: string | null;
+          empresa_id?: string;
+          etiquetas?: string[];
+          id?: string;
+          inbox_id?: number | null;
+          primeira_resposta_em?: string | null;
+          responsavel_id?: number | null;
+          responsavel_nome?: string | null;
+          status?: string | null;
+          time_nome?: string | null;
+          ultima_atividade_em?: string | null;
+          updated_at?: string;
+          whatsapp_contact_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversas_conexao_id_fkey";
+            columns: ["conexao_id"];
+            referencedRelation: "chatwoot_conexoes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversas_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversas_whatsapp_contact_id_fkey";
+            columns: ["whatsapp_contact_id"];
+            referencedRelation: "whatsapp_contacts";
             referencedColumns: ["id"];
           },
         ];
@@ -528,6 +735,7 @@ export type Database = {
           normalized_phone: string | null;
           notes: string | null;
           phone: string;
+          primeira_resposta_em: string | null;
           referral_data: NonNullable<Json>;
           sales_origin_id: string | null;
           salesperson_id: string | null;
@@ -564,6 +772,7 @@ export type Database = {
           normalized_phone?: string | null;
           notes?: string | null;
           phone?: string;
+          primeira_resposta_em?: string | null;
           referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
@@ -600,6 +809,7 @@ export type Database = {
           normalized_phone?: string | null;
           notes?: string | null;
           phone?: string;
+          primeira_resposta_em?: string | null;
           referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
@@ -1236,6 +1446,76 @@ export type Database = {
             foreignKeyName: "expenses_work_order_id_fkey";
             columns: ["work_order_id"];
             referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      integracao_eventos: {
+        Row: {
+          account_id: number | null;
+          chave_dedup: string;
+          conexao_id: string | null;
+          delivery_id: string | null;
+          empresa_id: string | null;
+          erro: string | null;
+          evento: string;
+          id: string;
+          inbox_id: number | null;
+          payload: NonNullable<Json>;
+          processado_em: string | null;
+          provedor: string;
+          recebido_em: string;
+          resultado: Json | null;
+          status: string;
+          tentativas: number;
+        };
+        Insert: {
+          account_id?: number | null;
+          chave_dedup: string;
+          conexao_id?: string | null;
+          delivery_id?: string | null;
+          empresa_id?: string | null;
+          erro?: string | null;
+          evento: string;
+          id?: string;
+          inbox_id?: number | null;
+          payload: NonNullable<Json>;
+          processado_em?: string | null;
+          provedor?: string;
+          recebido_em?: string;
+          resultado?: Json | null;
+          status?: string;
+          tentativas?: number;
+        };
+        Update: {
+          account_id?: number | null;
+          chave_dedup?: string;
+          conexao_id?: string | null;
+          delivery_id?: string | null;
+          empresa_id?: string | null;
+          erro?: string | null;
+          evento?: string;
+          id?: string;
+          inbox_id?: number | null;
+          payload?: NonNullable<Json>;
+          processado_em?: string | null;
+          provedor?: string;
+          recebido_em?: string;
+          resultado?: Json | null;
+          status?: string;
+          tentativas?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "integracao_eventos_conexao_id_fkey";
+            columns: ["conexao_id"];
+            referencedRelation: "chatwoot_conexoes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "integracao_eventos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
         ];
@@ -2803,6 +3083,7 @@ export type Database = {
       whatsapp_contacts: {
         Row: {
           active: boolean;
+          chatwoot_contact_id: number | null;
           created_at: string;
           current_customer_id: string | null;
           display_phone: string | null;
@@ -2813,6 +3094,7 @@ export type Database = {
           last_contact_at: string;
           last_message_at: string | null;
           normalized_phone: string;
+          origem: string;
           profile_name: string | null;
           total_inbound_messages: number;
           total_outbound_messages: number;
@@ -2821,6 +3103,7 @@ export type Database = {
         };
         Insert: {
           active?: boolean;
+          chatwoot_contact_id?: number | null;
           created_at?: string;
           current_customer_id?: string | null;
           display_phone?: string | null;
@@ -2831,6 +3114,7 @@ export type Database = {
           last_contact_at?: string;
           last_message_at?: string | null;
           normalized_phone: string;
+          origem?: string;
           profile_name?: string | null;
           total_inbound_messages?: number;
           total_outbound_messages?: number;
@@ -2839,6 +3123,7 @@ export type Database = {
         };
         Update: {
           active?: boolean;
+          chatwoot_contact_id?: number | null;
           created_at?: string;
           current_customer_id?: string | null;
           display_phone?: string | null;
@@ -2849,6 +3134,7 @@ export type Database = {
           last_contact_at?: string;
           last_message_at?: string | null;
           normalized_phone?: string;
+          origem?: string;
           profile_name?: string | null;
           total_inbound_messages?: number;
           total_outbound_messages?: number;
@@ -2872,6 +3158,8 @@ export type Database = {
       };
       whatsapp_messages: {
         Row: {
+          chatwoot_message_id: number | null;
+          conversa_id: string | null;
           created_at: string;
           crm_lead_id: string | null;
           delivery_status: string | null;
@@ -2881,17 +3169,22 @@ export type Database = {
           media_id: string | null;
           message_timestamp: string;
           message_type: string;
+          origem: string;
+          privada: boolean;
           raw_event_reference: string | null;
           referral_body: string | null;
           referral_headline: string | null;
           referral_source_id: string | null;
           referral_source_url: string | null;
+          remetente_tipo: string | null;
           reply_to_message_id: string | null;
           text_content: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id: string | null;
         };
         Insert: {
+          chatwoot_message_id?: number | null;
+          conversa_id?: string | null;
           created_at?: string;
           crm_lead_id?: string | null;
           delivery_status?: string | null;
@@ -2901,17 +3194,22 @@ export type Database = {
           media_id?: string | null;
           message_timestamp?: string;
           message_type?: string;
+          origem?: string;
+          privada?: boolean;
           raw_event_reference?: string | null;
           referral_body?: string | null;
           referral_headline?: string | null;
           referral_source_id?: string | null;
           referral_source_url?: string | null;
+          remetente_tipo?: string | null;
           reply_to_message_id?: string | null;
           text_content?: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id?: string | null;
         };
         Update: {
+          chatwoot_message_id?: number | null;
+          conversa_id?: string | null;
           created_at?: string;
           crm_lead_id?: string | null;
           delivery_status?: string | null;
@@ -2921,17 +3219,26 @@ export type Database = {
           media_id?: string | null;
           message_timestamp?: string;
           message_type?: string;
+          origem?: string;
+          privada?: boolean;
           raw_event_reference?: string | null;
           referral_body?: string | null;
           referral_headline?: string | null;
           referral_source_id?: string | null;
           referral_source_url?: string | null;
+          remetente_tipo?: string | null;
           reply_to_message_id?: string | null;
           text_content?: string | null;
           whatsapp_contact_id?: string;
           whatsapp_message_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "whatsapp_messages_crm_lead_id_fkey";
             columns: ["crm_lead_id"];
@@ -3236,6 +3543,21 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      chatwoot_conexoes_resumo: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          account_id: number;
+          ativo: boolean;
+          base_url: string;
+          id: string;
+          nome: string;
+          tem_segredo: boolean;
+          tem_token_api: boolean;
+          ultimo_evento_em: string;
+          verificar_assinatura: boolean;
+          webhook_token: string;
+        }[];
+      };
       convidar_usuario: {
         Args: {
           _email: string;
@@ -3246,6 +3568,14 @@ export type Database = {
       definir_comissao_empresa: {
         Args: { _empresa_id: string; _inicio?: string; _percentual: number };
         Returns: string;
+      };
+      definir_segredos_chatwoot: {
+        Args: {
+          _api_token?: string;
+          _conexao_id: string;
+          _webhook_secret?: string;
+        };
+        Returns: undefined;
       };
       empresa_ativa: { Args: Record<PropertyKey, never>; Returns: string };
       empresas_do_usuario: { Args: { _user_id: string }; Returns: string[] };
@@ -3272,6 +3602,10 @@ export type Database = {
         };
         Returns: string;
       };
+      receber_evento_chatwoot: {
+        Args: { _delivery_id: string; _payload: Json; _token: string };
+        Returns: Json;
+      };
       registrar_consumo_produto: {
         Args: {
           _produto_id: string;
@@ -3284,6 +3618,10 @@ export type Database = {
       registrar_empresa: {
         Args: { _cnpj?: string; _nome: string; _telefone?: string };
         Returns: string;
+      };
+      reprocessar_eventos_chatwoot: {
+        Args: { _limite?: number };
+        Returns: Json;
       };
       sou_admin_nexa: { Args: Record<PropertyKey, never>; Returns: boolean };
       tem_papel: {
