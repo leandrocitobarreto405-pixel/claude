@@ -46,7 +46,7 @@ O segredo das tarefas (`nexa-tarefas-segredo`) é gerado aleatoriamente e ningu�
      `leandrocitobarreto405-pixel/claude`.
    - Branch: `^claude/nexa-os-multi-tenant-dl9c3s$`.
    - Tipo de build: **Dockerfile**, local `/Dockerfile` → **Salvar**.
-3. Nome do serviço `nexa-os`, região **southamerica-east1 (São Paulo)**.
+3. Nome do serviço `nexaos`, região **southamerica-east1 (São Paulo)**.
 4. Autenticação: **Permitir acesso público** (o app tem login próprio; o webhook usa token).
 5. Faturamento: **baseado em solicitações**. Escalonamento: mínimo **0**, máximo **3**.
 6. Abra **Contêineres, volumes, rede e segurança** → aba **Variáveis e secrets** → em **Secrets**,
@@ -61,7 +61,7 @@ O segredo das tarefas (`nexa-tarefas-segredo`) é gerado aleatoriamente e ningu�
 
 ```bash
 REGIAO=southamerica-east1
-URL=$(gcloud run services describe nexa-os --region "$REGIAO" --format='value(status.url)')
+URL=$(gcloud run services describe nexaos --region "$REGIAO" --format='value(status.url)')
 gcloud scheduler jobs create http chatwoot-reprocessar --location "$REGIAO" \
   --schedule "*/5 * * * *" --time-zone America/Sao_Paulo --http-method POST \
   --uri "$URL/api/public/hooks/chatwoot-reprocessar" \
