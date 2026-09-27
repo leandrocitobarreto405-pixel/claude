@@ -18,6 +18,7 @@ import {
   Coins,
   FileSpreadsheet,
   FileText,
+  Filter,
   Home,
   Inbox,
   LogOut,
@@ -65,6 +66,7 @@ const NAV_GROUPS = [
   {
     label: "CRM WhatsApp",
     items: [
+      { to: "/indicadores", label: "Funil e indicadores", icon: Filter },
       { to: "/crm/visao-geral", label: "Visão geral", icon: Gauge },
       { to: "/crm/leads", label: "Leads", icon: UserPlus },
       { to: "/crm/funil", label: "Funil", icon: Columns3 },

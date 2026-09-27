@@ -15,6 +15,7 @@ import { MargemOrcamento } from "@/components/margem-orcamento";
 import { brl, decimal, onlyDigits } from "@/lib/format";
 import { findRate, usePaymentRates, useSetting } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
+import { supabase } from "@/integrations/supabase/client";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
 import {
   STATUS_CLASS,
@@ -35,6 +36,8 @@ import {
 } from "@/lib/quotes.functions";
 
 export const Route = createFileRoute("/_authenticated/orcamentos/$quoteId")({
+  validateSearch: (search: Record<string, unknown>): { lead?: string } =>
+    typeof search["lead"] === "string" ? { lead: search["lead"] as string } : {},
   head: () => ({
     meta: [
       { title: "Orçamento — Nexa OS" },
@@ -82,6 +85,7 @@ const round = (v: number) => Math.round(v * 100) / 100;
 
 function OrcamentoDetalhe() {
   const { quoteId } = Route.useParams();
+  const { lead: leadParam } = Route.useSearch();
   const novo = quoteId === "novo";
   const navigate = useNavigate();
   const { papel } = usePapel();
@@ -116,6 +120,7 @@ function OrcamentoDetalhe() {
   const [buscandoKm, setBuscandoKm] = useState(false);
   const [avisoKm, setAvisoKm] = useState<string | null>(null);
   const [cepCalculado, setCepCalculado] = useState("");
+  const [lead, setLead] = useState<{ id: string; lead_name: string | null } | null>(null);
 
   const { data: rates } = usePaymentRates(true);
   const { data: impostoPct = 6 } = useSetting<number>("tax_percent", 6);
@@ -152,6 +157,7 @@ function OrcamentoDetalhe() {
     setPreencherAgenda(Boolean(q.preencher_agenda));
     setCepCalculado(q.cliente_cep ?? "");
     setStatus(q.status);
+    setLead(q.lead ?? null);
     if (Number(q.km_ida_volta) > 0) {
       setCustoKmConfig(Number(q.custo_deslocamento ?? 0) / Number(q.km_ida_volta));
     }
@@ -168,6 +174,26 @@ function OrcamentoDetalhe() {
       })),
     );
   }, [carregado]);
+
+  // Orçamento novo aberto a partir de um lead: já vem com nome e telefone do lead.
+  useEffect(() => {
+    if (!novo || !leadParam) return;
+    let ativo = true;
+    void supabase
+      .from("crm_leads")
+      .select("id, lead_name, phone")
+      .eq("id", leadParam)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!ativo || !data) return;
+        setLead({ id: data.id, lead_name: data.lead_name });
+        setNome((atual) => atual || data.lead_name || "");
+        setTelefone((atual) => atual || data.phone || "");
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [novo, leadParam]);
 
   const subtotal = useMemo(
     () => round(linhas.reduce((s, l) => s + l.preco_aplicado * Math.max(1, l.quantidade), 0)),
@@ -291,6 +317,7 @@ function OrcamentoDetalhe() {
           parcelas: Math.max(parcelas, 1),
           taxa_percentual: taxaPct,
           preencher_agenda: preencherAgenda,
+          ...(lead ? { crm_lead_id: lead.id } : {}),
           status: novoStatus ?? status,
           items: validas.map((l) => ({
             tabela_preco_item_id: l.tabela_preco_item_id || null,
@@ -344,6 +371,15 @@ function OrcamentoDetalhe() {
         ) : null}
         {carregado?.quote.generated_work_order_id ? (
           <span className="text-xs text-muted-foreground">Este orçamento já virou OS.</span>
+        ) : null}
+        {lead ? (
+          <Link
+            to="/crm/lead/$leadId"
+            params={{ leadId: lead.id }}
+            className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:underline"
+          >
+            Lead: {lead.lead_name || "sem nome"}
+          </Link>
         ) : null}
       </div>
 

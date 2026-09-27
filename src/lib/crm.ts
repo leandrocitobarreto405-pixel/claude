@@ -72,6 +72,18 @@ export type CrmLead = {
   closed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Marcos do funil, preenchidos pelo banco (Etapa 4). */
+  primeira_resposta_em: string | null;
+  orcamento_em: string | null;
+  orcamento_enviado_em: string | null;
+  orcamento_aprovado_em: string | null;
+  os_criada_em: string | null;
+  agendado_em: string | null;
+  realizado_em: string | null;
+  faturado_em: string | null;
+  perdido_em: string | null;
+  /** Etapa canônica (campo calculado no banco). */
+  etapa: string | null;
 };
 
 export type CrmLeadRow = CrmLead & {
@@ -135,6 +147,7 @@ export type CrmStatusHistory = {
 
 const LEAD_SELECT = `
   *,
+  etapa,
   status:status_id ( id, name, metadata ),
   campaign:campaign_id ( id, campaign_name, platform ),
   salesperson:salesperson_id ( id, name ),
@@ -564,12 +577,16 @@ export async function linkLeadToWorkOrder(leadId: string, workOrderId: string) {
   if (error) throw error;
 
   if (convertido && lead?.status_id !== convertido.id) {
-    await supabase.from("crm_status_history").insert({
+    const anterior = (statuses ?? []).find((s) => s.id === lead?.status_id);
+    const { error: histErr } = await supabase.from("crm_status_history").insert({
       crm_lead_id: leadId,
       previous_status_id: lead?.status_id ?? null,
+      previous_status_name: anterior?.name ?? null,
       new_status_id: convertido.id,
-      reason: "Lead convertido em OS",
-      source: "Nova OS",
-    } as never);
+      new_status_name: convertido.name,
+      change_source: "Nova OS",
+      notes: "Lead convertido em OS",
+    });
+    if (histErr) console.error("Histórico do lead não registrado:", histErr.message);
   }
 }

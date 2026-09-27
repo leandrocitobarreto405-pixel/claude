@@ -35,6 +35,8 @@ export type QuoteInput = {
   parcelas: number;
   taxa_percentual: number;
   preencher_agenda?: boolean;
+  /** Lead do CRM. Omitido: mantém o vínculo atual (ou o automático pelo telefone). */
+  crm_lead_id?: string | null;
   status: "rascunho" | "enviado" | "aprovado" | "recusado" | "convertido";
   items: QuoteItemInput[];
 };
@@ -264,6 +266,7 @@ export async function saveQuote(db: DB, input: QuoteInput, userId: string | null
     contribuicao_valor: calc.contribuicao_valor,
     contribuicao_percentual: calc.contribuicao_percentual,
     status: input.status,
+    ...(input.crm_lead_id !== undefined ? { crm_lead_id: input.crm_lead_id } : {}),
     ...(empresaId ? { empresa_id: empresaId } : {}),
   };
 
@@ -328,6 +331,7 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
       parcelas: Number(orig["parcelas"] ?? 1),
       taxa_percentual: Number(orig["taxa_percentual"] ?? 0),
       preencher_agenda: Boolean(orig["preencher_agenda"] ?? false),
+      crm_lead_id: (orig["crm_lead_id"] as string | null) ?? null,
       status: "rascunho",
       items: (items ?? []).map((raw) => {
         const it = raw as unknown as Record<string, unknown>;

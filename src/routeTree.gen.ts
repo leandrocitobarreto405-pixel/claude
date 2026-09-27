@@ -18,6 +18,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
+import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
@@ -93,6 +94,12 @@ const AuthenticatedExportacoesRoute =
   AuthenticatedExportacoesRouteImport.update({
     id: '/exportacoes',
     path: '/exportacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedIndicadoresRoute =
+  AuthenticatedIndicadoresRouteImport.update({
+    id: '/indicadores',
+    path: '/indicadores',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
@@ -271,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/notas': typeof AuthenticatedNotasRoute
@@ -311,6 +319,7 @@ export interface FileRoutesByTo {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/notas': typeof AuthenticatedNotasRoute
@@ -353,6 +362,7 @@ export interface FileRoutesById {
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/indicadores'
     | '/inicio'
     | '/mensagens'
     | '/notas'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/indicadores'
     | '/inicio'
     | '/mensagens'
     | '/notas'
@@ -476,6 +488,7 @@ export interface FileRouteTypes {
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
     | '/_authenticated/exportacoes'
+    | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
     | '/_authenticated/mensagens'
     | '/_authenticated/notas'
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/exportacoes'
       fullPath: '/exportacoes'
       preLoaderRoute: typeof AuthenticatedExportacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/indicadores': {
+      id: '/_authenticated/indicadores'
+      path: '/indicadores'
+      fullPath: '/indicadores'
+      preLoaderRoute: typeof AuthenticatedIndicadoresRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/inicio': {
@@ -805,6 +825,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
+  AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
@@ -838,6 +859,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
+  AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,

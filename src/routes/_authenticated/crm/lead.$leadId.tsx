@@ -38,9 +38,12 @@ import {
   useCrmInvalidate,
   useCrmLead,
   useLeadTimeline,
+  type CrmLeadRow,
 } from "@/lib/crm";
 import { brl, dateBR, dateTimeBR, whatsappLink } from "@/lib/format";
 import { sugerirResumoDoLead } from "@/lib/crm-ai.functions";
+import { MARCOS, etapaInfo } from "@/lib/funil";
+import { STATUS_CLASS, STATUS_LABEL, type QuoteStatus } from "@/lib/quotes";
 import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/_authenticated/crm/lead/$leadId")({
@@ -500,6 +503,8 @@ function LeadDetalhe() {
         </div>
 
         <div className="grid gap-4">
+          <FunilDoLead lead={lead} />
+
           <SectionCard title="Ações rápidas">
             <div className="grid gap-2">
               <Label htmlFor="a-status">Mudar status</Label>
@@ -652,5 +657,81 @@ function LeadDetalhe() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Etapa canônica, marcos do funil (preenchidos pelo banco) e orçamentos do lead. */
+function FunilDoLead({ lead }: { lead: CrmLeadRow }) {
+  const orcamentos = useQuery({
+    queryKey: ["crm_lead_orcamentos", lead.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quotes")
+        .select("id, total, status, created_at")
+        .eq("crm_lead_id", lead.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const etapa = etapaInfo(lead.etapa);
+  const marcos = MARCOS.map((m) => ({ ...m, em: lead[m.campo] as string | null }));
+
+  return (
+    <SectionCard
+      title="Funil"
+      description="Marcos registrados automaticamente pelo sistema."
+      actions={
+        <Button size="sm" variant="outline" asChild>
+          <Link to="/orcamentos/$quoteId" params={{ quoteId: "novo" }} search={{ lead: lead.id }}>
+            Novo orçamento
+          </Link>
+        </Button>
+      }
+    >
+      <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${etapa.classe}`}>
+        {etapa.label}
+      </span>
+      <ol className="mt-3 grid gap-1.5 text-sm">
+        {marcos.map((m) => (
+          <li key={m.campo} className="flex items-center justify-between gap-2">
+            <span className={m.em ? "text-navy" : "text-muted-foreground"}>
+              {m.em ? "●" : "○"} {m.label}
+            </span>
+            <span className="text-xs text-muted-foreground">{m.em ? dateTimeBR(m.em) : "—"}</span>
+          </li>
+        ))}
+        {lead.perdido_em ? (
+          <li className="flex items-center justify-between gap-2 text-destructive">
+            <span>● Perdido</span>
+            <span className="text-xs">{dateTimeBR(lead.perdido_em)}</span>
+          </li>
+        ) : null}
+      </ol>
+      {(orcamentos.data ?? []).length ? (
+        <div className="mt-4 grid gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Orçamentos
+          </p>
+          {(orcamentos.data ?? []).map((q) => (
+            <Link
+              key={q.id}
+              to="/orcamentos/$quoteId"
+              params={{ quoteId: q.id }}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary"
+            >
+              <span>
+                {brl(Number(q.total ?? 0))} · {dateBR(q.created_at.slice(0, 10))}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${STATUS_CLASS[q.status as QuoteStatus]}`}
+              >
+                {STATUS_LABEL[q.status as QuoteStatus]}
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </SectionCard>
   );
 }

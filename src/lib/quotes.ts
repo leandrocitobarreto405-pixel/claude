@@ -72,10 +72,12 @@ export type Quote = {
   preencher_agenda: boolean;
   contribuicao_valor: number | null;
   contribuicao_percentual: number | null;
+  crm_lead_id: string | null;
+  lead: { id: string; lead_name: string | null } | null;
 };
 
 const QUOTE_SELECT =
-  "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at";
+  "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at, crm_lead_id, lead:crm_lead_id ( id, lead_name )";
 
 const round2 = (v: number) => Math.round((Number.isFinite(v) ? v : 0) * 100) / 100;
 

@@ -716,11 +716,13 @@ export type Database = {
       crm_leads: {
         Row: {
           ad_id: string | null;
+          agendado_em: string | null;
           campaign_id: string | null;
           closed_at: string | null;
           created_at: string;
           customer_id: string | null;
           empresa_id: string;
+          faturado_em: string | null;
           first_contact_date: string;
           follow_up_result: string | null;
           id: string;
@@ -734,8 +736,14 @@ export type Database = {
           next_follow_up_at: string | null;
           normalized_phone: string | null;
           notes: string | null;
+          orcamento_aprovado_em: string | null;
+          orcamento_em: string | null;
+          orcamento_enviado_em: string | null;
+          os_criada_em: string | null;
+          perdido_em: string | null;
           phone: string;
           primeira_resposta_em: string | null;
+          realizado_em: string | null;
           referral_data: NonNullable<Json>;
           sales_origin_id: string | null;
           salesperson_id: string | null;
@@ -750,14 +758,17 @@ export type Database = {
           updated_at: string;
           upholstery_description: string | null;
           whatsapp_contact_id: string | null;
+          etapa: string | null;
         };
         Insert: {
           ad_id?: string | null;
+          agendado_em?: string | null;
           campaign_id?: string | null;
           closed_at?: string | null;
           created_at?: string;
           customer_id?: string | null;
           empresa_id?: string;
+          faturado_em?: string | null;
           first_contact_date?: string;
           follow_up_result?: string | null;
           id?: string;
@@ -771,8 +782,14 @@ export type Database = {
           next_follow_up_at?: string | null;
           normalized_phone?: string | null;
           notes?: string | null;
+          orcamento_aprovado_em?: string | null;
+          orcamento_em?: string | null;
+          orcamento_enviado_em?: string | null;
+          os_criada_em?: string | null;
+          perdido_em?: string | null;
           phone?: string;
           primeira_resposta_em?: string | null;
+          realizado_em?: string | null;
           referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
@@ -790,11 +807,13 @@ export type Database = {
         };
         Update: {
           ad_id?: string | null;
+          agendado_em?: string | null;
           campaign_id?: string | null;
           closed_at?: string | null;
           created_at?: string;
           customer_id?: string | null;
           empresa_id?: string;
+          faturado_em?: string | null;
           first_contact_date?: string;
           follow_up_result?: string | null;
           id?: string;
@@ -808,8 +827,14 @@ export type Database = {
           next_follow_up_at?: string | null;
           normalized_phone?: string | null;
           notes?: string | null;
+          orcamento_aprovado_em?: string | null;
+          orcamento_em?: string | null;
+          orcamento_enviado_em?: string | null;
+          os_criada_em?: string | null;
+          perdido_em?: string | null;
           phone?: string;
           primeira_resposta_em?: string | null;
+          realizado_em?: string | null;
           referral_data?: NonNullable<Json>;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
@@ -2276,6 +2301,7 @@ export type Database = {
           contribuicao_valor: number | null;
           created_at: string;
           created_by: string | null;
+          crm_lead_id: string | null;
           custo_deslocamento: number;
           custo_fixo_alocado: number | null;
           custo_imposto: number | null;
@@ -2314,6 +2340,7 @@ export type Database = {
           contribuicao_valor?: number | null;
           created_at?: string;
           created_by?: string | null;
+          crm_lead_id?: string | null;
           custo_deslocamento?: number;
           custo_fixo_alocado?: number | null;
           custo_imposto?: number | null;
@@ -2352,6 +2379,7 @@ export type Database = {
           contribuicao_valor?: number | null;
           created_at?: string;
           created_by?: string | null;
+          crm_lead_id?: string | null;
           custo_deslocamento?: number;
           custo_fixo_alocado?: number | null;
           custo_imposto?: number | null;
@@ -2382,6 +2410,12 @@ export type Database = {
           valor_a_vista?: number | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "quotes_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "quotes_customer_id_fkey";
             columns: ["customer_id"];
@@ -3580,6 +3614,12 @@ export type Database = {
       empresa_ativa: { Args: Record<PropertyKey, never>; Returns: string };
       empresas_do_usuario: { Args: { _user_id: string }; Returns: string[] };
       ensure_my_access: { Args: Record<PropertyKey, never>; Returns: undefined };
+      etapa: {
+        Args: { "": Database["public"]["Tables"]["crm_leads"]["Row"] };
+        Returns: {
+          error: true;
+        } & "the function public.etapa with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache";
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
@@ -3587,6 +3627,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      indicadores_funil: { Args: { _ate: string; _de: string }; Returns: Json };
       is_staff: { Args: { _user_id: string }; Returns: boolean };
       meu_papel: {
         Args: Record<PropertyKey, never>;
