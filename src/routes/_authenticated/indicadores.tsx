@@ -112,8 +112,8 @@ function Conteudo({ d }: { d: Indicadores }) {
   const f = d.funil;
   const g = d.periodo_geral;
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-4 [&>*]:min-w-0">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           label="Leads"
           value={String(f.leads)}
@@ -167,7 +167,7 @@ function Conteudo({ d }: { d: Indicadores }) {
         <Funil d={d} />
       </SectionCard>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         <SectionCard
           title="Vendas no período"
           description="Orçamentos criados, OS vendidas e pagamentos recebidos dentro das datas escolhidas, com ou sem lead."

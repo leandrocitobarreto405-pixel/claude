@@ -148,6 +148,8 @@ conta e do número conectados.
 
 Andamento: Etapa 2 em `ETAPA-2-ISOLAMENTO.md`; Etapa 3 (código do MVP Chatwoot pronto e testado com
 eventos simulados) em `ETAPA-3-CHATWOOT.md`.
+Etapa 4 (funil e indicadores) em `ETAPA-4-FUNIL.md`. Publicação no Google Cloud em
+`DEPLOY-CLOUD-RUN.md`.
 
 ## Checklist para você providenciar (em paralelo)
 
