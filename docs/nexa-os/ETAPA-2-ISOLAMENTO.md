@@ -39,7 +39,7 @@ Navegador ──(JWT do usuário + cabeçalho x-empresa-id)──▶ Supabase (P
 
 | Comando | O que verifica |
 |---|---|
-| `npm run test:db` | Recria um Postgres local, aplica as 32 migrações e roda `supabase/tests/010_isolamento_multiempresa.sql`: leitura e gravação entre empresas, cabeçalho forjado, referência cruzada, estoque, comissão, convites, perfis, chave de serviço sem empresa, cadastro sem convite |
+| `npm run test:db` | Recria um Postgres local, aplica as migrações e roda `supabase/tests/010_isolamento_multiempresa.sql`: leitura e gravação entre empresas, cabeçalho forjado, referência cruzada, estoque, comissão, convites, perfis, chave de serviço sem empresa, cadastro sem convite |
 | `npm run test:api` | Sobe o PostgREST (a API do Supabase) e testa por HTTP, com JWT e cabeçalho `x-empresa-id`, inclusive as consultas embutidas usadas pelo app |
 | `npm run typecheck` / `npm run build` | Tipos e build |
 
@@ -48,6 +48,27 @@ correspondente falha.
 
 Pré-requisito local: Postgres 16 em `/tmp:54329`. Os scripts aceitam `PGHOST`, `PGPORT` e
 `PGUSER`.
+
+## Ambiente de desenvolvimento no Supabase (27/09/2026)
+
+- Projeto **"Nexa OS"** (`jsqrmygzqfdtrtvjavrj`, região Canadá, plano gratuito) usado como
+  **desenvolvimento**. Para produção, criar um projeto em **São Paulo** (a região não muda
+  depois de criado).
+- As **34 migrações** foram aplicadas pela integração do Supabase e o histórico foi alinhado aos
+  nomes dos arquivos (a CLI `supabase db push` reconhece o que já foi aplicado).
+- **Verificação**: a impressão digital do esquema e dos dados iniciais
+  (`supabase/tests/impressao-digital-esquema.sql`) é idêntica à do banco local testado. A única
+  diferença é a função `rls_auto_enable`, que o próprio Supabase cria.
+- **Testado contra o Supabase real**:
+  - pela API: login, empresa ativa, cabeçalho forjado e consultas embutidas (9/9);
+  - no navegador (24/24): admin Nexa cadastra empresa (5%), troca de empresa e convida o admin
+    do cliente; o cliente vê só a própria empresa e não entra na área da Nexa; a Turbine não vê
+    o cliente; as páginas principais abrem sem erros; a gravação de meta, custo por km e imposto
+    fica só na empresa certa.
+- As contas e a empresa usadas no teste foram **removidas**. O banco tem só a Turbine Clean.
+- Verificador de segurança do Supabase: sem apontamentos nas tabelas e funções do Nexa OS.
+- Correções vindas desses testes: políticas avaliando o usuário uma vez por consulta
+  (`20260927120000`) e datas de comissão no fuso de São Paulo (`20260927130000`).
 
 ## Configuração no Supabase (quando o projeto for criado)
 
@@ -90,8 +111,5 @@ Pré-requisito local: Postgres 16 em `/tmp:54329`. Os scripts aceitam `PGHOST`, 
 - **Permissões por papel dentro da empresa** (técnico × atendente × admin) ainda são aplicadas só
   nas telas; o banco garante o isolamento **entre empresas**. Restringir tabelas financeiras por
   papel no banco é um próximo passo.
-- As telas novas (seletor de empresa, Nexa → Empresas) passaram por typecheck e build, mas **ainda
-  não foram usadas num navegador** contra um Supabase real. Isso acontece assim que o projeto de
-  desenvolvimento no Supabase existir.
 - O agendamento das tarefas mensais (antes via pg_cron no Lovable) será feito pelo Cloud Scheduler
   na publicação.
