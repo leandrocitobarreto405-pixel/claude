@@ -12,8 +12,8 @@ grátis). O Cloud Build cobra por minuto de build acima da cota; cada build leva
 1. No topo do console, escolha o projeto (ou **Novo projeto** → nome `nexa-os`). Confira em
    **Faturamento** se o crédito de avaliação está ligado ao projeto.
 2. Pegue a chave secreta do Supabase **sem colar em nenhum chat**:
-   - Supabase → projeto **Nexa OS** → **Project Settings → API Keys**;
-   - em **Secret keys**, clique **New secret key**, com nome `cloud-run`;
+   - Supabase → projeto **Nexa OS Sao Paulo** → **Project Settings → API Keys**;
+   - em **Secret keys**, clique **New secret key**, com nome `cloudrun`;
    - copie a chave (começa com `sb_secret_`).
 3. No Google Cloud, abra o **Cloud Shell** (ícone `>_` no canto superior direito). Cole o bloco
    abaixo e tecle Enter. Quando ele pedir, cole a chave do Supabase: ela não aparece na tela.

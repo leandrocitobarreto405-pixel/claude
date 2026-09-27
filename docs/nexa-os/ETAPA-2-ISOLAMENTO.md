@@ -51,11 +51,15 @@ Pré-requisito local: Postgres 16 em `/tmp:54329`. Os scripts aceitam `PGHOST`, 
 
 ## Ambiente de desenvolvimento no Supabase (27/09/2026)
 
-- Projeto **"Nexa OS"** (`jsqrmygzqfdtrtvjavrj`, região Canadá, plano gratuito) usado como
-  **desenvolvimento**. Para produção, criar um projeto em **São Paulo** (a região não muda
-  depois de criado).
-- As **34 migrações** foram aplicadas pela integração do Supabase e o histórico foi alinhado aos
+- Projeto **"Nexa OS Sao Paulo"** (`avvxapeplhuiruijyyed`, região São Paulo `sa-east-1`, plano
+  gratuito), em uso desde 27/09/2026. Ele substitui o primeiro projeto de desenvolvimento
+  ("Nexa OS", `jsqrmygzqfdtrtvjavrj`, Canadá). A região não muda depois de criada, e o app roda
+  no Google Cloud em São Paulo.
+- As **37 migrações** foram aplicadas pela integração do Supabase e o histórico foi alinhado aos
   nomes dos arquivos (a CLI `supabase db push` reconhece o que já foi aplicado).
+- A impressão digital completa (esquema e dados iniciais) do projeto de São Paulo é idêntica à
+  do projeto do Canadá, onde foram feitos os testes abaixo. O verificador de segurança não aponta
+  nada.
 - **Verificação**: a impressão digital do esquema e dos dados iniciais
   (`supabase/tests/impressao-digital-esquema.sql`) é idêntica à do banco local testado. A única
   diferença é a função `rls_auto_enable`, que o próprio Supabase cria.

@@ -8,9 +8,9 @@ COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 COPY . .
 # Endereço e chave PÚBLICA do Supabase (vão para o navegador; a proteção dos dados é o RLS).
-# Projeto de desenvolvimento. Para produção, troque aqui ou passe --build-arg.
-ARG VITE_SUPABASE_URL=https://jsqrmygzqfdtrtvjavrj.supabase.co
-ARG VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_0xnoxQlZx57-jRpm71h9zQ_31KJcXjy
+# Projeto "Nexa OS Sao Paulo" (sa-east-1). Para outro projeto, troque aqui ou passe --build-arg.
+ARG VITE_SUPABASE_URL=https://avvxapeplhuiruijyyed.supabase.co
+ARG VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_LTVVQv5nB5G0WWyVkehTWg_8O3q3BGz
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL} \
     VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 RUN NITRO_PRESET=node-server npx vite build
