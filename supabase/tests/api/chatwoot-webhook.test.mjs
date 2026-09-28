@@ -73,6 +73,17 @@ check("JSON inválido → 400", r.status === 400, r);
 r = await post(TOKEN, "[1,2]");
 check("JSON que não é objeto → 400", r.status === 400, r);
 
+r = await post(TOKEN, {
+  event: "conversation_typing_on",
+  account: { id: 187966 },
+  conversation: { id: 901 },
+});
+check("aviso de digitação descartado", r.status === 200 && r.body?.status === "descartado", r);
+check(
+  "descartado não é gravado",
+  sql("SELECT count(*) FROM integracao_eventos WHERE evento = 'conversation_typing_on'") === "0",
+);
+
 r = await post(TOKEN, conversa(187966, 31337, 950));
 check(
   "caixa não mapeada → 200 guardado",

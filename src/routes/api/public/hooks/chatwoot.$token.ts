@@ -73,6 +73,13 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
     return json({ error: "Payload inválido." }, 400);
   }
 
+  // Avisos que o Nexa OS não usa (ex.: "digitando...") são descartados sem gravar.
+  const { EVENTOS_CHATWOOT } = await import("@/lib/chatwoot.server");
+  const evento = (payload as { event?: unknown }).event;
+  if (typeof evento === "string" && !(EVENTOS_CHATWOOT as readonly string[]).includes(evento)) {
+    return json({ ok: true, status: "descartado", duplicado: false });
+  }
+
   const { data, error } = await supabaseAdmin.rpc("receber_evento_chatwoot", {
     _token: token,
     _delivery_id: request.headers.get("x-chatwoot-delivery") ?? "",

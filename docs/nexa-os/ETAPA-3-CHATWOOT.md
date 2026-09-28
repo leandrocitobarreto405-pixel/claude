@@ -1,8 +1,11 @@
 # Etapa 3 — Chatwoot → Nexa OS → Lead (MVP)
 
-Situação em 27/09/2026: **código pronto e testado com eventos simulados**, inclusive no Supabase de
-desenvolvimento. Falta a validação com uma conversa real, que depende de o app estar publicado num
-endereço público (ver "Próximos passos").
+Situação em 28/09/2026: **em produção e validada com conversa real**. Ambiente: Cloud Run
+`nexaos` e Supabase "Nexa OS Sao Paulo"; conta 187966; caixa 141335 → Turbine Clean.
+- A primeira mensagem criou contato, conversa e lead ("Novo contato", origem Chatwoot).
+- A resposta pelo Chatwoot marcou a primeira resposta, e o lead passou a "Em atendimento".
+- A **assinatura está ligada** e funcionando: o defeito #13809 não se manifestou.
+- Avisos que o Nexa OS não usa, como "digitando...", são descartados sem gravar.
 
 ## Como funciona
 
