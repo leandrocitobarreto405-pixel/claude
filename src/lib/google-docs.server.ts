@@ -1,21 +1,17 @@
 /**
- * Integração servidor-only com Google Docs e Google Drive via connector gateway.
- * Nenhum ID de modelo, pasta ou token trafega para o navegador.
+ * Integração servidor-only com Google Docs e Google Drive, com a conta Google da empresa ativa
+ * (Configurações → Conectar conta Google). Nenhum ID de modelo, pasta ou token vai ao navegador.
  */
+import { esquecerTokenGoogle, tokenGoogle } from "@/lib/google-auth.server";
+import { contextoEmpresa } from "@/lib/request-db.server";
 
-const DOCS_BASE = "https://connector-gateway.lovable.dev/google_docs/v1";
-const DRIVE_BASE = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
+const DOCS_BASE = "https://docs.googleapis.com/v1";
+const DRIVE_BASE = "https://www.googleapis.com/drive/v3";
+const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 
-function headers(connector: "docs" | "drive", includeJson = true) {
-  const lovableKey = process.env["LOVABLE_API_KEY"];
-  const connKey =
-    connector === "docs" ? process.env["GOOGLE_DOCS_API_KEY"] : process.env["GOOGLE_DRIVE_API_KEY"];
-  if (!lovableKey || !connKey) {
-    throw new Error("Integração com o Google não está disponível no servidor.");
-  }
+async function headers(includeJson = true) {
   return {
-    Authorization: `Bearer ${lovableKey}`,
-    "X-Connection-Api-Key": connKey,
+    Authorization: `Bearer ${await tokenGoogle()}`,
     ...(includeJson ? { "Content-Type": "application/json" } : {}),
   };
 }
@@ -28,15 +24,18 @@ async function call<T>(
   const base = connector === "docs" ? DOCS_BASE : DRIVE_BASE;
   const res = await fetch(`${base}${path}`, {
     method: init?.method ?? "GET",
-    headers: headers(connector),
+    headers: await headers(),
     ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
   });
   if (!res.ok) {
     const text = await res.text();
     console.error(`Google ${connector} ${path} falhou [${res.status}]: ${text}`);
+    if (res.status === 401) esquecerTokenGoogle(contextoEmpresa().empresaId);
     if (res.status === 404) throw new Error("Modelo ou pasta não encontrado no Google.");
     if (res.status === 401 || res.status === 403)
-      throw new Error("Sem acesso ao arquivo no Google. Verifique o compartilhamento.");
+      throw new Error(
+        "Sem acesso ao arquivo no Google. Confira se a conta Google conectada tem acesso a ele.",
+      );
     throw new Error(`Falha na comunicação com o Google (${res.status}).`);
   }
   if (res.status === 204) return {} as T;
@@ -105,11 +104,11 @@ export async function uploadFile(input: {
   body.set(end, start.length + input.bytes.length);
 
   const response = await fetch(
-    "https://connector-gateway.lovable.dev/google_drive/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,webViewLink",
+    `${DRIVE_UPLOAD}/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,webViewLink`,
     {
       method: "POST",
       headers: {
-        ...headers("drive", false),
+        ...(await headers(false)),
         "Content-Type": `multipart/related; boundary=${boundary}`,
       },
       body,

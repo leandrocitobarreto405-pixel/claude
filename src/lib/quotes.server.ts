@@ -1,7 +1,7 @@
 /** Regras de orçamento: recálculo de totais, custos e margem. Server-only. */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { buildAddress, geocodeParts, type Coords } from "./geo.server";
+import { buildAddress, drivingRoute, geocodeParts, type Coords } from "./geo.server";
 
 type DB = SupabaseClient<Database>;
 
@@ -367,6 +367,8 @@ export type CepEstimate = {
   km: number | null;
   base: string | null;
   aviso: string | null;
+  /** "ruas": distância pelas ruas (ida e volta); "linha_reta": aproximação quando o roteador falha. */
+  metodo?: "ruas" | "linha_reta";
 };
 
 /** Estima o km de ida e volta entre a base do técnico e o CEP do cliente. */
@@ -434,12 +436,20 @@ export async function estimateKmByCep(db: DB, cepRaw: string): Promise<CepEstima
         : null;
     if (!base && t.base_address) base = await geocodeParts({ full_address: t.base_address });
     if (base) {
+      // Pelas ruas: base → cliente → base. Sem resposta do roteador, linha reta × 2.
+      const rota = await drivingRoute([
+        { label: t.name, coords: base },
+        { label: "Cliente", coords: destino },
+        { label: t.name, coords: base },
+      ]);
+      const pelasRuas = rota && rota.totalKm > 0;
       return {
         cep,
         endereco,
-        km: Math.round(haversine(base, destino) * 2 * 10) / 10,
+        km: pelasRuas ? rota.totalKm : Math.round(haversine(base, destino) * 2 * 10) / 10,
         base: t.name,
         aviso: null,
+        metodo: pelasRuas ? "ruas" : "linha_reta",
       };
     }
   }

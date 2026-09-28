@@ -33,8 +33,27 @@ import { useControleInsumos } from "@/lib/produtos";
 import { ControleInsumosCard, ProdutosConfig } from "@/components/produtos-config";
 import { custoFixoPorServico } from "@/lib/quotes.functions";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
+import { ContaGoogle } from "@/components/conta-google";
+import { MensagensOrigem } from "@/components/mensagens-origem";
+
+const ABAS = [
+  "meta",
+  "precos",
+  "taxas",
+  "equipe",
+  "produtos",
+  "listas",
+  "recorrentes",
+  "mensagem",
+  "documentos",
+  "agenda",
+] as const;
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
+  validateSearch: (s: Record<string, unknown>): { aba?: (typeof ABAS)[number] } =>
+    ABAS.includes(s["aba"] as (typeof ABAS)[number])
+      ? { aba: s["aba"] as (typeof ABAS)[number] }
+      : {},
   head: () => ({
     meta: [
       { title: "Configurações — Gestão Estofados" },
@@ -54,10 +73,11 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
 
 function Configuracoes() {
   const { ativo: controleInsumos } = useControleInsumos();
+  const { aba } = Route.useSearch();
   return (
     <>
       <PageHeader title="Configurações" description="Ajuste metas, taxas, comissões e mensagens." />
-      <Tabs defaultValue="meta">
+      <Tabs defaultValue={aba ?? "meta"}>
         <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="meta">Meta e custos</TabsTrigger>
           <TabsTrigger value="precos">Tabela de preços</TabsTrigger>
@@ -88,7 +108,10 @@ function Configuracoes() {
           </TabsContent>
         ) : null}
         <TabsContent value="listas">
-          <Listas />
+          <div className="grid gap-6">
+            <Listas />
+            <MensagensOrigem />
+          </div>
         </TabsContent>
         <TabsContent value="recorrentes">
           <Recorrentes />
@@ -100,10 +123,16 @@ function Configuracoes() {
           </div>
         </TabsContent>
         <TabsContent value="documentos">
-          <ModelosOS />
+          <div className="grid gap-6">
+            <ContaGoogle />
+            <ModelosOS />
+          </div>
         </TabsContent>
         <TabsContent value="agenda">
-          <GoogleAgenda />
+          <div className="grid gap-6">
+            <ContaGoogle />
+            <GoogleAgenda />
+          </div>
         </TabsContent>
       </Tabs>
     </>

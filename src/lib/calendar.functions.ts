@@ -10,10 +10,15 @@ export type CalendarStatus = {
 
 export const getCalendarSettings = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
-  .handler(async (): Promise<CalendarStatus> => {
+  .handler(async ({ context }): Promise<CalendarStatus> => {
     const { readSettings } = await import("@/lib/calendar.server");
     const s = await readSettings();
-    return { ...s, hasConnection: Boolean(process.env["GOOGLE_CALENDAR_API_KEY"]) };
+    const { data } = await context.supabase
+      .from("google_conexoes")
+      .select("situacao")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    return { ...s, hasConnection: data?.situacao === "conectada" };
   });
 
 export const saveCalendarSettings = createServerFn({ method: "POST" })

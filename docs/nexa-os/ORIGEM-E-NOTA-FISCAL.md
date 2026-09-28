@@ -1,7 +1,7 @@
 # Origem dos leads e emissão de nota fiscal
 
-Situação em 28/09/2026: **em produção** (migrações `20260930120000` e `20260930130000` aplicadas
-no Supabase "Nexa OS Sao Paulo").
+Situação em 28/09/2026: **em produção** (migrações `20260930120000`, `20260930130000` e
+`20261001120000` aplicadas no Supabase "Nexa OS Sao Paulo").
 
 ## Origem do lead
 
@@ -28,6 +28,7 @@ Acontece quando o Chatwoot cria o lead, nesta ordem:
 | Telefone já é de um cliente cadastrado | Cliente existente / Recorrência |
 | Conversa numa caixa do Instagram ou do Facebook | Instagram / Facebook |
 | Anúncio "clique para WhatsApp" (dados do anúncio com instagram, facebook, fb.me ou ctwa) | Instagram / Facebook |
+| **Mensagem pronta cadastrada** contida na mensagem do cliente | A origem da mensagem (e a campanha e o serviço dela) |
 | Palavra-chave na mensagem do cliente | A origem da palavra |
 
 Sobre as palavras-chave:
@@ -40,6 +41,41 @@ Sobre as palavras-chave:
 Sem identificação, a origem fica **"Não identificada"** (lista de leads, ficha e indicadores) e
 pode ser escolhida na ficha do lead. A lista mostra "(auto)" quando a origem foi identificada
 automaticamente.
+
+### Mensagens prontas dos links de WhatsApp
+
+Ficam em **Configurações → Listas**, abaixo das origens. Cada empresa cadastra o texto que cada
+link de WhatsApp já traz pronto (`wa.me/...?text=...`) e diz de onde ele vem. Para cada mensagem:
+- **origem** (obrigatória);
+- **campanha** (opcional);
+- **serviço de interesse** (opcional);
+- **onde está o link** (anotação livre).
+
+Como funciona:
+- A comparação ignora maiúsculas, acentos e pontuação, e vale se o texto cadastrado estiver
+  **contido** na mensagem do cliente.
+- Quando duas combinam, vence a mais longa. Exemplo: "Quero um orçamento de impermeabilização"
+  ganha de "Quero um orçamento".
+- Campanha e serviço são gravados mesmo quando o lead é cliente existente (a origem continua
+  "Cliente existente / Recorrência").
+- Uma mensagem repetida é recusada.
+- **Testar uma mensagem**: cola-se um texto e a tela mostra origem, campanha e serviço
+  identificados.
+- **Aplicar aos leads sem origem**: revê as mensagens recebidas dos leads "Não identificada". Uma
+  origem escolhida à mão nunca é trocada.
+
+Limitação: se alguém digitar à mão exatamente um texto cadastrado (por exemplo, "Olá! Quero um
+orçamento."), o lead também recebe essa origem. Quanto mais específico o texto do link, melhor.
+
+**Turbine Clean (cadastrado em 28/09/2026)**: origem nova "Site" (orgânico), campanhas "Google —
+Higienização" e "Google — Impermeabilização", e 9 mensagens:
+
+| Origem | Mensagens |
+|---|---|
+| Google, campanha de higienização | "Olá, gostaria de um orçamento para higienização dos meus estofados, por favor." |
+| Google, campanha de impermeabilização | "Olá! Gostaria de saber mais sobre a impermeabilização de estofados." |
+| Blog | "Olá! Vi o blog e quero um orçamento."<br>Cupom BLOG50 (higienização)<br>Cupom BLOG82 (impermeabilização) |
+| Site | "Olá! Quero um orçamento."<br>"Olá! Quero impermeabilizar meu estofado, pode me fazer um orçamento?"<br>"Olá! Represento uma empresa e quero um orçamento de higienização."<br>"Olá! Quero um orçamento de impermeabilização." |
 
 **Recomendação.** Use um link de WhatsApp com mensagem pronta diferente em cada canal:
 - `https://wa.me/55XXXXXXXXXXX?text=Olá!%20Vim%20pelo%20Google` no Perfil da Empresa no Google;
@@ -103,6 +139,7 @@ notas e controla a situação.
 | Teste | O que verifica |
 |---|---|
 | `supabase/tests/040_origem_leads.sql` | Lista padrão, palavras-chave, palavra inteira, prioridade de cliente existente, canal Instagram, anúncio do Facebook, identificação posterior, origem manual mantida, palavras editáveis, isolamento entre empresas, nome do lead × nome editado, "Não identificada" nos indicadores, link só da própria empresa. |
+| `040_origem_leads.sql`: mensagens prontas | Origem, campanha e serviço; a mais longa vence; sem acento/pontuação; cliente existente mantém a origem; mensagem de outra empresa não vale; referência cruzada, status como origem e texto repetido recusados; testar; reaplicar só em leads sem origem. |
 | `src/lib/nota-fiscal.test.ts` | Montagem da mensagem, forma de pagamento recebida × combinada, prioridade do CPF/CNPJ, aviso de campos em branco, modelo personalizado. |
 
 As proteções foram validadas com mutação: ao desligar cada uma, o teste correspondente falha.

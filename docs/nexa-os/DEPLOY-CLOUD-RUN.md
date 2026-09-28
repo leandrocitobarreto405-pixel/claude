@@ -93,3 +93,9 @@ usuário-robô for criado (`ETAPA-2-ISOLAMENTO.md`, passo 4), com as variáveis 
   sem elas, valem os valores do build.
 - Google Drive/Docs/Agenda e o resumo por IA ainda dependem do conector do Lovable e ficam
   inativos aqui até a troca por OAuth por empresa.
+
+## Google (Drive, Docs e Agenda)
+
+As variáveis `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (secrets `google-client-id` e
+`google-client-secret`) ligam a conexão da conta Google de cada empresa. O passo a passo está em
+`GOOGLE-CONTA.md`.

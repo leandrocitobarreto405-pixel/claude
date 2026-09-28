@@ -43,6 +43,7 @@ import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
+import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
 import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
@@ -233,6 +234,11 @@ const AuthenticatedCrmLeadLeadIdRoute =
     path: '/crm/lead/$leadId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicGoogleRetornoRoute = ApiPublicGoogleRetornoRouteImport.update({
+  id: '/api/public/google/retorno',
+  path: '/api/public/google/retorno',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksChatwootReprocessarRoute =
   ApiPublicHooksChatwootReprocessarRouteImport.update({
     id: '/api/public/hooks/chatwoot-reprocessar',
@@ -303,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -344,6 +351,7 @@ export interface FileRoutesByTo {
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -387,6 +395,7 @@ export interface FileRoutesById {
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/os/$osNumber'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
+    | '/api/public/google/retorno'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/os/$osNumber'
     | '/orcamentos'
     | '/crm/lead/$leadId'
+    | '/api/public/google/retorno'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
+    | '/api/public/google/retorno'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -525,6 +537,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
   ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
@@ -773,6 +786,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmLeadLeadIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/google/retorno': {
+      id: '/api/public/google/retorno'
+      path: '/api/public/google/retorno'
+      fullPath: '/api/public/google/retorno'
+      preLoaderRoute: typeof ApiPublicGoogleRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/chatwoot-reprocessar': {
       id: '/api/public/hooks/chatwoot-reprocessar'
       path: '/api/public/hooks/chatwoot-reprocessar'
@@ -893,6 +913,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
   ApiPublicHooksChatwootReprocessarRoute:
     ApiPublicHooksChatwootReprocessarRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:

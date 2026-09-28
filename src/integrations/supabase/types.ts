@@ -1479,6 +1479,71 @@ export type Database = {
           },
         ];
       };
+      google_conexao_segredos: {
+        Row: {
+          empresa_id: string;
+          refresh_token: string;
+          updated_at: string;
+        };
+        Insert: {
+          empresa_id: string;
+          refresh_token: string;
+          updated_at?: string;
+        };
+        Update: {
+          empresa_id?: string;
+          refresh_token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "google_conexao_segredos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "google_conexoes";
+            referencedColumns: ["empresa_id"];
+          },
+        ];
+      };
+      google_conexoes: {
+        Row: {
+          conectado_em: string;
+          conectado_por: string | null;
+          email: string | null;
+          empresa_id: string;
+          erro: string | null;
+          escopos: string[];
+          situacao: string;
+          updated_at: string;
+        };
+        Insert: {
+          conectado_em?: string;
+          conectado_por?: string | null;
+          email?: string | null;
+          empresa_id: string;
+          erro?: string | null;
+          escopos?: string[];
+          situacao?: string;
+          updated_at?: string;
+        };
+        Update: {
+          conectado_em?: string;
+          conectado_por?: string | null;
+          email?: string | null;
+          empresa_id?: string;
+          erro?: string | null;
+          escopos?: string[];
+          situacao?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "google_conexoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       integracao_eventos: {
         Row: {
           account_id: number | null;
@@ -1688,6 +1753,64 @@ export type Database = {
             foreignKeyName: "job_runs_empresa_id_fkey";
             columns: ["empresa_id"];
             referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mensagens_origem: {
+        Row: {
+          ativo: boolean;
+          campaign_id: string | null;
+          created_at: string;
+          descricao: string | null;
+          empresa_id: string;
+          id: string;
+          sales_origin_id: string;
+          servico: string | null;
+          texto: string;
+          updated_at: string;
+        };
+        Insert: {
+          ativo?: boolean;
+          campaign_id?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          empresa_id?: string;
+          id?: string;
+          sales_origin_id: string;
+          servico?: string | null;
+          texto: string;
+          updated_at?: string;
+        };
+        Update: {
+          ativo?: boolean;
+          campaign_id?: string | null;
+          created_at?: string;
+          descricao?: string | null;
+          empresa_id?: string;
+          id?: string;
+          sales_origin_id?: string;
+          servico?: string | null;
+          texto?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_origem_campaign_id_fkey";
+            columns: ["campaign_id"];
+            referencedRelation: "crm_campaigns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mensagens_origem_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mensagens_origem_sales_origin_id_fkey";
+            columns: ["sales_origin_id"];
+            referencedRelation: "config_options";
             referencedColumns: ["id"];
           },
         ];
@@ -3656,6 +3779,10 @@ export type Database = {
         };
         Returns: string;
       };
+      reaplicar_origem_leads: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       receber_evento_chatwoot: {
         Args: { _delivery_id: string; _payload: Json; _token: string };
         Returns: Json;
@@ -3682,6 +3809,7 @@ export type Database = {
         Args: { _papel: Database["public"]["Enums"]["papel_empresa"] };
         Returns: boolean;
       };
+      testar_origem_mensagem: { Args: { _texto: string }; Returns: Json };
       url_chatwoot: {
         Args: { "": Database["public"]["Tables"]["conversas"]["Row"] };
         Returns: {

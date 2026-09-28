@@ -119,6 +119,7 @@ function OrcamentoDetalhe() {
   const [preencherAgenda, setPreencherAgenda] = useState(false);
   const [buscandoKm, setBuscandoKm] = useState(false);
   const [avisoKm, setAvisoKm] = useState<string | null>(null);
+  const [metodoKm, setMetodoKm] = useState<"ruas" | "linha_reta" | null>(null);
   const [cepCalculado, setCepCalculado] = useState("");
   const [lead, setLead] = useState<{ id: string; lead_name: string | null } | null>(null);
 
@@ -258,6 +259,7 @@ function OrcamentoDetalhe() {
       if (r.endereco && !endereco.trim()) setEndereco(r.endereco);
       if (r.km !== null) {
         setKm(r.km);
+        setMetodoKm(r.metodo ?? null);
       } else {
         setAvisoKm(r.aviso ?? "Não foi possível estimar o deslocamento por este CEP.");
       }
@@ -413,7 +415,13 @@ function OrcamentoDetalhe() {
             <p className="mt-1 text-xs text-destructive">{avisoKm} Você pode ajustar o km à mão.</p>
           ) : km > 0 ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              {decimal(km, 1)} km ida e volta · {brl(custoDeslocamento)} de deslocamento{" "}
+              {decimal(km, 1)} km ida e volta
+              {metodoKm === "ruas"
+                ? " pelas ruas"
+                : metodoKm === "linha_reta"
+                  ? " (aproximado em linha reta; confira)"
+                  : ""}{" "}
+              · {brl(custoDeslocamento)} de deslocamento{" "}
               <button type="button" className="underline" onClick={() => void buscarKm(true)}>
                 recalcular
               </button>
@@ -596,7 +604,13 @@ function OrcamentoDetalhe() {
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
               <div>
                 <Label className="text-xs">Km ida e volta</Label>
-                <MoneyInput value={km} onValueChange={setKm} />
+                <MoneyInput
+                  value={km}
+                  onValueChange={(v) => {
+                    setKm(v);
+                    setMetodoKm(null);
+                  }}
+                />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Sugerido pelo CEP; pode ajustar.
                 </p>

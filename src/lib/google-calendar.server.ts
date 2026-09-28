@@ -1,32 +1,22 @@
 /**
- * Integração servidor-only com o Google Agenda via connector gateway.
- * Segue o mesmo padrão de headers e erros de google-docs.server.ts.
+ * Integração servidor-only com o Google Agenda, com a conta Google da empresa ativa.
+ * Segue o mesmo padrão de erros de google-docs.server.ts.
  */
+import { esquecerTokenGoogle, tokenGoogle } from "@/lib/google-auth.server";
+import { contextoEmpresa } from "@/lib/request-db.server";
 
-const CALENDAR_BASE = "https://connector-gateway.lovable.dev/google_calendar/calendar/v3";
-
-function headers() {
-  const lovableKey = process.env["LOVABLE_API_KEY"];
-  const connKey = process.env["GOOGLE_CALENDAR_API_KEY"];
-  if (!lovableKey || !connKey) {
-    throw new Error("Integração com o Google Agenda não está disponível no servidor.");
-  }
-  return {
-    Authorization: `Bearer ${lovableKey}`,
-    "X-Connection-Api-Key": connKey,
-    "Content-Type": "application/json",
-  };
-}
+const CALENDAR_BASE = "https://www.googleapis.com/calendar/v3";
 
 async function call<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const res = await fetch(`${CALENDAR_BASE}${path}`, {
     method: init?.method ?? "GET",
-    headers: headers(),
+    headers: { Authorization: `Bearer ${await tokenGoogle()}`, "Content-Type": "application/json" },
     ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
   });
   if (!res.ok) {
     const text = await res.text();
     console.error(`Google Agenda ${path} falhou [${res.status}]: ${text}`);
+    if (res.status === 401) esquecerTokenGoogle(contextoEmpresa().empresaId);
     if (res.status === 404) throw new Error("Agenda ou evento não encontrado no Google.");
     if (res.status === 401 || res.status === 403)
       throw new Error("Sem acesso à agenda no Google. Verifique a conta conectada.");
@@ -124,6 +114,9 @@ export async function deleteEvent(calendarId: string, eventId: string) {
 
 /** Confere se a agenda configurada está acessível. */
 export async function testCalendarConnection(calendarId: string) {
-  const data = await call<{ id: string; summary?: string }>(`/calendars/${cal(calendarId)}`);
-  return { id: data.id, name: data.summary ?? data.id };
+  // Lista de eventos (permitida pela permissão de eventos) traz o nome da agenda.
+  const data = await call<{ summary?: string }>(
+    `/calendars/${cal(calendarId)}/events?maxResults=1&fields=summary`,
+  );
+  return { id: calendarId || "primary", name: data.summary ?? calendarId ?? "primary" };
 }
