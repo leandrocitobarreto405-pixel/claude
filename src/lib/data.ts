@@ -199,7 +199,13 @@ export const PAYMENT_STATUSES = [
   "Cancelado",
 ] as const;
 
-export const INVOICE_STATUSES = ["Pendente", "Emitida", "Cancelada", "Não necessária"] as const;
+export const INVOICE_STATUSES = [
+  "Pendente",
+  "Solicitada",
+  "Emitida",
+  "Cancelada",
+  "Não necessária",
+] as const;
 
 export const EXPENSE_STATUSES = [
   "Pendente",

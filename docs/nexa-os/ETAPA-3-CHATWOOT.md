@@ -2,7 +2,7 @@
 
 Situação em 28/09/2026: **em produção e validada com conversa real**. Ambiente: Cloud Run
 `nexaos` e Supabase "Nexa OS Sao Paulo"; conta 187966; caixa 141335 → Turbine Clean.
-- A primeira mensagem criou contato, conversa e lead ("Novo contato", origem Chatwoot).
+- A primeira mensagem criou contato, conversa e lead ("Novo contato").
 - A resposta pelo Chatwoot marcou a primeira resposta, e o lead passou a "Em atendimento".
 - A **assinatura está ligada** e funcionando: o defeito #13809 não se manifestou.
 - Avisos que o Nexa OS não usa, como "digitando...", são descartados sem gravar.
@@ -26,8 +26,13 @@ processar_evento_chatwoot ── numa transação: contato → conversa → lead
   oportunidade. Um contato tem no máximo um lead aberto. Depois que o lead é encerrado, uma nova
   conversa só abre lead novo após **30 dias** (D6); antes disso, volta para o lead anterior. O
   prazo fica em `app_settings.crm_novo_lead_apos_dias` de cada empresa.
-- **Lead novo**: status "Novo contato", origem "Chatwoot", temperatura "FRIO". Os dados de anúncio
-  (`additional_attributes`) ficam em `referral_data`, e o histórico de status é registrado.
+- **Lead novo**: status "Novo contato", temperatura "FRIO". O canal fica em `source_type`
+  ("Chatwoot"), que **não é origem**. A origem (Google, Instagram…) é identificada
+  automaticamente quando possível (ver `ORIGEM-E-NOTA-FISCAL.md`); senão, fica "Não identificada".
+  Os dados de anúncio (`additional_attributes`) ficam em `referral_data`, e o histórico de status é
+  registrado.
+- **Nome do lead**: vem do perfil do WhatsApp. Se o contato for renomeado no Chatwoot, o lead
+  aberto acompanha, a menos que alguém tenha editado o nome no Nexa OS.
 - **Cliente existente**: se o telefone já é de um cliente cadastrado, o contato e o lead já nascem
   ligados a ele.
 - **Primeira resposta**: a primeira mensagem de saída, não privada, grava `primeira_resposta_em`

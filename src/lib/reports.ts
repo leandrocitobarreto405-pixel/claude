@@ -700,7 +700,7 @@ export function useMonthSummary(month: string) {
         supabase
           .from("invoice_tasks")
           .select("id", { count: "exact", head: true })
-          .eq("status", "Pendente"),
+          .in("status", ["Pendente", "Solicitada"]),
         supabase
           .from("expenses")
           .select("status, paid_amount, actual_amount")

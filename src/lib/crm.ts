@@ -84,6 +84,8 @@ export type CrmLead = {
   perdido_em: string | null;
   /** Etapa canônica (campo calculado no banco). */
   etapa: string | null;
+  /** Origem preenchida pelo sistema (false = escolhida à mão ou em branco). */
+  origem_automatica: boolean;
 };
 
 export type CrmLeadRow = CrmLead & {
@@ -99,6 +101,7 @@ export type CrmLeadRow = CrmLead & {
     last_message_at: string | null;
   } | null;
   work_order: { id: string; os_number: string; status: string; total_gross_value: number } | null;
+  conversas: { id: string; url_chatwoot: string | null }[] | null;
 };
 
 export type CrmCampaign = {
@@ -153,7 +156,8 @@ const LEAD_SELECT = `
   salesperson:salesperson_id ( id, name ),
   origem:sales_origin_id ( id, name ),
   contact:whatsapp_contact_id ( id, normalized_phone, profile_name, total_inbound_messages, last_message_at ),
-  work_order:linked_work_order_id ( id, os_number, status, total_gross_value )
+  work_order:linked_work_order_id ( id, os_number, status, total_gross_value ),
+  conversas ( id, url_chatwoot )
 `;
 
 /* ============================ Catálogos ============================ */
@@ -213,7 +217,8 @@ export function useCrmLeads(filters: LeadFilters = {}) {
       let q = supabase
         .from("crm_leads")
         .select(LEAD_SELECT)
-        .order("first_contact_date", { ascending: false });
+        .order("first_contact_date", { ascending: false })
+        .order("created_at", { ascending: false });
       if (filters.from) q = q.gte("first_contact_date", filters.from);
       if (filters.to) q = q.lte("first_contact_date", filters.to);
       if (filters.statusId) q = q.eq("status_id", filters.statusId);

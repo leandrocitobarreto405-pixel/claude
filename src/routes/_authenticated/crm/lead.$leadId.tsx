@@ -301,6 +301,17 @@ function LeadDetalhe() {
                 <ArrowLeft className="size-4" /> Voltar
               </Link>
             </Button>
+            {lead.conversas?.find((c) => c.url_chatwoot)?.url_chatwoot ? (
+              <Button variant="outline" asChild className="gap-2">
+                <a
+                  href={lead.conversas.find((c) => c.url_chatwoot)!.url_chatwoot!}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageCircle className="size-4" /> Conversa no Chatwoot
+                </a>
+              </Button>
+            ) : null}
             {linkWhats ? (
               <Button variant="outline" asChild className="gap-2">
                 <a href={linkWhats} target="_blank" rel="noreferrer">
@@ -413,10 +424,16 @@ function LeadDetalhe() {
                 <Label htmlFor="d-origem">Origem</Label>
                 <NativeSelect
                   id="d-origem"
+                  placeholder="Não identificada"
                   value={lead.sales_origin_id ?? ""}
-                  onChange={(v) => void salvarCampos({ sales_origin_id: v || null })}
+                  onChange={(v) =>
+                    void salvarCampos({ sales_origin_id: v || null, origem_automatica: false })
+                  }
                   options={(origens ?? []).map((o) => ({ value: o.id, label: o.name }))}
                 />
+                {lead.sales_origin_id && lead.origem_automatica ? (
+                  <p className="text-xs text-muted-foreground">Identificada automaticamente.</p>
+                ) : null}
               </div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label htmlFor="d-camp">Campanha</Label>

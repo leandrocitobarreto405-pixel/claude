@@ -447,6 +447,7 @@ export type Database = {
           ultima_atividade_em: string | null;
           updated_at: string;
           whatsapp_contact_id: string | null;
+          url_chatwoot: string | null;
         };
         Insert: {
           aguardando_desde?: string | null;
@@ -739,6 +740,7 @@ export type Database = {
           orcamento_aprovado_em: string | null;
           orcamento_em: string | null;
           orcamento_enviado_em: string | null;
+          origem_automatica: boolean;
           os_criada_em: string | null;
           perdido_em: string | null;
           phone: string;
@@ -785,6 +787,7 @@ export type Database = {
           orcamento_aprovado_em?: string | null;
           orcamento_em?: string | null;
           orcamento_enviado_em?: string | null;
+          origem_automatica?: boolean;
           os_criada_em?: string | null;
           perdido_em?: string | null;
           phone?: string;
@@ -830,6 +833,7 @@ export type Database = {
           orcamento_aprovado_em?: string | null;
           orcamento_em?: string | null;
           orcamento_enviado_em?: string | null;
+          origem_automatica?: boolean;
           os_criada_em?: string | null;
           perdido_em?: string | null;
           phone?: string;
@@ -1547,6 +1551,8 @@ export type Database = {
       };
       invoice_tasks: {
         Row: {
+          arquivo_nome: string | null;
+          arquivo_path: string | null;
           created_at: string;
           customer_id: string | null;
           document_number: string | null;
@@ -1558,11 +1564,14 @@ export type Database = {
           issue_date: string | null;
           notes: string | null;
           service_date: string | null;
+          solicitada_em: string | null;
           status: string;
           updated_at: string;
           work_order_id: string;
         };
         Insert: {
+          arquivo_nome?: string | null;
+          arquivo_path?: string | null;
           created_at?: string;
           customer_id?: string | null;
           document_number?: string | null;
@@ -1574,11 +1583,14 @@ export type Database = {
           issue_date?: string | null;
           notes?: string | null;
           service_date?: string | null;
+          solicitada_em?: string | null;
           status?: string;
           updated_at?: string;
           work_order_id: string;
         };
         Update: {
+          arquivo_nome?: string | null;
+          arquivo_path?: string | null;
           created_at?: string;
           customer_id?: string | null;
           document_number?: string | null;
@@ -1590,6 +1602,7 @@ export type Database = {
           issue_date?: string | null;
           notes?: string | null;
           service_date?: string | null;
+          solicitada_em?: string | null;
           status?: string;
           updated_at?: string;
           work_order_id?: string;
@@ -3668,6 +3681,12 @@ export type Database = {
       tem_papel: {
         Args: { _papel: Database["public"]["Enums"]["papel_empresa"] };
         Returns: boolean;
+      };
+      url_chatwoot: {
+        Args: { "": Database["public"]["Tables"]["conversas"]["Row"] };
+        Returns: {
+          error: true;
+        } & "the function public.url_chatwoot with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache";
       };
     };
     Enums: {

@@ -17,12 +17,14 @@ import {
   RotateCcw,
   Trash2,
   Upload,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/app-shell";
 import { PaymentDialog } from "@/components/payment-dialog";
+import { NotaFiscalDaOs } from "@/components/nota-fiscal";
 import type { PaymentFull } from "@/lib/payments";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateFinanceQueries } from "@/lib/cache";
@@ -80,9 +82,9 @@ const SELECT = `
   negotiated_payment_method, negotiated_installments, payment_notes, adjustment_reason,
   collection_rule, collection_visit_id, payment_instruction, commission_realized,
   general_notes, cancelled_at, cancellation_reason, deleted_at, deletion_reason,
-  customer:customer_id ( id, full_name, phone, full_address ),
+  customer:customer_id ( id, full_name, phone, full_address, document_number, email ),
   salesperson:salesperson_id ( name ),
-  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, visit_value, final_value, item_quantity, mileage_cost_allocated,
+  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, visit_value, final_value, item_quantity, mileage_cost_allocated,
     discount_amount, discount_reason, discount_notes,
     upholstery_description, visit_notes, reschedule_type, rescheduled_from_visit_id,
     rescheduled_to_visit_id, original_scheduled_date, reschedule_reason,
@@ -112,6 +114,7 @@ type Visit = {
   status: string;
   scheduled_date: string;
   scheduled_time: string;
+  completion_date: string | null;
   visit_value: number;
   final_value: number | null;
   item_quantity: number | null;
@@ -158,6 +161,8 @@ type Os = {
     full_name: string;
     phone: string | null;
     full_address: string | null;
+    document_number: string | null;
+    email: string | null;
   } | null;
   salesperson: { name: string } | null;
   visits: Visit[];
@@ -616,8 +621,8 @@ function OsDetalhe() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="grid gap-6 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
+        <div className="grid gap-6 lg:col-span-2 [&>*]:min-w-0">
           <section className="card-surface p-5">
             <h2 className="mb-3 text-lg font-semibold">Cliente</h2>
             <p className="text-sm font-medium">{os.customer?.full_name ?? "—"}</p>
@@ -972,6 +977,20 @@ function OsDetalhe() {
             )}
           </section>
 
+          <NotaFiscalDaOs
+            workOrderId={os.id}
+            customerId={os.customer?.id ?? null}
+            documento={os.customer?.document_number ?? null}
+            valor={Number(os.total_gross_value ?? 0)}
+            dataServico={
+              os.visits
+                .filter((v) => v.status === "Concluído" && v.completion_date)
+                .map((v) => v.completion_date!)
+                .sort()
+                .pop() ?? null
+            }
+          />
+
           <section className="card-surface p-5">
             <h2 className="mb-3 text-lg font-semibold">Histórico</h2>
             {(historicoQuery.data ?? []).length === 0 ? (
@@ -991,7 +1010,7 @@ function OsDetalhe() {
           </section>
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 [&>*]:min-w-0">
           <section className="card-surface p-5">
             <div className="mb-3 flex items-center gap-2">
               <FileText className="size-5 text-primary" />
@@ -1031,6 +1050,15 @@ function OsDetalhe() {
                   <Button variant="outline" asChild>
                     <a href={doc.url} target="_blank" rel="noreferrer">
                       <ExternalLink className="mr-2 size-4" /> Abrir no Google Docs
+                    </a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <a
+                      href={doc.url.replace(/\/edit.*$/, "/export?format=pdf")}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Download className="mr-2 size-4" /> Baixar PDF
                     </a>
                   </Button>
                   <Button

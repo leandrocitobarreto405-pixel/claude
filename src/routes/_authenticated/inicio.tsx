@@ -98,7 +98,7 @@ function usePendencias() {
           supabase
             .from("invoice_tasks")
             .select("id", { count: "exact", head: true })
-            .eq("status", "Pendente"),
+            .in("status", ["Pendente", "Solicitada"]),
           supabase
             .from("payments")
             .select("id", { count: "exact", head: true })

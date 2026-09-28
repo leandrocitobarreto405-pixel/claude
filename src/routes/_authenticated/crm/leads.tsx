@@ -26,8 +26,10 @@ import {
   useCrmCatalog,
   useCrmInvalidate,
   useCrmLeads,
+  type CrmLeadRow,
   type LeadFilters,
 } from "@/lib/crm";
+import { etapaInfo } from "@/lib/funil";
 import { dateBR, dateTimeBR, todayISO } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -230,23 +232,25 @@ function Leads() {
             <table className="w-full text-sm">
               <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">Entrada</th>
                   <th className="px-4 py-3">Lead</th>
                   <th className="px-4 py-3">Estofado / serviço</th>
                   <th className="px-4 py-3">Temperatura</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Campanha</th>
+                  <th className="px-4 py-3">Status / etapa</th>
+                  <th className="px-4 py-3">Origem</th>
                   <th className="px-4 py-3">Última interação</th>
+                  <th className="px-4 py-3">Conversa</th>
                   <th className="px-4 py-3">OS</th>
                 </tr>
               </thead>
               <tbody>
                 {leads.map((l) => (
                   <tr key={l.id} className="border-t border-border align-top">
-                    <td className="whitespace-nowrap px-4 py-3">{dateBR(l.first_contact_date)}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{entradaDoLead(l)}</td>
                     <td className="px-4 py-3">
                       <LeadLink id={l.id}>{l.lead_name || "Sem nome"}</LeadLink>
                       <p className="text-xs text-muted-foreground">{formatPhoneBR(l.phone)}</p>
+                      <TipoCliente existente={Boolean(l.customer_id)} />
                     </td>
                     <td className="max-w-[16rem] px-4 py-3">
                       <p className="truncate">{l.upholstery_description ?? "—"}</p>
@@ -260,14 +264,18 @@ function Leads() {
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill status={l.status} />
-                    </td>
-                    <td className="max-w-[12rem] px-4 py-3">
-                      <p className="truncate text-xs">
-                        {l.campaign?.campaign_name ?? l.origem?.name ?? "—"}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {etapaInfo(l.etapa).label}
                       </p>
+                    </td>
+                    <td className="max-w-[12rem] px-4 py-3 text-xs">
+                      <Origem lead={l} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                       {l.last_interaction_at ? dateTimeBR(l.last_interaction_at) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <LinkConversa lead={l} />
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {l.work_order ? (
@@ -305,8 +313,13 @@ function Leads() {
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={l.status} />
                   <span className="text-xs text-muted-foreground">
-                    {dateBR(l.first_contact_date)}
+                    {etapaInfo(l.etapa).label} · {entradaDoLead(l)}
                   </span>
+                  <TipoCliente existente={Boolean(l.customer_id)} />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <Origem lead={l} />
+                  <LinkConversa lead={l} />
                 </div>
                 {l.upholstery_description ? (
                   <p className="mt-2 text-sm">{l.upholstery_description}</p>
@@ -322,6 +335,52 @@ function Leads() {
 
       <NovoLeadDialog open={novoAberto} onOpenChange={setNovoAberto} />
     </>
+  );
+}
+
+/** Origem do lead; mostra quando foi identificada pelo sistema. Campanha fica abaixo. */
+function Origem({ lead }: { lead: CrmLeadRow }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate">
+        {lead.origem?.name ?? <span className="text-muted-foreground">Não identificada</span>}
+        {lead.origem && lead.origem_automatica ? (
+          <span className="ml-1 text-muted-foreground" title="Identificada automaticamente">
+            (auto)
+          </span>
+        ) : null}
+      </p>
+      {lead.campaign ? (
+        <p className="truncate text-muted-foreground">{lead.campaign.campaign_name}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function LinkConversa({ lead }: { lead: CrmLeadRow }) {
+  const url = lead.conversas?.find((c) => c.url_chatwoot)?.url_chatwoot;
+  if (!url) return <span className="text-muted-foreground">—</span>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+      Abrir no Chatwoot
+    </a>
+  );
+}
+
+/** Data e hora de entrada: leads do Chatwoot têm a hora exata; importados/manuais, só o dia. */
+function entradaDoLead(l: CrmLeadRow) {
+  return l.source_type === "Chatwoot" ? dateTimeBR(l.created_at) : dateBR(l.first_contact_date);
+}
+
+function TipoCliente({ existente }: { existente: boolean }) {
+  return (
+    <span
+      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] ${
+        existente ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-muted-foreground"
+      }`}
+    >
+      {existente ? "Cliente existente" : "Cliente novo"}
+    </span>
   );
 }
 

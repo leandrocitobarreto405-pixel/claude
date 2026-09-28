@@ -20,6 +20,7 @@ import {
   useTechnicians,
 } from "@/lib/data";
 import { templateText } from "@/lib/os";
+import { DEFAULT_NOTA_TEMPLATE } from "@/lib/nota-fiscal";
 import { useServerFn } from "@tanstack/react-start";
 import { getOsDocSettings, saveOsDocSettings, testOsDocIntegration } from "@/lib/os-docs.functions";
 import {
@@ -93,7 +94,10 @@ function Configuracoes() {
           <Recorrentes />
         </TabsContent>
         <TabsContent value="mensagem">
-          <Mensagem />
+          <div className="grid gap-6">
+            <Mensagem />
+            <MensagemNota />
+          </div>
         </TabsContent>
         <TabsContent value="documentos">
           <ModelosOS />
@@ -862,13 +866,15 @@ function Listas() {
   }
 
   const blocos = [
-    { titulo: "Origens da venda", kind: "sales_origin", query: origens },
     { titulo: "Tipos de serviço", kind: "service_type", query: servicos },
     { titulo: "Tipos de estofado", kind: "upholstery_type", query: estofados },
   ];
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
+      <OrigensBloco
+        onAdd={(nome) => adicionar("sales_origin", nome, () => void origens.refetch())}
+      />
       {blocos.map((b) => (
         <ListaBloco
           key={b.kind}
@@ -878,6 +884,117 @@ function Listas() {
           onAdd={(nome) => adicionar(b.kind, nome, () => b.query.refetch())}
         />
       ))}
+    </div>
+  );
+}
+
+type OrigemItem = { id: string; name: string; metadata: Record<string, unknown> | null };
+
+/**
+ * Origens do lead com as palavras-chave que o sistema procura na primeira mensagem do cliente
+ * (ex.: link de WhatsApp com o texto "Vim pelo Google"). "Cliente existente" é identificado pelo
+ * telefone; Instagram/Facebook também pelos dados de anúncio quando o WhatsApp os envia.
+ */
+function OrigensBloco({ onAdd }: { onAdd: (nome: string) => void }) {
+  const query = useQuery({
+    queryKey: ["config_options_origens"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("config_options")
+        .select("id, name, metadata")
+        .eq("kind", "sales_origin")
+        .eq("active", true)
+        .order("display_order");
+      if (error) throw error;
+      return (data ?? []) as OrigemItem[];
+    },
+  });
+  const [novo, setNovo] = useState("");
+
+  async function salvarPalavras(item: OrigemItem, texto: string) {
+    const palavras = texto
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const { error } = await supabase
+      .from("config_options")
+      .update({ metadata: { ...(item.metadata ?? {}), palavras } } as never)
+      .eq("id", item.id);
+    if (error) {
+      toast.error("Não foi possível salvar as palavras-chave.");
+      return;
+    }
+    toast.success(`Palavras-chave de ${item.name} salvas.`);
+    void query.refetch();
+  }
+
+  return (
+    <section className="card-surface p-5 lg:col-span-3">
+      <h2 className="mb-1 text-lg font-semibold">Origens do lead</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        De onde o cliente veio. O sistema identifica sozinho quando a primeira mensagem contém uma
+        das palavras-chave (separe por vírgula). Cliente já cadastrado vira “Cliente existente” pelo
+        telefone. O que não for identificado pode ser escolhido na página do lead.
+      </p>
+      <div className="grid gap-2">
+        {(query.data ?? []).map((o) => (
+          <OrigemLinha key={o.id} item={o} onSalvar={salvarPalavras} />
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="Nova origem" />
+        <Button
+          variant="outline"
+          onClick={() => {
+            onAdd(novo);
+            setNovo("");
+            setTimeout(() => void query.refetch(), 500);
+          }}
+        >
+          Adicionar
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function OrigemLinha({
+  item,
+  onSalvar,
+}: {
+  item: OrigemItem;
+  onSalvar: (item: OrigemItem, texto: string) => void;
+}) {
+  const meta = item.metadata ?? {};
+  const atuais = Array.isArray(meta["palavras"]) ? (meta["palavras"] as string[]).join(", ") : "";
+  const [texto, setTexto] = useState(atuais);
+  useEffect(() => setTexto(atuais), [atuais]);
+  const porTelefone = meta["codigo"] === "cliente_existente";
+  return (
+    <div className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-[12rem_1fr_auto] sm:items-center">
+      <span className="text-sm font-medium">{item.name}</span>
+      {porTelefone ? (
+        <span className="text-xs text-muted-foreground">
+          Identificada pelo telefone de cliente já cadastrado.
+        </span>
+      ) : (
+        <Input
+          aria-label={`Palavras-chave de ${item.name}`}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Sem palavras-chave (só escolha manual)"
+        />
+      )}
+      {porTelefone ? null : (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={texto === atuais}
+          onClick={() => onSalvar(item, texto)}
+        >
+          Salvar
+        </Button>
+      )}
     </div>
   );
 }
@@ -953,6 +1070,46 @@ function Mensagem() {
       <Button className="mt-4" onClick={salvar}>
         Salvar modelo
       </Button>
+    </section>
+  );
+}
+
+function MensagemNota() {
+  const { data: modelo } = useSetting<unknown>("invoice_message_template", DEFAULT_NOTA_TEMPLATE);
+  const [texto, setTexto] = useState("");
+
+  useEffect(() => {
+    setTexto(typeof modelo === "string" && modelo.trim() ? modelo : DEFAULT_NOTA_TEMPLATE);
+  }, [modelo]);
+
+  async function salvar() {
+    try {
+      await saveSetting("invoice_message_template", texto);
+      toast.success("Modelo da mensagem da nota salvo.");
+    } catch {
+      toast.error("Não foi possível salvar o modelo.");
+    }
+  }
+
+  return (
+    <section className="card-surface p-5">
+      <h2 className="mb-2 text-lg font-semibold">Mensagem para emissão da nota fiscal</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Usada no botão “Copiar mensagem” da OS e da tela Notas fiscais. Variáveis:{" "}
+        {"{{nome_cliente}}"}, {"{{cpf_cnpj}}"}, {"{{email}}"}, {"{{data_servico}}"},{" "}
+        {"{{forma_pagamento}}"}, {"{{valor}}"} e {"{{numero_os}}"}.
+      </p>
+      <Textarea
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        className="min-h-[200px] font-mono text-sm"
+      />
+      <div className="mt-4 flex gap-2">
+        <Button onClick={salvar}>Salvar modelo</Button>
+        <Button variant="outline" onClick={() => setTexto(DEFAULT_NOTA_TEMPLATE)}>
+          Voltar ao padrão
+        </Button>
+      </div>
     </section>
   );
 }
