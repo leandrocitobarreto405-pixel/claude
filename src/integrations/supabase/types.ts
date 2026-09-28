@@ -196,18 +196,21 @@ export type Database = {
       };
       chatwoot_conexao_segredos: {
         Row: {
+          alice_bot_token: string | null;
           api_token: string | null;
           conexao_id: string;
           updated_at: string;
           webhook_secret: string | null;
         };
         Insert: {
+          alice_bot_token?: string | null;
           api_token?: string | null;
           conexao_id: string;
           updated_at?: string;
           webhook_secret?: string | null;
         };
         Update: {
+          alice_bot_token?: string | null;
           api_token?: string | null;
           conexao_id?: string;
           updated_at?: string;
@@ -225,6 +228,7 @@ export type Database = {
       chatwoot_conexoes: {
         Row: {
           account_id: number;
+          alice_bot_id: number | null;
           ativo: boolean;
           base_url: string;
           created_at: string;
@@ -238,6 +242,7 @@ export type Database = {
         };
         Insert: {
           account_id: number;
+          alice_bot_id?: number | null;
           ativo?: boolean;
           base_url?: string;
           created_at?: string;
@@ -251,6 +256,7 @@ export type Database = {
         };
         Update: {
           account_id?: number;
+          alice_bot_id?: number | null;
           ativo?: boolean;
           base_url?: string;
           created_at?: string;
@@ -1544,6 +1550,204 @@ export type Database = {
           },
         ];
       };
+      ia_configuracoes: {
+        Row: {
+          ativo: boolean;
+          desconto_max_percentual: number;
+          empresa_id: string;
+          esforco: string;
+          espera_segundos: number;
+          instrucoes: string;
+          limite_respostas_conversa: number;
+          modelo: string;
+          nome: string;
+          perguntas_frequentes: string;
+          updated_at: string;
+        };
+        Insert: {
+          ativo?: boolean;
+          desconto_max_percentual?: number;
+          empresa_id?: string;
+          esforco?: string;
+          espera_segundos?: number;
+          instrucoes?: string;
+          limite_respostas_conversa?: number;
+          modelo?: string;
+          nome?: string;
+          perguntas_frequentes?: string;
+          updated_at?: string;
+        };
+        Update: {
+          ativo?: boolean;
+          desconto_max_percentual?: number;
+          empresa_id?: string;
+          esforco?: string;
+          espera_segundos?: number;
+          instrucoes?: string;
+          limite_respostas_conversa?: number;
+          modelo?: string;
+          nome?: string;
+          perguntas_frequentes?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ia_configuracoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ia_execucoes: {
+        Row: {
+          conversa_id: string | null;
+          created_at: string;
+          crm_lead_id: string | null;
+          custo_usd: number;
+          duracao_ms: number | null;
+          empresa_id: string;
+          erro: string | null;
+          ferramentas: NonNullable<Json>;
+          id: string;
+          mensagens_enviadas: string[];
+          modelo: string;
+          parada: string | null;
+          rodadas: number;
+          tarefa_id: string | null;
+          tokens_cache_escrita: number;
+          tokens_cache_leitura: number;
+          tokens_entrada: number;
+          tokens_saida: number;
+        };
+        Insert: {
+          conversa_id?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          custo_usd?: number;
+          duracao_ms?: number | null;
+          empresa_id: string;
+          erro?: string | null;
+          ferramentas?: NonNullable<Json>;
+          id?: string;
+          mensagens_enviadas?: string[];
+          modelo: string;
+          parada?: string | null;
+          rodadas?: number;
+          tarefa_id?: string | null;
+          tokens_cache_escrita?: number;
+          tokens_cache_leitura?: number;
+          tokens_entrada?: number;
+          tokens_saida?: number;
+        };
+        Update: {
+          conversa_id?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          custo_usd?: number;
+          duracao_ms?: number | null;
+          empresa_id?: string;
+          erro?: string | null;
+          ferramentas?: NonNullable<Json>;
+          id?: string;
+          mensagens_enviadas?: string[];
+          modelo?: string;
+          parada?: string | null;
+          rodadas?: number;
+          tarefa_id?: string | null;
+          tokens_cache_escrita?: number;
+          tokens_cache_leitura?: number;
+          tokens_entrada?: number;
+          tokens_saida?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ia_execucoes_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ia_execucoes_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ia_execucoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ia_execucoes_tarefa_id_fkey";
+            columns: ["tarefa_id"];
+            referencedRelation: "ia_tarefas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ia_tarefas: {
+        Row: {
+          concluida_em: string | null;
+          conversa_id: string;
+          created_at: string;
+          empresa_id: string;
+          enfileirada: boolean;
+          erro: string | null;
+          executar_apos: string;
+          id: string;
+          iniciada_em: string | null;
+          motivo: string | null;
+          situacao: string;
+          tentativas: number;
+          tipo: string;
+        };
+        Insert: {
+          concluida_em?: string | null;
+          conversa_id: string;
+          created_at?: string;
+          empresa_id: string;
+          enfileirada?: boolean;
+          erro?: string | null;
+          executar_apos?: string;
+          id?: string;
+          iniciada_em?: string | null;
+          motivo?: string | null;
+          situacao?: string;
+          tentativas?: number;
+          tipo: string;
+        };
+        Update: {
+          concluida_em?: string | null;
+          conversa_id?: string;
+          created_at?: string;
+          empresa_id?: string;
+          enfileirada?: boolean;
+          erro?: string | null;
+          executar_apos?: string;
+          id?: string;
+          iniciada_em?: string | null;
+          motivo?: string | null;
+          situacao?: string;
+          tentativas?: number;
+          tipo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ia_tarefas_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ia_tarefas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       integracao_eventos: {
         Row: {
           account_id: number | null;
@@ -2718,6 +2922,7 @@ export type Database = {
           created_at: string;
           display_order: number;
           effective_from: string;
+          eh_ia: boolean;
           empresa_id: string;
           id: string;
           name: string;
@@ -2732,6 +2937,7 @@ export type Database = {
           created_at?: string;
           display_order?: number;
           effective_from?: string;
+          eh_ia?: boolean;
           empresa_id?: string;
           id?: string;
           name: string;
@@ -2746,6 +2952,7 @@ export type Database = {
           created_at?: string;
           display_order?: number;
           effective_from?: string;
+          eh_ia?: boolean;
           empresa_id?: string;
           id?: string;
           name?: string;
@@ -3762,6 +3969,30 @@ export type Database = {
           _user_id: string;
         };
         Returns: boolean;
+      };
+      ia_reservar_tarefa: {
+        Args: { _tarefa_id: string };
+        Returns: {
+          concluida_em: string | null;
+          conversa_id: string;
+          created_at: string;
+          empresa_id: string;
+          enfileirada: boolean;
+          erro: string | null;
+          executar_apos: string;
+          id: string;
+          iniciada_em: string | null;
+          motivo: string | null;
+          situacao: string;
+          tentativas: number;
+          tipo: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "ia_tarefas";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       indicadores_funil: { Args: { _ate: string; _de: string }; Returns: Json };
       is_staff: { Args: { _user_id: string }; Returns: boolean };

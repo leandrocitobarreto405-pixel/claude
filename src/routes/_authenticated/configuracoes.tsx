@@ -35,6 +35,7 @@ import { custoFixoPorServico } from "@/lib/quotes.functions";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
 import { ContaGoogle } from "@/components/conta-google";
 import { MensagensOrigem } from "@/components/mensagens-origem";
+import { AliceConfig } from "@/components/alice-config";
 
 const ABAS = [
   "meta",
@@ -47,6 +48,7 @@ const ABAS = [
   "mensagem",
   "documentos",
   "agenda",
+  "alice",
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -89,6 +91,7 @@ function Configuracoes() {
           <TabsTrigger value="mensagem">Mensagem padrão</TabsTrigger>
           <TabsTrigger value="documentos">Modelos de ordem de serviço</TabsTrigger>
           <TabsTrigger value="agenda">Google Agenda</TabsTrigger>
+          <TabsTrigger value="alice">Alice (IA)</TabsTrigger>
         </TabsList>
         <TabsContent value="meta">
           <MetaCustos />
@@ -133,6 +136,9 @@ function Configuracoes() {
             <ContaGoogle />
             <GoogleAgenda />
           </div>
+        </TabsContent>
+        <TabsContent value="alice">
+          <AliceConfig />
         </TabsContent>
       </Tabs>
     </>

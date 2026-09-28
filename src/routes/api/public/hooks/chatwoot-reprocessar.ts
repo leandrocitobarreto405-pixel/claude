@@ -22,7 +22,10 @@ export const Route = createFileRoute("/api/public/hooks/chatwoot-reprocessar")({
           console.error("Chatwoot: falha no reprocessamento:", error.message);
           return json({ ok: false, error: "Falha no reprocessamento." }, 500);
         }
-        return json({ ok: true, ...(data as object) });
+        // Recupera respostas da Alice que ficaram sem entregar à fila.
+        const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
+        const alice = await enfileirarPendentes(supabaseAdmin, 200).catch(() => 0);
+        return json({ ok: true, ...(data as object), alice_enfileiradas: alice });
       },
     },
   },

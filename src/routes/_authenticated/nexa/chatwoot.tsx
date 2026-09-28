@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { RoboAliceNexa } from "@/components/alice-robo-nexa";
 import { useContextoTenant } from "@/lib/tenant";
 
 export const Route = createFileRoute("/_authenticated/nexa/chatwoot")({
@@ -368,6 +369,8 @@ function ChatwootNexa() {
               Exigir assinatura do Chatwoot (X-Chatwoot-Signature)
             </label>
           </section>
+
+          <RoboAliceNexa conexaoId={conexao.id} temTokenApi={conexao.tem_token_api} />
 
           <section className="card-surface mb-6 space-y-4 p-5">
             <h2 className="text-lg font-semibold">Caixas de entrada → empresas</h2>

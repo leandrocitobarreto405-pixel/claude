@@ -99,3 +99,12 @@ usuário-robô for criado (`ETAPA-2-ISOLAMENTO.md`, passo 4), com as variáveis 
 As variáveis `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (secrets `google-client-id` e
 `google-client-secret`) ligam a conexão da conta Google de cada empresa. O passo a passo está em
 `GOOGLE-CONTA.md`.
+
+## Alice (vendedora de IA)
+
+Variáveis:
+- `ANTHROPIC_API_KEY`: secret `anthropic-api-key`;
+- `ALICE_FILA`: fila `alice` do Cloud Tasks;
+- `ALICE_URL_BASE`: endereço público do app.
+
+O passo a passo está em `ALICE.md`.

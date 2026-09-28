@@ -100,6 +100,9 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
     duplicado?: boolean;
     evento_id?: string;
   };
+  // Mensagens novas podem ter agendado respostas da Alice: entrega à fila (nunca derruba o webhook).
+  const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
+  await enfileirarPendentes(supabaseAdmin).catch((e) => console.error("Alice: fila:", e));
   return json({
     ok: true,
     evento_id: resultado.evento_id ?? null,

@@ -46,10 +46,12 @@ import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_au
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
 import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
+import { Route as ApiPublicHooksAliceProcessarRouteImport } from './routes/api/public/hooks/alice-processar'
 import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
 import { Route as ApiPublicHooksWhatsappRouteImport } from './routes/api/public/hooks/whatsapp'
+import { Route as ApiPublicHooksAliceRoboTokenRouteImport } from './routes/api/public/hooks/alice-robo.$token'
 import { Route as ApiPublicHooksChatwootTokenRouteImport } from './routes/api/public/hooks/chatwoot.$token'
 import { Route as ApiPublicHooksLeadsSourceTypeTokenRouteImport } from './routes/api/public/hooks/leads.$sourceType.$token'
 
@@ -251,6 +253,12 @@ const ApiPublicGoogleRetornoRoute = ApiPublicGoogleRetornoRouteImport.update({
   path: '/api/public/google/retorno',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAliceProcessarRoute =
+  ApiPublicHooksAliceProcessarRouteImport.update({
+    id: '/api/public/hooks/alice-processar',
+    path: '/api/public/hooks/alice-processar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksChatwootReprocessarRoute =
   ApiPublicHooksChatwootReprocessarRouteImport.update({
     id: '/api/public/hooks/chatwoot-reprocessar',
@@ -274,6 +282,12 @@ const ApiPublicHooksWhatsappRoute = ApiPublicHooksWhatsappRouteImport.update({
   path: '/api/public/hooks/whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAliceRoboTokenRoute =
+  ApiPublicHooksAliceRoboTokenRouteImport.update({
+    id: '/api/public/hooks/alice-robo/$token',
+    path: '/api/public/hooks/alice-robo/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksChatwootTokenRoute =
   ApiPublicHooksChatwootTokenRouteImport.update({
     id: '/api/public/hooks/chatwoot/$token',
@@ -324,10 +338,12 @@ export interface FileRoutesByFullPath {
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
@@ -368,10 +384,12 @@ export interface FileRoutesByTo {
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
@@ -414,10 +432,12 @@ export interface FileRoutesById {
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
@@ -460,10 +480,12 @@ export interface FileRouteTypes {
     | '/orcamentos/'
     | '/crm/lead/$leadId'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -504,10 +526,12 @@ export interface FileRouteTypes {
     | '/orcamentos'
     | '/crm/lead/$leadId'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   id:
@@ -549,10 +573,12 @@ export interface FileRouteTypes {
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
   fileRoutesById: FileRoutesById
@@ -564,10 +590,12 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
+  ApiPublicHooksAliceProcessarRoute: typeof ApiPublicHooksAliceProcessarRoute
   ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
   ApiPublicHooksWhatsappRoute: typeof ApiPublicHooksWhatsappRoute
+  ApiPublicHooksAliceRoboTokenRoute: typeof ApiPublicHooksAliceRoboTokenRoute
   ApiPublicHooksChatwootTokenRoute: typeof ApiPublicHooksChatwootTokenRoute
   ApiPublicHooksLeadsSourceTypeTokenRoute: typeof ApiPublicHooksLeadsSourceTypeTokenRoute
 }
@@ -833,6 +861,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGoogleRetornoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/alice-processar': {
+      id: '/api/public/hooks/alice-processar'
+      path: '/api/public/hooks/alice-processar'
+      fullPath: '/api/public/hooks/alice-processar'
+      preLoaderRoute: typeof ApiPublicHooksAliceProcessarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/chatwoot-reprocessar': {
       id: '/api/public/hooks/chatwoot-reprocessar'
       path: '/api/public/hooks/chatwoot-reprocessar'
@@ -859,6 +894,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/whatsapp'
       fullPath: '/api/public/hooks/whatsapp'
       preLoaderRoute: typeof ApiPublicHooksWhatsappRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/alice-robo/$token': {
+      id: '/api/public/hooks/alice-robo/$token'
+      path: '/api/public/hooks/alice-robo/$token'
+      fullPath: '/api/public/hooks/alice-robo/$token'
+      preLoaderRoute: typeof ApiPublicHooksAliceRoboTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/chatwoot/$token': {
@@ -956,12 +998,14 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
+  ApiPublicHooksAliceProcessarRoute: ApiPublicHooksAliceProcessarRoute,
   ApiPublicHooksChatwootReprocessarRoute:
     ApiPublicHooksChatwootReprocessarRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:
     ApiPublicHooksMonthlyMileageClosingRoute,
   ApiPublicHooksRecurringExpensesRoute: ApiPublicHooksRecurringExpensesRoute,
   ApiPublicHooksWhatsappRoute: ApiPublicHooksWhatsappRoute,
+  ApiPublicHooksAliceRoboTokenRoute: ApiPublicHooksAliceRoboTokenRoute,
   ApiPublicHooksChatwootTokenRoute: ApiPublicHooksChatwootTokenRoute,
   ApiPublicHooksLeadsSourceTypeTokenRoute:
     ApiPublicHooksLeadsSourceTypeTokenRoute,
