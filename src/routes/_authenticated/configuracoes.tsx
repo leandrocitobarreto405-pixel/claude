@@ -1259,7 +1259,7 @@ function ModelosOS() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-pasta">
-            Pasta de destino {d?.hasFolder ? "(salva)" : "(pendente)"}
+            Pasta principal no Drive {d?.hasFolder ? "(salva)" : "(pendente)"}
           </Label>
           <Input
             id="tpl-pasta"
@@ -1267,6 +1267,11 @@ function ModelosOS() {
             onChange={(e) => setPasta(e.target.value)}
             placeholder="Link da pasta do Google Drive"
           />
+          <p className="text-xs text-muted-foreground">
+            Não é a pasta de um cliente: é onde o sistema cria, para cada OS,{" "}
+            <strong>Materiais dos clientes › ano › mês › OS nº - Cliente - Empresa</strong>. O
+            documento da OS e as pastas Antes, Depois e Vídeos ficam dentro da pasta do cliente.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-nome">Padrão do nome do documento</Label>
