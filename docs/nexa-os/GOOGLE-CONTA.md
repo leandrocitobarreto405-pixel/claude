@@ -50,7 +50,13 @@ Menu **APIs e serviços → Tela de consentimento OAuth** (ou **Google Auth Plat
 1. **Branding**:
    - nome do app `Nexa OS`;
    - e-mail de suporte;
-   - e-mail de contato do desenvolvedor.
+   - e-mail de contato do desenvolvedor;
+   - **Página inicial**: `https://nexaos-980094719320.southamerica-east1.run.app`;
+   - **Política de Privacidade**: `https://nexaos-980094719320.southamerica-east1.run.app/privacidade`;
+   - **Termos de Serviço**: `https://nexaos-980094719320.southamerica-east1.run.app/termos`;
+   - **Domínios autorizados**: `nexaos-980094719320.southamerica-east1.run.app`. Use o endereço
+     completo: `run.app` é um sufixo público, como `.com.br`, então o domínio "próprio" do app é o
+     endereço inteiro.
 2. **Público-alvo (Audience)**: tipo **Externo**. Depois clique **Publicar aplicativo** (*Publish
    app*) para ficar "Em produção".
    **Importante:** em "Teste", a autorização expira em 7 dias.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Droplets } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -216,6 +216,14 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
+          <p className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+            <Link to="/privacidade" className="hover:underline">
+              Política de Privacidade
+            </Link>
+            <Link to="/termos" className="hover:underline">
+              Termos de Serviço
+            </Link>
+          </p>
         </div>
       </div>
     </div>
