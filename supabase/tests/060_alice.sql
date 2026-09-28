@@ -138,4 +138,14 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 RESET ROLE;
 
+-- 11. Endereço do Chatwoot: guarda só o servidor, mesmo colando o endereço da tela.
+INSERT INTO public.chatwoot_conexoes (nome, base_url, account_id, webhook_token)
+VALUES ('Outra', ' HTTPS://Chat.Exemplo.com:3000/app/accounts/5/ ', 5, 'token-url');
+SELECT pg_temp.ok((SELECT base_url FROM public.chatwoot_conexoes WHERE webhook_token = 'token-url')
+  = 'https://chat.exemplo.com:3000', 'endereço do Chatwoot normalizado');
+DO $$ BEGIN
+  UPDATE public.chatwoot_conexoes SET base_url = 'app.chatwoot.com' WHERE webhook_token = 'token-url';
+  RAISE EXCEPTION 'FALHOU: aceitou endereço sem https';
+EXCEPTION WHEN check_violation THEN NULL; END $$;
+
 ROLLBACK;

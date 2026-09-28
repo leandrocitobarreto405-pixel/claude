@@ -11,7 +11,8 @@ async function chamar<T>(
   caminho: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const url = `${conta.baseUrl.replace(/\/+$/, "")}/api/v1/accounts/${conta.accountId}${caminho}`;
+  // Só o servidor (https://app.chatwoot.com), mesmo que tenham colado o endereço de uma tela.
+  const url = `${new URL(conta.baseUrl).origin}/api/v1/accounts/${conta.accountId}${caminho}`;
   const res = await fetch(url, {
     method: init.method ?? "GET",
     headers: { api_access_token: token, "Content-Type": "application/json" },

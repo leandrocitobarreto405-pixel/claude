@@ -137,7 +137,7 @@ SELECT pg_temp.ok((SELECT count(*) FROM ind, jsonb_array_elements(v->'origens') 
 
 -- 9. Link da conversa: só para conversas que o usuário vê (nem com uma linha montada à mão).
 SELECT pg_temp.ok((SELECT public.url_chatwoot(c) FROM public.conversas c WHERE c.chatwoot_conversation_id = 1)
-  LIKE '%/app/accounts/187966/conversations/1', 'link da conversa da própria empresa');
+  = 'https://app.chatwoot.com/app/accounts/187966/conversations/1', 'link da conversa da própria empresa');
 RESET ROLE;
 CREATE TEMP TABLE conversa_b AS SELECT * FROM public.conversas WHERE chatwoot_conversation_id = 9;
 GRANT SELECT ON conversa_b TO authenticated;

@@ -288,6 +288,9 @@ function ChatwootNexa() {
             <div className="space-y-2">
               <Label htmlFor="cw-url">Endereço do Chatwoot</Label>
               <Input id="cw-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Só o servidor, ex.: https://app.chatwoot.com (o resto do endereço é ignorado).
+              </p>
             </div>
             <Button onClick={criarConexao} disabled={ocupado}>
               Conectar
