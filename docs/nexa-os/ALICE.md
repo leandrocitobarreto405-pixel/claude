@@ -1,8 +1,10 @@
 # Alice: vendedora de IA no Chatwoot
 
-Situação em 28/09/2026: **base pronta e testada**. Ela atende, responde com a tabela de preços, vê
-fotos, guarda os dados no lead, consulta a agenda e passa para a equipe. Os próximos passos (ver
-o fim deste documento) dependem do jeito de vender da Nexa e da configuração no Google Cloud.
+Situação em 29/09/2026: **fase 1 pronta e testada** (ver "Fase 1" abaixo). Ela atende do primeiro
+contato até o orçamento, manda vídeo e áudio padrão, transcreve os áudios do cliente, faz
+follow-up dentro da janela de 24 h do WhatsApp e passa para a equipe no agendamento, na
+negociação e nos casos fora da tabela. O prompt da Turbine Clean está em
+`docs/nexa-os/alice/turbine-prompt-v1.md` (também gravado na configuração da empresa).
 
 ## Como funciona
 
@@ -19,7 +21,7 @@ o fim deste documento) dependem do jeito de vender da Nexa e da configuração n
    2. conversa com o **Claude** (Anthropic). A IA pode usar três ferramentas:
       - `atualizar_lead`: nome, estofados, serviço, endereço, resumo e temperatura;
       - `consultar_agenda`: serviços já marcados por dia;
-      - `passar_para_atendente`: motivo e resumo;
+      - `passar_para_atendente`: motivo e resumo (na fase 1 virou `transferir_para_humano`);
    3. responde no Chatwoot **como o robô**: a resposta é dividida em até 4 mensagens, com o negrito
       do WhatsApp.
 5. **Passagem para a equipe:** o robô escreve uma nota privada com o resumo e muda a conversa para
@@ -40,7 +42,7 @@ o fim deste documento) dependem do jeito de vender da Nexa e da configuração n
   descartada e refeita com tudo junto.
 - **Limite:** há um limite de respostas por conversa (40 por padrão); passando disso, a conversa vai
   para a equipe.
-- **Preço e desconto:** preço só da tabela, desconto só até o limite configurado.
+- **Preço e desconto:** preço só da tabela; o único desconto é o do Pix configurado (fase 1).
 - **Isolamento:** cada empresa só vê a própria configuração, fila e execuções; só o administrador
   altera a configuração. Os tokens do robô e da API ficam em tabela sem acesso pelo app.
 - **Modelo:** Claude Opus 5 com pensamento adaptativo e esforço "médio". O **fallback automático**
@@ -54,7 +56,7 @@ o fim deste documento) dependem do jeito de vender da Nexa e da configuração n
   - nome;
   - instruções de venda: área atendida, regras, argumentos, horários;
   - perguntas frequentes;
-  - desconto máximo;
+  - Pix, parcelas, validade, raio e horário das mensagens ativas (fase 1);
   - ajustes avançados: modelo, capricho, espera e limite.
 
   A tabela de preços, as formas de pagamento e a agenda ela lê do sistema.
@@ -114,11 +116,82 @@ Depois:
 | `supabase/tests/api/alice.test.mjs` (em `npm run test:webhook`) | Ponta a ponta com Claude e Chatwoot falsos: foto enviada à IA, preços e instruções no prompt, cache, fallback, ferramentas, duas mensagens enviadas como robô, lead atualizado, Alice como vendedora, custo registrado, humano assume, IA passa para a equipe (aviso + nota + aberta), processador protegido, Alice desligada. |
 | `src/lib/alice/prompt.test.ts` | Montagem do histórico, fotos, áudio, divisão das mensagens, custo e instruções. |
 
-## Próximos passos
+## Fase 1 (29/09/2026)
 
-1. **Jeito de vender:** texto de instruções e perguntas frequentes com a vendedora da Nexa.
-2. **Áudio:** transcrever os áudios dos clientes (Google Speech-to-Text) e, se quiser, responder
-   em áudio (Google Text-to-Speech).
-3. **Fechamento automático:** ferramentas para criar o orçamento e a OS e agendar o serviço, com
-   as regras de agenda da empresa.
-4. **Repescagem:** a Alice retoma conversas paradas.
+Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app precisa ter".
+
+### Instruções
+- O texto da empresa (Configurações → Alice → "Prompt da Alice") é o roteiro. O Nexa acrescenta só
+  regras técnicas fixas: tudo o que ela escreve vai ao cliente, na ordem; valores só da tabela e
+  das ferramentas; quais ferramentas existem **agora** (as citadas no roteiro que ainda não existem
+  levam à transferência). A tabela de preços do sistema vale mais que a escrita no roteiro.
+- Sem texto da empresa, vale um roteiro padrão simples.
+
+### Ferramentas
+| Ferramenta | O que faz |
+|---|---|
+| `consultar_cliente` | Já é cliente? OS anteriores, orçamentos deste atendimento, retornos pendentes, "IA desligada" / "sem pós-venda". |
+| `consultar_cep` | ViaCEP + distância pelas ruas até a base do técnico; dentro/fora do raio configurado. |
+| `consultar_tabela_precos` | Tabela ativa, por serviço. |
+| `criar_orcamento` | Grava o orçamento (status enviado) no lead e devolve total, parcela (÷ parcelas), Pix (− %) e validade com dia da semana. Nomes da tabela sem diferença de acento/caixa. |
+| `enviar_video` / `enviar_audio_padrao` | Só aparecem quando o arquivo está cadastrado. Saem logo depois do texto escrito antes. |
+| `agendar_followup` | Tarefa da Alice + repescagem (responsável Alice). Ajusta para o horário permitido; fora da janela de 24 h vira tarefa da equipe. Substitui o follow-up pendente da conversa. |
+| `registrar_motivo_perda` | Um dos 6 motivos do playbook (usa o motivo equivalente do CRM ou cria); "Adiou" com data gera repescagem da equipe. |
+| `atualizar_etapa` | Status abertos do CRM da empresa. |
+| `transferir_para_humano` | Motivo obrigatório: nota privada, repescagem da equipe "agora" e conversa aberta (Alice pausada). |
+| `consultar_agenda` | Só com "agenda (fase 2)" ligada nos ajustes; ela ainda não reserva. |
+
+### Follow-up e janela de 24 h
+- Na hora do toque, a Alice relê a conversa e escreve a mensagem (ou dispensa, respondendo "NADA").
+- Cancela sozinho quando o cliente responde, quando alguém da equipe escreve, quando a conversa sai
+  de "pendente" ou quando o cliente é marcado "IA desligada".
+- Horário das mensagens ativas (padrão 8h–21h): fora dele, adia para o início do próximo período.
+  Passou das 24 h desde a última mensagem do cliente: não envia; a repescagem vira da equipe
+  (precisa de modelo aprovado pela Meta — fase 2).
+- Tela **CRM → Repescagens**: filtro "Da equipe / Da Alice" e o quadro "O que a Alice fez hoje".
+
+### Controles por cliente (tela do lead, cartão "Alice (IA)")
+- **IA desligada**: a Alice não responde, não faz follow-up nem pós-venda; cancela o agendado e
+  passa a conversa para a equipe.
+- **Sem pós-venda**: a Alice atende, mas sem satisfação/avaliação/reativação.
+- **Devolver para a Alice**: volta a conversa para "pendente" no Chatwoot (nota privada avisando).
+
+### Áudio
+- Áudios do cliente são transcritos (Google Speech-to-Text v2, síncrono, até 1 minuto) com a conta
+  de serviço do Cloud Run e guardados em `whatsapp_messages.transcricao`. Falhou: a Alice recebe
+  "áudio que não foi possível transcrever" e pede por escrito.
+- Vídeos e áudios padrão: Configurações → Alice → "Vídeos e áudios padrão" (Storage `alice-midias`,
+  pasta da empresa; até 16 MB).
+
+### Configuração no Google Cloud (uma vez)
+```bash
+REGIAO=southamerica-east1
+PROJETO=$(gcloud config get-value project)
+URL=https://nexaos-980094719320.southamerica-east1.run.app
+
+# Transcrição dos áudios.
+gcloud services enable speech.googleapis.com
+
+# Varredura da fila a cada 5 min (rede de segurança dos follow-ups). Usa o mesmo segredo das
+# tarefas (secret nexa-tarefas-segredo), lido do Secret Manager sem aparecer na tela.
+gcloud services enable cloudscheduler.googleapis.com
+gcloud scheduler jobs create http alice-varredura --location "$REGIAO" \
+  --schedule="*/5 * * * *" --time-zone="America/Sao_Paulo" \
+  --uri="$URL/api/public/hooks/alice-varredura" --http-method=POST \
+  --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=nexa-tarefas-segredo)"
+echo "Pronto."
+```
+
+### Testes da fase 1
+| Teste | O que verifica |
+|---|---|
+| `supabase/tests/070_alice_fase1.sql` | Cliente respondeu / humano escreveu / conversa saiu de pendente / IA desligada cancelam o follow-up e a repescagem; IA desligada não agenda; mídia só da pasta da empresa; horário válido; repescagem não aponta para tarefa de outra empresa. Validado com mutação. |
+| `supabase/tests/api/alice.test.mjs` | Ordem texto → vídeo → orçamento → pergunta; valores (total e Pix) calculados pelo sistema; orçamento gravado no lead; follow-up agendado, cancelado pela resposta, enviado na hora e barrado fora da janela (vira tarefa da equipe); áudio transcrito e entregue à IA; IA desligada; transferência cria tarefa da equipe; varredura protegida. Janela e ordem validadas com mutação. |
+| `src/lib/alice/regras.test.ts` | Horário permitido, janela de 24 h, parcela/Pix, validade com dia da semana, datas em São Paulo, nomes da tabela. |
+
+## Próximos passos (fase 2)
+
+1. **Agenda:** `reservar_horario`, `gerar_ordem_servico`, `enviar_dados_tecnico`.
+2. **Modelos da Meta** para os toques fora da janela de 24 h, confirmação da véspera e pós-venda.
+3. **Pós-venda automático** a partir da OS (véspera, dia seguinte, 6 meses).
+4. **Fase 3:** desconto em dia vago, se a empresa quiser.
