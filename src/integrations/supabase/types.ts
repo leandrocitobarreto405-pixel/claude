@@ -741,6 +741,8 @@ export type Database = {
           created_at: string;
           customer_id: string | null;
           empresa_id: string;
+          entrada: string;
+          entrada_manual: boolean;
           faturado_em: string | null;
           first_contact_date: string;
           follow_up_result: string | null;
@@ -762,9 +764,11 @@ export type Database = {
           os_criada_em: string | null;
           perdido_em: string | null;
           phone: string;
+          primeira_mensagem_em: string | null;
           primeira_resposta_em: string | null;
           realizado_em: string | null;
           referral_data: NonNullable<Json>;
+          respondeu_em: string | null;
           sales_origin_id: string | null;
           salesperson_id: string | null;
           service_interest: string | null;
@@ -788,6 +792,8 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           empresa_id?: string;
+          entrada?: string;
+          entrada_manual?: boolean;
           faturado_em?: string | null;
           first_contact_date?: string;
           follow_up_result?: string | null;
@@ -809,9 +815,11 @@ export type Database = {
           os_criada_em?: string | null;
           perdido_em?: string | null;
           phone?: string;
+          primeira_mensagem_em?: string | null;
           primeira_resposta_em?: string | null;
           realizado_em?: string | null;
           referral_data?: NonNullable<Json>;
+          respondeu_em?: string | null;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
           service_interest?: string | null;
@@ -834,6 +842,8 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           empresa_id?: string;
+          entrada?: string;
+          entrada_manual?: boolean;
           faturado_em?: string | null;
           first_contact_date?: string;
           follow_up_result?: string | null;
@@ -855,9 +865,11 @@ export type Database = {
           os_criada_em?: string | null;
           perdido_em?: string | null;
           phone?: string;
+          primeira_mensagem_em?: string | null;
           primeira_resposta_em?: string | null;
           realizado_em?: string | null;
           referral_data?: NonNullable<Json>;
+          respondeu_em?: string | null;
           sales_origin_id?: string | null;
           salesperson_id?: string | null;
           service_interest?: string | null;
@@ -4052,7 +4064,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      indicadores_funil: { Args: { _ate: string; _de: string }; Returns: Json };
+      indicadores_funil: {
+        Args: { _ate: string; _de: string; _entrada?: string };
+        Returns: Json;
+      };
       is_staff: { Args: { _user_id: string }; Returns: boolean };
       meu_papel: {
         Args: Record<PropertyKey, never>;

@@ -37,10 +37,18 @@ export const MARCOS = [
   { campo: "faturado_em", label: "Pagamento recebido" },
 ] as const;
 
+/** Leads novos (o cliente chamou) ou reativação (a empresa chamou). */
+export type Entrada = "receptivo" | "ativo";
+
 export type Indicadores = {
   periodo: { de: string; ate: string };
+  entrada: Entrada | "todos";
+  /** Quantos leads de cada tipo tiveram o primeiro contato no período. */
+  entradas: Record<Entrada, number>;
   funil: {
     leads: number;
+    /** Leads que mandaram pelo menos uma mensagem (na reativação: responderam ao contato). */
+    responderam: number;
     atendidos: number;
     orcamento: number;
     orcamento_enviado: number;
@@ -77,12 +85,21 @@ export type Indicadores = {
   origens: { origem: string; leads: number; orcamentos: number; vendas: number; vendido: number }[];
 };
 
-export function useIndicadores(de: string, ate: string, empresaId: string | null | undefined) {
+export function useIndicadores(
+  de: string,
+  ate: string,
+  empresaId: string | null | undefined,
+  entrada: Entrada = "receptivo",
+) {
   return useQuery({
-    queryKey: ["indicadores_funil", empresaId, de, ate],
+    queryKey: ["indicadores_funil", empresaId, de, ate, entrada],
     enabled: Boolean(de && ate),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("indicadores_funil", { _de: de, _ate: ate });
+      const { data, error } = await supabase.rpc("indicadores_funil", {
+        _de: de,
+        _ate: ate,
+        _entrada: entrada,
+      });
       if (error) throw error;
       return data as unknown as Indicadores;
     },

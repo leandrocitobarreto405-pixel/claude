@@ -143,3 +143,18 @@ notas e controla a situação.
 | `src/lib/nota-fiscal.test.ts` | Montagem da mensagem, forma de pagamento recebida × combinada, prioridade do CPF/CNPJ, aviso de campos em branco, modelo personalizado. |
 
 As proteções foram validadas com mutação: ao desligar cada uma, o teste correspondente falha.
+
+## Leads novos × reativação (04/10/2026)
+
+- **Lead novo (receptivo):** o cliente mandou a primeira mensagem. É o que mede a captação
+  (Google, orgânico, indicação…) e é o único que recebe origem automática.
+- **Reativação (ativo):** a empresa mandou a primeira mensagem (retorno de 6 meses da
+  higienização, 1 ano da impermeabilização, leads antigos). Não entra nos números de captação.
+- A classificação é automática, pela mensagem mais antiga da conversa do Chatwoot
+  (`crm_leads.entrada`), e pode ser trocada à mão na tela do lead ("Quem chamou primeiro").
+- **Funil e indicadores:** abas "Leads novos" e "Reativação". Na reativação o funil é
+  Chamados → Responderam → Orçamento → OS…, e a tabela separa "Cliente (retorno)" de
+  "Lead antigo".
+- **CRM → Visão geral:** conversão, custo por lead e campanhas contam só leads novos.
+- **Lista de leads:** filtro "Quem chamou" e etiqueta "Reativação".
+- Testes: `supabase/tests/080_leads_entrada.sql` (validado com mutação).

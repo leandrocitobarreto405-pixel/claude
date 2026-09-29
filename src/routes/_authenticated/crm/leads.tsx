@@ -167,6 +167,19 @@ function Leads() {
             />
           </div>
           <div className="grid gap-1.5">
+            <Label htmlFor="f-entrada">Quem chamou</Label>
+            <NativeSelect
+              id="f-entrada"
+              placeholder="Todos"
+              value={filters.entrada ?? ""}
+              onChange={(v) => set({ entrada: (v || undefined) as LeadFilters["entrada"] })}
+              options={[
+                { value: "receptivo", label: "Leads novos (cliente chamou)" },
+                { value: "ativo", label: "Reativação (nós chamamos)" },
+              ]}
+            />
+          </div>
+          <div className="grid gap-1.5">
             <Label htmlFor="f-origem">Origem</Label>
             <NativeSelect
               id="f-origem"
@@ -343,7 +356,16 @@ function Origem({ lead }: { lead: CrmLeadRow }) {
   return (
     <div className="min-w-0">
       <p className="truncate">
-        {lead.origem?.name ?? <span className="text-muted-foreground">Não identificada</span>}
+        {lead.entrada === "ativo" && !lead.origem ? (
+          <span
+            className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+            title="Vocês chamaram primeiro (reativação); não conta como lead novo"
+          >
+            Reativação
+          </span>
+        ) : (
+          (lead.origem?.name ?? <span className="text-muted-foreground">Não identificada</span>)
+        )}
         {lead.origem && lead.origem_automatica ? (
           <span className="ml-1 text-muted-foreground" title="Identificada automaticamente">
             (auto)

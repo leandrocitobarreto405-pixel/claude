@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader, SectionCard } from "@/components/app-shell";
 import { KpiCard } from "@/components/crm-ui";
 import { brl, currentMonth, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
-import { duracaoMin, taxa, useIndicadores, type Indicadores } from "@/lib/funil";
+import { duracaoMin, taxa, useIndicadores, type Entrada, type Indicadores } from "@/lib/funil";
 import { useMinhaEmpresa } from "@/lib/tenant";
 
 export const Route = createFileRoute("/_authenticated/indicadores")({
@@ -42,7 +42,8 @@ function IndicadoresPage() {
   const [de, setDe] = useState(monthStart(mes));
   const [ate, setAte] = useState(monthEnd(mes));
   const { data: empresa } = useMinhaEmpresa();
-  const { data, isLoading, error } = useIndicadores(de, ate, empresa?.empresa.id);
+  const [entrada, setEntrada] = useState<Entrada>("receptivo");
+  const { data, isLoading, error } = useIndicadores(de, ate, empresa?.empresa.id, entrada);
 
   const presets = [
     { rotulo: "Este mês", de: monthStart(mes), ate: monthEnd(mes) },
@@ -56,6 +57,42 @@ function IndicadoresPage() {
         title="Funil e indicadores"
         description="Leads que chegaram no período e até onde cada um avançou, além dos números de vendas e recebimentos."
       />
+
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de lead">
+        {(
+          [
+            [
+              "receptivo",
+              "Leads novos",
+              "o cliente chamou primeiro (Google, orgânico, indicação…)",
+            ],
+            [
+              "ativo",
+              "Reativação",
+              "vocês chamaram primeiro (retornos de 6 meses / 1 ano, leads antigos)",
+            ],
+          ] as const
+        ).map(([v, rotulo, dica]) => (
+          <Button
+            key={v}
+            role="tab"
+            aria-selected={entrada === v}
+            variant={entrada === v ? "default" : "outline"}
+            title={dica}
+            onClick={() => setEntrada(v)}
+          >
+            {rotulo}
+            {data ? (
+              <span className="ml-1 tabular-nums opacity-80">({data.entradas[v]})</span>
+            ) : null}
+          </Button>
+        ))}
+        <p className="basis-full text-xs text-muted-foreground">
+          {entrada === "receptivo"
+            ? "Leads novos: quem chamou a empresa primeiro. É aqui que se mede a captação (Google, orgânico etc.)."
+            : "Reativação: conversas que a empresa começou (retornos e leads antigos). Não entram nos números de captação."}
+        </p>
+      </div>
 
       <div className="card-surface mb-4 flex flex-wrap items-end gap-3 p-4">
         {presets.map((p) => (
@@ -111,21 +148,31 @@ function IndicadoresPage() {
 function Conteudo({ d }: { d: Indicadores }) {
   const f = d.funil;
   const g = d.periodo_geral;
+  const reativacao = d.entrada === "ativo";
   return (
     <div className="grid gap-4 [&>*]:min-w-0">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
-          label="Leads"
+          label={reativacao ? "Clientes chamados" : "Leads novos"}
           value={String(f.leads)}
           hint={`${f.abertos} em aberto`}
           icon={UserPlus}
         />
-        <KpiCard
-          label="Atendidos"
-          value={fmtPct(taxa(f.atendidos, f.leads))}
-          hint={`${f.atendidos} de ${f.leads}`}
-          icon={MessageSquareText}
-        />
+        {reativacao ? (
+          <KpiCard
+            label="Responderam"
+            value={fmtPct(taxa(f.responderam, f.leads))}
+            hint={`${f.responderam} de ${f.leads}`}
+            icon={MessageSquareText}
+          />
+        ) : (
+          <KpiCard
+            label="Atendidos"
+            value={fmtPct(taxa(f.atendidos, f.leads))}
+            hint={`${f.atendidos} de ${f.leads}`}
+            icon={MessageSquareText}
+          />
+        )}
         <KpiCard
           label="1ª resposta (mediana)"
           value={duracaoMin(d.atendimento.primeira_resposta_mediana_min)}
@@ -161,8 +208,12 @@ function Conteudo({ d }: { d: Indicadores }) {
       </div>
 
       <SectionCard
-        title="Funil dos leads do período"
-        description="Cada barra conta os leads que chegaram a essa etapa (primeiro contato dentro do período, acompanhados até hoje)."
+        title={reativacao ? "Funil da reativação" : "Funil dos leads novos"}
+        description={
+          reativacao
+            ? "Clientes e leads antigos chamados no período e até onde cada um avançou."
+            : "Cada barra conta os leads que chegaram a essa etapa (primeiro contato dentro do período, acompanhados até hoje)."
+        }
       >
         <Funil d={d} />
       </SectionCard>
@@ -195,7 +246,14 @@ function Conteudo({ d }: { d: Indicadores }) {
           </dl>
         </SectionCard>
 
-        <SectionCard title="Origem dos leads" description="De onde vieram os leads do período.">
+        <SectionCard
+          title={reativacao ? "Quem foi chamado" : "Origem dos leads"}
+          description={
+            reativacao
+              ? "Clientes que já compraram × leads antigos que não fecharam."
+              : "De onde vieram os leads novos do período."
+          }
+        >
           {d.origens.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum lead no período.</p>
           ) : (
@@ -203,7 +261,7 @@ function Conteudo({ d }: { d: Indicadores }) {
               <table className="w-full min-w-[420px] text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground">
-                    <th className="pb-2 font-medium">Origem</th>
+                    <th className="pb-2 font-medium">{reativacao ? "Tipo" : "Origem"}</th>
                     <th className="pb-2 text-right font-medium">Leads</th>
                     <th className="pb-2 text-right font-medium">Orçamentos</th>
                     <th className="pb-2 text-right font-medium">Vendas</th>
@@ -247,8 +305,15 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
 function Funil({ d }: { d: Indicadores }) {
   const f = d.funil;
   const etapas = [
-    { rotulo: "Leads recebidos", n: f.leads },
-    { rotulo: "Atendidos", n: f.atendidos },
+    ...(d.entrada === "ativo"
+      ? [
+          { rotulo: "Chamados", n: f.leads },
+          { rotulo: "Responderam", n: f.responderam },
+        ]
+      : [
+          { rotulo: "Leads recebidos", n: f.leads },
+          { rotulo: "Atendidos", n: f.atendidos },
+        ]),
     { rotulo: "Com orçamento", n: f.orcamento },
     { rotulo: "Orçamento enviado", n: f.orcamento_enviado },
     { rotulo: "Orçamento aprovado", n: f.orcamento_aprovado },

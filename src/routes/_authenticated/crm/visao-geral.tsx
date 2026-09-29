@@ -43,7 +43,7 @@ function VisaoGeral() {
         .from("crm_leads")
         .select(
           `id, lead_name, phone, temperature, temperature_confirmed, status_id, is_open, first_contact_date,
-           last_interaction_at, next_follow_up_at, linked_work_order_id, campaign_id,
+           last_interaction_at, next_follow_up_at, linked_work_order_id, campaign_id, entrada,
            campaign:campaign_id ( id, campaign_name, platform )`,
         )
         .gte("first_contact_date", de)
@@ -75,6 +75,7 @@ function VisaoGeral() {
         .from("crm_leads")
         .select("campaign_id, work_order:linked_work_order_id ( total_gross_value, status )")
         .not("linked_work_order_id", "is", null)
+        .eq("entrada", "receptivo")
         .gte("first_contact_date", de)
         .lte("first_contact_date", ate)
         .limit(1000);
@@ -83,8 +84,11 @@ function VisaoGeral() {
     },
   });
 
+  // Captação (custo por lead, conversão, campanhas) conta só leads novos: quem chamou a empresa.
+  // Reativações (a empresa chamou) aparecem à parte.
   const resumo = useMemo(() => {
-    const rows = leads.data ?? [];
+    const rows = (leads.data ?? []).filter((l) => l.entrada === "receptivo");
+    const reativacoes = (leads.data ?? []).length - rows.length;
     const total = rows.length;
     const quentes = rows.filter((l) => l.temperature === "QUENTE").length;
     const convertidos = rows.filter((l) => l.linked_work_order_id).length;
@@ -101,6 +105,7 @@ function VisaoGeral() {
     }, 0);
     return {
       total,
+      reativacoes,
       quentes,
       convertidos,
       abertos,
@@ -123,7 +128,7 @@ function VisaoGeral() {
   }, [leads.data, statuses]);
 
   const porCampanha = useMemo(() => {
-    const rows = leads.data ?? [];
+    const rows = (leads.data ?? []).filter((l) => l.entrada === "receptivo");
     const map = new Map<
       string,
       { nome: string; leads: number; vendas: number; investido: number; receita: number }
@@ -180,9 +185,9 @@ function VisaoGeral() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={MessageSquareText}
-          label="Leads no período"
+          label="Leads novos no período"
           value={String(resumo.total)}
-          hint={`${resumo.abertos} em aberto · ${resumo.perdidos} perdidos`}
+          hint={`${resumo.abertos} em aberto · ${resumo.perdidos} perdidos · ${resumo.reativacoes} reativação(ões) à parte`}
         />
         <KpiCard
           icon={Flame}

@@ -86,6 +86,10 @@ export type CrmLead = {
   etapa: string | null;
   /** Origem preenchida pelo sistema (false = escolhida à mão ou em branco). */
   origem_automatica: boolean;
+  /** "receptivo": o cliente chamou primeiro (lead novo); "ativo": a empresa chamou (reativação). */
+  entrada: "receptivo" | "ativo";
+  entrada_manual: boolean;
+  respondeu_em: string | null;
 };
 
 export type CrmLeadRow = CrmLead & {
@@ -210,6 +214,7 @@ export type LeadFilters = {
   onlyOpen?: boolean | undefined;
   search?: string | undefined;
   converted?: "sim" | "nao" | undefined;
+  entrada?: "receptivo" | "ativo" | undefined;
 };
 
 export function useCrmLeads(filters: LeadFilters = {}) {
@@ -230,6 +235,7 @@ export function useCrmLeads(filters: LeadFilters = {}) {
       if (filters.originId) q = q.eq("sales_origin_id", filters.originId);
       if (filters.serviceInterest) q = q.eq("service_interest", filters.serviceInterest);
       if (filters.onlyOpen) q = q.eq("is_open", true);
+      if (filters.entrada) q = q.eq("entrada", filters.entrada);
       if (filters.converted === "sim") q = q.not("linked_work_order_id", "is", null);
       if (filters.converted === "nao") q = q.is("linked_work_order_id", null);
       const { data, error } = await q.limit(1000);

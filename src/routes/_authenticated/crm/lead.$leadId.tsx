@@ -436,6 +436,24 @@ function LeadDetalhe() {
                   <p className="text-xs text-muted-foreground">Identificada automaticamente.</p>
                 ) : null}
               </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="d-entrada">Quem chamou primeiro</Label>
+                <NativeSelect
+                  id="d-entrada"
+                  value={lead.entrada}
+                  onChange={(v) => v && void salvarCampos({ entrada: v, entrada_manual: true })}
+                  options={[
+                    { value: "receptivo", label: "O cliente (lead novo)" },
+                    { value: "ativo", label: "Nós (reativação)" },
+                  ]}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {lead.entrada_manual
+                    ? "Definido à mão."
+                    : "Automático, pela primeira mensagem da conversa."}{" "}
+                  Reativação não entra nos números de captação.
+                </p>
+              </div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label htmlFor="d-camp">Campanha</Label>
                 <NativeSelect
