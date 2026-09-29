@@ -49,20 +49,41 @@ export type MargemParams = {
 
 const round = (v: number) => Math.round((Number.isFinite(v) ? v : 0) * 100) / 100;
 
-async function settingNumber(db: DB, key: string, fallback: number): Promise<number> {
-  const { data } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
+/** Sem `empresaId`, vale o RLS da empresa ativa; com ele (chave de serviço), filtra pela empresa. */
+function daEmpresa<Q extends { eq: (c: string, v: string) => Q }>(q: Q, empresaId?: string): Q {
+  return empresaId ? q.eq("empresa_id", empresaId) : q;
+}
+
+async function settingNumber(
+  db: DB,
+  key: string,
+  fallback: number,
+  empresaId?: string,
+): Promise<number> {
+  const { data } = await daEmpresa(
+    db.from("app_settings").select("value").eq("key", key),
+    empresaId,
+  ).maybeSingle();
   const raw = (data?.value ?? null) as unknown;
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) ? n : fallback;
 }
 
-async function costPerKm(db: DB): Promise<number> {
-  const n = await settingNumber(db, "cost_per_km", 0.57);
+async function costPerKm(db: DB, empresaId?: string): Promise<number> {
+  const n = await settingNumber(db, "cost_per_km", 0.57, empresaId);
   return n > 0 ? n : 0.57;
 }
 
-async function settingText(db: DB, key: string, fallback: string): Promise<string> {
-  const { data } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
+async function settingText(
+  db: DB,
+  key: string,
+  fallback: string,
+  empresaId?: string,
+): Promise<string> {
+  const { data } = await daEmpresa(
+    db.from("app_settings").select("value").eq("key", key),
+    empresaId,
+  ).maybeSingle();
   const raw = (data?.value ?? null) as unknown;
   return typeof raw === "string" && raw ? raw : fallback;
 }
@@ -75,7 +96,10 @@ async function settingText(db: DB, key: string, fallback: string): Promise<strin
  *   ainda em andamento, fica fora da conta para não derrubar a média).
  * Override manual do custo fixo tem prioridade sobre tudo.
  */
-export async function fixedCostPerService(db: DB): Promise<{
+export async function fixedCostPerService(
+  db: DB,
+  empresaId?: string,
+): Promise<{
   valor: number;
   fixasMes: number;
   mediaServicos: number;
@@ -84,14 +108,14 @@ export async function fixedCostPerService(db: DB): Promise<{
   fonte: "automatico" | "estimativa" | "manual";
 }> {
   const [override, estimativa, origem] = await Promise.all([
-    settingNumber(db, "fixed_cost_per_service_override", 0),
-    settingNumber(db, "services_per_month_estimate", 34),
-    settingText(db, "services_avg_source", "manual"),
+    settingNumber(db, "fixed_cost_per_service_override", 0, empresaId),
+    settingNumber(db, "services_per_month_estimate", 34, empresaId),
+    settingText(db, "services_avg_source", "manual", empresaId),
   ]);
   const agora = new Date();
   const mes = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
 
-  const { data: templates } = await db.from("recurring_expenses").select("*");
+  const { data: templates } = await daEmpresa(db.from("recurring_expenses").select("*"), empresaId);
   const { planRecurringMonth } = await import("./recurring-core");
   const previstas = planRecurringMonth((templates ?? []) as never, mes);
   const fixasMes = round(previstas.reduce((s, p) => s + Number(p.amount ?? 0), 0));
@@ -99,11 +123,10 @@ export async function fixedCostPerService(db: DB): Promise<{
   const inicio = new Date(Date.UTC(agora.getFullYear(), agora.getMonth() - 12, 1))
     .toISOString()
     .slice(0, 10);
-  const { data: concluidas } = await db
-    .from("visits")
-    .select("scheduled_date")
-    .eq("status", "Concluído")
-    .gte("scheduled_date", inicio);
+  const { data: concluidas } = await daEmpresa(
+    db.from("visits").select("scheduled_date").eq("status", "Concluído"),
+    empresaId,
+  ).gte("scheduled_date", inicio);
 
   const porMes = new Map<string, number>();
   for (const raw of concluidas ?? []) {
@@ -222,17 +245,23 @@ export function computeQuote(input: QuoteInput, params: MargemParams) {
   };
 }
 
-export async function saveQuote(db: DB, input: QuoteInput, userId: string | null) {
+/** `empresaId`: só para quem usa a chave de serviço (a Alice); telas usam o RLS da empresa ativa. */
+export async function saveQuote(
+  db: DB,
+  input: QuoteInput,
+  userId: string | null,
+  empresaId?: string,
+) {
   if (!input.cliente_nome.trim()) throw new Error("Informe o nome do cliente.");
   if (!input.items.length) throw new Error("Inclua pelo menos um item no orçamento.");
 
   const [custoKm, impostoPct, fixo] = await Promise.all([
-    costPerKm(db),
-    settingNumber(db, "tax_percent", 6),
-    fixedCostPerService(db),
+    costPerKm(db, empresaId),
+    settingNumber(db, "tax_percent", 6, empresaId),
+    fixedCostPerService(db, empresaId),
   ]);
   const calc = computeQuote(input, { custoKm, impostoPct, custoFixoPorServico: fixo.valor });
-  const empresaId = await empresaDoUsuario(db);
+  empresaId ??= (await empresaDoUsuario(db)) ?? undefined;
 
   const row = {
     cliente_nome: input.cliente_nome.trim(),
@@ -372,7 +401,11 @@ export type CepEstimate = {
 };
 
 /** Estima o km de ida e volta entre a base do técnico e o CEP do cliente. */
-export async function estimateKmByCep(db: DB, cepRaw: string): Promise<CepEstimate> {
+export async function estimateKmByCep(
+  db: DB,
+  cepRaw: string,
+  empresaId?: string,
+): Promise<CepEstimate> {
   const cep = cepRaw.replace(/\D/g, "");
   if (cep.length !== 8) {
     return { cep, endereco: null, km: null, base: null, aviso: "Informe um CEP com 8 dígitos." };
@@ -416,10 +449,13 @@ export async function estimateKmByCep(db: DB, cepRaw: string): Promise<CepEstima
     };
   }
 
-  const { data: tecnicos } = await db
-    .from("technicians")
-    .select("name, base_address, base_latitude, base_longitude")
-    .eq("active", true)
+  const { data: tecnicos } = await daEmpresa(
+    db
+      .from("technicians")
+      .select("name, base_address, base_latitude, base_longitude")
+      .eq("active", true),
+    empresaId,
+  )
     .order("display_order")
     .limit(5);
 

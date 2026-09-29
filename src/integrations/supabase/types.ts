@@ -623,8 +623,10 @@ export type Database = {
           created_at: string;
           crm_lead_id: string;
           empresa_id: string;
+          ia_tarefa_id: string | null;
           id: string;
           notes: string | null;
+          responsavel: string;
           result: string | null;
           scheduled_at: string;
           status: string;
@@ -636,8 +638,10 @@ export type Database = {
           created_at?: string;
           crm_lead_id: string;
           empresa_id?: string;
+          ia_tarefa_id?: string | null;
           id?: string;
           notes?: string | null;
+          responsavel?: string;
           result?: string | null;
           scheduled_at?: string;
           status?: string;
@@ -649,8 +653,10 @@ export type Database = {
           created_at?: string;
           crm_lead_id?: string;
           empresa_id?: string;
+          ia_tarefa_id?: string | null;
           id?: string;
           notes?: string | null;
+          responsavel?: string;
           result?: string | null;
           scheduled_at?: string;
           status?: string;
@@ -667,6 +673,12 @@ export type Database = {
             foreignKeyName: "crm_followups_empresa_id_fkey";
             columns: ["empresa_id"];
             referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_followups_ia_tarefa_id_fkey";
+            columns: ["ia_tarefa_id"];
+            referencedRelation: "ia_tarefas";
             referencedColumns: ["id"];
           },
         ];
@@ -1552,43 +1564,76 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          agenda_automatica: boolean;
           ativo: boolean;
-          desconto_max_percentual: number;
+          audio_higienizacao: string | null;
+          audio_impermeabilizacao: string | null;
+          desconto_pix_percentual: number;
           empresa_id: string;
           esforco: string;
           espera_segundos: number;
+          hora_fim: number;
+          hora_inicio: number;
           instrucoes: string;
           limite_respostas_conversa: number;
           modelo: string;
           nome: string;
+          parcelas_max: number;
           perguntas_frequentes: string;
+          raio_km: number | null;
+          transcrever_audio: boolean;
           updated_at: string;
+          validade_orcamento_dias: number;
+          video_higienizacao: string | null;
+          video_impermeabilizacao: string | null;
         };
         Insert: {
+          agenda_automatica?: boolean;
           ativo?: boolean;
-          desconto_max_percentual?: number;
+          audio_higienizacao?: string | null;
+          audio_impermeabilizacao?: string | null;
+          desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
           espera_segundos?: number;
+          hora_fim?: number;
+          hora_inicio?: number;
           instrucoes?: string;
           limite_respostas_conversa?: number;
           modelo?: string;
           nome?: string;
+          parcelas_max?: number;
           perguntas_frequentes?: string;
+          raio_km?: number | null;
+          transcrever_audio?: boolean;
           updated_at?: string;
+          validade_orcamento_dias?: number;
+          video_higienizacao?: string | null;
+          video_impermeabilizacao?: string | null;
         };
         Update: {
+          agenda_automatica?: boolean;
           ativo?: boolean;
-          desconto_max_percentual?: number;
+          audio_higienizacao?: string | null;
+          audio_impermeabilizacao?: string | null;
+          desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
           espera_segundos?: number;
+          hora_fim?: number;
+          hora_inicio?: number;
           instrucoes?: string;
           limite_respostas_conversa?: number;
           modelo?: string;
           nome?: string;
+          parcelas_max?: number;
           perguntas_frequentes?: string;
+          raio_km?: number | null;
+          transcrever_audio?: boolean;
           updated_at?: string;
+          validade_orcamento_dias?: number;
+          video_higienizacao?: string | null;
+          video_impermeabilizacao?: string | null;
         };
         Relationships: [
           {
@@ -1692,6 +1737,7 @@ export type Database = {
           concluida_em: string | null;
           conversa_id: string;
           created_at: string;
+          dados: NonNullable<Json>;
           empresa_id: string;
           enfileirada: boolean;
           erro: string | null;
@@ -1707,6 +1753,7 @@ export type Database = {
           concluida_em?: string | null;
           conversa_id: string;
           created_at?: string;
+          dados?: NonNullable<Json>;
           empresa_id: string;
           enfileirada?: boolean;
           erro?: string | null;
@@ -1722,6 +1769,7 @@ export type Database = {
           concluida_em?: string | null;
           conversa_id?: string;
           created_at?: string;
+          dados?: NonNullable<Json>;
           empresa_id?: string;
           enfileirada?: boolean;
           erro?: string | null;
@@ -3466,6 +3514,7 @@ export type Database = {
           display_phone: string | null;
           empresa_id: string;
           first_contact_at: string;
+          ia_desligada: boolean;
           id: string;
           is_existing_customer: boolean;
           last_contact_at: string;
@@ -3473,6 +3522,7 @@ export type Database = {
           normalized_phone: string;
           origem: string;
           profile_name: string | null;
+          sem_pos_venda: boolean;
           total_inbound_messages: number;
           total_outbound_messages: number;
           updated_at: string;
@@ -3486,6 +3536,7 @@ export type Database = {
           display_phone?: string | null;
           empresa_id?: string;
           first_contact_at?: string;
+          ia_desligada?: boolean;
           id?: string;
           is_existing_customer?: boolean;
           last_contact_at?: string;
@@ -3493,6 +3544,7 @@ export type Database = {
           normalized_phone: string;
           origem?: string;
           profile_name?: string | null;
+          sem_pos_venda?: boolean;
           total_inbound_messages?: number;
           total_outbound_messages?: number;
           updated_at?: string;
@@ -3506,6 +3558,7 @@ export type Database = {
           display_phone?: string | null;
           empresa_id?: string;
           first_contact_at?: string;
+          ia_desligada?: boolean;
           id?: string;
           is_existing_customer?: boolean;
           last_contact_at?: string;
@@ -3513,6 +3566,7 @@ export type Database = {
           normalized_phone?: string;
           origem?: string;
           profile_name?: string | null;
+          sem_pos_venda?: boolean;
           total_inbound_messages?: number;
           total_outbound_messages?: number;
           updated_at?: string;
@@ -3556,6 +3610,7 @@ export type Database = {
           remetente_tipo: string | null;
           reply_to_message_id: string | null;
           text_content: string | null;
+          transcricao: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id: string | null;
         };
@@ -3581,6 +3636,7 @@ export type Database = {
           remetente_tipo?: string | null;
           reply_to_message_id?: string | null;
           text_content?: string | null;
+          transcricao?: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id?: string | null;
         };
@@ -3606,6 +3662,7 @@ export type Database = {
           remetente_tipo?: string | null;
           reply_to_message_id?: string | null;
           text_content?: string | null;
+          transcricao?: string | null;
           whatsapp_contact_id?: string;
           whatsapp_message_id?: string | null;
         };
@@ -3976,6 +4033,7 @@ export type Database = {
           concluida_em: string | null;
           conversa_id: string;
           created_at: string;
+          dados: NonNullable<Json>;
           empresa_id: string;
           enfileirada: boolean;
           erro: string | null;

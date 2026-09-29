@@ -47,6 +47,9 @@ type FollowupRow = {
   scheduled_at: string;
   status: string;
   notes: string | null;
+  responsavel: string;
+  result?: string | null;
+  completed_at?: string | null;
   lead: {
     id: string;
     lead_name: string;
@@ -64,6 +67,7 @@ function Repescagens() {
   const { data: resultados } = useCrmCatalog(CRM_RESULT_KIND);
   const [resultado, setResultado] = useState<Record<string, string>>({});
   const [obs, setObs] = useState<Record<string, string>>({});
+  const [de, setDe] = useState<"todas" | "equipe" | "alice">("todas");
 
   const query = useQuery({
     queryKey: ["crm_followups", "pendentes"],
@@ -71,11 +75,30 @@ function Repescagens() {
       const { data, error } = await supabase
         .from("crm_followups")
         .select(
-          `id, crm_lead_id, scheduled_at, status, notes,
+          `id, crm_lead_id, scheduled_at, status, notes, responsavel,
            lead:crm_lead_id ( id, lead_name, phone, temperature, temperature_confirmed, upholstery_description, summary, last_follow_up_at )`,
         )
         .eq("status", "Pendente")
         .order("scheduled_at");
+      if (error) throw error;
+      return (data ?? []) as unknown as FollowupRow[];
+    },
+  });
+
+  const aliceHoje = useQuery({
+    queryKey: ["crm_followups", "alice-hoje"],
+    queryFn: async () => {
+      const inicio = new Date(`${todayISO()}T00:00:00-03:00`).toISOString();
+      const { data, error } = await supabase
+        .from("crm_followups")
+        .select(
+          "id, crm_lead_id, scheduled_at, status, notes, responsavel, result, completed_at, lead:crm_lead_id ( id, lead_name, phone, temperature, temperature_confirmed, upholstery_description, summary, last_follow_up_at )",
+        )
+        .eq("responsavel", "alice")
+        .neq("status", "Pendente")
+        .gte("completed_at", inicio)
+        .order("completed_at", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return (data ?? []) as unknown as FollowupRow[];
     },
@@ -101,7 +124,7 @@ function Repescagens() {
   });
 
   const grupos = useMemo(() => {
-    const rows = query.data ?? [];
+    const rows = (query.data ?? []).filter((f) => de === "todas" || f.responsavel === de);
     const hoje = todayISO();
     const agora = new Date().toISOString();
     return {
@@ -109,7 +132,7 @@ function Repescagens() {
       hoje: rows.filter((f) => f.scheduled_at.slice(0, 10) === hoje),
       proximas: rows.filter((f) => f.scheduled_at.slice(0, 10) > hoje),
     };
-  }, [query.data]);
+  }, [query.data, de]);
 
   async function registrar(f: FollowupRow) {
     const res = resultado[f.id];
@@ -139,6 +162,15 @@ function Repescagens() {
             ) : (
               "Lead removido"
             )}
+            <span
+              className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${
+                f.responsavel === "alice"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-amber-100 text-amber-900"
+              }`}
+            >
+              {f.responsavel === "alice" ? "Alice" : "Equipe"}
+            </span>
             <p className="text-xs text-muted-foreground">
               {formatPhoneBR(f.lead?.phone)} · agendado para {dateTimeBR(f.scheduled_at)}
             </p>
@@ -153,37 +185,51 @@ function Repescagens() {
         {f.lead?.summary ? (
           <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{f.lead.summary}</p>
         ) : null}
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label className="text-xs">O que aconteceu?</Label>
-            <NativeSelect
-              value={resultado[f.id] ?? ""}
-              onChange={(v) => setResultado((prev) => ({ ...prev, [f.id]: v }))}
-              options={(resultados ?? []).map((r) => ({ value: r.name, label: r.name }))}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs">Observações</Label>
-            <Textarea
-              rows={2}
-              maxLength={500}
-              value={obs[f.id] ?? ""}
-              onChange={(e) => setObs((prev) => ({ ...prev, [f.id]: e.target.value }))}
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => void registrar(f)}>
-            Contato realizado
-          </Button>
-          {link ? (
-            <Button size="sm" variant="outline" asChild className="gap-2">
-              <a href={link} target="_blank" rel="noreferrer">
-                <MessageCircle className="size-4" /> Abrir WhatsApp
-              </a>
-            </Button>
-          ) : null}
-        </div>
+        {f.notes ? (
+          <p className="mt-2 whitespace-pre-wrap break-words rounded-md bg-secondary px-2 py-1 text-xs">
+            {f.notes}
+          </p>
+        ) : null}
+        {f.responsavel === "alice" ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            A Alice manda este toque sozinha no horário. Se o cliente responder antes, ele é
+            cancelado.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label className="text-xs">O que aconteceu?</Label>
+                <NativeSelect
+                  value={resultado[f.id] ?? ""}
+                  onChange={(v) => setResultado((prev) => ({ ...prev, [f.id]: v }))}
+                  options={(resultados ?? []).map((r) => ({ value: r.name, label: r.name }))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Observações</Label>
+                <Textarea
+                  rows={2}
+                  maxLength={500}
+                  value={obs[f.id] ?? ""}
+                  onChange={(e) => setObs((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => void registrar(f)}>
+                Contato realizado
+              </Button>
+              {link ? (
+                <Button size="sm" variant="outline" asChild className="gap-2">
+                  <a href={link} target="_blank" rel="noreferrer">
+                    <MessageCircle className="size-4" /> Abrir WhatsApp
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -194,9 +240,59 @@ function Repescagens() {
   return (
     <>
       <PageHeader
-        title="Repescagens"
-        description="Retornos combinados com o cliente. O envio da mensagem é sempre manual."
+        title="Repescagens e follow-ups"
+        description="Retornos combinados com o cliente: os da equipe (envio manual) e os que a Alice faz sozinha."
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted-foreground">Mostrar:</span>
+        {(
+          [
+            ["todas", "Todas"],
+            ["equipe", "Da equipe"],
+            ["alice", "Da Alice"],
+          ] as const
+        ).map(([v, rotulo]) => (
+          <Button
+            key={v}
+            size="sm"
+            variant={de === v ? "default" : "outline"}
+            onClick={() => setDe(v)}
+          >
+            {rotulo}
+          </Button>
+        ))}
+      </div>
+
+      {(aliceHoje.data ?? []).length > 0 ? (
+        <div className="mb-4">
+          <SectionCard
+            title={`O que a Alice fez hoje (${(aliceHoje.data ?? []).length})`}
+            accent="navy"
+          >
+            <ul className="grid gap-2 text-sm">
+              {(aliceHoje.data ?? []).map((f) => (
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0">
+                    {f.lead ? (
+                      <LeadLink id={f.lead.id}>{f.lead.lead_name || "Sem nome"}</LeadLink>
+                    ) : (
+                      "Lead removido"
+                    )}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {f.completed_at ? dateTimeBR(f.completed_at) : ""}
+                    </span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {f.status === "Concluída" ? "✅ " : "⏹ "}
+                    {f.result ?? f.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        </div>
+      ) : null}
 
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando repescagens...</p>

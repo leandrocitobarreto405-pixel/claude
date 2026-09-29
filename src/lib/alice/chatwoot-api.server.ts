@@ -13,11 +13,16 @@ async function chamar<T>(
 ): Promise<T> {
   // Só o servidor (https://app.chatwoot.com), mesmo que tenham colado o endereço de uma tela.
   const url = `${new URL(conta.baseUrl).origin}/api/v1/accounts/${conta.accountId}${caminho}`;
+  const formulario = init.body instanceof FormData;
   const res = await fetch(url, {
     method: init.method ?? "GET",
-    headers: { api_access_token: token, "Content-Type": "application/json" },
-    ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
-    signal: AbortSignal.timeout(20_000),
+    headers: formulario
+      ? { api_access_token: token }
+      : { api_access_token: token, "Content-Type": "application/json" },
+    ...(init.body !== undefined
+      ? { body: formulario ? (init.body as FormData) : JSON.stringify(init.body) }
+      : {}),
+    signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) {
     const texto = await res.text().catch(() => "");
@@ -40,6 +45,26 @@ export function enviarMensagem(
   return chamar<{ id: number }>(conta, token, `/conversations/${conversa}/messages`, {
     method: "POST",
     body: { content: conteudo, message_type: "outgoing", private: privada },
+  });
+}
+
+/** Mensagem com arquivo (vídeo ou áudio padrão da empresa). */
+export function enviarAnexo(
+  conta: Conta,
+  token: string,
+  conversa: number,
+  arquivo: Blob,
+  nomeArquivo: string,
+  legenda = "",
+) {
+  const form = new FormData();
+  form.append("content", legenda);
+  form.append("message_type", "outgoing");
+  form.append("private", "false");
+  form.append("attachments[]", arquivo, nomeArquivo);
+  return chamar<{ id: number }>(conta, token, `/conversations/${conversa}/messages`, {
+    method: "POST",
+    body: form,
   });
 }
 

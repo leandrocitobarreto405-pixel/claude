@@ -44,9 +44,23 @@ trap limpar EXIT
 PIDS+=($!)
 
 # O cliente do Supabase chama /rest/v1/...; o PostgREST puro responde na raiz.
-node -e '
+# /storage/v1/object/<bucket>/<arquivo> serve arquivos de ${TMP}/storage (no lugar do Storage).
+mkdir -p "${TMP}/storage"
+STORAGE_DIR="${TMP}/storage" node -e '
 const http = require("node:http");
+const fs = require("node:fs");
+const path = require("node:path");
 http.createServer((req, res) => {
+  if (req.url.startsWith("/storage/v1/object/")) {
+    const rel = decodeURIComponent(req.url.slice("/storage/v1/object/".length).split("?")[0]);
+    const arq = path.join(process.env.STORAGE_DIR, rel);
+    if (!arq.startsWith(process.env.STORAGE_DIR + "/") || !fs.existsSync(arq)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ statusCode: "404", error: "not_found", message: "Object not found" }));
+    }
+    res.writeHead(200, { "Content-Type": "video/mp4" });
+    return fs.createReadStream(arq).pipe(res);
+  }
   const p = http.request({ host: "127.0.0.1", port: '"${PGRST_PORTA}"', method: req.method,
     path: req.url.replace(/^\/rest\/v1/, ""), headers: req.headers }, (r) => {
     res.writeHead(r.statusCode, r.headers); r.pipe(res); });
@@ -72,6 +86,7 @@ PIDS+=($!)
 # setsid: o vite roda num grupo de processos próprio, encerrado inteiro no fim.
 (cd "${ROOT}" && SUPABASE_URL="http://127.0.0.1:${PROXY_PORTA}" SUPABASE_SERVICE_ROLE_KEY="${CHAVE_SERVICO}" \
   ANTHROPIC_BASE_URL="http://127.0.0.1:${PORTA_CLAUDE}" ANTHROPIC_API_KEY="chave-de-teste-local" \
+  GCE_METADATA_HOST="127.0.0.1:${PORTA_CHATWOOT}" SPEECH_API_URL="http://127.0.0.1:${PORTA_CHATWOOT}" \
   exec setsid npx vite dev --host 127.0.0.1 --port "${APP_PORTA}" --strictPort > "${TMP}/app.log" 2>&1) &
 APP_PGID=$!
 
@@ -82,5 +97,5 @@ done
 
 APP_URL="http://127.0.0.1:${APP_PORTA}" node "${ROOT}/supabase/tests/api/chatwoot-webhook.test.mjs" \
   || { echo "--- log do app ---"; tail -40 "${TMP}/app.log"; exit 1; }
-APP_URL="http://127.0.0.1:${APP_PORTA}" node "${ROOT}/supabase/tests/api/alice.test.mjs" \
+APP_URL="http://127.0.0.1:${APP_PORTA}" STORAGE_DIR="${TMP}/storage" node "${ROOT}/supabase/tests/api/alice.test.mjs" \
   || { echo "--- log do app ---"; tail -60 "${TMP}/app.log"; exit 1; }

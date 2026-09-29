@@ -124,6 +124,8 @@ export type CrmFollowup = {
   result: string | null;
   notes: string | null;
   status: string;
+  /** "alice": a Alice faz o toque sozinha; "equipe": tarefa para as vendedoras. */
+  responsavel?: string;
 };
 
 export type WhatsappMessage = {

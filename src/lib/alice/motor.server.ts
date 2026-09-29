@@ -8,8 +8,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { enviarMensagem, mudarSituacao, type Conta } from "./chatwoot-api.server";
-import { executarFerramenta, FERRAMENTAS, type ContextoFerramenta } from "./ferramentas.server";
+import { enviarAnexo, enviarMensagem, mudarSituacao, type Conta } from "./chatwoot-api.server";
+import {
+  cancelarFollowupPendente,
+  executarFerramenta,
+  ferramentasDisponiveis,
+  type ConfigIa,
+  type ContextoFerramenta,
+} from "./ferramentas.server";
 import {
   custoEstimadoUsd,
   dividirResposta,
@@ -21,15 +27,20 @@ import {
   type MensagemHistorico,
   type Uso,
 } from "./prompt";
+import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido } from "./regras";
 
 type Admin = SupabaseClient<Database>;
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
 
-const MAX_RODADAS = 6;
+const MAX_RODADAS = 8;
 const MAX_HISTORICO = 40;
 const MAX_IMAGENS = 4;
+const MAX_AUDIOS_TRANSCRITOS = 3;
+const MAX_MENSAGENS_POR_RESPOSTA = 10;
 const MAX_BYTES_IMAGEM = 4_500_000;
 const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+/** Resposta do modelo quando o follow-up não deve ser enviado. */
+const NADA = "NADA";
 
 export type ResultadoTarefa = { situacao: string; detalhe?: string };
 
@@ -50,18 +61,28 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
     const r =
       tarefa.tipo === "passar_para_humano"
         ? await passarParaHumano(db, tarefa)
-        : await responder(db, tarefa);
-    await concluir(db, tarefa.id, r.situacao === "erro" ? "erro" : r.situacao, r.detalhe);
+        : tarefa.tipo === "followup"
+          ? await fazerFollowup(db, tarefa)
+          : await responder(db, tarefa);
+    if (r.situacao !== "adiada") {
+      await concluir(db, tarefa.id, r.situacao === "erro" ? "erro" : r.situacao, r.detalhe);
+    }
     return r;
   } catch (e) {
     const mensagem = e instanceof Error ? e.message : String(e);
     console.error("Alice: erro na tarefa", tarefa.id, mensagem);
     await concluir(db, tarefa.id, "erro", mensagem);
-    await socorroHumano(
-      db,
-      tarefa,
-      "A Alice teve um problema técnico e não conseguiu responder.",
-    ).catch((e2) => console.error("Alice: falha ao passar para humano após erro", e2));
+    if (tarefa.tipo === "followup") {
+      await followupParaEquipe(db, tarefa, "a Alice teve um erro técnico no follow-up").catch(
+        () => undefined,
+      );
+    } else {
+      await socorroHumano(
+        db,
+        tarefa,
+        "A Alice teve um problema técnico e não conseguiu responder.",
+      ).catch((e2) => console.error("Alice: falha ao passar para humano após erro", e2));
+    }
     return { situacao: "erro", detalhe: mensagem };
   }
 }
@@ -84,21 +105,23 @@ type DadosConversa = {
     chatwoot_conversation_id: number;
     status: string | null;
     crm_lead_id: string | null;
+    whatsapp_contact_id: string | null;
   };
   conta: Conta;
   tokenRobo: string | null;
   tokenAdmin: string | null;
+  contato: { ia_desligada: boolean; sem_pos_venda: boolean } | null;
 };
 
 async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> {
   const { data: conversa } = await db
     .from("conversas")
-    .select("id, chatwoot_conversation_id, status, crm_lead_id, conexao_id")
+    .select("id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id")
     .eq("id", tarefa.conversa_id)
     .eq("empresa_id", tarefa.empresa_id)
     .single();
   if (!conversa) throw new Error("conversa não encontrada");
-  const [{ data: conexao }, { data: segredos }] = await Promise.all([
+  const [{ data: conexao }, { data: segredos }, { data: contato }] = await Promise.all([
     db
       .from("chatwoot_conexoes")
       .select("base_url, account_id")
@@ -109,6 +132,14 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
       .select("alice_bot_token, api_token")
       .eq("conexao_id", conversa.conexao_id)
       .maybeSingle(),
+    conversa.whatsapp_contact_id
+      ? db
+          .from("whatsapp_contacts")
+          .select("ia_desligada, sem_pos_venda")
+          .eq("id", conversa.whatsapp_contact_id)
+          .eq("empresa_id", tarefa.empresa_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (!conexao) throw new Error("conexão do Chatwoot não encontrada");
   return {
@@ -116,6 +147,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
     conta: { baseUrl: conexao.base_url, accountId: Number(conexao.account_id) },
     tokenRobo: segredos?.alice_bot_token ?? null,
     tokenAdmin: segredos?.api_token ?? null,
+    contato: contato ?? null,
   };
 }
 
@@ -139,12 +171,26 @@ async function socorroHumano(db: Admin, tarefa: Tarefa, nota: string) {
 }
 
 // ---------------------------------------------------------------- contexto
+async function etapasAbertas(db: Admin, empresaId: string): Promise<string[]> {
+  const { data } = await db
+    .from("config_options")
+    .select("name, metadata")
+    .eq("empresa_id", empresaId)
+    .eq("kind", "crm_status")
+    .eq("active", true)
+    .order("display_order");
+  return (data ?? [])
+    .filter((o) => (o.metadata as { closed?: boolean } | null)?.closed !== true)
+    .map((o) => o.name);
+}
+
 async function contextoEmpresa(
   db: Admin,
   empresaId: string,
-  cfg: Database["public"]["Tables"]["ia_configuracoes"]["Row"],
+  cfg: ConfigIa,
+  ferramentas: string[],
 ): Promise<ContextoEmpresa> {
-  const [empresa, config, precos, taxas, servicos] = await Promise.all([
+  const [empresa, config, precos, servicos, equipe] = await Promise.all([
     db.from("empresas").select("nome, telefone").eq("id", empresaId).single(),
     db
       .from("app_settings")
@@ -159,25 +205,22 @@ async function contextoEmpresa(
       .eq("ativo", true)
       .order("ordem"),
     db
-      .from("payment_rates")
-      .select("payment_type, installments")
-      .eq("empresa_id", empresaId)
-      .eq("active", true),
-    db
       .from("config_options")
       .select("name")
       .eq("empresa_id", empresaId)
       .eq("kind", "service_type")
       .eq("active", true)
       .order("display_order"),
+    db
+      .from("salespeople")
+      .select("name")
+      .eq("empresa_id", empresaId)
+      .eq("active", true)
+      .eq("eh_ia", false)
+      .order("name"),
   ]);
   const v = (config.data?.value ?? {}) as { name?: string; phone?: string; instagram?: string };
-  const parcelas = new Map<string, number>();
-  for (const t of taxas.data ?? []) {
-    const tipo = t.payment_type?.trim();
-    if (!tipo) continue;
-    parcelas.set(tipo, Math.max(parcelas.get(tipo) ?? 1, Number(t.installments ?? 1)));
-  }
+  const preco = (x: number | null) => (x === null || Number(x) <= 0 ? null : Number(x));
   return {
     empresa: v.name || empresa.data?.nome || "a empresa",
     telefone: v.phone || empresa.data?.telefone || null,
@@ -185,26 +228,33 @@ async function contextoEmpresa(
     nomeAssistente: cfg.nome,
     instrucoes: cfg.instrucoes,
     perguntasFrequentes: cfg.perguntas_frequentes,
-    descontoMaxPercentual: Number(cfg.desconto_max_percentual),
     precos: (precos.data ?? []).map((p) => ({
       nome: p.nome,
-      higienizacao: p.preco_higienizacao !== null ? Number(p.preco_higienizacao) : null,
-      impermeabilizacao:
-        p.preco_impermeabilizacao !== null ? Number(p.preco_impermeabilizacao) : null,
+      higienizacao: preco(p.preco_higienizacao),
+      impermeabilizacao: preco(p.preco_impermeabilizacao),
     })),
-    formasPagamento: [...parcelas.entries()].map(([tipo, n]) =>
-      n > 1 ? `${tipo} em até ${n}x` : tipo,
-    ),
     servicos: (servicos.data ?? []).map((s) => s.name),
+    equipe: (equipe.data ?? []).map((s) => s.name.split(/\s+/)[0]!).filter(Boolean),
+    descontoPixPercentual: Number(cfg.desconto_pix_percentual),
+    parcelasMax: cfg.parcelas_max,
+    validadeDias: cfg.validade_orcamento_dias,
+    horaInicio: cfg.hora_inicio,
+    horaFim: cfg.hora_fim,
+    ferramentas,
   };
 }
 
-async function contextoLead(db: Admin, empresaId: string, leadId: string | null) {
+async function contextoLead(
+  db: Admin,
+  empresaId: string,
+  leadId: string | null,
+  semPosVenda: boolean,
+) {
   if (!leadId) return { lead: null as ContextoLead | null, salesperson: null as string | null };
   const { data } = await db
     .from("crm_leads")
     .select(
-      "lead_name, phone, service_interest, upholstery_description, summary, customer_id, salesperson_id, origem:sales_origin_id ( name ), campanha:campaign_id ( campaign_name )",
+      "lead_name, phone, service_interest, upholstery_description, summary, customer_id, salesperson_id, origem:sales_origin_id ( name ), campanha:campaign_id ( campaign_name ), status:status_id ( name )",
     )
     .eq("id", leadId)
     .eq("empresa_id", empresaId)
@@ -220,6 +270,7 @@ async function contextoLead(db: Admin, empresaId: string, leadId: string | null)
     salesperson_id: string | null;
     origem: { name: string } | null;
     campanha: { campaign_name: string } | null;
+    status: { name: string } | null;
   };
   return {
     lead: {
@@ -230,7 +281,9 @@ async function contextoLead(db: Admin, empresaId: string, leadId: string | null)
       servicoInteresse: l.service_interest,
       descricaoEstofados: l.upholstery_description,
       resumo: l.summary,
+      etapa: l.status?.name ?? null,
       clienteExistente: Boolean(l.customer_id),
+      semPosVenda,
     } satisfies ContextoLead,
     salesperson: l.salesperson_id,
   };
@@ -252,15 +305,18 @@ async function baixarImagem(url: string): Promise<MensagemHistorico["imagens"][n
   }
 }
 
+type Anexos = Array<{ file_type?: string; data_url?: string }>;
+
 async function historico(
   db: Admin,
   empresaId: string,
   conversaId: string,
-): Promise<MensagemHistorico[]> {
+  transcrever: boolean,
+): Promise<{ mensagens: MensagemHistorico[]; ultimaDoCliente: Date | null }> {
   const { data } = await db
     .from("whatsapp_messages")
     .select(
-      "direction, text_content, message_type, remetente_tipo, raw_event_reference, message_timestamp",
+      "id, direction, text_content, message_type, remetente_tipo, raw_event_reference, message_timestamp, transcricao",
     )
     .eq("empresa_id", empresaId)
     .eq("conversa_id", conversaId)
@@ -268,58 +324,253 @@ async function historico(
     .order("message_timestamp", { ascending: false })
     .limit(MAX_HISTORICO);
   const linhas = (data ?? []).reverse();
+  const recebidas = linhas.filter((m) => m.direction === "Recebida");
+  const ultima = recebidas[recebidas.length - 1];
 
-  // Fotos: só as mais recentes, lidas do evento original (URL do anexo no Chatwoot).
-  const comFoto = linhas
-    .filter(
-      (m) => m.direction === "Recebida" && m.message_type === "Imagem" && m.raw_event_reference,
-    )
+  // Fotos (as mais recentes) e áudios ainda sem transcrição: anexos lidos do evento original.
+  const comFoto = recebidas
+    .filter((m) => m.message_type === "Imagem" && m.raw_event_reference)
     .slice(-MAX_IMAGENS);
-  const fotos = new Map<string, MensagemHistorico["imagens"]>();
-  if (comFoto.length) {
-    const { data: eventos } = await db
+  const semTranscricao = transcrever
+    ? recebidas
+        .filter((m) => m.message_type === "Áudio" && m.raw_event_reference && !m.transcricao)
+        .slice(-MAX_AUDIOS_TRANSCRITOS)
+    : [];
+  const eventos = new Map<string, Anexos>();
+  const refs = [...comFoto, ...semTranscricao].map((m) => m.raw_event_reference as string);
+  if (refs.length) {
+    const { data: evs } = await db
       .from("integracao_eventos")
       .select("id, payload")
       .eq("empresa_id", empresaId)
-      .in(
-        "id",
-        comFoto.map((m) => m.raw_event_reference as string),
-      );
-    for (const ev of eventos ?? []) {
-      const anexos = (
-        (ev.payload as { attachments?: Array<{ file_type?: string; data_url?: string }> })
-          ?.attachments ?? []
-      ).filter((a) => a.file_type === "image" && a.data_url);
-      const imgs = (
-        await Promise.all(anexos.slice(0, 2).map((a) => baixarImagem(a.data_url!)))
-      ).filter((x): x is NonNullable<typeof x> => x !== null);
-      fotos.set(ev.id, imgs);
+      .in("id", refs);
+    for (const ev of evs ?? []) {
+      eventos.set(ev.id, ((ev.payload as { attachments?: Anexos })?.attachments ?? []) as Anexos);
     }
   }
 
-  return linhas.map((m) => ({
-    direcao: m.direction === "Recebida" ? "Recebida" : "Enviada",
-    texto: m.text_content,
-    tipo: m.message_type,
-    remetente: m.remetente_tipo,
-    imagens: (m.raw_event_reference && fotos.get(m.raw_event_reference)) || [],
-  }));
+  const fotos = new Map<string, MensagemHistorico["imagens"]>();
+  await Promise.all(
+    comFoto.map(async (m) => {
+      const anexos = (eventos.get(m.raw_event_reference as string) ?? []).filter(
+        (a) => a.file_type === "image" && a.data_url,
+      );
+      const imgs = (
+        await Promise.all(anexos.slice(0, 2).map((a) => baixarImagem(a.data_url!)))
+      ).filter((x): x is NonNullable<typeof x> => x !== null);
+      fotos.set(m.id, imgs);
+    }),
+  );
+
+  if (semTranscricao.length) {
+    const { transcreverAudio } = await import("./transcricao.server");
+    await Promise.all(
+      semTranscricao.map(async (m) => {
+        const audio = (eventos.get(m.raw_event_reference as string) ?? []).find(
+          (a) => a.file_type === "audio" && a.data_url,
+        );
+        if (!audio) return;
+        const r = await transcreverAudio(audio.data_url!);
+        if ("texto" in r) {
+          m.transcricao = r.texto;
+          await db
+            .from("whatsapp_messages")
+            .update({ transcricao: r.texto })
+            .eq("id", m.id)
+            .eq("empresa_id", empresaId);
+        } else {
+          console.warn("Alice: transcrição falhou", m.id, r.erro);
+        }
+      }),
+    );
+  }
+
+  return {
+    mensagens: linhas.map((m) => ({
+      direcao: m.direction === "Recebida" ? "Recebida" : "Enviada",
+      texto: m.text_content,
+      tipo: m.message_type,
+      remetente: m.remetente_tipo,
+      transcricao: m.transcricao,
+      imagens: fotos.get(m.id) ?? [],
+    })),
+    ultimaDoCliente: ultima ? new Date(ultima.message_timestamp) : null,
+  };
 }
 
-// ---------------------------------------------------------------- resposta
-async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
-  const inicio = Date.now();
-  const { data: cfg } = await db
+// ---------------------------------------------------------------- tarefas
+async function lerConfig(db: Admin, empresaId: string) {
+  const { data } = await db
     .from("ia_configuracoes")
     .select("*")
-    .eq("empresa_id", tarefa.empresa_id)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
-  if (!cfg?.ativo) return { situacao: "ignorada", detalhe: "Alice desligada" };
+  return data;
+}
 
+async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
+  const cfg = await lerConfig(db, tarefa.empresa_id);
+  if (!cfg?.ativo) return { situacao: "ignorada", detalhe: "Alice desligada" };
   const d = await dadosConversa(db, tarefa);
+  if (d.contato?.ia_desligada)
+    return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
   if (d.conversa.status !== "pending")
     return { situacao: "ignorada", detalhe: "conversa com atendente humano" };
+  return conversar(db, tarefa, cfg, d, null);
+}
+
+type DadosFollowup = { trilha?: string; motivo?: string; mensagem_sugerida?: string };
+
+/** A repescagem do follow-up vai para a equipe (com o motivo). */
+async function followupParaEquipe(db: Admin, tarefa: Tarefa, motivo: string) {
+  const { data: f } = await db
+    .from("crm_followups")
+    .select("id, notes")
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("ia_tarefa_id", tarefa.id)
+    .eq("status", "Pendente")
+    .maybeSingle();
+  if (!f) return;
+  await db
+    .from("crm_followups")
+    .update({
+      responsavel: "equipe",
+      notes: `${f.notes ?? ""}\nFicou para a equipe: ${motivo}.`.trim(),
+    })
+    .eq("id", f.id);
+}
+
+async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
+  const cfg = await lerConfig(db, tarefa.empresa_id);
+  if (!cfg?.ativo) {
+    await followupParaEquipe(db, tarefa, "Alice desligada");
+    return { situacao: "ignorada", detalhe: "Alice desligada" };
+  }
+  const d = await dadosConversa(db, tarefa);
+  if (d.contato?.ia_desligada) {
+    await cancelarFollowupPendente(
+      db,
+      tarefa.empresa_id,
+      d.conversa.id,
+      "IA desligada para o cliente",
+    );
+    return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
+  }
+  if (d.conversa.status !== "pending") {
+    await followupParaEquipe(db, tarefa, "conversa está com a equipe");
+    return { situacao: "ignorada", detalhe: "conversa com atendente humano" };
+  }
+
+  const { data: ultima } = await db
+    .from("whatsapp_messages")
+    .select("message_timestamp")
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("conversa_id", d.conversa.id)
+    .eq("direction", "Recebida")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ultimaDoCliente = ultima ? new Date(ultima.message_timestamp) : null;
+  const agora = new Date();
+
+  if (!dentroDoHorario(agora, cfg.hora_inicio, cfg.hora_fim)) {
+    const depois = proximoHorarioPermitido(agora, cfg.hora_inicio, cfg.hora_fim);
+    if (dentroDaJanela(ultimaDoCliente, depois)) {
+      await db
+        .from("ia_tarefas")
+        .update({ situacao: "pendente", executar_apos: depois.toISOString(), enfileirada: false })
+        .eq("id", tarefa.id);
+      await db
+        .from("crm_followups")
+        .update({ scheduled_at: depois.toISOString() })
+        .eq("empresa_id", tarefa.empresa_id)
+        .eq("ia_tarefa_id", tarefa.id);
+      const { enfileirarPendentes } = await import("./fila.server");
+      await enfileirarPendentes(db);
+      return {
+        situacao: "adiada",
+        detalhe: `fora do horário: adiado para ${depois.toISOString()}`,
+      };
+    }
+    await followupParaEquipe(db, tarefa, "fora do horário e da janela de 24 h do WhatsApp");
+    return { situacao: "ignorada", detalhe: "fora do horário e da janela de 24 h" };
+  }
+  if (!dentroDaJanela(ultimaDoCliente, agora)) {
+    await followupParaEquipe(
+      db,
+      tarefa,
+      "passou a janela de 24 h do WhatsApp (precisa de modelo aprovado)",
+    );
+    return { situacao: "ignorada", detalhe: "fora da janela de 24 h do WhatsApp" };
+  }
+
+  const dados = (tarefa.dados ?? {}) as DadosFollowup;
+  const aviso = [
+    `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
+    dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
+    "O cliente não respondeu desde a última mensagem da empresa. Escreva agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só).",
+    `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
+    "Se for o caso, agende o próximo toque com agendar_followup.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return conversar(db, tarefa, cfg, d, aviso);
+}
+
+/** Conclui a repescagem ligada ao follow-up. */
+async function concluirRepescagem(
+  db: Admin,
+  tarefa: Tarefa,
+  resultado: string,
+  cancelada: boolean,
+) {
+  const { data: f } = await db
+    .from("crm_followups")
+    .update({
+      status: cancelada ? "Cancelada" : "Concluída",
+      completed_at: new Date().toISOString(),
+      result: resultado,
+    })
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("ia_tarefa_id", tarefa.id)
+    .eq("status", "Pendente")
+    .select("crm_lead_id")
+    .maybeSingle();
+  if (!f) return;
+  const { data: prox } = await db
+    .from("crm_followups")
+    .select("scheduled_at")
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("crm_lead_id", f.crm_lead_id)
+    .eq("status", "Pendente")
+    .order("scheduled_at")
+    .limit(1)
+    .maybeSingle();
+  const agora = new Date().toISOString();
+  await db
+    .from("crm_leads")
+    .update({
+      next_follow_up_at: prox?.scheduled_at ?? null,
+      ...(cancelada ? {} : { last_follow_up_at: agora, follow_up_result: resultado }),
+    })
+    .eq("id", f.crm_lead_id)
+    .eq("empresa_id", tarefa.empresa_id);
+}
+
+type Saida = { tipo: "texto"; texto: string } | { tipo: "anexo"; caminho: string; nome: string };
+
+// ---------------------------------------------------------------- conversa com a IA
+async function conversar(
+  db: Admin,
+  tarefa: Tarefa,
+  cfg: ConfigIa,
+  d: DadosConversa,
+  avisoFollowup: string | null,
+): Promise<ResultadoTarefa> {
+  const inicio = Date.now();
   if (!d.tokenRobo) throw new Error("robô da Alice não configurado no Chatwoot");
+  const ehFollowup = avisoFollowup !== null;
 
   const { count } = await db
     .from("ia_execucoes")
@@ -327,23 +578,42 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     .eq("conversa_id", d.conversa.id)
     .is("erro", null);
   if ((count ?? 0) >= cfg.limite_respostas_conversa) {
+    if (ehFollowup) {
+      await followupParaEquipe(db, tarefa, "limite de respostas da Alice na conversa");
+      return { situacao: "ignorada", detalhe: "limite de respostas" };
+    }
     await socorroHumano(db, tarefa, "A Alice atingiu o limite de respostas nesta conversa.");
     return { situacao: "concluida", detalhe: "limite de respostas: passada para humano" };
   }
 
-  const [empresa, { lead, salesperson }, msgs] = await Promise.all([
-    contextoEmpresa(db, tarefa.empresa_id, cfg),
-    contextoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id),
-    historico(db, tarefa.empresa_id, d.conversa.id),
+  const etapas = await etapasAbertas(db, tarefa.empresa_id);
+  const ferramentas = ferramentasDisponiveis(cfg, etapas);
+  const [empresa, { lead, salesperson }, hist] = await Promise.all([
+    contextoEmpresa(
+      db,
+      tarefa.empresa_id,
+      cfg,
+      ferramentas.map((f) => f.name),
+    ),
+    contextoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id, Boolean(d.contato?.sem_pos_venda)),
+    historico(db, tarefa.empresa_id, d.conversa.id, cfg.transcrever_audio),
   ]);
-  const turnos = montarTurnos(msgs);
+  const turnos = montarTurnos(hist.mensagens, avisoFollowup ?? undefined);
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
 
-  const ctxFerramenta: ContextoFerramenta = {
+  const ctx: ContextoFerramenta = {
     admin: db,
     empresaId: tarefa.empresa_id,
+    cfg,
+    conversaId: d.conversa.id,
     leadId: d.conversa.crm_lead_id,
+    contatoId: d.conversa.whatsapp_contact_id,
+    agora: new Date(),
+    ultimaDoCliente: hist.ultimaDoCliente,
+    etapas,
     passagem: null,
+    anexos: [],
+    agendouFollowup: false,
   };
   const cliente = new Anthropic();
   const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
@@ -352,7 +622,7 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
   ];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   const ferramentasUsadas: Array<{ nome: string; entrada: unknown; resultado: string }> = [];
-  const textos: string[] = [];
+  const saida: Saida[] = [];
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
@@ -369,7 +639,7 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
         ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
         : {}),
       system: sistema,
-      tools: FERRAMENTAS,
+      tools: ferramentas,
       messages: mensagens,
     });
     modeloUsado = resposta.model;
@@ -378,14 +648,12 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     uso.cacheLeitura += resposta.usage.cache_read_input_tokens ?? 0;
     uso.cacheEscrita += resposta.usage.cache_creation_input_tokens ?? 0;
     parada = resposta.stop_reason;
-
     if (resposta.stop_reason === "refusal") break;
-    // Vale o texto da última rodada que escreveu algo (evita repetir o que veio antes de uma ferramenta).
-    const daRodada = resposta.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text" && b.text.trim() !== "")
-      .map((b) => b.text.trim());
-    if (daRodada.length) textos.splice(0, textos.length, ...daRodada);
 
+    // Tudo o que a IA escreve vai ao cliente, na ordem; as mídias pedidas na rodada vêm depois.
+    for (const b of resposta.content) {
+      if (b.type === "text" && b.text.trim()) saida.push({ tipo: "texto", texto: b.text.trim() });
+    }
     const chamadas = resposta.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
     );
@@ -394,7 +662,7 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     mensagens.push({ role: "assistant", content: resposta.content });
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const c of chamadas) {
-      const r = await executarFerramenta(ctxFerramenta, c.name, c.input);
+      const r = await executarFerramenta(ctx, c.name, c.input);
       ferramentasUsadas.push({
         nome: c.name,
         entrada: c.input,
@@ -407,6 +675,7 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
         is_error: r.erro,
       });
     }
+    for (const a of ctx.anexos.splice(0)) saida.push({ tipo: "anexo", ...a });
     mensagens.push({ role: "user", content: resultados });
   }
 
@@ -427,8 +696,19 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     parada,
   };
 
-  if (parada === "refusal" || (!textos.length && !ctxFerramenta.passagem)) {
+  const textos = saida.filter((s) => s.tipo === "texto");
+  const semNada = saida.filter((s) => !(s.tipo === "texto" && s.texto.trim() === NADA));
+  if (ehFollowup && !ctx.passagem && semNada.length === 0 && parada !== "refusal") {
+    await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: [] });
+    await concluirRepescagem(db, tarefa, `${cfg.nome} avaliou que não era preciso enviar`, true);
+    return { situacao: "concluida", detalhe: "follow-up dispensado pela IA" };
+  }
+  if (parada === "refusal" || (!textos.length && !saida.length && !ctx.passagem)) {
     await db.from("ia_execucoes").insert({ ...registro, erro: "sem resposta da IA" });
+    if (ehFollowup) {
+      await followupParaEquipe(db, tarefa, "a Alice não conseguiu escrever o toque");
+      return { situacao: "ignorada", detalhe: "sem resposta da IA no follow-up" };
+    }
     await socorroHumano(
       db,
       tarefa,
@@ -462,11 +742,41 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     return { situacao: "ignorada", detalhe: "humano assumiu durante o processamento" };
   }
 
-  const partes = dividirResposta(textos.join("\n\n"));
-  for (const parte of partes) {
-    await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);
+  const enviadas: string[] = [];
+  for (const item of semNada) {
+    if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
+    if (item.tipo === "texto") {
+      for (const parte of dividirResposta(item.texto)) {
+        if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
+        await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);
+        enviadas.push(parte);
+      }
+    } else {
+      const { data: arquivo, error } = await db.storage.from("alice-midias").download(item.caminho);
+      if (error || !arquivo) {
+        console.error("Alice: mídia não encontrada", item.caminho, error?.message);
+        continue;
+      }
+      await enviarAnexo(
+        d.conta,
+        d.tokenRobo,
+        d.conversa.chatwoot_conversation_id,
+        arquivo,
+        item.nome,
+      );
+      enviadas.push(`[mídia] ${item.nome}`);
+    }
   }
-  await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: partes });
+  await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: enviadas });
+
+  if (d.conversa.crm_lead_id) {
+    await db
+      .from("crm_leads")
+      .update({ last_interaction_at: new Date().toISOString() })
+      .eq("id", d.conversa.crm_lead_id)
+      .eq("empresa_id", tarefa.empresa_id);
+  }
+  if (ehFollowup) await concluirRepescagem(db, tarefa, `Enviado pela ${cfg.nome}`, false);
 
   // A Alice passa a constar como vendedora do lead (quem fechar pode trocar na OS).
   if (d.conversa.crm_lead_id && !salesperson) {
@@ -486,8 +796,13 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     }
   }
 
-  if (ctxFerramenta.passagem) {
-    const { motivo, resumo } = ctxFerramenta.passagem;
+  if (ctx.agendouFollowup) {
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+  }
+
+  if (ctx.passagem) {
+    const { motivo, resumo } = ctx.passagem;
     await enviarMensagem(
       d.conta,
       d.tokenRobo,
@@ -495,9 +810,30 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
       `🤖 ${cfg.nome} passou a conversa para a equipe.\nMotivo: ${motivo}\nResumo: ${resumo}`,
       true,
     );
+    await cancelarFollowupPendente(
+      db,
+      tarefa.empresa_id,
+      d.conversa.id,
+      "transferida para a equipe",
+    );
+    if (d.conversa.crm_lead_id) {
+      const quando = new Date().toISOString();
+      await db.from("crm_followups").insert({
+        empresa_id: tarefa.empresa_id,
+        crm_lead_id: d.conversa.crm_lead_id,
+        scheduled_at: quando,
+        responsavel: "equipe",
+        notes: `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`,
+      });
+      await db
+        .from("crm_leads")
+        .update({ next_follow_up_at: quando })
+        .eq("id", d.conversa.crm_lead_id)
+        .eq("empresa_id", tarefa.empresa_id);
+    }
     await mudarSituacao(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, "open");
     await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
-    return { situacao: "concluida", detalhe: `respondeu e passou para humano: ${motivo}` };
+    return { situacao: "concluida", detalhe: `transferida para a equipe: ${motivo}` };
   }
-  return { situacao: "concluida", detalhe: `${partes.length} mensagem(ns) enviada(s)` };
+  return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };
 }

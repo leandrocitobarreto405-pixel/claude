@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Bot, CheckCircle2, CircleAlert } from "lucide-react";
+import { Bot, CheckCircle2, CircleAlert, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,9 @@ import {
   MODELOS_ALICE,
   ligarAlice,
   salvarAlice,
+  salvarMidiaAlice,
   situacaoAlice,
+  type CampoMidia,
   type ConfigAlice,
 } from "@/lib/alice.functions";
 
@@ -21,12 +23,41 @@ const CHAVE = ["alice_situacao"];
 const SELECT_CLASS =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-const EXEMPLO_INSTRUCOES = `Exemplos do que escrever aqui (o jeito da empresa vender):
-- Atendemos Florianópolis, São José e Palhoça; fora disso, taxa de deslocamento de R$ 30.
-- Sempre peça foto do estofado e pergunte se tem pet ou criança em casa.
-- Secagem de 6 a 8 horas; a impermeabilização tem garantia de 1 ano.
-- Pagamento: Pix com 5% de desconto ou cartão em até 6x sem juros.
-- Horários de visita: segunda a sábado, 8h às 17h.`;
+const EXEMPLO_INSTRUCOES = `Cole aqui o prompt completo da empresa (quem ela é, regras, etapas do atendimento,
+textos-modelo, objeções, follow-up, quando transferir). Exemplo curto:
+- Toda mensagem termina com uma pergunta, uma só.
+- Sempre peça foto do estofado e o CEP antes do preço.
+- Pedido de desconto além do Pix: transfira para a vendedora.`;
+
+const MIDIAS: Array<{ campo: CampoMidia; rotulo: string; aceita: string }> = [
+  { campo: "video_higienizacao", rotulo: "Vídeo da higienização", aceita: "video/mp4,video/3gpp" },
+  {
+    campo: "video_impermeabilizacao",
+    rotulo: "Vídeo da impermeabilização",
+    aceita: "video/mp4,video/3gpp",
+  },
+  {
+    campo: "audio_higienizacao",
+    rotulo: "Áudio explicando a higienização",
+    aceita: "audio/ogg,audio/mpeg,audio/mp4,audio/aac,audio/amr,.ogg,.opus,.mp3,.m4a",
+  },
+  {
+    campo: "audio_impermeabilizacao",
+    rotulo: "Áudio explicando a impermeabilização",
+    aceita: "audio/ogg,audio/mpeg,audio/mp4,audio/aac,audio/amr,.ogg,.opus,.mp3,.m4a",
+  },
+];
+
+/** Tipo aceito pelo Storage (o navegador às vezes não informa o de .opus/.ogg). */
+function tipoDoArquivo(f: File): string {
+  const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+  if (f.type) return f.type === "audio/x-m4a" ? "audio/mp4" : f.type;
+  if (ext === "ogg" || ext === "opus") return "audio/ogg";
+  if (ext === "mp3") return "audio/mpeg";
+  if (ext === "m4a") return "audio/mp4";
+  if (ext === "mp4") return "video/mp4";
+  return "application/octet-stream";
+}
 
 type Execucao = {
   id: string;
@@ -42,6 +73,7 @@ export function AliceConfig() {
   const qc = useQueryClient();
   const situacaoFn = useServerFn(situacaoAlice);
   const salvarFn = useServerFn(salvarAlice);
+  const salvarMidiaFn = useServerFn(salvarMidiaAlice);
   const ligarFn = useServerFn(ligarAlice);
   const query = useQuery({ queryKey: CHAVE, queryFn: () => situacaoFn({}) });
   const execucoes = useQuery({
@@ -105,6 +137,45 @@ export function AliceConfig() {
 
   const campo = <K extends keyof ConfigAlice>(k: K, v: ConfigAlice[K]) =>
     setForm({ ...form, [k]: v });
+  const numero = (v: string) => Number(v.replace(",", "."));
+
+  async function enviarMidia(campoMidia: CampoMidia, arquivo: File | null) {
+    if (!s) return;
+    setOcupado(true);
+    try {
+      let caminho: string | null = null;
+      if (arquivo) {
+        if (arquivo.size > 16 * 1024 * 1024)
+          throw new Error("O WhatsApp aceita arquivos de até 16 MB.");
+        const ext = (arquivo.name.split(".").pop() ?? "bin")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+        caminho = `${s.empresaId}/${campoMidia}-${Date.now()}.${ext || "bin"}`;
+        const { error } = await supabase.storage
+          .from("alice-midias")
+          .upload(caminho, arquivo, { contentType: tipoDoArquivo(arquivo), upsert: false });
+        if (error) throw new Error(`Não foi possível enviar o arquivo: ${error.message}`);
+      }
+      await salvarMidiaFn({ data: { campo: campoMidia, caminho } });
+      toast.success(arquivo ? "Arquivo salvo." : "Arquivo removido.");
+      await qc.invalidateQueries({ queryKey: CHAVE });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar o arquivo.");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function abrirMidia(caminho: string) {
+    const { data, error } = await supabase.storage
+      .from("alice-midias")
+      .createSignedUrl(caminho, 600);
+    if (error || !data) {
+      toast.error("Não foi possível abrir o arquivo.");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
+  }
 
   return (
     <div className="grid max-w-4xl gap-6 [&>*]:min-w-0">
@@ -155,8 +226,9 @@ export function AliceConfig() {
 
         <p className="mt-4 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
           Para <strong>assumir</strong> uma conversa, é só escrever nela pelo Chatwoot: a Alice sai
-          na hora. Para <strong>devolver</strong> à Alice, marque a conversa como “Pendente” no
-          Chatwoot.
+          na hora. Para <strong>devolver</strong> à Alice, use o botão “Devolver para a Alice” na
+          tela do lead (ou marque a conversa como “Pendente” no Chatwoot). Na mesma tela dá para
+          marcar o cliente como “IA desligada” ou “Sem pós-venda”.
         </p>
       </section>
 
@@ -171,31 +243,85 @@ export function AliceConfig() {
               onChange={(e) => campo("nome", e.target.value)}
             />
           </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3 [&>*]:min-w-0">
           <div className="space-y-1">
-            <Label htmlFor="alice-desconto">Desconto máximo que ela pode dar (%)</Label>
+            <Label htmlFor="alice-pix">Desconto no Pix (%)</Label>
             <Input
-              id="alice-desconto"
+              id="alice-pix"
               inputMode="decimal"
-              value={String(form.desconto_max_percentual)}
+              value={String(form.desconto_pix_percentual)}
+              onChange={(e) => campo("desconto_pix_percentual", numero(e.target.value) || 0)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="alice-parcelas">Cartão: até quantas vezes sem juros</Label>
+            <Input
+              id="alice-parcelas"
+              inputMode="numeric"
+              value={String(form.parcelas_max)}
+              onChange={(e) => campo("parcelas_max", numero(e.target.value) || 1)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="alice-validade">Validade do orçamento (dias)</Label>
+            <Input
+              id="alice-validade"
+              inputMode="numeric"
+              value={String(form.validade_orcamento_dias)}
+              onChange={(e) => campo("validade_orcamento_dias", numero(e.target.value) || 0)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="alice-raio">Raio de atendimento (km da base)</Label>
+            <Input
+              id="alice-raio"
+              inputMode="decimal"
+              placeholder="Sem limite"
+              value={form.raio_km === null ? "" : String(form.raio_km)}
               onChange={(e) =>
-                campo("desconto_max_percentual", Number(e.target.value.replace(",", ".")) || 0)
+                campo("raio_km", e.target.value.trim() ? numero(e.target.value) || null : null)
               }
             />
           </div>
+          <div className="space-y-1">
+            <Label htmlFor="alice-inicio">Mensagens ativas a partir das (h)</Label>
+            <Input
+              id="alice-inicio"
+              inputMode="numeric"
+              value={String(form.hora_inicio)}
+              onChange={(e) => campo("hora_inicio", numero(e.target.value) || 0)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="alice-fim">…até as (h)</Label>
+            <Input
+              id="alice-fim"
+              inputMode="numeric"
+              value={String(form.hora_fim)}
+              onChange={(e) => campo("hora_fim", numero(e.target.value) || 21)}
+            />
+          </div>
         </div>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          O orçamento da Alice sai com esses números (total ÷ parcelas; total com o desconto do
+          Pix). Fora do raio, ela passa o cliente para a equipe. Follow-ups só no horário das
+          mensagens ativas.
+        </p>
         <div className="space-y-1">
-          <Label htmlFor="alice-instrucoes">Instruções de venda da empresa</Label>
+          <Label htmlFor="alice-instrucoes">
+            Prompt da {form.nome || "Alice"} (instruções da empresa)
+          </Label>
           <Textarea
             id="alice-instrucoes"
-            rows={12}
+            rows={20}
             value={form.instrucoes}
             onChange={(e) => campo("instrucoes", e.target.value)}
             placeholder={EXEMPLO_INSTRUCOES}
           />
           <p className="text-xs text-muted-foreground">
-            A tabela de preços, as formas de pagamento e a agenda ela já lê do sistema. Aqui vai o
-            jeito de vender: área atendida, regras, argumentos, o que perguntar, quando chamar a
-            equipe.
+            A tabela de preços, o Pix, as parcelas e o histórico do cliente ela já lê do sistema.
+            Aqui vai o jeito de vender. Em branco, ela usa um roteiro padrão simples.
           </p>
         </div>
         <div className="space-y-1">
@@ -254,6 +380,30 @@ export function AliceConfig() {
                 Junta mensagens seguidas do cliente numa resposta só.
               </p>
             </div>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.transcrever_audio}
+                onChange={(e) => campo("transcrever_audio", e.target.checked)}
+              />
+              <span>
+                Transcrever os áudios dos clientes (Google Speech-to-Text). Desligado, a Alice pede
+                para o cliente escrever.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.agenda_automatica}
+                onChange={(e) => campo("agenda_automatica", e.target.checked)}
+              />
+              <span>
+                Deixar a Alice consultar a agenda para sugerir dias (fase 2). Ela ainda não reserva:
+                o agendamento continua com a equipe.
+              </span>
+            </label>
             <div className="space-y-1">
               <Label htmlFor="alice-limite">Máximo de respostas por conversa</Label>
               <Input
@@ -274,6 +424,73 @@ export function AliceConfig() {
             Salvar
           </Button>
         </div>
+      </section>
+
+      <section className="card-surface grid gap-3 p-5">
+        <div>
+          <h2 className="text-lg font-semibold">Vídeos e áudios padrão</h2>
+          <p className="text-sm text-muted-foreground">
+            A {form.nome || "Alice"} manda estes arquivos quando o roteiro pede (vídeo antes do
+            orçamento, áudio explicando o serviço). Até 16 MB cada. Áudio de voz: prefira
+            .ogg/.opus.
+          </p>
+        </div>
+        <ul className="grid gap-2">
+          {MIDIAS.map((m) => {
+            const atual = s.midias[m.campo];
+            return (
+              <li
+                key={m.campo}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{m.rotulo}</p>
+                  {atual ? (
+                    <button
+                      type="button"
+                      className="truncate text-xs text-primary underline"
+                      onClick={() => void abrirMidia(atual)}
+                    >
+                      {atual.split("/").pop()}
+                    </button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Nenhum arquivo.</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild variant="outline" size="sm" disabled={ocupado}>
+                    <label className="cursor-pointer">
+                      <Upload className="size-4" />
+                      {atual ? "Trocar" : "Enviar"}
+                      <input
+                        type="file"
+                        accept={m.aceita}
+                        className="hidden"
+                        disabled={ocupado}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          e.target.value = "";
+                          if (f) void enviarMidia(m.campo, f);
+                        }}
+                      />
+                    </label>
+                  </Button>
+                  {atual ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={ocupado}
+                      aria-label={`Remover ${m.rotulo}`}
+                      onClick={() => void enviarMidia(m.campo, null)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="card-surface p-5">

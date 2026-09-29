@@ -47,6 +47,7 @@ import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
 import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
 import { Route as ApiPublicHooksAliceProcessarRouteImport } from './routes/api/public/hooks/alice-processar'
+import { Route as ApiPublicHooksAliceVarreduraRouteImport } from './routes/api/public/hooks/alice-varredura'
 import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
@@ -259,6 +260,12 @@ const ApiPublicHooksAliceProcessarRoute =
     path: '/api/public/hooks/alice-processar',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksAliceVarreduraRoute =
+  ApiPublicHooksAliceVarreduraRouteImport.update({
+    id: '/api/public/hooks/alice-varredura',
+    path: '/api/public/hooks/alice-varredura',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksChatwootReprocessarRoute =
   ApiPublicHooksChatwootReprocessarRouteImport.update({
     id: '/api/public/hooks/chatwoot-reprocessar',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
+  '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -385,6 +393,7 @@ export interface FileRoutesByTo {
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
+  '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -433,6 +442,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
+  '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
@@ -481,6 +491,7 @@ export interface FileRouteTypes {
     | '/crm/lead/$leadId'
     | '/api/public/google/retorno'
     | '/api/public/hooks/alice-processar'
+    | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -527,6 +538,7 @@ export interface FileRouteTypes {
     | '/crm/lead/$leadId'
     | '/api/public/google/retorno'
     | '/api/public/hooks/alice-processar'
+    | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -574,6 +586,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/lead/$leadId'
     | '/api/public/google/retorno'
     | '/api/public/hooks/alice-processar'
+    | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
@@ -591,6 +604,7 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
   ApiPublicHooksAliceProcessarRoute: typeof ApiPublicHooksAliceProcessarRoute
+  ApiPublicHooksAliceVarreduraRoute: typeof ApiPublicHooksAliceVarreduraRoute
   ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
@@ -868,6 +882,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksAliceProcessarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/alice-varredura': {
+      id: '/api/public/hooks/alice-varredura'
+      path: '/api/public/hooks/alice-varredura'
+      fullPath: '/api/public/hooks/alice-varredura'
+      preLoaderRoute: typeof ApiPublicHooksAliceVarreduraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/chatwoot-reprocessar': {
       id: '/api/public/hooks/chatwoot-reprocessar'
       path: '/api/public/hooks/chatwoot-reprocessar'
@@ -999,6 +1020,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
   ApiPublicHooksAliceProcessarRoute: ApiPublicHooksAliceProcessarRoute,
+  ApiPublicHooksAliceVarreduraRoute: ApiPublicHooksAliceVarreduraRoute,
   ApiPublicHooksChatwootReprocessarRoute:
     ApiPublicHooksChatwootReprocessarRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:

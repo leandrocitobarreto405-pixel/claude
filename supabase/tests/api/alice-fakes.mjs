@@ -1,4 +1,5 @@
-// Servidores falsos para o teste da Alice: "Claude" (API de mensagens) e "Chatwoot" (API da conta).
+// Servidores falsos para o teste da Alice: "Claude" (API de mensagens) e "Chatwoot" (API da conta),
+// que também faz o papel do Google (metadados da conta de serviço e Speech-to-Text).
 // Cada um guarda as requisições recebidas; GET /__log devolve a lista.
 import http from "node:http";
 
@@ -9,19 +10,30 @@ function servidor(porta, tratar) {
   const log = [];
   http
     .createServer(async (req, res) => {
-      let corpo = "";
-      for await (const parte of req) corpo += parte;
+      const partes = [];
+      for await (const parte of req) partes.push(parte);
+      const bruto = Buffer.concat(partes);
       if (req.method === "GET" && req.url === "/__log") {
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(log));
       }
       let json = null;
-      try {
-        json = corpo ? JSON.parse(corpo) : null;
-      } catch {
-        /* corpo não-JSON */
+      const tipo = String(req.headers["content-type"] ?? "");
+      if (tipo.includes("application/json") && bruto.length) {
+        try {
+          json = JSON.parse(bruto.toString("utf8"));
+        } catch {
+          /* corpo não-JSON */
+        }
       }
-      log.push({ method: req.method, url: req.url, headers: req.headers, body: json });
+      log.push({
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        body: json,
+        // Multipart (anexo): guarda o texto para achar nome do arquivo e campos.
+        multipart: tipo.startsWith("multipart/") ? bruto.toString("latin1") : null,
+      });
       const r = tratar(req, json);
       res.writeHead(r.status ?? 200, { "Content-Type": r.tipo ?? "application/json" });
       res.end(r.bruto ?? JSON.stringify(r.corpo ?? {}));
@@ -30,12 +42,11 @@ function servidor(porta, tratar) {
 }
 
 // ---------------------------------------------------------------- Claude
-function textoDoUltimoUsuario(msgs) {
+function ultimoUsuario(msgs) {
   const ultimo = [...msgs].reverse().find((m) => m.role === "user");
-  const blocos = Array.isArray(ultimo?.content)
+  return Array.isArray(ultimo?.content)
     ? ultimo.content
     : [{ type: "text", text: ultimo?.content ?? "" }];
-  return blocos;
 }
 function resposta(content, stop_reason) {
   return {
@@ -56,54 +67,96 @@ function resposta(content, stop_reason) {
     },
   };
 }
+const texto = (t) => ({ type: "text", text: t });
+const ferramenta = (id, name, input) => ({ type: "tool_use", id, name, input });
+
 servidor(PORTA_CLAUDE, (req, body) => {
   if (!req.url.startsWith("/v1/messages")) return { status: 404, corpo: { error: "not found" } };
-  const blocos = textoDoUltimoUsuario(body.messages);
-  if (blocos.some((b) => b.type === "tool_result")) {
-    const passou = JSON.stringify(body.messages).includes("passar_para_atendente");
+  const blocos = ultimoUsuario(body.messages);
+  const resultados = blocos.filter((b) => b.type === "tool_result");
+  const tudo = JSON.stringify(body.messages);
+
+  // Rodadas seguintes: reage ao resultado da ferramenta.
+  if (resultados.length) {
+    const conteudo = resultados.map((r) => String(r.content)).join("\n");
+    if (conteudo.includes("Orçamento criado")) {
+      const total = /Total: (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
+      const pix = /Pix \(5% off\): (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
+      return resposta(
+        [
+          texto(`*Higienização Premium*\n\nTotal: ${total} ou ${pix} no Pix`),
+          ferramenta("toolu_follow", "agendar_followup", {
+            em_minutos: 10,
+            trilha: "A",
+            motivo: "sem resposta ao orçamento",
+            mensagem_sugerida: "Conseguiu dar uma olhadinha no orçamento?",
+          }),
+        ],
+        "tool_use",
+      );
+    }
+    if (conteudo.includes("Follow-up agendado")) {
+      return resposta([texto("Me conta: faz sentido pra você?")], "end_turn");
+    }
+    if (tudo.includes("transferir_para_humano")) {
+      return resposta(
+        [texto("Claro! Vou chamar uma especialista da equipe, só um instante.")],
+        "end_turn",
+      );
+    }
     return resposta(
       [
-        {
-          type: "text",
-          text: passou
-            ? "Claro! Vou chamar uma especialista da equipe, só um instante."
-            : "Oi! Sou a Alice, assistente virtual da Turbine Clean 😊\n\nA higienização do **sofá de 3 lugares** sai por R$ 180,00. Qual o seu bairro?",
-        },
+        texto(
+          "Oi! Sou a Alice, assistente virtual da Turbine Clean 😊\n\nA higienização do **sofá de 3 lugares** sai por R$ 180,00. Qual o seu bairro?",
+        ),
       ],
       "end_turn",
     );
   }
-  const texto = JSON.stringify(blocos);
-  if (texto.includes("pessoa")) {
+
+  const pedido = JSON.stringify(blocos);
+  if (pedido.includes("Hora do follow-up")) {
+    return resposta([texto("Conseguiu dar uma olhadinha no orçamento, Cliente?")], "end_turn");
+  }
+  if (pedido.includes("pessoa")) {
     return resposta(
       [
-        {
-          type: "tool_use",
-          id: "toolu_passar",
-          name: "passar_para_atendente",
-          input: { motivo: "cliente pediu uma pessoa", resumo: "Quer falar com atendente." },
-        },
+        ferramenta("toolu_passar", "transferir_para_humano", {
+          motivo: "cliente pediu uma pessoa",
+          resumo: "Quer falar com atendente.",
+        }),
       ],
       "tool_use",
     );
   }
+  if (pedido.includes("orçamento do sofá")) {
+    return resposta(
+      [
+        texto("Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?"),
+        ferramenta("toolu_video", "enviar_video", { servico: "higienizacao" }),
+        ferramenta("toolu_orc", "criar_orcamento", {
+          servico: "higienizacao",
+          itens: [{ item: "sofa 3 LUGARES", quantidade: 1 }],
+        }),
+      ],
+      "tool_use",
+    );
+  }
+  if (pedido.includes("transcrição automática")) {
+    return resposta([texto("Entendi pelo seu áudio! Me manda uma foto do sofá?")], "end_turn");
+  }
   return resposta(
     [
-      {
-        type: "tool_use",
-        id: "toolu_lead",
-        name: "atualizar_lead",
-        input: {
-          descricao_estofados: "Sofá 3 lugares com mancha",
-          servico_interesse: "Higienização",
-        },
-      },
+      ferramenta("toolu_lead", "atualizar_lead", {
+        descricao_estofados: "Sofá 3 lugares com mancha",
+        servico_interesse: "Higienização",
+      }),
     ],
     "tool_use",
   );
 });
 
-// ---------------------------------------------------------------- Chatwoot
+// ---------------------------------------------------------------- Chatwoot (+ Google)
 // JPEG mínimo (1x1).
 const JPEG = Buffer.from(
   "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AN//Z",
@@ -113,6 +166,16 @@ let idMensagem = 7000;
 servidor(PORTA_CHATWOOT, (req) => {
   if (req.method === "GET" && req.url === "/foto-sofa.jpg")
     return { tipo: "image/jpeg", bruto: JPEG };
+  if (req.method === "GET" && req.url === "/audio-cliente.ogg")
+    return { tipo: "audio/ogg", bruto: Buffer.from("OggS-audio-falso") };
+  if (req.url === "/computeMetadata/v1/instance/service-accounts/default/token")
+    return { corpo: { access_token: "token-google", expires_in: 3600 } };
+  if (req.url === "/computeMetadata/v1/project/project-id")
+    return { tipo: "text/plain", bruto: "projeto-teste" };
+  if (req.url === "/v2/projects/projeto-teste/locations/global/recognizers/_:recognize")
+    return {
+      corpo: { results: [{ alternatives: [{ transcript: "quero higienizar meu sofá amanhã" }] }] },
+    };
   if (req.url.endsWith("/messages")) return { corpo: { id: ++idMensagem } };
   return { corpo: {} };
 });

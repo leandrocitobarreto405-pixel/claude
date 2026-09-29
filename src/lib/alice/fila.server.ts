@@ -6,18 +6,9 @@
  *  - sem Cloud Tasks (desenvolvimento), por um temporizador no próprio servidor.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { tokenDaContaDeServico as tokenDoGoogle } from "@/lib/google-cloud.server";
 
 type Admin = SupabaseClient;
-
-async function tokenDoGoogle(): Promise<string> {
-  const res = await fetch(
-    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-    { headers: { "Metadata-Flavor": "Google" }, signal: AbortSignal.timeout(5_000) },
-  );
-  if (!res.ok) throw new Error(`metadata do Google respondeu ${res.status}`);
-  const json = (await res.json()) as { access_token: string };
-  return json.access_token;
-}
 
 async function criarTarefaNoCloudTasks(
   fila: string,
@@ -90,4 +81,30 @@ export async function enfileirarPendentes(admin: Admin, limite = 50): Promise<nu
     }
   }
   return n;
+}
+
+/** Atraso a partir do qual uma tarefa já entregue é considerada perdida pela fila. */
+const ATRASO_PERDIDA_MS = 3 * 60_000;
+
+/**
+ * Varredura (Cloud Scheduler): entrega o que ficou de fora e processa aqui mesmo as tarefas
+ * atrasadas. A reserva no banco garante que nenhuma tarefa é feita duas vezes.
+ */
+export async function varrerFila(): Promise<{ entregues: number; atrasadas: number }> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin = supabaseAdmin as unknown as Admin;
+  const entregues = await enfileirarPendentes(admin);
+  const { data: atrasadas } = await admin
+    .from("ia_tarefas")
+    .select("id")
+    .eq("situacao", "pendente")
+    .eq("enfileirada", true)
+    .lt("executar_apos", new Date(Date.now() - ATRASO_PERDIDA_MS).toISOString())
+    .order("executar_apos")
+    .limit(20);
+  const { processarTarefa } = await import("./motor.server");
+  for (const t of (atrasadas ?? []) as Array<{ id: string }>) {
+    await processarTarefa(t.id).catch((e) => console.error("Alice: falha na varredura", t.id, e));
+  }
+  return { entregues, atrasadas: atrasadas?.length ?? 0 };
 }

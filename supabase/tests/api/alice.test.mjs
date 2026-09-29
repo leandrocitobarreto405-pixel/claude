@@ -1,6 +1,8 @@
 // Teste ponta a ponta da Alice: webhook do Chatwoot → fila → IA (Claude falso) com ferramentas →
 // resposta no Chatwoot (falso) como robô, registro de custo, vendedora e passagem para humano.
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 const APP = process.env.APP_URL ?? "http://127.0.0.1:3996";
 const CLAUDE = `http://127.0.0.1:${process.env.PORTA_CLAUDE ?? 3995}`;
@@ -77,8 +79,14 @@ sql(
 sql(`INSERT INTO chatwoot_conexao_segredos (conexao_id, api_token, alice_bot_token)
      SELECT id, 'token-admin', 'token-robo' FROM chatwoot_conexoes WHERE webhook_token = repeat('a', 64)
      ON CONFLICT (conexao_id) DO UPDATE SET api_token = 'token-admin', alice_bot_token = 'token-robo'`);
-sql(`INSERT INTO ia_configuracoes (empresa_id, ativo, espera_segundos, instrucoes)
-     VALUES ('${EMPRESA}', true, 1, 'Atendemos só Florianópolis.')`);
+// Vídeo padrão no "Storage" local (servido pelo proxy do teste).
+fs.mkdirSync(path.join(process.env.STORAGE_DIR, "alice-midias", EMPRESA), { recursive: true });
+fs.writeFileSync(
+  path.join(process.env.STORAGE_DIR, "alice-midias", EMPRESA, "video-hig.mp4"),
+  "video-falso",
+);
+sql(`INSERT INTO ia_configuracoes (empresa_id, ativo, espera_segundos, instrucoes, hora_inicio, hora_fim, video_higienizacao)
+     VALUES ('${EMPRESA}', true, 1, 'Atendemos só Florianópolis.', 0, 24, '${EMPRESA}/video-hig.mp4')`);
 sql(`INSERT INTO salespeople (empresa_id, name, commission_percentage, atendente_nexa, eh_ia)
      VALUES ('${EMPRESA}', 'Alice (IA)', 0, true, true)`);
 sql(`INSERT INTO tabela_precos_itens (empresa_id, nome, preco_higienizacao, preco_impermeabilizacao, ordem)
@@ -129,10 +137,16 @@ check(
   blocos.some((b) => b.type === "image" && b.source?.media_type === "image/jpeg"),
   blocos.map((b) => b.type),
 );
+const nomesFerramentas = (primeira.body.tools ?? []).map((t) => t.name).join(",");
 check(
-  "ferramentas oferecidas",
-  (primeira.body.tools ?? []).map((t) => t.name).join(",") ===
-    "atualizar_lead,consultar_agenda,passar_para_atendente",
+  "ferramentas da fase 1 (vídeo cadastrado, agenda desligada)",
+  nomesFerramentas ===
+    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
+  nomesFerramentas,
+);
+check(
+  "ferramentas liberadas escritas nas instruções",
+  sistema.includes("Ferramentas liberadas agora: atualizar_lead, consultar_cliente"),
 );
 
 let chamadasChatwoot = await log(CHATWOOT);
@@ -235,6 +249,176 @@ check(
   "conversa aberta para a equipe",
   daConversa2.some((c) => c.url.endsWith("/toggle_status") && c.body?.status === "open"),
 );
+check(
+  "tarefa para a equipe na repescagem",
+  sql(`SELECT f.responsavel || '|' || f.status || '|' || (f.notes LIKE '%cliente pediu uma pessoa%')
+         FROM crm_followups f JOIN conversas c ON c.crm_lead_id = f.crm_lead_id
+        WHERE c.chatwoot_conversation_id = 952`) === "equipe|Pendente|true",
+);
+
+// ---------------------------------------------------------------- 4b. orçamento com vídeo e follow-up
+const processar = (id) =>
+  fetch(`${APP}/api/public/hooks/alice-processar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}`,
+    },
+    body: JSON.stringify({ tarefa_id: id }),
+  }).then((r) => r.json());
+const doChatwoot = async (conversa) =>
+  (await log(CHATWOOT)).filter(
+    (c) => c.method === "POST" && c.url.endsWith(`/conversations/${conversa}/messages`),
+  );
+
+await webhook(conversaNova(4));
+await webhook(msg(9401, 4, "Oi, quero o orçamento do sofá"));
+check(
+  "orçamento respondido",
+  await ate(
+    () =>
+      situacao(4).startsWith("followup:pendente") || situacao(4).includes("responder:concluida"),
+  ),
+  situacao(4),
+);
+const msgs4 = await doChatwoot(954);
+const ordem = msgs4.map((c) =>
+  c.multipart ? `[anexo ${/filename="([^"]+)"/.exec(c.multipart)?.[1]}]` : c.body?.content,
+);
+// O orçamento tem uma linha em branco: vira duas mensagens.
+check(
+  "ordem: texto, vídeo, orçamento, pergunta",
+  ordem.length === 5 &&
+    ordem[0]?.startsWith("Enquanto eu preparo") &&
+    ordem[1] === "[anexo video-hig.mp4]" &&
+    ordem[2] === "*Higienização Premium*" &&
+    ordem[4]?.startsWith("Me conta"),
+  ordem,
+);
+check(
+  "valores calculados pelo sistema (total e Pix 5%)",
+  /R\$\s?180,00/.test(ordem[3] ?? "") && /R\$\s?171,00/.test(ordem[3] ?? ""),
+  ordem[3],
+);
+check(
+  "vídeo enviado como robô",
+  msgs4.find((c) => c.multipart)?.headers.api_access_token === "token-robo",
+);
+check(
+  "orçamento gravado no lead",
+  sql(`SELECT q.total || '|' || q.valor_a_vista || '|' || q.status || '|' || q.parcelas || '|' || count(i.id)
+         FROM quotes q JOIN conversas c ON c.crm_lead_id = q.crm_lead_id
+         JOIN quote_items i ON i.quote_id = q.id
+        WHERE c.chatwoot_conversation_id = 954 GROUP BY q.id`) === "180.00|171.00|enviado|5|1",
+);
+check(
+  "follow-up agendado para a Alice",
+  sql(`SELECT t.situacao || '|' || f.responsavel || '|' || f.status || '|' || (t.executar_apos > now() + interval '9 minutes')
+         FROM ia_tarefas t JOIN conversas c ON c.id = t.conversa_id
+         JOIN crm_followups f ON f.ia_tarefa_id = t.id
+        WHERE c.chatwoot_conversation_id = 954 AND t.tipo = 'followup'`) ===
+    "pendente|alice|Pendente|true",
+);
+await webhook(msg(9402, 4, "vou ver com meu marido"));
+check(
+  "cliente respondeu: follow-up cancelado",
+  sql(`SELECT f.status FROM crm_followups f JOIN ia_tarefas t ON t.id = f.ia_tarefa_id
+         JOIN conversas c ON c.id = t.conversa_id WHERE c.chatwoot_conversation_id = 954`) ===
+    "Cancelada",
+);
+await ate(() => !situacao(4).includes("responder:pendente"));
+
+// ---------------------------------------------------------------- 4c. follow-up na hora
+function followupAgora(conversa) {
+  return sql(`WITH t AS (
+      INSERT INTO ia_tarefas (empresa_id, conversa_id, tipo, executar_apos, enfileirada, dados)
+      SELECT empresa_id, id, 'followup', now() - interval '1 second', true,
+             '{"trilha":"A","motivo":"sem resposta ao orçamento","mensagem_sugerida":"Viu o orçamento?"}'
+        FROM conversas WHERE chatwoot_conversation_id = ${950 + conversa} RETURNING id, empresa_id, conversa_id)
+    , f AS (INSERT INTO crm_followups (empresa_id, crm_lead_id, responsavel, ia_tarefa_id)
+      SELECT t.empresa_id, c.crm_lead_id, 'alice', t.id FROM t JOIN conversas c ON c.id = t.conversa_id)
+    SELECT id FROM t`);
+}
+await webhook(conversaNova(5));
+await webhook(msg(9501, 5, "Oi"));
+await ate(() => situacao(5) === "responder:concluida");
+const antes5 = (await doChatwoot(955)).length;
+const f5 = followupAgora(5);
+const r5 = await processar(f5);
+const depois5 = await doChatwoot(955);
+check("follow-up enviado", r5.situacao === "concluida" && depois5.length === antes5 + 1, r5);
+check(
+  "texto do follow-up",
+  depois5[depois5.length - 1]?.body?.content ===
+    "Conseguiu dar uma olhadinha no orçamento, Cliente?",
+);
+check(
+  "repescagem da Alice concluída",
+  sql(`SELECT status || '|' || result FROM crm_followups WHERE ia_tarefa_id = '${f5}'`) ===
+    "Concluída|Enviado pela Alice",
+);
+
+// Fora da janela de 24 h: não manda; vira tarefa da equipe.
+await webhook(conversaNova(6));
+await webhook(msg(9601, 6, "Oi"));
+await ate(() => situacao(6) === "responder:concluida");
+sql(`UPDATE whatsapp_messages SET message_timestamp = now() - interval '2 days'
+      WHERE conversa_id = (SELECT id FROM conversas WHERE chatwoot_conversation_id = 956)`);
+const antes6 = (await doChatwoot(956)).length;
+const f6 = followupAgora(6);
+const r6 = await processar(f6);
+check(
+  "fora da janela: nada enviado",
+  r6.situacao === "ignorada" && (await doChatwoot(956)).length === antes6,
+  r6,
+);
+check(
+  "fora da janela: vira tarefa da equipe",
+  sql(`SELECT responsavel || '|' || status FROM crm_followups WHERE ia_tarefa_id = '${f6}'`) ===
+    "equipe|Pendente",
+);
+
+// ---------------------------------------------------------------- 4d. áudio transcrito
+await webhook(conversaNova(7));
+await webhook(
+  msg(9701, 7, "", {
+    attachments: [{ file_type: "audio", data_url: `${CHATWOOT}/audio-cliente.ogg` }],
+  }),
+);
+check("áudio respondido", await ate(() => situacao(7) === "responder:concluida"), situacao(7));
+check(
+  "transcrição gravada na mensagem",
+  sql(`SELECT m.transcricao FROM whatsapp_messages m JOIN conversas c ON c.id = m.conversa_id
+        WHERE c.chatwoot_conversation_id = 957`) === "quero higienizar meu sofá amanhã",
+);
+const speech = (await log(CHATWOOT)).find((c) => c.url.includes("recognizers/_:recognize"));
+check(
+  "Speech-to-Text chamado com a conta de serviço",
+  speech?.headers.authorization === "Bearer token-google" &&
+    speech?.body?.config?.languageCodes?.[0] === "pt-BR",
+);
+check(
+  "IA recebeu a transcrição",
+  (await doChatwoot(957)).some((c) => c.body?.content?.startsWith("Entendi pelo seu áudio")),
+);
+
+// ---------------------------------------------------------------- 4e. IA desligada no cliente
+await webhook(conversaNova(8));
+sql(`UPDATE whatsapp_contacts SET ia_desligada = true
+      WHERE id = (SELECT whatsapp_contact_id FROM conversas WHERE chatwoot_conversation_id = 958)`);
+await webhook(msg(9801, 8, "Oi"));
+check("IA desligada no cliente: nada agendado", situacao(8) === "-", situacao(8));
+
+// ---------------------------------------------------------------- 4f. varredura da fila
+const varreduraSemChave = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
+  method: "POST",
+});
+check("varredura sem chave → 401", varreduraSemChave.status === 401);
+const varredura = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}` },
+}).then((r) => r.json());
+check("varredura responde", varredura.ok === true, varredura);
 
 // ---------------------------------------------------------------- 5. processador protegido
 const semChave = await fetch(`${APP}/api/public/hooks/alice-processar`, {

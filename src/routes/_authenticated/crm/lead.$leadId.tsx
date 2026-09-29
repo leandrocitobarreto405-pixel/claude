@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader, SectionCard } from "@/components/app-shell";
+import { AliceNoLead } from "@/components/alice-no-lead";
 import { NativeSelect, StatusPill, TemperatureBadge } from "@/components/crm-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfigOptions, useSalespeople } from "@/lib/data";
@@ -522,6 +523,8 @@ function LeadDetalhe() {
         <div className="grid gap-4">
           <FunilDoLead lead={lead} />
 
+          <AliceNoLead leadId={lead.id} />
+
           <SectionCard title="Ações rápidas">
             <div className="grid gap-2">
               <Label htmlFor="a-status">Mudar status</Label>
@@ -561,7 +564,19 @@ function LeadDetalhe() {
               <div className="grid gap-3">
                 {repescagensPendentes.map((f) => (
                   <div key={f.id} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-navy">{dateTimeBR(f.scheduled_at)}</p>
+                    <p className="text-sm font-medium text-navy">
+                      {dateTimeBR(f.scheduled_at)}
+                      {f.responsavel === "alice" ? (
+                        <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          Alice faz
+                        </span>
+                      ) : null}
+                    </p>
+                    {f.notes ? (
+                      <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                        {f.notes}
+                      </p>
+                    ) : null}
                     <Label className="mt-2 block text-xs">O que aconteceu?</Label>
                     <NativeSelect
                       placeholder="Registrar resultado"

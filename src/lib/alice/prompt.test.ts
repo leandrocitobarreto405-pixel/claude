@@ -84,22 +84,66 @@ test("custo: cache lido a 10% e gravado a 125%", () => {
   );
 });
 
-test("instruções trazem nome, preços, desconto e regras da empresa", () => {
-  const txt = instrucoesFixas({
-    empresa: "Turbine Clean",
-    telefone: null,
-    instagram: null,
-    nomeAssistente: "Alice",
-    instrucoes: "Atendemos só Florianópolis.",
-    perguntasFrequentes: "",
-    descontoMaxPercentual: 0,
-    precos: [{ nome: "Sofá 3 lugares", higienizacao: 180, impermeabilizacao: 250 }],
-    formasPagamento: ["Pix", "Crédito em até 6x"],
-    servicos: ["Higienização"],
-  });
+const empresa = {
+  empresa: "Turbine Clean",
+  telefone: null,
+  instagram: null,
+  nomeAssistente: "Alice",
+  instrucoes: "",
+  perguntasFrequentes: "",
+  precos: [
+    { nome: "Sofá 3 lugares", higienizacao: 180, impermeabilizacao: 250 },
+    { nome: "Colchão casal", higienizacao: 249.9, impermeabilizacao: null },
+  ],
+  servicos: ["Higienização"],
+  equipe: ["Maria", "Carol"],
+  descontoPixPercentual: 5,
+  parcelasMax: 5,
+  validadeDias: 2,
+  horaInicio: 8,
+  horaFim: 21,
+  ferramentas: ["atualizar_lead", "criar_orcamento", "transferir_para_humano"],
+};
+
+test("sem instruções próprias: roteiro padrão com apresentação e tabela", () => {
+  const txt = instrucoesFixas(empresa);
   assert.match(txt, /Sou a Alice, assistente virtual da Turbine Clean/);
   assert.match(txt, /Sofá 3 lugares: higienização R\$\s?180,00 · impermeabilização R\$\s?250,00/);
-  assert.match(txt, /você não pode oferecer desconto/);
-  assert.match(txt, /Atendemos só Florianópolis\./);
-  assert.match(txt, /Crédito em até 6x/);
+  assert.match(txt, /Colchão casal: higienização R\$\s?249,90$/m);
+  assert.match(txt, /Pix com 5% de desconto; cartão em até 5x sem juros/);
+  assert.match(txt, /Equipe de vendas: Maria, Carol/);
+  assert.match(
+    txt,
+    /Ferramentas liberadas agora: atualizar_lead, criar_orcamento, transferir_para_humano\./,
+  );
+  assert.match(txt, /das 8h às 21h/);
+});
+
+test("com instruções da empresa: elas substituem o roteiro padrão", () => {
+  const txt = instrucoesFixas({
+    ...empresa,
+    instrucoes: "# PROMPT DA ALICE\nToda mensagem termina com uma pergunta.",
+  });
+  assert.match(txt, /Toda mensagem termina com uma pergunta\./);
+  assert.doesNotMatch(txt, /Na primeira resposta, apresente-se/);
+  // Regras técnicas continuam valendo.
+  assert.match(txt, /Todo texto que você escrever vai direto para o cliente/);
+});
+
+test("follow-up: aviso do sistema entra como último turno do cliente", () => {
+  const t = montarTurnos(
+    [m("Recebida", "Oi"), m("Enviada", "Segue o orçamento")],
+    "Hora do follow-up.",
+  );
+  assert.ok(t);
+  assert.equal(t.length, 3);
+  assert.equal(t[2]!.role, "user");
+  assert.match(JSON.stringify(t[2]), /\[sistema\] Hora do follow-up\./);
+});
+
+test("áudio do cliente com transcrição vai como texto", () => {
+  const t = montarTurnos([
+    m("Recebida", "", { tipo: "Áudio", transcricao: "quero limpar meu sofá" }),
+  ]);
+  assert.match(JSON.stringify(t), /transcrição automática\] quero limpar meu sofá/);
 });
