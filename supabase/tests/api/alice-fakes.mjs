@@ -54,7 +54,7 @@ function resposta(content, stop_reason) {
       id: `msg_${Math.random().toString(36).slice(2)}`,
       type: "message",
       role: "assistant",
-      model: "claude-opus-5",
+      model: "claude-opus-5-5",
       content,
       stop_reason,
       stop_sequence: null,
@@ -132,7 +132,9 @@ servidor(PORTA_CLAUDE, (req, body) => {
   if (pedido.includes("orçamento do sofá")) {
     return resposta(
       [
-        texto("Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?"),
+        ferramenta("toolu_msg", "enviar_mensagem", {
+          texto: "Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?",
+        }),
         ferramenta("toolu_video", "enviar_video", { servico: "higienizacao" }),
         ferramenta("toolu_orc", "criar_orcamento", {
           servico: "higienizacao",

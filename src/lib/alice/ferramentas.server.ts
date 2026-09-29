@@ -24,7 +24,9 @@ type Admin = SupabaseClient<Database>;
 export type ConfigIa = Database["public"]["Tables"]["ia_configuracoes"]["Row"];
 type Servico = "higienizacao" | "impermeabilizacao";
 
-export type Anexo = { caminho: string; nome: string };
+/** O que vai ao cliente, na ordem: mensagens e mídias pedidas pelas ferramentas. */
+export type Saida =
+  { tipo: "texto"; texto: string } | { tipo: "anexo"; caminho: string; nome: string };
 
 export type ContextoFerramenta = {
   admin: Admin;
@@ -40,8 +42,8 @@ export type ContextoFerramenta = {
   etapas: string[];
   /** Preenchido por transferir_para_humano: o processador conclui a passagem depois da resposta. */
   passagem: { motivo: string; resumo: string } | null;
-  /** Mídias pedidas nesta rodada (vão depois do texto da rodada). */
-  anexos: Anexo[];
+  /** Mensagens e mídias pedidas pelas ferramentas (o processador envia na ordem das chamadas). */
+  saida: Saida[];
   /** Algum follow-up foi agendado (o processador entrega à fila no fim). */
   agendouFollowup: boolean;
 };
@@ -74,6 +76,7 @@ const CriarOrcamento = z.object({
   rotulo: z.string().trim().max(40).optional(),
 });
 const EnviarMidia = z.object({ servico: SERVICO });
+const EnviarMensagem = z.object({ texto: z.string().trim().min(1).max(4000) });
 const ConsultarAgenda = z.object({
   data_inicial: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dias: z.number().int().min(1).max(14),
@@ -205,6 +208,19 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
       },
     },
   ];
+  lista.push({
+    name: "enviar_mensagem",
+    description:
+      'Manda ao cliente uma mensagem de WhatsApp AGORA, antes das próximas ferramentas (ex.: "Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?" antes de enviar_video). Use para todo texto ao cliente que precisa sair antes de outra ferramenta; a mensagem final da resposta você escreve normalmente, sem esta ferramenta.',
+    input_schema: {
+      type: "object",
+      properties: {
+        texto: { type: "string", description: "O texto exato para o cliente." },
+      },
+      required: ["texto"],
+      additionalProperties: false,
+    },
+  });
   const temVideo = cfg.video_higienizacao || cfg.video_impermeabilizacao;
   const temAudio = cfg.audio_higienizacao || cfg.audio_impermeabilizacao;
   const servicosCom = (h: string | null, i: string | null) =>
@@ -212,7 +228,7 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
   if (temVideo) {
     lista.push({
       name: "enviar_video",
-      description: `Envia ao cliente o vídeo padrão do serviço (cadastrado para: ${servicosCom(cfg.video_higienizacao, cfg.video_impermeabilizacao)}). O vídeo sai logo depois do texto que você escreveu antes de chamar a ferramenta.`,
+      description: `Envia ao cliente o vídeo padrão do serviço (cadastrado para: ${servicosCom(cfg.video_higienizacao, cfg.video_impermeabilizacao)}). Sai na ordem em que você chamar as ferramentas (depois de um enviar_mensagem chamado antes).`,
       input_schema: {
         type: "object",
         properties: { servico: S_SERVICO },
@@ -224,7 +240,7 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
   if (temAudio) {
     lista.push({
       name: "enviar_audio_padrao",
-      description: `Envia ao cliente o áudio padrão gravado pela equipe explicando o serviço (cadastrado para: ${servicosCom(cfg.audio_higienizacao, cfg.audio_impermeabilizacao)}). Sai logo depois do texto que você escreveu antes de chamar a ferramenta.`,
+      description: `Envia ao cliente o áudio padrão gravado pela equipe explicando o serviço (cadastrado para: ${servicosCom(cfg.audio_higienizacao, cfg.audio_impermeabilizacao)}). Sai na ordem em que você chamar as ferramentas (depois de um enviar_mensagem chamado antes).`,
       input_schema: {
         type: "object",
         properties: { servico: S_SERVICO },
@@ -652,10 +668,10 @@ function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: 
       texto: `Não há ${tipo === "video" ? "vídeo" : "áudio"} cadastrado para esse serviço. Siga sem ele (por texto).`,
     };
   }
-  ctx.anexos.push({ caminho, nome: caminho.split("/").pop() || `${tipo}` });
+  ctx.saida.push({ tipo: "anexo", caminho, nome: caminho.split("/").pop() || `${tipo}` });
   return {
     erro: false,
-    texto: `${tipo === "video" ? "Vídeo" : "Áudio"} será enviado logo depois do texto que você escreveu antes desta ferramenta. Não diga que "segue abaixo"; continue a conversa normalmente.`,
+    texto: `${tipo === "video" ? "Vídeo" : "Áudio"} será enviado neste ponto da conversa. Não diga que "segue abaixo"; continue normalmente.`,
   };
 }
 
@@ -965,6 +981,12 @@ export async function executarFerramenta(
       case "criar_orcamento": {
         const p = CriarOrcamento.safeParse(entrada);
         return p.success ? r(await criarOrcamento(ctx, p.data)) : invalida(p.error);
+      }
+      case "enviar_mensagem": {
+        const p = EnviarMensagem.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        ctx.saida.push({ tipo: "texto", texto: p.data.texto });
+        return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
       }
       case "enviar_video":
       case "enviar_audio_padrao": {

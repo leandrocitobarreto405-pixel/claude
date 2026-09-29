@@ -45,7 +45,7 @@ negociação e nos casos fora da tabela. O prompt da Turbine Clean está em
 - **Preço e desconto:** preço só da tabela; o único desconto é o do Pix configurado (fase 1).
 - **Isolamento:** cada empresa só vê a própria configuração, fila e execuções; só o administrador
   altera a configuração. Os tokens do robô e da API ficam em tabela sem acesso pelo app.
-- **Modelo:** Claude Opus 5 com pensamento adaptativo e esforço "médio". O **fallback automático**
+- **Modelo:** Claude Opus 5.5 (desde 29/09/2026; antes Opus 5) com pensamento adaptativo e esforço "médio". Cache: instruções fixas com ponto de cache próprio e a conversa no cache automático; a hora e os dados do lead vão numa mensagem de sistema no fim, para não quebrar o cache. Mensagens antes de uma ferramenta saem pela ferramenta `enviar_mensagem` (no Opus 5.5, texto solto entre ferramentas pode vir escondido). O **fallback automático**
   (`fallbacks: "default"`) roda outro modelo se o principal recusar. Nos ajustes avançados dá para
   trocar para Claude Sonnet 5, mais barato.
 

@@ -3,8 +3,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export const MODELOS_ALICE = [
-  { id: "claude-opus-5", nome: "Claude Opus 5 (recomendado)" },
-  { id: "claude-sonnet-5", nome: "Claude Sonnet 5 (mais barato)" },
+  { id: "claude-opus-5-5", nome: "Claude Opus 5.5 (recomendado)" },
+  { id: "claude-opus-5", nome: "Claude Opus 5" },
+  { id: "claude-sonnet-5-5", nome: "Claude Sonnet 5.5 (mais barato)" },
 ] as const;
 
 export type ConfigAlice = {
@@ -50,7 +51,7 @@ const PADRAO: ConfigAlice = {
   nome: "Alice",
   instrucoes: "",
   perguntas_frequentes: "",
-  modelo: "claude-opus-5",
+  modelo: "claude-opus-5-5",
   esforco: "medium",
   espera_segundos: 8,
   limite_respostas_conversa: 40,

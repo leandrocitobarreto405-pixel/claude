@@ -15,6 +15,7 @@ import {
   ferramentasDisponiveis,
   type ConfigIa,
   type ContextoFerramenta,
+  type Saida,
 } from "./ferramentas.server";
 import {
   custoEstimadoUsd,
@@ -39,6 +40,10 @@ const MAX_AUDIOS_TRANSCRITOS = 3;
 const MAX_MENSAGENS_POR_RESPOSTA = 10;
 const MAX_BYTES_IMAGEM = 4_500_000;
 const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+/** Modelos que aceitam o fallback automático do servidor quando recusam ("default"). */
+const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
+/** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
+const SEM_SISTEMA_NO_MEIO = ["claude-sonnet-5"];
 /** Resposta do modelo quando o follow-up não deve ser enviado. */
 const NADA = "NADA";
 
@@ -558,8 +563,6 @@ async function concluirRepescagem(
     .eq("empresa_id", tarefa.empresa_id);
 }
 
-type Saida = { tipo: "texto"; texto: string } | { tipo: "anexo"; caminho: string; nome: string };
-
 // ---------------------------------------------------------------- conversa com a IA
 async function conversar(
   db: Admin,
@@ -612,13 +615,18 @@ async function conversar(
     ultimaDoCliente: hist.ultimaDoCliente,
     etapas,
     passagem: null,
-    anexos: [],
+    saida: [],
     agendouFollowup: false,
   };
   const cliente = new Anthropic();
+  // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
+  // automático (top-level), que avança a cada rodada. A hora e os dados do lead mudam a cada
+  // resposta, então ficam DEPOIS da conversa (mensagem de sistema no fim), para não quebrar o cache.
+  const momento = instrucoesDoMomento(new Date(), lead);
+  const momentoNoMeio = !SEM_SISTEMA_NO_MEIO.includes(cfg.modelo);
   const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: instrucoesFixas(empresa), cache_control: { type: "ephemeral" } },
-    { type: "text", text: instrucoesDoMomento(new Date(), lead) },
+    ...(momentoNoMeio ? [] : [{ type: "text" as const, text: momento }]),
   ];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   const ferramentasUsadas: Array<{ nome: string; entrada: unknown; resultado: string }> = [];
@@ -626,7 +634,9 @@ async function conversar(
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
-  const mensagens = [...turnos];
+  const mensagens: Anthropic.Beta.BetaMessageParam[] = momentoNoMeio
+    ? [...turnos, { role: "system", content: momento }]
+    : [...turnos];
 
   while (rodadas < MAX_RODADAS) {
     rodadas++;
@@ -635,9 +645,10 @@ async function conversar(
       max_tokens: 16000,
       thinking: { type: "adaptive" },
       output_config: { effort: cfg.esforco as "low" | "medium" | "high" },
-      ...(cfg.modelo === "claude-opus-5"
+      ...(COM_FALLBACK.includes(cfg.modelo)
         ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
         : {}),
+      cache_control: { type: "ephemeral" },
       system: sistema,
       tools: ferramentas,
       messages: mensagens,
@@ -650,7 +661,8 @@ async function conversar(
     parada = resposta.stop_reason;
     if (resposta.stop_reason === "refusal") break;
 
-    // Tudo o que a IA escreve vai ao cliente, na ordem; as mídias pedidas na rodada vêm depois.
+    // Tudo o que a IA escreve vai ao cliente, na ordem; depois, o que as ferramentas pediram
+    // (enviar_mensagem, vídeo, áudio), na ordem das chamadas.
     for (const b of resposta.content) {
       if (b.type === "text" && b.text.trim()) saida.push({ tipo: "texto", texto: b.text.trim() });
     }
@@ -674,8 +686,8 @@ async function conversar(
         content: r.conteudo,
         is_error: r.erro,
       });
+      saida.push(...ctx.saida.splice(0));
     }
-    for (const a of ctx.anexos.splice(0)) saida.push({ tipo: "anexo", ...a });
     mensagens.push({ role: "user", content: resultados });
   }
 

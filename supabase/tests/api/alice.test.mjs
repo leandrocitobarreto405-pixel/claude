@@ -114,7 +114,20 @@ check(
 );
 const primeira = chamadasClaude[0] ?? { body: {}, headers: {} };
 const sistema = JSON.stringify(primeira.body.system ?? "");
-check("modelo configurado", primeira.body.model === "claude-opus-5", primeira.body.model);
+check("modelo padrão (Opus 5.5)", primeira.body.model === "claude-opus-5-5", primeira.body.model);
+check(
+  "conversa no cache automático",
+  JSON.stringify(primeira.body.cache_control) === '{"type":"ephemeral"}',
+  primeira.body.cache_control,
+);
+const ultimaMsg = primeira.body.messages?.[primeira.body.messages.length - 1];
+check(
+  "hora e lead depois da conversa (mensagem de sistema no fim)",
+  ultimaMsg?.role === "system" &&
+    String(ultimaMsg?.content).startsWith("Agora:") &&
+    primeira.body.system?.length === 1,
+  { ultima: ultimaMsg, blocosSistema: primeira.body.system?.length },
+);
 check(
   "fallback padrão ligado",
   primeira.body.fallbacks === "default" &&
@@ -141,7 +154,7 @@ const nomesFerramentas = (primeira.body.tools ?? []).map((t) => t.name).join(","
 check(
   "ferramentas da fase 1 (vídeo cadastrado, agenda desligada)",
   nomesFerramentas ===
-    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
+    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,enviar_mensagem,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
   nomesFerramentas,
 );
 check(

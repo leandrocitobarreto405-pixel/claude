@@ -79,7 +79,7 @@ export function instrucoesFixas(c: ContextoEmpresa): string {
   return `Você é ${c.nomeAssistente}, assistente virtual da ${c.empresa}, empresa de higienização e impermeabilização de estofados. Você atende clientes pelo WhatsApp em nome da empresa.
 
 # Como o sistema funciona (regras técnicas, valem sempre)
-- Todo texto que você escrever vai direto para o cliente no WhatsApp, na ordem em que foi escrito, inclusive o que você escrever antes de chamar uma ferramenta. Não escreva bastidores ("vou consultar a tabela", "um momento enquanto verifico"), não repita um texto que já escreveu nesta resposta e nunca escreva recados para a equipe na conversa.
+- O texto final da sua resposta vai direto para o cliente no WhatsApp. Mensagem que precisa sair ANTES de outra ferramenta (ex.: o aviso antes do vídeo) vai pela ferramenta enviar_mensagem, na ordem certa entre as outras ferramentas. Não escreva bastidores ("vou consultar a tabela", "um momento enquanto verifico"), não repita uma mensagem já enviada nesta resposta e nunca escreva recados para a equipe na conversa.
 - Uma linha em branco separa mensagens: cada bloco vira uma mensagem separada no WhatsApp.
 - Negrito do WhatsApp é com um asterisco (*assim*). Não use títulos (#), tabelas nem links em markdown.
 - No histórico, "[atendente da equipe]" marca mensagens escritas por uma pessoa da equipe e "[sistema]" marca avisos automáticos do Nexa: não foram escritos pelo cliente e não devem ser citados para ele. Áudios do cliente chegam como transcrição automática.
@@ -235,13 +235,16 @@ export function dividirResposta(texto: string, maximo = 4): string[] {
 }
 
 // ---------------------------------------------------------------- custo
-const PRECOS_USD_POR_MILHAO: Record<string, { entrada: number; saida: number }> = {
-  "claude-opus-5": { entrada: 5, saida: 25 },
-  "claude-opus-5-5": { entrada: 4, saida: 20 },
-  "claude-sonnet-5": { entrada: 2, saida: 10 },
-  "claude-haiku-4-5": { entrada: 1, saida: 5 },
-  "claude-opus-4-8": { entrada: 5, saida: 25 },
-};
+/** US$ por milhão de tokens. Cache gravado (5 min) custa 1,25× a entrada. */
+const PRECOS_USD_POR_MILHAO: Record<string, { entrada: number; saida: number; cacheLido: number }> =
+  {
+    "claude-opus-5-5": { entrada: 4, saida: 20, cacheLido: 0.2 },
+    "claude-opus-5": { entrada: 5, saida: 25, cacheLido: 0.5 },
+    "claude-sonnet-5-5": { entrada: 2, saida: 10, cacheLido: 0.2 },
+    "claude-sonnet-5": { entrada: 2, saida: 10, cacheLido: 0.2 },
+    "claude-haiku-4-5": { entrada: 1, saida: 5, cacheLido: 0.1 },
+    "claude-opus-4-8": { entrada: 5, saida: 25, cacheLido: 0.5 },
+  };
 
 export type Uso = {
   entrada: number;
@@ -250,12 +253,11 @@ export type Uso = {
   cacheEscrita: number;
 };
 
-/** Custo estimado: cache lido a 10% e cache gravado a 125% do preço de entrada. */
 export function custoEstimadoUsd(modelo: string, uso: Uso): number {
-  const p = PRECOS_USD_POR_MILHAO[modelo] ?? PRECOS_USD_POR_MILHAO["claude-opus-5"]!;
+  const p = PRECOS_USD_POR_MILHAO[modelo] ?? PRECOS_USD_POR_MILHAO["claude-opus-5-5"]!;
   const total =
     uso.entrada * p.entrada +
-    uso.cacheLeitura * p.entrada * 0.1 +
+    uso.cacheLeitura * p.cacheLido +
     uso.cacheEscrita * p.entrada * 1.25 +
     uso.saida * p.saida;
   return Math.round((total / 1_000_000) * 1_000_000) / 1_000_000;

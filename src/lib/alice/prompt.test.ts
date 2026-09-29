@@ -65,7 +65,7 @@ test("resposta vira mensagens de WhatsApp, com negrito do WhatsApp e limite", ()
   assert.equal(dividirResposta("a\n\nb\n\nc\n\nd\n\ne\n\nf").length, 4);
 });
 
-test("custo: cache lido a 10% e gravado a 125%", () => {
+test("custo: preço de cada modelo; cache gravado a 125%", () => {
   const c = custoEstimadoUsd("claude-opus-5", {
     entrada: 1_000_000,
     saida: 100_000,
@@ -81,6 +81,16 @@ test("custo: cache lido a 10% e gravado a 125%", () => {
       cacheEscrita: 1_000_000,
     }),
     10 + 2.5,
+  );
+  // Opus 5.5: US$ 4 / 20; cache lido a US$ 0,20.
+  assert.equal(
+    custoEstimadoUsd("claude-opus-5-5", {
+      entrada: 1_000_000,
+      saida: 1_000_000,
+      cacheLeitura: 1_000_000,
+      cacheEscrita: 1_000_000,
+    }),
+    4 + 20 + 0.2 + 5,
   );
 });
 
@@ -127,7 +137,8 @@ test("com instruções da empresa: elas substituem o roteiro padrão", () => {
   assert.match(txt, /Toda mensagem termina com uma pergunta\./);
   assert.doesNotMatch(txt, /Na primeira resposta, apresente-se/);
   // Regras técnicas continuam valendo.
-  assert.match(txt, /Todo texto que você escrever vai direto para o cliente/);
+  assert.match(txt, /O texto final da sua resposta vai direto para o cliente/);
+  assert.match(txt, /vai pela ferramenta enviar_mensagem/);
 });
 
 test("follow-up: aviso do sistema entra como último turno do cliente", () => {
