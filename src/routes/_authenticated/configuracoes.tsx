@@ -58,12 +58,12 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
       : {},
   head: () => ({
     meta: [
-      { title: "Configurações — Gestão Estofados" },
+      { title: "Configurações — Nexa OS" },
       {
         name: "description",
         content: "Metas, taxas de pagamento, comissões, custo por km e mensagens.",
       },
-      { property: "og:title", content: "Configurações — Gestão Estofados" },
+      { property: "og:title", content: "Configurações — Nexa OS" },
       {
         property: "og:description",
         content: "Metas, taxas de pagamento, comissões, custo por km e mensagens.",

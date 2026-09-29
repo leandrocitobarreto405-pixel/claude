@@ -12,12 +12,12 @@ import { brl, currentMonth, dateBR, monthLabelPT, monthSlug } from "@/lib/format
 export const Route = createFileRoute("/_authenticated/exportacoes")({
   head: () => ({
     meta: [
-      { title: "Exportações — Gestão Estofados" },
+      { title: "Exportações — Nexa OS" },
       {
         name: "description",
         content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês.",
       },
-      { property: "og:title", content: "Exportações — Gestão Estofados" },
+      { property: "og:title", content: "Exportações — Nexa OS" },
       {
         property: "og:description",
         content: "Baixe planilhas de serviços, pagamentos, despesas e DRE do mês.",

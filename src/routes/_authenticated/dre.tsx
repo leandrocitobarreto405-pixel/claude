@@ -9,12 +9,12 @@ import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/dre")({
   head: () => ({
     meta: [
-      { title: "DRE gerencial — Gestão Estofados" },
+      { title: "DRE gerencial — Nexa OS" },
       {
         name: "description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
       },
-      { property: "og:title", content: "DRE gerencial — Gestão Estofados" },
+      { property: "og:title", content: "DRE gerencial — Nexa OS" },
       {
         property: "og:description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",

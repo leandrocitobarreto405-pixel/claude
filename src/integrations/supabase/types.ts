@@ -1583,6 +1583,7 @@ export type Database = {
           desconto_pix_percentual: number;
           empresa_id: string;
           esforco: string;
+          espera_apos_midia_segundos: number;
           espera_segundos: number;
           hora_fim: number;
           hora_inicio: number;
@@ -1607,6 +1608,7 @@ export type Database = {
           desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
+          espera_apos_midia_segundos?: number;
           espera_segundos?: number;
           hora_fim?: number;
           hora_inicio?: number;
@@ -1631,6 +1633,7 @@ export type Database = {
           desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
+          espera_apos_midia_segundos?: number;
           espera_segundos?: number;
           hora_fim?: number;
           hora_inicio?: number;

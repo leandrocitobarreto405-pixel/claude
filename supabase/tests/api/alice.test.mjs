@@ -85,8 +85,8 @@ fs.writeFileSync(
   path.join(process.env.STORAGE_DIR, "alice-midias", EMPRESA, "video-hig.mp4"),
   "video-falso",
 );
-sql(`INSERT INTO ia_configuracoes (empresa_id, ativo, espera_segundos, instrucoes, hora_inicio, hora_fim, video_higienizacao)
-     VALUES ('${EMPRESA}', true, 1, 'Atendemos só Florianópolis.', 0, 24, '${EMPRESA}/video-hig.mp4')`);
+sql(`INSERT INTO ia_configuracoes (empresa_id, ativo, espera_segundos, instrucoes, hora_inicio, hora_fim, video_higienizacao, espera_apos_midia_segundos)
+     VALUES ('${EMPRESA}', true, 1, 'Atendemos só Florianópolis.', 0, 24, '${EMPRESA}/video-hig.mp4', 3)`);
 sql(`INSERT INTO salespeople (empresa_id, name, commission_percentage, atendente_nexa, eh_ia)
      VALUES ('${EMPRESA}', 'Alice (IA)', 0, true, true)`);
 sql(`INSERT INTO tabela_precos_itens (empresa_id, nome, preco_higienizacao, preco_impermeabilizacao, ordem)
@@ -294,10 +294,21 @@ check(
   ),
   situacao(4),
 );
-const msgs4 = await doChatwoot(954);
-const ordem = msgs4.map((c) =>
-  c.multipart ? `[anexo ${/filename="([^"]+)"/.exec(c.multipart)?.[1]}]` : c.body?.content,
+const textoDe = (c) =>
+  c.multipart ? `[anexo ${/filename="([^"]+)"/.exec(c.multipart)?.[1]}]` : c.body?.content;
+const antesDaEspera = (await doChatwoot(954)).map(textoDe);
+check(
+  "primeiro só o aviso e o vídeo; o orçamento espera",
+  antesDaEspera.length === 2 && antesDaEspera[1] === "[anexo video-hig.mp4]",
+  antesDaEspera,
 );
+check(
+  "resto programado na fila",
+  await ate(() => situacao(4).includes("enviar_mensagens:concluida")),
+  situacao(4),
+);
+const msgs4 = await doChatwoot(954);
+const ordem = msgs4.map(textoDe);
 // O orçamento tem uma linha em branco: vira duas mensagens.
 check(
   "ordem: texto, vídeo, orçamento, pergunta",
@@ -340,6 +351,52 @@ check(
     "Cancelada",
 );
 await ate(() => !situacao(4).includes("responder:pendente"));
+
+// Cliente escreve antes da hora: o orçamento sai antes da resposta nova.
+sql(`UPDATE ia_configuracoes SET espera_apos_midia_segundos = 120 WHERE empresa_id = '${EMPRESA}'`);
+await webhook(conversaNova(9));
+await webhook(msg(9901, 9, "Oi, quero o orçamento do sofá"));
+await ate(() => situacao(9).includes("responder:concluida"));
+check("orçamento aguardando", situacao(9).includes("enviar_mensagens:pendente"), situacao(9));
+await webhook(msg(9902, 9, "Oi? Chegou o vídeo"));
+check(
+  "cliente escreveu: orçamento enviado antes da resposta",
+  (await ate(() => /responder:concluida.*responder:concluida/.test(situacao(9)))) &&
+    situacao(9).includes("enviar_mensagens:concluida"),
+  situacao(9),
+);
+const ordem9 = (await doChatwoot(959)).map(textoDe);
+const iOrc = ordem9.indexOf("*Higienização Premium*");
+check(
+  "ordem com o cliente apressado: vídeo, orçamento, depois a resposta nova",
+  ordem9[1] === "[anexo video-hig.mp4]" && iOrc === 2 && ordem9.length > 5,
+  ordem9,
+);
+
+// Equipe assumiu antes da hora: o orçamento programado não é enviado.
+await webhook(conversaNova(10));
+await webhook(msg(10001, 10, "Oi, quero o orçamento do sofá"));
+await ate(() => situacao(10).includes("responder:concluida"));
+const idProgramada = sql(`SELECT t.id FROM ia_tarefas t JOIN conversas c ON c.id = t.conversa_id
+  WHERE c.chatwoot_conversation_id = 960 AND t.tipo = 'enviar_mensagens'`);
+await webhook(
+  msg(10002, 10, "Oi, aqui é a Carol", {
+    message_type: "outgoing",
+    sender: { id: 5, type: "user" },
+  }),
+);
+await ate(() => situacao(10).includes("passar_para_humano:concluida"));
+const antes10 = (await doChatwoot(960)).length;
+sql(
+  `UPDATE ia_tarefas SET executar_apos = now() - interval '1 second' WHERE id = '${idProgramada}'`,
+);
+const r10 = await processar(idProgramada);
+check(
+  "equipe assumiu: orçamento programado não sai",
+  r10.situacao === "ignorada" && (await doChatwoot(960)).length === antes10,
+  r10,
+);
+sql(`UPDATE ia_configuracoes SET espera_apos_midia_segundos = 3 WHERE empresa_id = '${EMPRESA}'`);
 
 // ---------------------------------------------------------------- 4c. follow-up na hora
 function followupAgora(conversa) {

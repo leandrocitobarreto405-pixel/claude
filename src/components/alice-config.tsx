@@ -405,6 +405,19 @@ export function AliceConfig() {
               </span>
             </label>
             <div className="space-y-1">
+              <Label htmlFor="alice-espera-midia">Espera depois do vídeo/áudio (segundos)</Label>
+              <Input
+                id="alice-espera-midia"
+                inputMode="numeric"
+                value={String(form.espera_apos_midia_segundos)}
+                onChange={(e) => campo("espera_apos_midia_segundos", Number(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                O resto da resposta (ex.: o orçamento) espera esse tempo. Se o cliente escrever
+                antes, sai na hora. 0 = tudo junto.
+              </p>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="alice-limite">Máximo de respostas por conversa</Label>
               <Input
                 id="alice-limite"

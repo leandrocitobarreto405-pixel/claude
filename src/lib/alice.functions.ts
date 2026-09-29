@@ -25,6 +25,7 @@ export type ConfigAlice = {
   hora_fim: number;
   agenda_automatica: boolean;
   transcrever_audio: boolean;
+  espera_apos_midia_segundos: number;
 };
 
 export const CAMPOS_MIDIA = [
@@ -63,6 +64,7 @@ const PADRAO: ConfigAlice = {
   hora_fim: 21,
   agenda_automatica: false,
   transcrever_audio: true,
+  espera_apos_midia_segundos: 120,
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -169,6 +171,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             hora_fim: cfg.hora_fim,
             agenda_automatica: cfg.agenda_automatica,
             transcrever_audio: cfg.transcrever_audio,
+            espera_apos_midia_segundos: cfg.espera_apos_midia_segundos,
           }
         : PADRAO,
       midias: cfg
@@ -235,6 +238,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         hora_fim: inteiro(data.hora_fim, 1, 24, 21),
         agenda_automatica: Boolean(data.agenda_automatica),
         transcrever_audio: Boolean(data.transcrever_audio),
+        espera_apos_midia_segundos: inteiro(data.espera_apos_midia_segundos, 0, 600, 120),
         esforco: data.esforco,
         espera_segundos: Math.min(Math.max(Math.round(Number(data.espera_segundos) || 0), 0), 120),
         limite_respostas_conversa: Math.min(

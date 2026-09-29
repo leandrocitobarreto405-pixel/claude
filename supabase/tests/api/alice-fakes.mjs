@@ -107,7 +107,7 @@ servidor(PORTA_CLAUDE, (req, body) => {
     return resposta(
       [
         texto(
-          "Oi! Sou a Alice, assistente virtual da Turbine Clean 😊\n\nA higienização do **sofá de 3 lugares** sai por R$ 180,00. Qual o seu bairro?",
+          "Oi! Sou a Alice IA da Turbine Clean 😊\n\nA higienização do **sofá de 3 lugares** sai por R$ 180,00. Qual o seu bairro?",
         ),
       ],
       "end_turn",

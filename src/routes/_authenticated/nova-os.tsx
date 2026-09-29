@@ -41,12 +41,12 @@ export const Route = createFileRoute("/_authenticated/nova-os")({
 
   head: () => ({
     meta: [
-      { title: "Nova OS — Gestão Estofados" },
+      { title: "Nova OS — Nexa OS" },
       {
         name: "description",
         content: "Cadastre cliente, venda e agende os serviços da ordem de serviço.",
       },
-      { property: "og:title", content: "Nova OS — Gestão Estofados" },
+      { property: "og:title", content: "Nova OS — Nexa OS" },
       {
         property: "og:description",
         content: "Cadastre cliente, venda e agende os serviços da ordem de serviço.",

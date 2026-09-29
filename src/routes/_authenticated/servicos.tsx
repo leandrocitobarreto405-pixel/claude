@@ -28,12 +28,12 @@ import {
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({
     meta: [
-      { title: "Serviços realizados — Gestão Estofados" },
+      { title: "Serviços realizados — Nexa OS" },
       {
         name: "description",
         content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",
       },
-      { property: "og:title", content: "Serviços realizados — Gestão Estofados" },
+      { property: "og:title", content: "Serviços realizados — Nexa OS" },
       {
         property: "og:description",
         content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",

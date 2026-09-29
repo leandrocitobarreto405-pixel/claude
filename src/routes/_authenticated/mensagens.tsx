@@ -21,12 +21,12 @@ import { dateBR, timeBR, tomorrowISO, weekdayPT, whatsappLink } from "@/lib/form
 export const Route = createFileRoute("/_authenticated/mensagens")({
   head: () => ({
     meta: [
-      { title: "Mensagens de amanhã — Gestão Estofados" },
+      { title: "Mensagens de amanhã — Nexa OS" },
       {
         name: "description",
         content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",
       },
-      { property: "og:title", content: "Mensagens de amanhã — Gestão Estofados" },
+      { property: "og:title", content: "Mensagens de amanhã — Nexa OS" },
       {
         property: "og:description",
         content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",

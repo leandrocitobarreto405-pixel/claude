@@ -66,9 +66,11 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
     const r =
       tarefa.tipo === "passar_para_humano"
         ? await passarParaHumano(db, tarefa)
-        : tarefa.tipo === "followup"
-          ? await fazerFollowup(db, tarefa)
-          : await responder(db, tarefa);
+        : tarefa.tipo === "enviar_mensagens"
+          ? await enviarProgramadas(db, tarefa)
+          : tarefa.tipo === "followup"
+            ? await fazerFollowup(db, tarefa)
+            : await responder(db, tarefa);
     if (r.situacao !== "adiada") {
       await concluir(db, tarefa.id, r.situacao === "erro" ? "erro" : r.situacao, r.detalhe);
     }
@@ -227,7 +229,8 @@ async function contextoEmpresa(
   const v = (config.data?.value ?? {}) as { name?: string; phone?: string; instagram?: string };
   const preco = (x: number | null) => (x === null || Number(x) <= 0 ? null : Number(x));
   return {
-    empresa: v.name || empresa.data?.nome || "a empresa",
+    // Nome oficial do cadastro da empresa (o de Configurações pode ter ficado com um padrão antigo).
+    empresa: empresa.data?.nome || v.name || "a empresa",
     telefone: v.phone || empresa.data?.telefone || null,
     instagram: v.instagram || null,
     nomeAssistente: cfg.nome,
@@ -589,6 +592,11 @@ async function conversar(
     return { situacao: "concluida", detalhe: "limite de respostas: passada para humano" };
   }
 
+  // O que ficou programado (orçamento depois do vídeo) sai antes da resposta nova.
+  if (await descarregarProgramadas(db, tarefa.empresa_id, d)) {
+    await new Promise((r) => setTimeout(r, ESPERA_WEBHOOK_MS));
+  }
+
   const etapas = await etapasAbertas(db, tarefa.empresa_id);
   const ferramentas = ferramentasDisponiveis(cfg, etapas);
   const [empresa, { lead, salesperson }, hist] = await Promise.all([
@@ -754,30 +762,30 @@ async function conversar(
     return { situacao: "ignorada", detalhe: "humano assumiu durante o processamento" };
   }
 
-  const enviadas: string[] = [];
-  for (const item of semNada) {
-    if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
-    if (item.tipo === "texto") {
-      for (const parte of dividirResposta(item.texto)) {
-        if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
-        await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);
-        enviadas.push(parte);
-      }
-    } else {
-      const { data: arquivo, error } = await db.storage.from("alice-midias").download(item.caminho);
-      if (error || !arquivo) {
-        console.error("Alice: mídia não encontrada", item.caminho, error?.message);
-        continue;
-      }
-      await enviarAnexo(
-        d.conta,
-        d.tokenRobo,
-        d.conversa.chatwoot_conversation_id,
-        arquivo,
-        item.nome,
-      );
-      enviadas.push(`[mídia] ${item.nome}`);
-    }
+  // Depois de um vídeo/áudio, o resto espera alguns minutos (o cliente vê o vídeo com calma e a
+  // mídia, que demora a carregar no WhatsApp, não chega depois do orçamento).
+  const iMidia = semNada.findIndex((s) => s.tipo === "anexo");
+  const espera = cfg.espera_apos_midia_segundos;
+  const programar = !ctx.passagem && espera > 0 && iMidia >= 0 && iMidia < semNada.length - 1;
+  const agoraItens = programar ? semNada.slice(0, iMidia + 1) : semNada;
+  const depoisItens = programar ? semNada.slice(iMidia + 1) : [];
+
+  const enviadas = await enviarItens(db, d, agoraItens);
+  if (depoisItens.length) {
+    await db.from("ia_tarefas").insert({
+      empresa_id: tarefa.empresa_id,
+      conversa_id: d.conversa.id,
+      tipo: "enviar_mensagens",
+      executar_apos: new Date(Date.now() + espera * 1000).toISOString(),
+      motivo: "resto da resposta, depois do vídeo/áudio",
+      dados: { itens: depoisItens } as never,
+    });
+    ctx.agendouFollowup = true; // entrega à fila no fim
+    enviadas.push(
+      ...depoisItens.map((i) =>
+        i.tipo === "texto" ? `[em ${espera}s] ${i.texto}` : `[em ${espera}s] [mídia] ${i.nome}`,
+      ),
+    );
   }
   await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: enviadas });
 
@@ -848,4 +856,77 @@ async function conversar(
     return { situacao: "concluida", detalhe: `transferida para a equipe: ${motivo}` };
   }
   return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };
+}
+
+// ---------------------------------------------------------------- envio
+/** Tempo para a mensagem enviada voltar pelo webhook e entrar no histórico. */
+const ESPERA_WEBHOOK_MS = 2500;
+
+/** Envia textos (divididos em mensagens) e mídias, na ordem. */
+async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise<string[]> {
+  const enviadas: string[] = [];
+  if (!d.tokenRobo) return enviadas;
+  for (const item of itens) {
+    if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
+    if (item.tipo === "texto") {
+      for (const parte of dividirResposta(item.texto)) {
+        if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
+        await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);
+        enviadas.push(parte);
+      }
+    } else {
+      const { data: arquivo, error } = await db.storage.from("alice-midias").download(item.caminho);
+      if (error || !arquivo) {
+        console.error("Alice: mídia não encontrada", item.caminho, error?.message);
+        continue;
+      }
+      await enviarAnexo(
+        d.conta,
+        d.tokenRobo,
+        d.conversa.chatwoot_conversation_id,
+        arquivo,
+        item.nome,
+      );
+      enviadas.push(`[mídia] ${item.nome}`);
+    }
+  }
+  return enviadas;
+}
+
+function itensDaTarefa(t: Tarefa): Saida[] {
+  const itens = (t.dados as { itens?: Saida[] } | null)?.itens;
+  return Array.isArray(itens) ? itens : [];
+}
+
+/** Hora de mandar o resto da resposta (depois do vídeo). Só se a conversa ainda está com a Alice. */
+async function enviarProgramadas(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
+  const d = await dadosConversa(db, tarefa);
+  if (d.contato?.ia_desligada)
+    return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
+  if (d.conversa.status !== "pending")
+    return { situacao: "ignorada", detalhe: "conversa com a equipe: não enviado" };
+  const enviadas = await enviarItens(db, d, itensDaTarefa(tarefa));
+  return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };
+}
+
+/**
+ * O cliente escreveu antes da hora: manda já o que estava programado, para a próxima resposta
+ * continuar dali. Devolve se enviou algo.
+ */
+async function descarregarProgramadas(db: Admin, empresaId: string, d: DadosConversa) {
+  const { data: pendentes } = await db
+    .from("ia_tarefas")
+    .update({ situacao: "processando", iniciada_em: new Date().toISOString() })
+    .eq("empresa_id", empresaId)
+    .eq("conversa_id", d.conversa.id)
+    .eq("tipo", "enviar_mensagens")
+    .eq("situacao", "pendente")
+    .select("*");
+  let enviou = false;
+  for (const t of (pendentes ?? []) as Tarefa[]) {
+    const enviadas = await enviarItens(db, d, itensDaTarefa(t));
+    enviou ||= enviadas.length > 0;
+    await concluir(db, t.id, "concluida", "enviada antes da hora: o cliente escreveu");
+  }
+  return enviou;
 }

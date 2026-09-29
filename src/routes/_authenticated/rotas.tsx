@@ -32,12 +32,12 @@ export const Route = createFileRoute("/_authenticated/rotas")({
   }),
   head: () => ({
     meta: [
-      { title: "Rotas e quilometragem — Gestão Estofados" },
+      { title: "Rotas e quilometragem — Nexa OS" },
       {
         name: "description",
         content: "Roteiro do dia, quilometragem e custo rateado por serviço.",
       },
-      { property: "og:title", content: "Rotas e quilometragem — Gestão Estofados" },
+      { property: "og:title", content: "Rotas e quilometragem — Nexa OS" },
       {
         property: "og:description",
         content: "Roteiro do dia, quilometragem e custo rateado por serviço.",

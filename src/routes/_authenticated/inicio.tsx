@@ -33,9 +33,9 @@ import {
 export const Route = createFileRoute("/_authenticated/inicio")({
   head: () => ({
     meta: [
-      { title: "Início — Gestão Estofados" },
+      { title: "Início — Nexa OS" },
       { name: "description", content: "Painel do dia com meta do mês, agenda e pendências." },
-      { property: "og:title", content: "Início — Gestão Estofados" },
+      { property: "og:title", content: "Início — Nexa OS" },
       {
         property: "og:description",
         content: "Painel do dia com meta do mês, agenda e pendências.",
