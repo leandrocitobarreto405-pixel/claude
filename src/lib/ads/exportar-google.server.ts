@@ -32,7 +32,7 @@ export type ResultadoEmpresa = {
   planilha: string | null;
   novas: number;
   na_planilha: number;
-  situacao: "enviado" | "nada_novo" | "sem_planilha" | "simulado" | "erro";
+  situacao: "enviado" | "formatada" | "nada_novo" | "sem_planilha" | "simulado" | "erro";
   erro?: string;
   linhas?: Linha[];
 };
@@ -82,6 +82,16 @@ export function linhasRecentes(valores: unknown[][], agora = new Date()): Linha[
   return linhas;
 }
 
+/** Linha 1 = só os parâmetros; linha 2 = exatamente os nomes das colunas. */
+export function formatoCerto(valores: unknown[][]): boolean {
+  const semVazias = (l: unknown[] | undefined) =>
+    (l ?? []).map((c) => String(c ?? "").trim()).filter((c, i, t) => c || t.slice(i).some(Boolean));
+  return (
+    semVazias(valores[0]).join("|") === PARAMETROS &&
+    semVazias(valores[1]).join("|") === CABECALHO.join("|")
+  );
+}
+
 /** Junta as antigas com as novas, sem repetir gclid + nome + horário. */
 export function juntarLinhas(antigas: Linha[], novas: Linha[]): Linha[] {
   const chave = (l: Linha) => `${l[0]}|${l[1]}|${l[2]}`;
@@ -123,11 +133,6 @@ async function exportarEmpresa(
     }
     return { ...base, na_planilha: 0, situacao: "sem_planilha" };
   }
-  if (!novas.length) {
-    log("INFO", "exportacao.nada_novo", { empresa_id: empresaId });
-    return { ...base, na_planilha: 0, situacao: "nada_novo" };
-  }
-
   const { tokenGoogle } = await import("@/lib/google-auth.server");
   const token = await tokenGoogle(empresaId);
   const id = encodeURIComponent(planilha);
@@ -142,49 +147,77 @@ async function exportarEmpresa(
   )) as {
     values?: unknown[][];
   };
-  const linhas = juntarLinhas(linhasRecentes(atual.values ?? []), novas);
+  const valores = atual.values ?? [];
 
+  // Nada novo e a planilha já no formato: não mexe.
+  if (!novas.length && formatoCerto(valores)) {
+    log("INFO", "exportacao.nada_novo", { empresa_id: empresaId, planilha, aba });
+    return { ...base, na_planilha: 0, situacao: "nada_novo" };
+  }
+
+  // Grava parâmetros, cabeçalho, conversões recentes que já estavam e as novas. Sem conversões
+  // novas, isto só (re)formata a planilha vazia ou fora do formato.
+  const linhas = juntarLinhas(linhasRecentes(valores), novas);
   await sheets(token, `${id}/values/${faixa}:clear`, { method: "POST", body: "{}" });
   await sheets(token, `${id}/values/${faixa}?valueInputOption=RAW`, {
     method: "PUT",
     body: JSON.stringify({ values: [[PARAMETROS], [...CABECALHO], ...linhas] }),
   });
 
+  // Confere no Google o que ficou gravado (vai para o log).
+  const conferencia = (await sheets(
+    token,
+    `${id}/values/${encodeURIComponent(`'${aba.replace(/'/g, "''")}'!A1:E2`)}`,
+  )) as { values?: unknown[][] };
+  const primeirasLinhas = (conferencia.values ?? []).map((l) => l.map((c) => String(c ?? "")));
+  if (!formatoCerto(primeirasLinhas)) {
+    throw new Error(
+      `a planilha não ficou no formato esperado: ${JSON.stringify(primeirasLinhas).slice(0, 300)}`,
+    );
+  }
+
   // Só depois de gravar a planilha: marca todos os cliques com gclid dos leads exportados.
   const leads = [
     ...new Set((pendentes ?? []).map((p) => p.crm_lead_id).filter(Boolean)),
   ] as string[];
-  const { data: marcados, error: erroMarca } = await supabaseAdmin
-    .from("ads_clicks")
-    .update({ enviado_google_em: new Date().toISOString() })
-    .eq("empresa_id", empresaId)
-    .in("crm_lead_id", leads)
-    .not("gclid", "is", null)
-    .is("enviado_google_em", null)
-    .select("id");
-  if (erroMarca)
-    throw new Error(`planilha gravada, mas falhou ao marcar enviados: ${erroMarca.message}`);
+  let marcados = 0;
+  if (leads.length) {
+    const { data, error: erroMarca } = await supabaseAdmin
+      .from("ads_clicks")
+      .update({ enviado_google_em: new Date().toISOString() })
+      .eq("empresa_id", empresaId)
+      .in("crm_lead_id", leads)
+      .not("gclid", "is", null)
+      .is("enviado_google_em", null)
+      .select("id");
+    if (erroMarca)
+      throw new Error(`planilha gravada, mas falhou ao marcar enviados: ${erroMarca.message}`);
+    marcados = data?.length ?? 0;
+  }
 
+  const situacao = novas.length ? "enviado" : "formatada";
   await supabaseAdmin.from("ads_eventos").insert({
     empresa_id: empresaId,
     tipo: "exportacao_google",
-    resultado: "enviado",
+    resultado: situacao,
     detalhe: {
       planilha,
       aba,
       novas: novas.length,
       na_planilha: linhas.length,
-      cliques_marcados: marcados?.length ?? 0,
+      cliques_marcados: marcados,
+      primeiras_linhas: primeirasLinhas,
     },
   });
-  log("INFO", "exportacao.enviado", {
+  log("INFO", `exportacao.${situacao}`, {
     empresa_id: empresaId,
     planilha,
     aba,
     novas: novas.length,
     na_planilha: linhas.length,
+    cliques_marcados: marcados,
   });
-  return { ...base, na_planilha: linhas.length, situacao: "enviado" };
+  return { ...base, na_planilha: linhas.length, situacao };
 }
 
 /** Exporta todas as empresas (ou uma). Erro numa empresa não impede as outras. */

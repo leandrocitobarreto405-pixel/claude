@@ -112,6 +112,11 @@ Manter as recentes evita perder uma venda se o Google ler a planilha só depois 
 exportações; o Google ignora a mesma conversão (gclid + nome + horário) importada de novo. Depois
 de gravar a planilha, marca `enviado_google_em` nos cliques exportados.
 
+Sem conversões novas, a exportação só mexe na planilha se ela estiver vazia ou fora do formato:
+nesse caso escreve os parâmetros e o cabeçalho (resultado `formatada`, nenhum clique marcado).
+Toda gravação é conferida relendo as duas primeiras linhas no Google; o que voltou fica em
+`ads_eventos.detalhe->'primeiras_linhas'`.
+
 Rodar à mão (Cloud Shell):
 
 ```bash

@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dadosDoPopup, hostDe, lerCorpo } from "./captacao.server";
-import { juntarLinhas, linhasRecentes, PARAMETROS } from "./exportar-google.server";
+import {
+  CABECALHO,
+  formatoCerto,
+  juntarLinhas,
+  linhasRecentes,
+  PARAMETROS,
+} from "./exportar-google.server";
 
 test("pop-up: JSON, formulário e nomes alternativos", () => {
   assert.deepEqual(lerCorpo('{"nome":"Ana"}'), { nome: "Ana" });
@@ -64,4 +70,14 @@ test("planilha: mantém só conversões recentes e não repete", () => {
     juntas.map((l) => l[0]),
     ["G1", "G2"],
   );
+});
+
+test("planilha: formato da importação", () => {
+  assert.equal(formatoCerto([[PARAMETROS], [...CABECALHO]]), true);
+  assert.equal(formatoCerto([[PARAMETROS, ""], [...CABECALHO, ""], ["G1"]]), true);
+  assert.equal(formatoCerto([]), false);
+  assert.equal(formatoCerto([[PARAMETROS]]), false);
+  assert.equal(formatoCerto([["Parameters:TimeZone=UTC"], [...CABECALHO]]), false);
+  assert.equal(formatoCerto([[PARAMETROS, "x"], [...CABECALHO]]), false);
+  assert.equal(formatoCerto([[PARAMETROS], ["Google Click ID", "Conversion Name"]]), false);
 });

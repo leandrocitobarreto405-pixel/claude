@@ -162,6 +162,54 @@ check(
         WHERE a.gclid = 'Cj0KCQ_teste-ads' AND c.chatwoot_conversation_id = 990`) === "true",
 );
 
+// ---------------------------------------------------------------- 3b. planilha sem vendas
+// Sem conversões novas, a exportação formata a planilha vazia (parâmetros + cabeçalho).
+let formatada = await (await exportar()).json();
+check(
+  "planilha vazia: formatada sem vendas",
+  formatada.ok &&
+    formatada.resultados?.[0]?.situacao === "formatada" &&
+    JSON.stringify((await planilha()).slice(0, 2)) ===
+      JSON.stringify([
+        ["Parameters:TimeZone=America/Sao_Paulo"],
+        [
+          "Google Click ID",
+          "Conversion Name",
+          "Conversion Time",
+          "Conversion Value",
+          "Conversion Currency",
+        ],
+      ]) &&
+    (await planilha()).length === 2,
+  [formatada, await planilha()],
+);
+check(
+  "formatar não marca clique como enviado",
+  sql(`SELECT count(*) FROM ads_clicks WHERE enviado_google_em IS NOT NULL`) === "0",
+);
+check(
+  "conferência das duas linhas no log",
+  sql(`SELECT detalhe->'primeiras_linhas'->0->>0 FROM ads_eventos
+        WHERE tipo = 'exportacao_google' AND resultado = 'formatada'`) ===
+    "Parameters:TimeZone=America/Sao_Paulo",
+);
+formatada = await (await exportar()).json();
+check("já formatada: não mexe", formatada.resultados?.[0]?.situacao === "nada_novo", formatada);
+// Fora do formato (alguém mexeu): volta ao formato.
+await fetch(`${FAKE}/v4/spreadsheets/${PLANILHA}/values/A1?valueInputOption=RAW`, {
+  method: "PUT",
+  headers: { Authorization: "Bearer token-oauth-empresa", "Content-Type": "application/json" },
+  body: JSON.stringify({ values: [["anotação solta"], ["a", "b"]] }),
+});
+formatada = await (await exportar()).json();
+check(
+  "fora do formato: reformatada",
+  formatada.resultados?.[0]?.situacao === "formatada" &&
+    (await planilha())[0]?.[0] === "Parameters:TimeZone=America/Sao_Paulo" &&
+    (await planilha()).length === 2,
+  [formatada, await planilha()],
+);
+
 // ---------------------------------------------------------------- 4. venda e exportação
 const lead = sql(`SELECT crm_lead_id FROM ads_clicks WHERE gclid = 'Cj0KCQ_teste-ads'`);
 sql(
@@ -193,7 +241,7 @@ check(
     simulada.linhas[0][1] === "Venda Impermeabilização" &&
     /^\d{4}-\d{2}-\d{2} 12:00:00-03:00$/.test(simulada.linhas[0][2]) &&
     simulada.linhas[0][3] === 649.9 &&
-    (await planilha()).length === 0 &&
+    (await planilha()).length === 2 &&
     sql(`SELECT count(*) FROM ads_clicks WHERE enviado_google_em IS NOT NULL`) === "0",
   corpo,
 );
