@@ -163,24 +163,20 @@ check(
 );
 
 // ---------------------------------------------------------------- 3b. planilha sem vendas
-// Sem conversões novas, a exportação formata a planilha vazia (parâmetros + cabeçalho).
+// Sem conversões novas, a exportação formata a planilha vazia: cabeçalho na linha 1.
+const CABECALHO = [
+  "Google Click ID",
+  "Conversion Name",
+  "Conversion Time",
+  "Conversion Value",
+  "Conversion Currency",
+];
 let formatada = await (await exportar()).json();
 check(
-  "planilha vazia: formatada sem vendas",
+  "planilha vazia: cabeçalho na linha 1, sem vendas",
   formatada.ok &&
     formatada.resultados?.[0]?.situacao === "formatada" &&
-    JSON.stringify((await planilha()).slice(0, 2)) ===
-      JSON.stringify([
-        ["Parameters:TimeZone=America/Sao_Paulo"],
-        [
-          "Google Click ID",
-          "Conversion Name",
-          "Conversion Time",
-          "Conversion Value",
-          "Conversion Currency",
-        ],
-      ]) &&
-    (await planilha()).length === 2,
+    JSON.stringify(await planilha()) === JSON.stringify([CABECALHO]),
   [formatada, await planilha()],
 );
 check(
@@ -188,25 +184,43 @@ check(
   sql(`SELECT count(*) FROM ads_clicks WHERE enviado_google_em IS NOT NULL`) === "0",
 );
 check(
-  "conferência das duas linhas no log",
+  "conferência da linha 1 no log",
   sql(`SELECT detalhe->'primeiras_linhas'->0->>0 FROM ads_eventos
-        WHERE tipo = 'exportacao_google' AND resultado = 'formatada'`) ===
-    "Parameters:TimeZone=America/Sao_Paulo",
+        WHERE tipo = 'exportacao_google' AND resultado = 'formatada'`) === "Google Click ID",
 );
 formatada = await (await exportar()).json();
 check("já formatada: não mexe", formatada.resultados?.[0]?.situacao === "nada_novo", formatada);
+// Formato antigo (linha de parâmetros em cima): vira cabeçalho na linha 1, conversões mantidas.
+const recente = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+const planilhaFake = (values) =>
+  fetch(`${FAKE}/v4/spreadsheets/${PLANILHA}/values/A1?valueInputOption=RAW`, {
+    method: "PUT",
+    headers: { Authorization: "Bearer token-oauth-empresa", "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+await planilhaFake([
+  ["Parameters:TimeZone=America/Sao_Paulo"],
+  CABECALHO,
+  ["GCLID_ANTIGO", "Venda Higienização", `${recente} 12:00:00-03:00`, 359.9, "BRL"],
+]);
+formatada = await (await exportar()).json();
+check(
+  "formato antigo: parâmetros removidos, conversão mantida",
+  formatada.resultados?.[0]?.situacao === "formatada" &&
+    JSON.stringify(await planilha()) ===
+      JSON.stringify([
+        CABECALHO,
+        ["GCLID_ANTIGO", "Venda Higienização", `${recente} 12:00:00-03:00`, 359.9, "BRL"],
+      ]),
+  [formatada, await planilha()],
+);
 // Fora do formato (alguém mexeu): volta ao formato.
-await fetch(`${FAKE}/v4/spreadsheets/${PLANILHA}/values/A1?valueInputOption=RAW`, {
-  method: "PUT",
-  headers: { Authorization: "Bearer token-oauth-empresa", "Content-Type": "application/json" },
-  body: JSON.stringify({ values: [["anotação solta"], ["a", "b"]] }),
-});
+await planilhaFake([["anotação solta"], ["a", "b"]]);
 formatada = await (await exportar()).json();
 check(
   "fora do formato: reformatada",
   formatada.resultados?.[0]?.situacao === "formatada" &&
-    (await planilha())[0]?.[0] === "Parameters:TimeZone=America/Sao_Paulo" &&
-    (await planilha()).length === 2,
+    JSON.stringify(await planilha()) === JSON.stringify([CABECALHO]),
   [formatada, await planilha()],
 );
 
@@ -241,7 +255,7 @@ check(
     simulada.linhas[0][1] === "Venda Impermeabilização" &&
     /^\d{4}-\d{2}-\d{2} 12:00:00-03:00$/.test(simulada.linhas[0][2]) &&
     simulada.linhas[0][3] === 649.9 &&
-    (await planilha()).length === 2 &&
+    (await planilha()).length === 1 &&
     sql(`SELECT count(*) FROM ads_clicks WHERE enviado_google_em IS NOT NULL`) === "0",
   corpo,
 );
@@ -251,13 +265,11 @@ corpo = await r.json();
 const valores = await planilha();
 check("exportação ok", corpo.ok && corpo.resultados?.[0]?.situacao === "enviado", corpo);
 check(
-  "planilha: parâmetros, cabeçalho e a venda",
-  valores[0]?.[0] === "Parameters:TimeZone=America/Sao_Paulo" &&
-    valores[1]?.join("|") ===
-      "Google Click ID|Conversion Name|Conversion Time|Conversion Value|Conversion Currency" &&
-    valores.length === 3 &&
-    valores[2][0] === "Cj0KCQ_teste-ads" &&
-    valores[2][4] === "BRL",
+  "planilha: cabeçalho na linha 1 e a venda",
+  valores[0]?.join("|") === CABECALHO.join("|") &&
+    valores.length === 2 &&
+    valores[1][0] === "Cj0KCQ_teste-ads" &&
+    valores[1][4] === "BRL",
   valores,
 );
 check(
@@ -272,7 +284,7 @@ r = await exportar();
 corpo = await r.json();
 check(
   "segunda exportação: nada novo, planilha mantida",
-  corpo.resultados?.[0]?.situacao === "nada_novo" && (await planilha()).length === 3,
+  corpo.resultados?.[0]?.situacao === "nada_novo" && (await planilha()).length === 2,
   corpo,
 );
 

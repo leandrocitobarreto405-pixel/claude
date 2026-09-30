@@ -106,14 +106,18 @@ Configuração (uma vez):
    ON CONFLICT (empresa_id) DO UPDATE SET google_planilha_id = EXCLUDED.google_planilha_id;
    ```
 
-A exportação reescreve a primeira aba: linha 1 `Parameters:TimeZone=America/Sao_Paulo`, linha 2 os
-nomes das colunas e, embaixo, as conversões dos últimos 90 dias (as que já estavam + as novas).
+A exportação reescreve a primeira aba: linha 1 com os nomes das colunas (o fluxo novo de
+importação do Google Ads, na Central de dados, lê a linha 1 como cabeçalho; não há linha de
+parâmetros, porque o fuso já vai no horário, `-03:00`) e, embaixo, as conversões dos últimos 90
+dias (as que já estavam + as novas).
 Manter as recentes evita perder uma venda se o Google ler a planilha só depois de duas
 exportações; o Google ignora a mesma conversão (gclid + nome + horário) importada de novo. Depois
 de gravar a planilha, marca `enviado_google_em` nos cliques exportados.
 
 Sem conversões novas, a exportação só mexe na planilha se ela estiver vazia ou fora do formato:
-nesse caso escreve os parâmetros e o cabeçalho (resultado `formatada`, nenhum clique marcado).
+nesse caso escreve o cabeçalho, mantendo as conversões recentes que já estavam (resultado
+`formatada`, nenhum clique marcado). Uma planilha no formato antigo, com a linha
+`Parameters:...` em cima, conta como fora do formato e é corrigida na próxima exportação.
 Toda gravação é conferida relendo as duas primeiras linhas no Google; o que voltou fica em
 `ads_eventos.detalhe->'primeiras_linhas'`.
 

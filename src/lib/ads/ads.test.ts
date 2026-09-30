@@ -1,13 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dadosDoPopup, hostDe, lerCorpo } from "./captacao.server";
-import {
-  CABECALHO,
-  formatoCerto,
-  juntarLinhas,
-  linhasRecentes,
-  PARAMETROS,
-} from "./exportar-google.server";
+import { CABECALHO, formatoCerto, juntarLinhas, linhasRecentes } from "./exportar-google.server";
 
 test("pop-up: JSON, formulário e nomes alternativos", () => {
   assert.deepEqual(lerCorpo('{"nome":"Ana"}'), { nome: "Ana" });
@@ -46,7 +40,7 @@ test("pop-up: domínio pelo Origin, Referer ou page_url", () => {
 test("planilha: mantém só conversões recentes e não repete", () => {
   const agora = new Date("2026-10-01T12:00:00-03:00");
   const valores = [
-    [PARAMETROS],
+    ["Parameters:TimeZone=America/Sao_Paulo"],
     [
       "Google Click ID",
       "Conversion Name",
@@ -72,12 +66,11 @@ test("planilha: mantém só conversões recentes e não repete", () => {
   );
 });
 
-test("planilha: formato da importação", () => {
-  assert.equal(formatoCerto([[PARAMETROS], [...CABECALHO]]), true);
-  assert.equal(formatoCerto([[PARAMETROS, ""], [...CABECALHO, ""], ["G1"]]), true);
+test("planilha: formato da importação (cabeçalho na linha 1)", () => {
+  assert.equal(formatoCerto([[...CABECALHO]]), true);
+  assert.equal(formatoCerto([[...CABECALHO, ""], ["G1"]]), true);
   assert.equal(formatoCerto([]), false);
-  assert.equal(formatoCerto([[PARAMETROS]]), false);
-  assert.equal(formatoCerto([["Parameters:TimeZone=UTC"], [...CABECALHO]]), false);
-  assert.equal(formatoCerto([[PARAMETROS, "x"], [...CABECALHO]]), false);
-  assert.equal(formatoCerto([[PARAMETROS], ["Google Click ID", "Conversion Name"]]), false);
+  assert.equal(formatoCerto([["Parameters:TimeZone=America/Sao_Paulo"], [...CABECALHO]]), false);
+  assert.equal(formatoCerto([[...CABECALHO, "x"]]), false);
+  assert.equal(formatoCerto([["Google Click ID", "Conversion Name"]]), false);
 });

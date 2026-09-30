@@ -4,8 +4,9 @@
  * Para cada empresa com planilha configurada (ads_configuracoes.google_planilha_id):
  *  1. lê as conversões pendentes (vw_conversoes_google_pendentes: venda faturada, com gclid,
  *     ainda não enviada);
- *  2. reescreve a primeira aba da planilha: "Parameters:TimeZone=America/Sao_Paulo", os nomes
- *     das colunas e as conversões dos últimos 90 dias (as antigas que já estavam + as novas). Manter
+ *  2. reescreve a primeira aba da planilha: na linha 1 os nomes das colunas (o fluxo novo do
+ *     Google Ads, na Central de dados, lê a linha 1 como cabeçalho; o fuso vai no horário, -03:00)
+ *     e embaixo as conversões dos últimos 90 dias (as antigas que já estavam + as novas). Manter
  *     as recentes protege contra o Google ler a planilha depois de duas exportações seguidas; o
  *     Google ignora a mesma conversão (gclid + nome + horário) importada de novo;
  *  3. marca enviado_google_em nos cliques exportados (depois de gravar a planilha).
@@ -22,7 +23,6 @@ export const CABECALHO = [
   "Conversion Value",
   "Conversion Currency",
 ] as const;
-export const PARAMETROS = "Parameters:TimeZone=America/Sao_Paulo";
 const DIAS_NA_PLANILHA = 90;
 
 type Linha = [string, string, string, number, string];
@@ -64,11 +64,14 @@ function dataDaLinha(horario: unknown): Date | null {
   return m ? new Date(`${m[1]}T${m[2]}${m[3]}`) : null;
 }
 
-/** Linhas que já estavam na planilha (a partir da 3ª), só as recentes e bem formadas. */
+/**
+ * Conversões que já estavam na planilha, só as recentes e bem formadas. Cabeçalho e outras linhas
+ * sem horário válido ficam de fora (inclusive a antiga linha "Parameters:...").
+ */
 export function linhasRecentes(valores: unknown[][], agora = new Date()): Linha[] {
   const limite = agora.getTime() - DIAS_NA_PLANILHA * 24 * 3600 * 1000;
   const linhas: Linha[] = [];
-  for (const v of valores.slice(2)) {
+  for (const v of valores) {
     const quando = dataDaLinha(v[2]);
     if (!v[0] || !v[1] || !quando || quando.getTime() < limite) continue;
     linhas.push([
@@ -82,14 +85,11 @@ export function linhasRecentes(valores: unknown[][], agora = new Date()): Linha[
   return linhas;
 }
 
-/** Linha 1 = só os parâmetros; linha 2 = exatamente os nomes das colunas. */
+/** Linha 1 = exatamente os nomes das colunas. */
 export function formatoCerto(valores: unknown[][]): boolean {
   const semVazias = (l: unknown[] | undefined) =>
     (l ?? []).map((c) => String(c ?? "").trim()).filter((c, i, t) => c || t.slice(i).some(Boolean));
-  return (
-    semVazias(valores[0]).join("|") === PARAMETROS &&
-    semVazias(valores[1]).join("|") === CABECALHO.join("|")
-  );
+  return semVazias(valores[0]).join("|") === CABECALHO.join("|");
 }
 
 /** Junta as antigas com as novas, sem repetir gclid + nome + horário. */
@@ -161,7 +161,7 @@ async function exportarEmpresa(
   await sheets(token, `${id}/values/${faixa}:clear`, { method: "POST", body: "{}" });
   await sheets(token, `${id}/values/${faixa}?valueInputOption=RAW`, {
     method: "PUT",
-    body: JSON.stringify({ values: [[PARAMETROS], [...CABECALHO], ...linhas] }),
+    body: JSON.stringify({ values: [[...CABECALHO], ...linhas] }),
   });
 
   // Confere no Google o que ficou gravado (vai para o log).
