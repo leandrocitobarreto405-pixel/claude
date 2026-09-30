@@ -26,6 +26,7 @@ export type ConfigAlice = {
   agenda_automatica: boolean;
   transcrever_audio: boolean;
   espera_apos_midia_segundos: number;
+  clientes_antigos_com_equipe: boolean;
 };
 
 export const CAMPOS_MIDIA = [
@@ -65,6 +66,7 @@ const PADRAO: ConfigAlice = {
   agenda_automatica: false,
   transcrever_audio: true,
   espera_apos_midia_segundos: 120,
+  clientes_antigos_com_equipe: true,
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -172,6 +174,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             agenda_automatica: cfg.agenda_automatica,
             transcrever_audio: cfg.transcrever_audio,
             espera_apos_midia_segundos: cfg.espera_apos_midia_segundos,
+            clientes_antigos_com_equipe: cfg.clientes_antigos_com_equipe,
           }
         : PADRAO,
       midias: cfg
@@ -239,6 +242,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         agenda_automatica: Boolean(data.agenda_automatica),
         transcrever_audio: Boolean(data.transcrever_audio),
         espera_apos_midia_segundos: inteiro(data.espera_apos_midia_segundos, 0, 600, 120),
+        clientes_antigos_com_equipe: data.clientes_antigos_com_equipe !== false,
         esforco: data.esforco,
         espera_segundos: Math.min(Math.max(Math.round(Number(data.espera_segundos) || 0), 0), 120),
         limite_respostas_conversa: Math.min(
@@ -482,7 +486,14 @@ async function mudarConversaNoChatwoot(
     await enviarMensagem(conta, sg.api_token, Number(conv.chatwoot_conversation_id), nota, true);
   }
   await mudarSituacao(conta, sg.api_token, Number(conv.chatwoot_conversation_id), situacao);
-  await db.from("conversas").update({ status: situacao }).eq("id", conv.id);
+  await db
+    .from("conversas")
+    .update(
+      situacao === "pending"
+        ? { status: situacao, devolvida_para_alice_em: new Date().toISOString() }
+        : { status: situacao },
+    )
+    .eq("id", conv.id);
 }
 
 /** "IA desligada" / "Sem pós-venda" no cliente. Desligar a IA tira a conversa do robô. */
@@ -562,6 +573,88 @@ export const devolverParaAlice = createServerFn({ method: "POST" })
       conv.id,
       "pending",
       `🤖 Conversa devolvida para a ${cfg.nome} pelo Nexa OS. Ela responde a próxima mensagem do cliente.`,
+    );
+    return { ok: true };
+  });
+
+export type ConversaComAlice = {
+  id: string;
+  nome: string;
+  leadId: string | null;
+  url: string | null;
+  ultimaMensagem: string | null;
+  ultimaEm: string | null;
+};
+
+/** Conversas que a Alice está atendendo agora (para a equipe achar e assumir rápido). */
+export const conversasComAlice = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<ConversaComAlice[]> => {
+    const db = context.supabase;
+    const desde = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+    const { data: conversas, error } = await db
+      .from("conversas")
+      .select(
+        "id, crm_lead_id, url_chatwoot, ultima_atividade_em, contato:whatsapp_contact_id ( profile_name, display_phone, normalized_phone )",
+      )
+      .eq("empresa_id", context.empresaId)
+      .eq("status", "pending")
+      .gte("ultima_atividade_em", desde)
+      .order("ultima_atividade_em", { ascending: false })
+      .limit(30);
+    if (error) throw new Error("Não foi possível carregar as conversas da Alice.");
+    const ids = (conversas ?? []).map((c) => c.id);
+    const { data: msgs } = ids.length
+      ? await db
+          .from("whatsapp_messages")
+          .select("conversa_id, text_content, direction, message_timestamp")
+          .in("conversa_id", ids)
+          .eq("privada", false)
+          .gte("message_timestamp", desde)
+          .order("message_timestamp", { ascending: false })
+          .limit(300)
+      : { data: [] };
+    return (conversas ?? []).map((c) => {
+      const contato = c.contato as {
+        profile_name: string | null;
+        display_phone: string | null;
+        normalized_phone: string | null;
+      } | null;
+      const ultima = (msgs ?? []).find((m) => m.conversa_id === c.id);
+      return {
+        id: c.id,
+        nome:
+          contato?.profile_name || contato?.display_phone || contato?.normalized_phone || "Cliente",
+        leadId: c.crm_lead_id,
+        url: c.url_chatwoot,
+        ultimaMensagem: ultima
+          ? `${ultima.direction === "Recebida" ? "Cliente" : "Alice"}: ${ultima.text_content ?? "(mídia)"}`
+          : null,
+        ultimaEm: ultima?.message_timestamp ?? c.ultima_atividade_em,
+      };
+    });
+  });
+
+/** Tira a Alice de uma conversa pelo Nexa OS: a conversa fica com a equipe. */
+export const pararAliceNaConversa = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { conversaId: string }) => {
+    if (!/^[0-9a-f-]{36}$/i.test(input.conversaId)) throw new Error("Conversa inválida.");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { data: conv } = await context.supabase
+      .from("conversas")
+      .select("id")
+      .eq("id", data.conversaId)
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    if (!conv) throw new Error("Conversa não encontrada.");
+    await mudarConversaNoChatwoot(
+      context.empresaId,
+      conv.id,
+      "open",
+      "🤖 A equipe tirou a Alice desta conversa pelo Nexa OS. Para devolver, mande a nota #alice.",
     );
     return { ok: true };
   });

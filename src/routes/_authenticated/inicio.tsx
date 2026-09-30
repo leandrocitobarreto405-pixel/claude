@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { StatusBadge, VisitDialog } from "@/components/visit-dialog";
+import { AliceAgora } from "@/components/alice-agora";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { useMonthSummary } from "@/lib/reports";
@@ -176,6 +177,8 @@ function Inicio() {
           </Button>
         }
       />
+
+      <AliceAgora />
 
       <section className="card-surface card-accent-teal mb-6 p-5 md:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">

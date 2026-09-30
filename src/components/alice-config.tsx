@@ -224,12 +224,20 @@ export function AliceConfig() {
           <Numero rotulo="Falhas" valor={String(s.ultimos7dias.erros)} />
         </div>
 
-        <p className="mt-4 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
-          Para <strong>assumir</strong> uma conversa, é só escrever nela pelo Chatwoot: a Alice sai
-          na hora. Para <strong>devolver</strong> à Alice, use o botão “Devolver para a Alice” na
-          tela do lead (ou marque a conversa como “Pendente” no Chatwoot). Na mesma tela dá para
-          marcar o cliente como “IA desligada” ou “Sem pós-venda”.
-        </p>
+        <div className="mt-4 grid gap-1 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <p>
+            <strong>Assumir uma conversa:</strong> é só responder o cliente, pelo WhatsApp do
+            celular ou pelo Chatwoot, que a Alice sai na hora. Também dá para tocar em “Assumir” na
+            lista “Alice atendendo agora” (Início e Repescagens).
+          </p>
+          <p>
+            <strong>Comandos no Chatwoot</strong> (sempre como <em>nota privada</em>, que o cliente
+            não vê): <code>#parar</code> tira a Alice da conversa; <code>#desligar</code> desliga a
+            IA para o cliente (nem follow-up, nem pós-venda); <code>#alice</code> devolve a conversa
+            para ela. Funciona com barra também (<code>/parar</code>).
+          </p>
+          <p>No WhatsApp do celular não mande comando: tudo que sai de lá chega ao cliente.</p>
+        </div>
       </section>
 
       <section className="card-surface grid gap-4 p-5 [&>*]:min-w-0">
@@ -390,6 +398,18 @@ export function AliceConfig() {
               <span>
                 Transcrever os áudios dos clientes (Google Speech-to-Text). Desligado, a Alice pede
                 para o cliente escrever.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.clientes_antigos_com_equipe}
+                onChange={(e) => campo("clientes_antigos_com_equipe", e.target.checked)}
+              />
+              <span>
+                Cliente antigo vai direto para a equipe (cadastrado em Clientes ou com serviço
+                feito): a Alice não responde e deixa uma nota no Chatwoot.
               </span>
             </label>
             <label className="flex items-start gap-2 text-sm sm:col-span-2">

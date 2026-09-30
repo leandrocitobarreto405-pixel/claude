@@ -156,6 +156,27 @@ Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app preci
 - **Sem pós-venda**: a Alice atende, mas sem satisfação/avaliação/reativação.
 - **Devolver para a Alice**: volta a conversa para "pendente" no Chatwoot (nota privada avisando).
 
+### Assumir, parar e devolver (30/09/2026)
+- **No WhatsApp do celular (WhatsApp Business):** é só responder o cliente. A mensagem chega ao
+  Chatwoot como "eco" do celular e a Alice sai da conversa na hora. Não mande comando pelo celular:
+  tudo que sai de lá chega ao cliente.
+- **No Chatwoot, por nota privada** (o cliente não vê), com `#` ou `/`:
+  | Comando | O que faz |
+  |---|---|
+  | `#parar` (ou `#humano`) | A Alice sai desta conversa; fica com a equipe. |
+  | `#desligar` | IA desligada para o cliente (nem respostas, nem follow-up, nem pós-venda). |
+  | `#alice` | Devolve a conversa para a Alice (religa a IA do cliente); se o cliente está esperando, ela já responde. |
+  A Alice confirma cada comando com uma nota privada ("🤖 Ok! ..."). Dica: crie no Chatwoot
+  respostas prontas com atalho `parar` e `alice` para aparecerem ao digitar `/`.
+- **No Nexa OS (serve no celular):** lista "Alice atendendo agora" no Início e em Repescagens, com o
+  botão **Assumir** e o link para a conversa no Chatwoot.
+- **Cliente antigo** (cadastrado em Clientes ou com serviço feito): a Alice não responde, deixa
+  nota e passa a conversa para a equipe. Desliga em Configurações → Alice. Se a equipe devolver
+  (`#alice` ou botão do lead), ela atende normalmente. Hoje isso depende da lista de clientes estar
+  no Nexa (importação). Além disso, se o próprio cliente disser que já foi atendido, a Alice
+  transfere para a equipe.
+- Se a equipe assume enquanto a Alice está escrevendo, a resposta dela é descartada.
+
 ### Áudio
 - Áudios do cliente são transcritos (Google Speech-to-Text v2, síncrono, até 1 minuto) com a conta
   de serviço do Cloud Run e guardados em `whatsapp_messages.transcricao`. Falhou: a Alice recebe
@@ -187,6 +208,7 @@ echo "Pronto."
 |---|---|
 | `supabase/tests/070_alice_fase1.sql` | Cliente respondeu / humano escreveu / conversa saiu de pendente / IA desligada cancelam o follow-up e a repescagem; IA desligada não agenda; mídia só da pasta da empresa; horário válido; repescagem não aponta para tarefa de outra empresa. Validado com mutação. |
 | `supabase/tests/api/alice.test.mjs` | Ordem texto → vídeo → orçamento → pergunta; valores (total e Pix) calculados pelo sistema; orçamento gravado no lead; follow-up agendado, cancelado pela resposta, enviado na hora e barrado fora da janela (vira tarefa da equipe); áudio transcrito e entregue à IA; IA desligada; transferência cria tarefa da equipe; varredura protegida. Janela e ordem validadas com mutação. |
+| `supabase/tests/090_alice_comandos.sql` | Reconhecimento dos comandos; `#parar`, `#desligar`, `#alice`; nota comum e nota do robô não contam; eco do celular tira a Alice; cliente antigo vai para a equipe, volta com `#alice` e a opção desliga. Validado com mutação. |
 | `src/lib/alice/regras.test.ts` | Horário permitido, janela de 24 h, parcela/Pix, validade com dia da semana, datas em São Paulo, nomes da tabela. |
 
 ## Próximos passos (fase 2)

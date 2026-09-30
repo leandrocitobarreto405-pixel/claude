@@ -20,6 +20,7 @@ import {
   useCrmInvalidate,
 } from "@/lib/crm";
 import { dateTimeBR, todayISO, whatsappLink } from "@/lib/format";
+import { AliceAgora } from "@/components/alice-agora";
 
 export const Route = createFileRoute("/_authenticated/crm/repescagens")({
   head: () => ({
@@ -243,6 +244,8 @@ function Repescagens() {
         title="Repescagens e follow-ups"
         description="Retornos combinados com o cliente: os da equipe (envio manual) e os que a Alice faz sozinha."
       />
+
+      <AliceAgora />
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">Mostrar:</span>

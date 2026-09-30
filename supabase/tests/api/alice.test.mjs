@@ -479,6 +479,86 @@ sql(`UPDATE whatsapp_contacts SET ia_desligada = true
 await webhook(msg(9801, 8, "Oi"));
 check("IA desligada no cliente: nada agendado", situacao(8) === "-", situacao(8));
 
+// ---------------------------------------------------------------- 4g. comandos da equipe
+const nota = (id, n, texto, status = "pending") =>
+  msg(id, n, texto, {
+    message_type: "outgoing",
+    private: true,
+    sender: { id: 7, name: "Maria", type: "user" },
+    conversation: { id: 950 + n, inbox_id: 4242, status, meta: { sender: pessoa(n) } },
+  });
+const toggles = async (conversa) =>
+  (await log(CHATWOOT))
+    .filter((c) => c.url.endsWith(`/conversations/${conversa}/toggle_status`))
+    .map((c) => c.body?.status);
+await webhook(conversaNova(11));
+await webhook(msg(9111, 11, "Oi"));
+check(
+  "comandos: Alice atendeu",
+  await ate(() => situacao(11) === "responder:concluida"),
+  situacao(11),
+);
+await webhook(nota(9112, 11, "#parar"));
+check(
+  "#parar: passada para a equipe",
+  await ate(() => situacao(11) === "responder:concluida,passar_para_humano:concluida"),
+  situacao(11),
+);
+const notas11 = (await doChatwoot(961)).filter((c) => c.body?.private);
+check(
+  "#parar: nota de confirmação no Chatwoot",
+  notas11.some((c) => c.body.content.includes("A Alice saiu desta conversa")),
+  notas11,
+);
+check("#parar: conversa aberta para a equipe", (await toggles(961)).at(-1) === "open");
+const antesDoAlice = (await doChatwoot(961)).length;
+await webhook(
+  msg(9113, 11, "Ainda estão aí?", {
+    conversation: { id: 961, inbox_id: 4242, status: "open", meta: { sender: pessoa(11) } },
+  }),
+);
+check("com a equipe: Alice não agenda", situacao(11).split(",").length === 2, situacao(11));
+await webhook(nota(9114, 11, "#alice", "open"));
+check(
+  "#alice: devolvida e cliente respondido",
+  await ate(
+    () =>
+      situacao(11) ===
+      "responder:concluida,passar_para_humano:concluida,devolver_para_alice:concluida,responder:concluida",
+  ),
+  situacao(11),
+);
+check("#alice: conversa volta para pendente", (await toggles(961)).at(-1) === "pending");
+const depoisDoAlice = (await doChatwoot(961)).slice(antesDoAlice);
+check(
+  "#alice: nota e resposta da Alice",
+  depoisDoAlice[0]?.body?.private &&
+    depoisDoAlice[0].body.content.includes("já vai responder") &&
+    depoisDoAlice.some((c) => !c.body?.private),
+  depoisDoAlice.map(textoDe),
+);
+
+// Equipe assume enquanto a Alice pensa: a resposta pronta é descartada.
+sql(`UPDATE ia_configuracoes SET espera_segundos = 60 WHERE empresa_id = '${EMPRESA}'`);
+await webhook(conversaNova(12));
+await webhook(msg(9121, 12, "Oi"));
+const r12 = sql(`SELECT t.id FROM ia_tarefas t JOIN conversas c ON c.id = t.conversa_id
+                  WHERE c.chatwoot_conversation_id = 962 AND t.tipo = 'responder'`);
+sql(`INSERT INTO ia_tarefas (empresa_id, conversa_id, tipo, executar_apos, enfileirada)
+     SELECT empresa_id, id, 'passar_para_humano', now() + interval '1 hour', true
+       FROM conversas WHERE chatwoot_conversation_id = 962`);
+sql(`UPDATE ia_tarefas SET executar_apos = now() WHERE id = '${r12}'`);
+const resultado12 = await processar(r12);
+check(
+  "equipe assumiu durante a resposta: nada enviado",
+  resultado12.detalhe === "humano assumiu durante o processamento" &&
+    (await doChatwoot(962)).length === 0,
+  resultado12,
+);
+sql(`UPDATE ia_tarefas SET situacao = 'ignorada' WHERE situacao = 'pendente'
+       AND conversa_id = (SELECT id FROM conversas WHERE chatwoot_conversation_id = 962)`);
+sql(`UPDATE ia_configuracoes SET espera_segundos = 1 WHERE empresa_id = '${EMPRESA}'`);
+
 // ---------------------------------------------------------------- 4f. varredura da fila
 const varreduraSemChave = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
   method: "POST",

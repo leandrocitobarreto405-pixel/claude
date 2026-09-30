@@ -66,11 +66,13 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
     const r =
       tarefa.tipo === "passar_para_humano"
         ? await passarParaHumano(db, tarefa)
-        : tarefa.tipo === "enviar_mensagens"
-          ? await enviarProgramadas(db, tarefa)
-          : tarefa.tipo === "followup"
-            ? await fazerFollowup(db, tarefa)
-            : await responder(db, tarefa);
+        : tarefa.tipo === "devolver_para_alice"
+          ? await devolverParaAlice(db, tarefa)
+          : tarefa.tipo === "enviar_mensagens"
+            ? await enviarProgramadas(db, tarefa)
+            : tarefa.tipo === "followup"
+              ? await fazerFollowup(db, tarefa)
+              : await responder(db, tarefa);
     if (r.situacao !== "adiada") {
       await concluir(db, tarefa.id, r.situacao === "erro" ? "erro" : r.situacao, r.detalhe);
     }
@@ -162,9 +164,61 @@ async function passarParaHumano(db: Admin, tarefa: Tarefa): Promise<ResultadoTar
   const d = await dadosConversa(db, tarefa);
   const token = d.tokenRobo ?? d.tokenAdmin;
   if (!token) return { situacao: "ignorada", detalhe: "sem token do Chatwoot" };
+  const nota = (tarefa.dados as { nota?: string } | null)?.nota;
+  if (nota) await enviarMensagem(d.conta, token, d.conversa.chatwoot_conversation_id, nota, true);
   await mudarSituacao(d.conta, token, d.conversa.chatwoot_conversation_id, "open");
   await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
   return { situacao: "concluida", detalhe: tarefa.motivo ?? "passada para atendimento humano" };
+}
+
+/** A equipe devolveu a conversa (#alice): volta a ser do robô e, se o cliente está esperando, ela responde. */
+async function devolverParaAlice(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
+  const [cfg, d] = await Promise.all([lerConfig(db, tarefa.empresa_id), dadosConversa(db, tarefa)]);
+  const token = d.tokenAdmin ?? d.tokenRobo;
+  if (!token) return { situacao: "ignorada", detalhe: "sem token do Chatwoot" };
+  const conversa = d.conversa.chatwoot_conversation_id;
+  if (!cfg?.ativo) {
+    await enviarMensagem(
+      d.conta,
+      token,
+      conversa,
+      "🤖 A Alice está desligada na empresa (Configurações do Nexa OS): a conversa continua com a equipe.",
+      true,
+    );
+    return { situacao: "ignorada", detalhe: "Alice desligada" };
+  }
+  await mudarSituacao(d.conta, token, conversa, "pending");
+  await db.from("conversas").update({ status: "pending" }).eq("id", d.conversa.id);
+  const { data: ultima } = await db
+    .from("whatsapp_messages")
+    .select("direction")
+    .eq("conversa_id", d.conversa.id)
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const esperando = ultima?.direction === "Recebida";
+  await enviarMensagem(
+    d.conta,
+    token,
+    conversa,
+    esperando
+      ? `🤖 Ok! A ${cfg.nome} voltou para esta conversa e já vai responder o cliente.`
+      : `🤖 Ok! A ${cfg.nome} voltou para esta conversa e responde a próxima mensagem do cliente.`,
+    true,
+  );
+  if (esperando) {
+    // Já existir uma resposta pendente (índice único) está ok: ela responde.
+    const { error } = await db.from("ia_tarefas").insert({
+      empresa_id: tarefa.empresa_id,
+      conversa_id: d.conversa.id,
+      tipo: "responder",
+    });
+    if (error && error.code !== "23505") throw error;
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+  }
+  return { situacao: "concluida", detalhe: "conversa devolvida para a Alice" };
 }
 
 /** Em erro: nota privada explicando e conversa para humano. */
@@ -738,7 +792,7 @@ async function conversar(
   }
 
   // Mensagem nova do cliente chegou enquanto a Alice pensava: a próxima tarefa responde tudo junto.
-  const [{ data: novaTarefa }, { data: agora }] = await Promise.all([
+  const [{ data: novaTarefa }, { data: agora }, { data: passagem }] = await Promise.all([
     db
       .from("ia_tarefas")
       .select("id")
@@ -747,6 +801,13 @@ async function conversar(
       .eq("situacao", "pendente")
       .maybeSingle(),
     db.from("conversas").select("status").eq("id", d.conversa.id).single(),
+    db
+      .from("ia_tarefas")
+      .select("id")
+      .eq("conversa_id", d.conversa.id)
+      .eq("tipo", "passar_para_humano")
+      .eq("situacao", "pendente")
+      .maybeSingle(),
   ]);
   if (novaTarefa) {
     await db
@@ -757,7 +818,8 @@ async function conversar(
       detalhe: "cliente mandou mensagem nova; resposta refeita na próxima tarefa",
     };
   }
-  if (agora?.status !== "pending") {
+  // Equipe assumiu enquanto a Alice pensava (a passagem ainda não mudou a situação no Chatwoot).
+  if (agora?.status !== "pending" || passagem) {
     await db.from("ia_execucoes").insert({ ...registro, erro: "descartada: humano assumiu" });
     return { situacao: "ignorada", detalhe: "humano assumiu durante o processamento" };
   }

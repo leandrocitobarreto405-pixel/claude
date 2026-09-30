@@ -441,6 +441,7 @@ export type Database = {
           created_at: string;
           criada_em: string | null;
           crm_lead_id: string | null;
+          devolvida_para_alice_em: string | null;
           empresa_id: string;
           etiquetas: string[];
           id: string;
@@ -463,6 +464,7 @@ export type Database = {
           created_at?: string;
           criada_em?: string | null;
           crm_lead_id?: string | null;
+          devolvida_para_alice_em?: string | null;
           empresa_id?: string;
           etiquetas?: string[];
           id?: string;
@@ -484,6 +486,7 @@ export type Database = {
           created_at?: string;
           criada_em?: string | null;
           crm_lead_id?: string | null;
+          devolvida_para_alice_em?: string | null;
           empresa_id?: string;
           etiquetas?: string[];
           id?: string;
@@ -1580,6 +1583,7 @@ export type Database = {
           ativo: boolean;
           audio_higienizacao: string | null;
           audio_impermeabilizacao: string | null;
+          clientes_antigos_com_equipe: boolean;
           desconto_pix_percentual: number;
           empresa_id: string;
           esforco: string;
@@ -1605,6 +1609,7 @@ export type Database = {
           ativo?: boolean;
           audio_higienizacao?: string | null;
           audio_impermeabilizacao?: string | null;
+          clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
@@ -1630,6 +1635,7 @@ export type Database = {
           ativo?: boolean;
           audio_higienizacao?: string | null;
           audio_impermeabilizacao?: string | null;
+          clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;
           empresa_id?: string;
           esforco?: string;
