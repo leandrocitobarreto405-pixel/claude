@@ -309,20 +309,21 @@ check(
 );
 const msgs4 = await doChatwoot(954);
 const ordem = msgs4.map(textoDe);
-// O orçamento tem uma linha em branco: vira duas mensagens.
+// O orçamento vai por enviar_mensagem: uma mensagem só, com a linha em branco dentro.
 check(
-  "ordem: texto, vídeo, orçamento, pergunta",
-  ordem.length === 5 &&
+  "ordem: texto, vídeo, orçamento (um bloco), pergunta",
+  ordem.length === 4 &&
     ordem[0]?.startsWith("Enquanto eu preparo") &&
     ordem[1] === "[anexo video-hig.mp4]" &&
-    ordem[2] === "*Higienização Premium*" &&
-    ordem[4]?.startsWith("Me conta"),
+    ordem[2]?.startsWith("*Higienização Premium*\n✔️") &&
+    ordem[2]?.includes("\n\nTotal:") &&
+    ordem[3] === "Prontinho! Te enviei a proposta!\nEla faz sentido pra você?",
   ordem,
 );
 check(
   "valores calculados pelo sistema (total e Pix 5%)",
-  /R\$\s?180,00/.test(ordem[3] ?? "") && /R\$\s?171,00/.test(ordem[3] ?? ""),
-  ordem[3],
+  /R\$\s?180,00/.test(ordem[2] ?? "") && /R\$\s?171,00/.test(ordem[2] ?? ""),
+  ordem[2],
 );
 check(
   "vídeo enviado como robô",
@@ -366,10 +367,10 @@ check(
   situacao(9),
 );
 const ordem9 = (await doChatwoot(959)).map(textoDe);
-const iOrc = ordem9.indexOf("*Higienização Premium*");
+const iOrc = ordem9.findIndex((t) => t?.startsWith("*Higienização Premium*"));
 check(
   "ordem com o cliente apressado: vídeo, orçamento, depois a resposta nova",
-  ordem9[1] === "[anexo video-hig.mp4]" && iOrc === 2 && ordem9.length > 5,
+  ordem9[1] === "[anexo video-hig.mp4]" && iOrc === 2 && ordem9.length > 4,
   ordem9,
 );
 
@@ -470,6 +471,25 @@ check(
 check(
   "IA recebeu a transcrição",
   (await doChatwoot(957)).some((c) => c.body?.content?.startsWith("Entendi pelo seu áudio")),
+);
+
+// Áudio sem fala reconhecida: o motivo fica gravado na mensagem.
+await webhook(conversaNova(13));
+await webhook(
+  msg(9131, 13, "", {
+    attachments: [{ file_type: "audio", data_url: `${CHATWOOT}/audio-mudo.ogg` }],
+  }),
+);
+check(
+  "áudio mudo respondido",
+  await ate(() => situacao(13) === "responder:concluida"),
+  situacao(13),
+);
+check(
+  "motivo da falha da transcrição gravado",
+  sql(`SELECT coalesce(m.transcricao, '-') || '|' || m.transcricao_erro FROM whatsapp_messages m
+         JOIN conversas c ON c.id = m.conversa_id WHERE c.chatwoot_conversation_id = 963`) ===
+    "-|áudio sem fala reconhecida",
 );
 
 // ---------------------------------------------------------------- 4e. IA desligada no cliente

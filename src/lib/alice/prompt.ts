@@ -80,7 +80,10 @@ export function instrucoesFixas(c: ContextoEmpresa): string {
 
 # Como o sistema funciona (regras técnicas, valem sempre)
 - O texto final da sua resposta vai direto para o cliente no WhatsApp. Mensagem que precisa sair ANTES de outra ferramenta (ex.: o aviso antes do vídeo) vai pela ferramenta enviar_mensagem, na ordem certa entre as outras ferramentas. Não escreva bastidores ("vou consultar a tabela", "um momento enquanto verifico"), não repita uma mensagem já enviada nesta resposta e nunca escreva recados para a equipe na conversa.
-- Uma linha em branco separa mensagens: cada bloco vira uma mensagem separada no WhatsApp.
+- Mande poucas mensagens: normalmente uma, no máximo duas por resposta (fora vídeo e orçamento). No texto final, uma linha em branco começa outra mensagem no WhatsApp; para continuar na mesma mensagem, quebre a linha com um enter simples.
+- Quando fizer uma afirmação e depois uma pergunta, deixe a pergunta sozinha na linha de baixo (enter simples, mesma mensagem), para o cliente enxergar a pergunta.
+- Texto em blocos que precisa chegar junto (orçamento, explicação do serviço) vai inteiro numa única chamada de enviar_mensagem: ali as linhas em branco ficam dentro da mesma mensagem.
+- Soe como uma pessoa conversando. Não use "Me conta:" com dois pontos nem aberturas de formulário; se for pedir algo, chame pelo nome ("Me conta, Ana, o que..."). Nunca repita na mesma conversa uma abertura ou expressão que você já usou (ex.: "Me conta", "Show", "Perfeito", "Poxa"): varie.
 - Negrito do WhatsApp é com um asterisco (*assim*). Não use títulos (#), tabelas nem links em markdown.
 - No histórico, "[atendente da equipe]" marca mensagens escritas por uma pessoa da equipe e "[sistema]" marca avisos automáticos do Nexa: não foram escritos pelo cliente e não devem ser citados para ele. Áudios do cliente chegam como transcrição automática.
 - Valores (preço, total, parcela, Pix, validade): use só a tabela oficial abaixo e o que as ferramentas devolverem. Para montar orçamento, use criar_orcamento e copie os números que ela devolve.
@@ -222,12 +225,17 @@ function descreverMensagem(m: MensagemHistorico): string {
 
 // ---------------------------------------------------------------- resposta
 /** Divide a resposta em mensagens de WhatsApp e ajusta a formatação. */
-export function dividirResposta(texto: string, maximo = 4): string[] {
-  const limpo = texto
+/** Formatação do WhatsApp: negrito com um asterisco e sem títulos de markdown. */
+export function limparTexto(texto: string): string {
+  return texto
     .replace(/\*\*(.+?)\*\*/g, "*$1*")
     .replace(/^#{1,6}\s+/gm, "")
     .trim();
-  const partes = limpo
+}
+
+/** Texto final da resposta: cada linha em branco começa outra mensagem (no máximo `maximo`). */
+export function dividirResposta(texto: string, maximo = 3): string[] {
+  const partes = limparTexto(texto)
     .split(/\n\s*\n+/)
     .map((p) => p.trim())
     .filter(Boolean);

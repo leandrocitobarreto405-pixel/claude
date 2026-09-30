@@ -26,7 +26,9 @@ type Servico = "higienizacao" | "impermeabilizacao";
 
 /** O que vai ao cliente, na ordem: mensagens e mídias pedidas pelas ferramentas. */
 export type Saida =
-  { tipo: "texto"; texto: string } | { tipo: "anexo"; caminho: string; nome: string };
+  /** bloco: vai numa mensagem só, com as linhas em branco dentro (enviar_mensagem). */
+  | { tipo: "texto"; texto: string; bloco?: boolean }
+  | { tipo: "anexo"; caminho: string; nome: string };
 
 export type ContextoFerramenta = {
   admin: Admin;
@@ -211,7 +213,7 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
   lista.push({
     name: "enviar_mensagem",
     description:
-      'Manda ao cliente uma mensagem de WhatsApp AGORA, antes das próximas ferramentas (ex.: "Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?" antes de enviar_video). Use para todo texto ao cliente que precisa sair antes de outra ferramenta; a mensagem final da resposta você escreve normalmente, sem esta ferramenta.',
+      'Manda ao cliente UMA mensagem de WhatsApp AGORA, antes das próximas ferramentas, exatamente como você escreveu: linhas em branco ficam dentro da mesma mensagem. Use para o aviso antes do vídeo (ex.: "Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?" antes de enviar_video) e para textos em blocos que precisam chegar juntos, como o orçamento inteiro ou a explicação do serviço. A mensagem final da resposta você escreve normalmente, sem esta ferramenta.',
     input_schema: {
       type: "object",
       properties: {
@@ -985,7 +987,7 @@ export async function executarFerramenta(
       case "enviar_mensagem": {
         const p = EnviarMensagem.safeParse(entrada);
         if (!p.success) return invalida(p.error);
-        ctx.saida.push({ tipo: "texto", texto: p.data.texto });
+        ctx.saida.push({ tipo: "texto", texto: p.data.texto, bloco: true });
         return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
       }
       case "enviar_video":

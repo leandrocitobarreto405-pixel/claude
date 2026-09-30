@@ -177,6 +177,17 @@ Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app preci
   transfere para a equipe.
 - Se a equipe assume enquanto a Alice está escrevendo, a resposta dela é descartada.
 
+### Jeito de escrever (30/09/2026, prompt v3)
+- `enviar_mensagem` manda UMA mensagem do jeito que a Alice escreveu (linhas em branco ficam dentro):
+  é assim que vão o orçamento e a explicação do serviço, num bloco só.
+- No texto final, linha em branco começa outra mensagem (no máximo 3); enter simples continua na
+  mesma mensagem. Regra fixa: afirmação numa linha, pergunta sozinha na linha de baixo; nada de
+  "Me conta:"; não repetir expressões na conversa.
+- Turbine (prompt v3, `docs/nexa-os/alice/turbine-prompt-v3.md`): vídeo → "Conseguiu ver o vídeo?
+  O que achou?" (depois da espera) → quando o cliente responde, orçamento num bloco → "Prontinho,
+  [nome]! Te enviei a proposta". Sem resposta em 15 min, o follow-up manda o orçamento.
+- Falha na transcrição de áudio fica gravada em `whatsapp_messages.transcricao_erro`.
+
 ### Áudio
 - Áudios do cliente são transcritos (Google Speech-to-Text v2, síncrono, até 1 minuto) com a conta
   de serviço do Cloud Run e guardados em `whatsapp_messages.transcricao`. Falhou: a Alice recebe

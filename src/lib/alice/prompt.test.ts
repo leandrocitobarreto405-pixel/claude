@@ -62,7 +62,10 @@ test("resposta vira mensagens de WhatsApp, com negrito do WhatsApp e limite", ()
     "Oi! *Tudo bem?*",
     "O sofá sai por *R$ 180*.",
   ]);
-  assert.equal(dividirResposta("a\n\nb\n\nc\n\nd\n\ne\n\nf").length, 4);
+  assert.equal(dividirResposta("a\n\nb\n\nc\n\nd\n\ne\n\nf").length, 3);
+  assert.deepEqual(dividirResposta("Entendi, Ana!\nQual o seu CEP?"), [
+    "Entendi, Ana!\nQual o seu CEP?",
+  ]);
 });
 
 test("custo: preço de cada modelo; cache gravado a 125%", () => {

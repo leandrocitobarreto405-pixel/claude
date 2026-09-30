@@ -20,6 +20,7 @@ import {
 import {
   custoEstimadoUsd,
   dividirResposta,
+  limparTexto,
   instrucoesDoMomento,
   instrucoesFixas,
   montarTurnos,
@@ -442,6 +443,11 @@ async function historico(
             .eq("empresa_id", empresaId);
         } else {
           console.warn("Alice: transcrição falhou", m.id, r.erro);
+          await db
+            .from("whatsapp_messages")
+            .update({ transcricao_erro: r.erro.slice(0, 500) })
+            .eq("id", m.id)
+            .eq("empresa_id", empresaId);
         }
       }),
     );
@@ -571,7 +577,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   const aviso = [
     `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
     dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
-    "O cliente não respondeu desde a última mensagem da empresa. Escreva agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só).",
+    "O cliente não respondeu desde a última mensagem da empresa. Faça agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só). Se as instruções mandarem fazer algo neste toque (ex.: mandar o orçamento), use as ferramentas normalmente.",
     `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
     "Se for o caso, agende o próximo toque com agendar_followup.",
   ]
@@ -931,7 +937,8 @@ async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise
   for (const item of itens) {
     if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
     if (item.tipo === "texto") {
-      for (const parte of dividirResposta(item.texto)) {
+      const partes = item.bloco ? [limparTexto(item.texto)] : dividirResposta(item.texto);
+      for (const parte of partes) {
         if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
         await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);
         enviadas.push(parte);

@@ -84,7 +84,9 @@ servidor(PORTA_CLAUDE, (req, body) => {
       const pix = /Pix \(5% off\): (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
       return resposta(
         [
-          texto(`*Higienização Premium*\n\nTotal: ${total} ou ${pix} no Pix`),
+          ferramenta("toolu_orcmsg", "enviar_mensagem", {
+            texto: `*Higienização Premium*\n✔️ Higienização profunda\n\nTotal: ${total} ou ${pix} no Pix`,
+          }),
           ferramenta("toolu_follow", "agendar_followup", {
             em_minutos: 10,
             trilha: "A",
@@ -96,7 +98,10 @@ servidor(PORTA_CLAUDE, (req, body) => {
       );
     }
     if (conteudo.includes("Follow-up agendado")) {
-      return resposta([texto("Me conta: faz sentido pra você?")], "end_turn");
+      return resposta(
+        [texto("Prontinho! Te enviei a proposta!\nEla faz sentido pra você?")],
+        "end_turn",
+      );
     }
     if (tudo.includes("transferir_para_humano")) {
       return resposta(
@@ -165,19 +170,24 @@ const JPEG = Buffer.from(
   "base64",
 );
 let idMensagem = 7000;
-servidor(PORTA_CHATWOOT, (req) => {
+servidor(PORTA_CHATWOOT, (req, body) => {
   if (req.method === "GET" && req.url === "/foto-sofa.jpg")
     return { tipo: "image/jpeg", bruto: JPEG };
   if (req.method === "GET" && req.url === "/audio-cliente.ogg")
     return { tipo: "audio/ogg", bruto: Buffer.from("OggS-audio-falso") };
+  if (req.method === "GET" && req.url === "/audio-mudo.ogg")
+    return { tipo: "audio/ogg", bruto: Buffer.from("OggS-mudo") };
   if (req.url === "/computeMetadata/v1/instance/service-accounts/default/token")
     return { corpo: { access_token: "token-google", expires_in: 3600 } };
   if (req.url === "/computeMetadata/v1/project/project-id")
     return { tipo: "text/plain", bruto: "projeto-teste" };
-  if (req.url === "/v2/projects/projeto-teste/locations/global/recognizers/_:recognize")
+  if (req.url === "/v2/projects/projeto-teste/locations/global/recognizers/_:recognize") {
+    if (Buffer.from(body?.content ?? "", "base64").toString() === "OggS-mudo")
+      return { corpo: { results: [] } };
     return {
       corpo: { results: [{ alternatives: [{ transcript: "quero higienizar meu sofá amanhã" }] }] },
     };
+  }
   if (req.url.endsWith("/messages")) return { corpo: { id: ++idMensagem } };
   return { corpo: {} };
 });

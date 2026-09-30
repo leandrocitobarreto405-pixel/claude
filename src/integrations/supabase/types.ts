@@ -3632,6 +3632,7 @@ export type Database = {
           reply_to_message_id: string | null;
           text_content: string | null;
           transcricao: string | null;
+          transcricao_erro: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id: string | null;
         };
@@ -3658,6 +3659,7 @@ export type Database = {
           reply_to_message_id?: string | null;
           text_content?: string | null;
           transcricao?: string | null;
+          transcricao_erro?: string | null;
           whatsapp_contact_id: string;
           whatsapp_message_id?: string | null;
         };
@@ -3684,6 +3686,7 @@ export type Database = {
           reply_to_message_id?: string | null;
           text_content?: string | null;
           transcricao?: string | null;
+          transcricao_erro?: string | null;
           whatsapp_contact_id?: string;
           whatsapp_message_id?: string | null;
         };
