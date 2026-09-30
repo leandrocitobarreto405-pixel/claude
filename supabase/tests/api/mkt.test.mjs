@@ -1,0 +1,290 @@
+// Teste ponta a ponta do marketing: rotina diária (preparo D-10, bloqueio por modelo não aprovado),
+// aprovação, disparo pelo Chatwoot falso (flag, janela, modelo com nome e condição, variante sem
+// nome, etiqueta do lote, pausa automática, retomada, conclusão), problema de modelo no disparo,
+// tarefas no Chatwoot (opt-out, prioridade) e avisos no WhatsApp do dono.
+import { execFileSync } from "node:child_process";
+
+const APP = process.env.APP_URL ?? "http://127.0.0.1:3996";
+const FAKE = `http://127.0.0.1:${process.env.PORTA_CHATWOOT ?? 3994}`;
+const EMP = "11111111-1111-1111-1111-111111111111";
+const C1 = "e5000000-0000-0000-0000-000000000001";
+const C2 = "e5000000-0000-0000-0000-000000000002";
+const C3 = "e5000000-0000-0000-0000-000000000003";
+
+let falhas = 0;
+function check(nome, cond, info) {
+  console.log(
+    `${cond ? "OK  " : "FALHA"} ${nome}${cond ? "" : " -> " + JSON.stringify(info)?.slice(0, 900)}`,
+  );
+  if (!cond) falhas++;
+}
+const sql = (q) =>
+  execFileSync("psql", ["-XAtq", "-d", process.env.DB_NAME, "-c", q], { encoding: "utf8" }).trim();
+const chave = process.env.NEXA_TAREFAS_SEGREDO;
+const rota = async (nome, query = "", auth = `Bearer ${chave}`) => {
+  const r = await fetch(`${APP}/api/public/hooks/${nome}${query}`, {
+    method: "POST",
+    headers: { Authorization: auth },
+  });
+  return { status: r.status, corpo: await r.json().catch(() => null) };
+};
+const logFake = async () => (await fetch(`${FAKE}/__log`)).json();
+const somarDias = (iso, n) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const meses = (iso, n) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+// ---------------------------------------------------------------- preparação
+sql(`UPDATE chatwoot_conexoes SET base_url = '${FAKE}' WHERE webhook_token = repeat('a', 64)`);
+sql(`INSERT INTO chatwoot_conexao_segredos (conexao_id, api_token, alice_bot_token)
+     VALUES ('c0000000-0000-0000-0000-000000000001', 'token-admin', 'token-robo')
+     ON CONFLICT (conexao_id) DO UPDATE SET api_token = 'token-admin', alice_bot_token = 'token-robo'`);
+sql(`INSERT INTO mkt_configuracoes (empresa_id, chatwoot_inbox_id, lote_tamanho, amostra_minima, intervalo_segundos)
+     VALUES ('${EMP}', 4242, 2, 2, 1)
+     ON CONFLICT (empresa_id) DO UPDATE SET chatwoot_inbox_id = 4242, lote_tamanho = 2, amostra_minima = 2,
+       intervalo_segundos = 1`);
+// Primeiro disparo daqui a uns 12 dias (terça a quinta); "hoje" da rotina = 10 dias antes.
+const D = sql(`SELECT private.mkt_proximo_dia_util(current_date + 12)`);
+const H = somarDias(D, -10);
+// Grupo C4 = comprou há 3–12 meses (na data da rotina).
+sql(`SELECT mkt_importar_contatos('${EMP}', '[
+  {"telefone": "11955550001", "nome": "Caio Souza", "tipo": "comprador", "servico_em": "${meses(H, -4)}"},
+  {"telefone": "11955550999", "nome": "Cliente", "tipo": "comprador", "servico_em": "${meses(H, -5)}"},
+  {"telefone": "11955550002", "nome": "Dora", "tipo": "comprador", "servico_em": "${meses(H, -6)}"},
+  {"telefone": "11955550003", "nome": "Nina", "tipo": "nao_comprador", "entrada_em": "${meses(H, -1)}"}
+]', 'teste e2e')`);
+sql(`INSERT INTO mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, templates, datas_disparo, condicao_texto,
+       condicao_pct, limites)
+     VALUES ('${C1}', '${EMP}', 'Primavera E2E', 'calendario', date_trunc('month', '${D}'::date), '{C4}',
+       '{"C4": "tc_oferta_trimestral"}', ARRAY['${D}'::date], '10% na higienização', 10, '{}'),
+     ('${C2}', '${EMP}', 'Black Friday E2E', 'calendario', date_trunc('month', '${D}'::date), '{N1}',
+       '{"N1": "tc_sazonal_nov"}', ARRAY['${D}'::date], 'frete grátis', NULL, '{}')`);
+
+// ---------------------------------------------------------------- 1. autenticação
+check("disparo sem segredo: 401", (await rota("mkt-disparo", "", "Bearer errado")).status === 401);
+check("rotina sem segredo: 401", (await rota("mkt-diaria", "", "")).status === 401);
+
+// ---------------------------------------------------------------- 2. rotina D-10
+let r = await rota("mkt-diaria", `?empresa=${EMP}&hoje=${H}`);
+check("rotina diária", r.status === 200, r);
+check(
+  "campanha preparada e aguardando aprovação",
+  sql(`SELECT status FROM mkt_campanhas WHERE id = '${C1}'`) === "aguardando_aprovacao",
+  r.corpo,
+);
+const NOSSOS = "('5511955550001', '5511955550999', '5511955550002')";
+const noC1 =
+  sql(`SELECT string_agg(l.numero || ':' || right(e.normalized_phone, 4) || ':' || e.template_nome, ','
+                           ORDER BY l.numero, e.ordem)
+                    FROM mkt_envios e JOIN mkt_lotes l ON l.id = e.lote_id
+                   WHERE e.campanha_id = '${C1}' AND e.normalized_phone IN ${NOSSOS}`);
+check(
+  "lotes com e sem nome",
+  noC1 === "1:0001:tc_oferta_trimestral,1:0999:tc_oferta_trimestral_sn,2:0002:tc_oferta_trimestral",
+  noC1,
+);
+check(
+  "aviso para aprovar",
+  sql(
+    `SELECT count(*) FROM mkt_avisos WHERE campanha_id = '${C1}' AND tipo = 'campanha_para_aprovar'`,
+  ) === "1",
+);
+check(
+  "modelo pendente na Meta: campanha bloqueada e aviso",
+  sql(`SELECT status || ':' || (motivo_status LIKE '%tc_sazonal_nov%não está aprovado%')::text
+         FROM mkt_campanhas WHERE id = '${C2}'`) === "bloqueada:true" &&
+    sql(
+      `SELECT count(*) FROM mkt_avisos WHERE campanha_id = '${C2}' AND tipo = 'campanha_bloqueada'`,
+    ) === "1",
+  sql(`SELECT status || ' ' || coalesce(motivo_status, '') FROM mkt_campanhas WHERE id = '${C2}'`),
+);
+// Só as campanhas deste teste saem (outros contatos da base ficam para trás).
+sql(`UPDATE mkt_envios SET status = 'cancelado' WHERE campanha_id = '${C1}'
+       AND normalized_phone NOT IN ${NOSSOS}`);
+sql(`SELECT mkt_aprovar_campanha('${C1}', NULL, '${H}')`);
+check("aprovada", sql(`SELECT status FROM mkt_campanhas WHERE id = '${C1}'`) === "aprovada");
+
+// ---------------------------------------------------------------- 3. disparo
+const agora1 = `${D}T10:05:00-03:00`;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
+check("flag desligada: nada sai", r.corpo?.disparo?.reservados === 0, r.corpo);
+sql(`UPDATE mkt_configuracoes SET disparo_ligado = true WHERE empresa_id = '${EMP}'`);
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${D}T08:30:00-03:00`)}`);
+check("antes das 10h: nada sai", r.corpo?.disparo?.reservados === 0, r.corpo);
+const antes = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
+check(
+  "lote 1: um enviado, um erro, pausa automática",
+  r.corpo?.disparo?.enviados === 1 &&
+    r.corpo?.disparo?.erros === 1 &&
+    r.corpo?.disparo?.pausas === 1,
+  r.corpo,
+);
+const log1 = (await logFake()).slice(antes);
+const criados = log1.filter((x) => x.method === "POST" && x.url.endsWith("/contacts"));
+check(
+  "contato criado com o primeiro nome (e sem nome no genérico)",
+  criados.length === 2 &&
+    criados[0].body.name === "Caio" &&
+    criados[0].body.phone_number === "+5511955550001" &&
+    !("name" in criados[1].body),
+  criados.map((x) => x.body),
+);
+const conversa = log1.find((x) => x.method === "POST" && x.url.endsWith("/conversations"));
+check(
+  "conversa criada com o robô na caixa 4242",
+  conversa?.headers.api_access_token === "token-robo" && conversa?.body.inbox_id === 4242,
+  conversa?.body,
+);
+const modelo = log1.find((x) => x.body?.template_params);
+check(
+  "modelo com primeiro nome e condição, pelo robô",
+  modelo?.headers.api_access_token === "token-robo" &&
+    JSON.stringify(modelo?.body.template_params) ===
+      JSON.stringify({
+        name: "tc_oferta_trimestral",
+        category: "MARKETING",
+        language: "pt_BR",
+        processed_params: { body: { 1: "Caio", 2: "10% na higienização" } },
+      }) &&
+    modelo?.body.content === "Oi, Caio! 10% na higienização nesta semana.",
+  modelo?.body,
+);
+const etiqueta = log1.find(
+  (x) => x.method === "POST" && /\/conversations\/\d+\/labels$/.test(x.url),
+);
+check(
+  "etiqueta do lote na conversa (sem apagar as outras)",
+  etiqueta?.body.labels.includes("lead") &&
+    etiqueta?.body.labels.some((e) => /^camp-.*-l1$/.test(e)),
+  etiqueta?.body,
+);
+const sn = log1.filter((x) => x.body?.template_params?.name === "tc_oferta_trimestral_sn");
+check(
+  "variante sem nome: só a condição",
+  sn.length === 1 &&
+    JSON.stringify(sn[0].body.template_params.processed_params) ===
+      JSON.stringify({ body: { 1: "10% na higienização" } }),
+  sn.map((x) => x.body),
+);
+check(
+  "envio registrado com a conversa e a mensagem do Chatwoot",
+  sql(`SELECT count(*) FROM mkt_envios WHERE campanha_id = '${C1}' AND status = 'enviado'
+         AND chatwoot_conversation_id IS NOT NULL AND chatwoot_message_id IS NOT NULL`) === "1",
+);
+check(
+  "erro 131026 conta como bloqueio; lote e campanha pausados com aviso",
+  sql(`SELECT bloqueio FROM mkt_envios WHERE campanha_id = '${C1}' AND status = 'erro'`) === "t" &&
+    sql(`SELECT status FROM mkt_campanhas WHERE id = '${C1}'`) === "pausada" &&
+    sql(
+      `SELECT count(*) FROM mkt_avisos WHERE campanha_id = '${C1}' AND tipo = 'pausa_automatica'`,
+    ) === "1",
+  sql(`SELECT status || ' ' || coalesce(motivo_status, '') FROM mkt_campanhas WHERE id = '${C1}'`),
+);
+
+// Retomada: o lote 1 conclui (nada mais a sair); o lote 2 sai na data dele e fecha a campanha.
+sql(`SELECT mkt_retomar('${C1}', NULL)`);
+const d2 = sql(`SELECT data_prevista FROM mkt_lotes WHERE campanha_id = '${C1}' AND numero = 2`);
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${d2}T10:05:00-03:00`)}`);
+check(
+  "lote 2 enviado",
+  r.corpo?.disparo?.enviados === 1 && r.corpo?.disparo?.pausas === 0,
+  r.corpo,
+);
+check(
+  "campanha concluída com aviso",
+  sql(`SELECT status FROM mkt_campanhas WHERE id = '${C1}'`) === "concluida" &&
+    sql(
+      `SELECT count(*) FROM mkt_avisos WHERE campanha_id = '${C1}' AND tipo = 'campanha_concluida'`,
+    ) === "1",
+  sql(`SELECT string_agg(numero || ':' || status, ',') FROM mkt_lotes WHERE campanha_id = '${C1}'`),
+);
+
+// ---------------------------------------------------------------- 4. modelo inexistente no disparo
+sql(`INSERT INTO mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, datas_disparo, status)
+     VALUES ('${C3}', '${EMP}', 'Modelo sumiu', 'calendario', date_trunc('month', '${D}'::date), '{C4}',
+       ARRAY['${D}'::date], 'aprovada')`);
+sql(`INSERT INTO mkt_lotes (id, empresa_id, campanha_id, numero, etiqueta_chatwoot, data_prevista, status)
+     VALUES ('e6000000-0000-0000-0000-000000000003', '${EMP}', '${C3}', 1, 'camp-x-l1', '${D}', 'aprovado')`);
+sql(`INSERT INTO mkt_envios (empresa_id, campanha_id, lote_id, contato_id, normalized_phone, grupo, template_nome,
+       status, agendado_para)
+     SELECT '${EMP}', '${C3}', 'e6000000-0000-0000-0000-000000000003', id, normalized_phone, 'C4', 'tc_sumiu',
+            'pendente', '${D} 10:00-03' FROM mkt_contatos WHERE normalized_phone = '5511955550002'`);
+const antes2 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
+check(
+  "modelo inexistente: pausa a campanha sem enviar",
+  r.corpo?.disparo?.enviados === 0 &&
+    r.corpo?.disparo?.devolvidos === 1 &&
+    sql(`SELECT status FROM mkt_campanhas WHERE id = '${C3}'`) === "pausada" &&
+    sql(`SELECT status FROM mkt_envios WHERE campanha_id = '${C3}'`) === "pendente" &&
+    !(await logFake()).slice(antes2).some((x) => x.body?.template_params),
+  r.corpo,
+);
+
+// ---------------------------------------------------------------- 5. tarefas no Chatwoot
+const conv =
+  sql(`SELECT id || '|' || chatwoot_conversation_id FROM conversas WHERE empresa_id = '${EMP}'
+                    ORDER BY created_at LIMIT 1`).split("|");
+sql(`INSERT INTO mkt_tarefas (empresa_id, tipo, conversa_id) VALUES
+       ('${EMP}', 'etiqueta_optout', '${conv[0]}'), ('${EMP}', 'prioridade_urgente', '${conv[0]}')`);
+const antes3 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
+const log3 = (await logFake()).slice(antes3);
+const optout = log3.find(
+  (x) => x.method === "POST" && x.url.endsWith(`/conversations/${conv[1]}/labels`),
+);
+check(
+  "opt-out: tira etiquetas de campanha e põe optout",
+  JSON.stringify(optout?.body.labels) === JSON.stringify(["lead", "optout"]),
+  optout?.body,
+);
+check(
+  "prioridade urgente",
+  log3.some(
+    (x) =>
+      x.url.endsWith(`/conversations/${conv[1]}/toggle_priority`) && x.body.priority === "urgent",
+  ),
+);
+check(
+  "tarefas feitas",
+  sql(`SELECT count(*) FROM mkt_tarefas WHERE situacao = 'feita'`) === "2",
+  r.corpo?.tarefas,
+);
+
+// ---------------------------------------------------------------- 6. avisos no WhatsApp do dono
+sql(`UPDATE mkt_configuracoes SET aviso_whatsapp_ligado = true, aviso_telefone = '11955558888',
+       aviso_template_nome = 'nexa_aviso' WHERE empresa_id = '${EMP}'`);
+const antes4 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
+const avisos = (await logFake())
+  .slice(antes4)
+  .filter((x) => x.body?.template_params?.name === "nexa_aviso");
+const pendentes =
+  sql(`SELECT count(*) FROM mkt_avisos WHERE empresa_id = '${EMP}' AND whatsapp_enviado_em IS NULL
+                         AND created_at > now() - interval '1 day'`);
+check(
+  "avisos recentes no WhatsApp do dono, uma linha só",
+  avisos.length > 0 &&
+    avisos.every((x) => !/\n/.test(x.body.template_params.processed_params.body["1"])) &&
+    avisos.some((x) =>
+      /Campanha para aprovar/.test(x.body.template_params.processed_params.body["1"]),
+    ),
+  { avisos: avisos.length, pendentes, avisosResultado: r.corpo?.avisos },
+);
+const contatoDono = (await logFake())
+  .slice(antes4)
+  .filter((x) => x.method === "POST" && x.url.endsWith("/contacts"));
+check("dono: uma conversa só para os avisos", contatoDono.length === 1, contatoDono.length);
+
+if (falhas) {
+  console.error(`\n${falhas} verificação(ões) falharam`);
+  process.exit(1);
+}
+console.log("\nMarketing: tudo certo");

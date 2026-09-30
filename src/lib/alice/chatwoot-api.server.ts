@@ -5,7 +5,7 @@
 
 export type Conta = { baseUrl: string; accountId: number };
 
-async function chamar<T>(
+export async function chamar<T>(
   conta: Conta,
   token: string,
   caminho: string,

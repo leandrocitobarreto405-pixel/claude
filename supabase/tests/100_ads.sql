@@ -72,6 +72,11 @@ SELECT pg_temp.clique('turbineclanhigenizacao.lovable.app', 'ip2',
   '{"telefone":"11 98888-7777","gclid":"GCLID_B_000","servico":"Higienização"}');
 SELECT pg_temp.ok((SELECT servico FROM public.ads_clicks WHERE gclid = 'GCLID_B_000') = 'higienizacao',
   'serviço pelo campo');
+SELECT pg_temp.clique('turbinecleanimper.lovable.app', 'ip2',
+  '{"telefone":"11 97777-0001","gclid":"GCLID_HIGI_1","servico":"Higienização"}');
+SELECT pg_temp.ok((SELECT servico FROM public.ads_clicks WHERE gclid = 'GCLID_HIGI_1') = 'higienizacao',
+  'campo "Higienização" vence o domínio');
+DELETE FROM public.ads_clicks WHERE gclid = 'GCLID_HIGI_1';
 
 -- 5. Limite por IP: 20 envios em 10 minutos.
 DO $$ BEGIN

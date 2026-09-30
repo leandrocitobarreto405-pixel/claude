@@ -172,6 +172,93 @@ const JPEG = Buffer.from(
 let idMensagem = 7000;
 // Google Sheets falso (exportação das conversões): uma planilha em memória por ID.
 const planilhas = new Map();
+// Marketing: contatos, conversas, modelos da caixa 4242 e etiquetas (em memória).
+// POST /__modelos troca a lista de modelos. Telefone terminado em 0999: o envio falha (131026).
+const mktModelos = {
+  lista: [
+    { name: "tc_oferta_trimestral", language: "pt_BR", status: "APPROVED", category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi, {{1}}! {{2}} nesta semana." },
+        { type: "BUTTONS", buttons: [{ text: "Quero ver as datas" }, { text: "Não quero mais ofertas" }] }] },
+    { name: "tc_oferta_trimestral_sn", language: "pt_BR", status: "APPROVED", category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi! {{1}} nesta semana." }] },
+    { name: "tc_orcamento_retomada", language: "pt_BR", status: "APPROVED", category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi, {{1}}! Ainda quer aquele orçamento? {{2}}." }] },
+    { name: "tc_orcamento_retomada_sn", language: "pt_BR", status: "APPROVED", category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi! Ainda quer aquele orçamento? {{1}}." }] },
+    { name: "tc_sazonal_nov", language: "pt_BR", status: "PENDING", category: "MARKETING",
+      components: [{ type: "BODY", text: "Black Friday: {{2}}" }] },
+    { name: "nexa_aviso", language: "pt_BR", status: "APPROVED", category: "UTILITY",
+      components: [{ type: "BODY", text: "Aviso do Nexa: {{1}}" }] },
+  ],
+};
+const mktContatos = [];
+const mktConversas = [];
+const mktEtiquetas = new Map();
+let mktId = 900;
+const digitos = (t) => String(t ?? "").replace(/\D/g, "");
+function chatwootMarketing(req, body) {
+  const url = new URL(req.url, "http://x");
+  const p = url.pathname.replace(/^\/api\/v1\/accounts\/\d+/, "");
+  const token = req.headers["api_access_token"];
+  if (p === "/__modelos" && req.method === "POST") {
+    mktModelos.lista = body;
+    return { corpo: {} };
+  }
+  if (p === "/inboxes/4242" && req.method === "GET") {
+    if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
+    return { corpo: { id: 4242, channel_type: "Channel::Whatsapp", message_templates: mktModelos.lista } };
+  }
+  if (p === "/contacts/search") {
+    if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
+    const q = digitos(url.searchParams.get("q"));
+    return { corpo: { payload: mktContatos.filter((c) => digitos(c.phone_number).endsWith(q)) } };
+  }
+  if (p === "/contacts" && req.method === "POST") {
+    if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
+    const c = { id: ++mktId, name: body.name ?? null, phone_number: body.phone_number,
+      contact_inboxes: [{ source_id: digitos(body.phone_number), inbox: { id: body.inbox_id } }] };
+    mktContatos.push(c);
+    return { corpo: { payload: { contact: c, contact_inbox: c.contact_inboxes[0] } } };
+  }
+  let m = /^\/contacts\/(\d+)(\/conversations|\/contact_inboxes|\/labels)?$/.exec(p);
+  if (m) {
+    if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
+    const c = mktContatos.find((x) => x.id === Number(m[1]));
+    if (!m[2]) return c ? { corpo: { payload: c } } : { status: 404, corpo: {} };
+    if (m[2] === "/conversations")
+      return { corpo: { payload: mktConversas.filter((v) => v.contact_id === Number(m[1])) } };
+    if (m[2] === "/contact_inboxes") {
+      c?.contact_inboxes.push({ source_id: body.source_id, inbox: { id: body.inbox_id } });
+      return { corpo: { source_id: body.source_id } };
+    }
+    const chave = `contato:${m[1]}`;
+    if (req.method === "POST") mktEtiquetas.set(chave, body.labels);
+    return { corpo: { payload: mktEtiquetas.get(chave) ?? ["cliente", "camp-2026-01-l1"] } };
+  }
+  if (p === "/conversations" && req.method === "POST") {
+    if (token !== "token-robo") return { status: 401, corpo: { error: "robo" } };
+    const v = { id: ++mktId, inbox_id: body.inbox_id, contact_id: body.contact_id, status: body.status,
+      last_activity_at: Date.now() };
+    mktConversas.push(v);
+    return { corpo: v };
+  }
+  m = /^\/conversations\/(\d+)\/(labels|toggle_priority|messages)$/.exec(p);
+  if (m && m[2] === "labels") {
+    const chave = `conversa:${m[1]}`;
+    if (req.method === "POST") mktEtiquetas.set(chave, body.labels);
+    return { corpo: { payload: mktEtiquetas.get(chave) ?? ["lead", "camp-2025-12-l1"] } };
+  }
+  if (m && m[2] === "messages" && body?.template_params) {
+    if (token !== "token-robo") return { status: 401, corpo: { error: "robo" } };
+    const v = mktConversas.find((x) => x.id === Number(m[1]));
+    const c = v && mktContatos.find((x) => x.id === v.contact_id);
+    if (c && digitos(c.phone_number).endsWith("0999"))
+      return { status: 422, corpo: { error: "(#131026) Message undeliverable" } };
+    return { corpo: { id: ++idMensagem } };
+  }
+  return null;
+}
+
 servidor(PORTA_CHATWOOT, (req, body) => {
   if (req.url === "/oauth/token")
     return { corpo: { access_token: "token-oauth-empresa", expires_in: 3600 } };
@@ -210,6 +297,8 @@ servidor(PORTA_CHATWOOT, (req, body) => {
       corpo: { results: [{ alternatives: [{ transcript: "quero higienizar meu sofá amanhã" }] }] },
     };
   }
+  const mkt = chatwootMarketing(req, body);
+  if (mkt) return mkt;
   if (req.url.endsWith("/messages")) return { corpo: { id: ++idMensagem } };
   return { corpo: {} };
 });

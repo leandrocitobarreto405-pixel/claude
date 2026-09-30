@@ -2025,6 +2025,76 @@ export type Database = {
           },
         ];
       };
+      indicacoes: {
+        Row: {
+          credito_indicador_pct: number;
+          criada_em: string;
+          desconto_indicado_pct: number;
+          empresa_id: string;
+          id: string;
+          indicado_contato_id: string | null;
+          indicado_nome: string | null;
+          indicado_phone: string;
+          indicado_usou_em: string | null;
+          indicado_work_order_id: string | null;
+          indicador_contato_id: string;
+          indicador_usou_em: string | null;
+        };
+        Insert: {
+          credito_indicador_pct?: number;
+          criada_em?: string;
+          desconto_indicado_pct?: number;
+          empresa_id: string;
+          id?: string;
+          indicado_contato_id?: string | null;
+          indicado_nome?: string | null;
+          indicado_phone: string;
+          indicado_usou_em?: string | null;
+          indicado_work_order_id?: string | null;
+          indicador_contato_id: string;
+          indicador_usou_em?: string | null;
+        };
+        Update: {
+          credito_indicador_pct?: number;
+          criada_em?: string;
+          desconto_indicado_pct?: number;
+          empresa_id?: string;
+          id?: string;
+          indicado_contato_id?: string | null;
+          indicado_nome?: string | null;
+          indicado_phone?: string;
+          indicado_usou_em?: string | null;
+          indicado_work_order_id?: string | null;
+          indicador_contato_id?: string;
+          indicador_usou_em?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "indicacoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "indicacoes_indicado_contato_id_fkey";
+            columns: ["indicado_contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "indicacoes_indicado_work_order_id_fkey";
+            columns: ["indicado_work_order_id"];
+            referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "indicacoes_indicador_contato_id_fkey";
+            columns: ["indicador_contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       integracao_eventos: {
         Row: {
           account_id: number | null;
@@ -2292,6 +2362,771 @@ export type Database = {
             foreignKeyName: "mensagens_origem_sales_origin_id_fkey";
             columns: ["sales_origin_id"];
             referencedRelation: "config_options";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_avisos: {
+        Row: {
+          campanha_id: string | null;
+          created_at: string;
+          empresa_id: string;
+          id: string;
+          lido_em: string | null;
+          lote_id: string | null;
+          mensagem: string;
+          tipo: string;
+          titulo: string;
+          whatsapp_enviado_em: string | null;
+          whatsapp_erro: string | null;
+        };
+        Insert: {
+          campanha_id?: string | null;
+          created_at?: string;
+          empresa_id: string;
+          id?: string;
+          lido_em?: string | null;
+          lote_id?: string | null;
+          mensagem: string;
+          tipo: string;
+          titulo: string;
+          whatsapp_enviado_em?: string | null;
+          whatsapp_erro?: string | null;
+        };
+        Update: {
+          campanha_id?: string | null;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          lido_em?: string | null;
+          lote_id?: string | null;
+          mensagem?: string;
+          tipo?: string;
+          titulo?: string;
+          whatsapp_enviado_em?: string | null;
+          whatsapp_erro?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_avisos_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "mkt_campanhas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_avisos_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "vw_mkt_campanhas_relatorio";
+            referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_avisos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_avisos_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "mkt_lotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_avisos_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "vw_mkt_lotes_relatorio";
+            referencedColumns: ["lote_id"];
+          },
+        ];
+      };
+      mkt_campanhas: {
+        Row: {
+          aprovada_em: string | null;
+          aprovada_por: string | null;
+          condicao_pct: number | null;
+          condicao_texto: string | null;
+          created_at: string;
+          crm_campaign_id: string | null;
+          custo_msg_estimado: number;
+          datas_disparo: string[];
+          empresa_id: string;
+          estimativa: Json | null;
+          gatilho: string | null;
+          grupos: string[];
+          id: string;
+          limites: NonNullable<Json>;
+          mes_ref: string;
+          motivo_status: string | null;
+          nome: string;
+          preparada_em: string | null;
+          recusada_em: string | null;
+          status: string;
+          tema: string | null;
+          template_nome: string | null;
+          templates: NonNullable<Json>;
+          tipo: string;
+          updated_at: string;
+        };
+        Insert: {
+          aprovada_em?: string | null;
+          aprovada_por?: string | null;
+          condicao_pct?: number | null;
+          condicao_texto?: string | null;
+          created_at?: string;
+          crm_campaign_id?: string | null;
+          custo_msg_estimado?: number;
+          datas_disparo?: string[];
+          empresa_id: string;
+          estimativa?: Json | null;
+          gatilho?: string | null;
+          grupos?: string[];
+          id?: string;
+          limites?: NonNullable<Json>;
+          mes_ref: string;
+          motivo_status?: string | null;
+          nome: string;
+          preparada_em?: string | null;
+          recusada_em?: string | null;
+          status?: string;
+          tema?: string | null;
+          template_nome?: string | null;
+          templates?: NonNullable<Json>;
+          tipo: string;
+          updated_at?: string;
+        };
+        Update: {
+          aprovada_em?: string | null;
+          aprovada_por?: string | null;
+          condicao_pct?: number | null;
+          condicao_texto?: string | null;
+          created_at?: string;
+          crm_campaign_id?: string | null;
+          custo_msg_estimado?: number;
+          datas_disparo?: string[];
+          empresa_id?: string;
+          estimativa?: Json | null;
+          gatilho?: string | null;
+          grupos?: string[];
+          id?: string;
+          limites?: NonNullable<Json>;
+          mes_ref?: string;
+          motivo_status?: string | null;
+          nome?: string;
+          preparada_em?: string | null;
+          recusada_em?: string | null;
+          status?: string;
+          tema?: string | null;
+          template_nome?: string | null;
+          templates?: NonNullable<Json>;
+          tipo?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_campanhas_crm_campaign_id_fkey";
+            columns: ["crm_campaign_id"];
+            referencedRelation: "crm_campaigns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_campanhas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_configuracoes: {
+        Row: {
+          amostra_minima: number;
+          aviso_telefone: string | null;
+          aviso_template_nome: string | null;
+          aviso_whatsapp_ligado: boolean;
+          botoes: NonNullable<Json>;
+          chatwoot_inbox_id: number | null;
+          created_at: string;
+          custo_msg_estimado: number;
+          dias_antes_preparo: number;
+          disparo_ligado: boolean;
+          empresa_id: string;
+          gatilho_c1_ligado: boolean;
+          gatilho_c2_ligado: boolean;
+          gatilho_c3_ligado: boolean;
+          hora_disparo: number;
+          hora_limite: number;
+          intervalo_segundos: number;
+          limite_erro_pct: number;
+          limite_optout_pct: number;
+          link_avaliacao_google: string | null;
+          lote_tamanho: number;
+          preparo_automatico: boolean;
+          template_idioma: string;
+          updated_at: string;
+        };
+        Insert: {
+          amostra_minima?: number;
+          aviso_telefone?: string | null;
+          aviso_template_nome?: string | null;
+          aviso_whatsapp_ligado?: boolean;
+          botoes?: NonNullable<Json>;
+          chatwoot_inbox_id?: number | null;
+          created_at?: string;
+          custo_msg_estimado?: number;
+          dias_antes_preparo?: number;
+          disparo_ligado?: boolean;
+          empresa_id: string;
+          gatilho_c1_ligado?: boolean;
+          gatilho_c2_ligado?: boolean;
+          gatilho_c3_ligado?: boolean;
+          hora_disparo?: number;
+          hora_limite?: number;
+          intervalo_segundos?: number;
+          limite_erro_pct?: number;
+          limite_optout_pct?: number;
+          link_avaliacao_google?: string | null;
+          lote_tamanho?: number;
+          preparo_automatico?: boolean;
+          template_idioma?: string;
+          updated_at?: string;
+        };
+        Update: {
+          amostra_minima?: number;
+          aviso_telefone?: string | null;
+          aviso_template_nome?: string | null;
+          aviso_whatsapp_ligado?: boolean;
+          botoes?: NonNullable<Json>;
+          chatwoot_inbox_id?: number | null;
+          created_at?: string;
+          custo_msg_estimado?: number;
+          dias_antes_preparo?: number;
+          disparo_ligado?: boolean;
+          empresa_id?: string;
+          gatilho_c1_ligado?: boolean;
+          gatilho_c2_ligado?: boolean;
+          gatilho_c3_ligado?: boolean;
+          hora_disparo?: number;
+          hora_limite?: number;
+          intervalo_segundos?: number;
+          limite_erro_pct?: number;
+          limite_optout_pct?: number;
+          link_avaliacao_google?: string | null;
+          lote_tamanho?: number;
+          preparo_automatico?: boolean;
+          template_idioma?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_configuracoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_contatos: {
+        Row: {
+          created_at: string;
+          credito_indicacao_pct: number;
+          crm_lead_id: string | null;
+          customer_id: string | null;
+          empresa_id: string;
+          grupo_atual: string | null;
+          grupo_calculado_em: string | null;
+          id: string;
+          indicado_por_contato_id: string | null;
+          lead_entrada_em: string | null;
+          nome: string | null;
+          normalized_phone: string;
+          optout_em: string | null;
+          origem_importacao: string | null;
+          pos_venda_em: string | null;
+          primeiro_nome: string | null;
+          recusou_em: string | null;
+          recusou_grupo: string | null;
+          sem_pos_venda: boolean;
+          servico_interesse: string | null;
+          tipo: string;
+          ultima_work_order_id: string | null;
+          ultimo_servico_em: string | null;
+          ultimo_servico_tipo: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          credito_indicacao_pct?: number;
+          crm_lead_id?: string | null;
+          customer_id?: string | null;
+          empresa_id: string;
+          grupo_atual?: string | null;
+          grupo_calculado_em?: string | null;
+          id?: string;
+          indicado_por_contato_id?: string | null;
+          lead_entrada_em?: string | null;
+          nome?: string | null;
+          normalized_phone: string;
+          optout_em?: string | null;
+          origem_importacao?: string | null;
+          pos_venda_em?: string | null;
+          primeiro_nome?: string | null;
+          recusou_em?: string | null;
+          recusou_grupo?: string | null;
+          sem_pos_venda?: boolean;
+          servico_interesse?: string | null;
+          tipo: string;
+          ultima_work_order_id?: string | null;
+          ultimo_servico_em?: string | null;
+          ultimo_servico_tipo?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          credito_indicacao_pct?: number;
+          crm_lead_id?: string | null;
+          customer_id?: string | null;
+          empresa_id?: string;
+          grupo_atual?: string | null;
+          grupo_calculado_em?: string | null;
+          id?: string;
+          indicado_por_contato_id?: string | null;
+          lead_entrada_em?: string | null;
+          nome?: string | null;
+          normalized_phone?: string;
+          optout_em?: string | null;
+          origem_importacao?: string | null;
+          pos_venda_em?: string | null;
+          primeiro_nome?: string | null;
+          recusou_em?: string | null;
+          recusou_grupo?: string | null;
+          sem_pos_venda?: boolean;
+          servico_interesse?: string | null;
+          tipo?: string;
+          ultima_work_order_id?: string | null;
+          ultimo_servico_em?: string | null;
+          ultimo_servico_tipo?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_contatos_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_contatos_customer_id_fkey";
+            columns: ["customer_id"];
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_contatos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_contatos_indicado_por_contato_id_fkey";
+            columns: ["indicado_por_contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_contatos_ultima_work_order_id_fkey";
+            columns: ["ultima_work_order_id"];
+            referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_envios: {
+        Row: {
+          agendado_para: string | null;
+          bloqueio: boolean;
+          botao_clicado: string | null;
+          campanha_id: string;
+          chatwoot_conversation_id: number | null;
+          chatwoot_message_id: number | null;
+          contato_id: string;
+          created_at: string;
+          crm_lead_id: string | null;
+          empresa_id: string;
+          enviado_em: string | null;
+          erro: string | null;
+          gatilho_ref: string | null;
+          grupo: string | null;
+          id: string;
+          lote_id: string | null;
+          normalized_phone: string;
+          ordem: number;
+          quote_id: string | null;
+          reservado_em: string | null;
+          respondido_em: string | null;
+          status: string;
+          template_nome: string;
+          valor_venda: number | null;
+          variante_sn: boolean;
+          work_order_id: string | null;
+        };
+        Insert: {
+          agendado_para?: string | null;
+          bloqueio?: boolean;
+          botao_clicado?: string | null;
+          campanha_id: string;
+          chatwoot_conversation_id?: number | null;
+          chatwoot_message_id?: number | null;
+          contato_id: string;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id: string;
+          enviado_em?: string | null;
+          erro?: string | null;
+          gatilho_ref?: string | null;
+          grupo?: string | null;
+          id?: string;
+          lote_id?: string | null;
+          normalized_phone: string;
+          ordem?: number;
+          quote_id?: string | null;
+          reservado_em?: string | null;
+          respondido_em?: string | null;
+          status?: string;
+          template_nome: string;
+          valor_venda?: number | null;
+          variante_sn?: boolean;
+          work_order_id?: string | null;
+        };
+        Update: {
+          agendado_para?: string | null;
+          bloqueio?: boolean;
+          botao_clicado?: string | null;
+          campanha_id?: string;
+          chatwoot_conversation_id?: number | null;
+          chatwoot_message_id?: number | null;
+          contato_id?: string;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id?: string;
+          enviado_em?: string | null;
+          erro?: string | null;
+          gatilho_ref?: string | null;
+          grupo?: string | null;
+          id?: string;
+          lote_id?: string | null;
+          normalized_phone?: string;
+          ordem?: number;
+          quote_id?: string | null;
+          reservado_em?: string | null;
+          respondido_em?: string | null;
+          status?: string;
+          template_nome?: string;
+          valor_venda?: number | null;
+          variante_sn?: boolean;
+          work_order_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_envios_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "mkt_campanhas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "vw_mkt_campanhas_relatorio";
+            referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_contato_id_fkey";
+            columns: ["contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "mkt_lotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "vw_mkt_lotes_relatorio";
+            referencedColumns: ["lote_id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_quote_id_fkey";
+            columns: ["quote_id"];
+            referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_envios_work_order_id_fkey";
+            columns: ["work_order_id"];
+            referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_eventos: {
+        Row: {
+          campanha_id: string | null;
+          contato_id: string | null;
+          created_at: string;
+          detalhe: NonNullable<Json>;
+          empresa_id: string | null;
+          envio_id: string | null;
+          id: string;
+          lote_id: string | null;
+          resultado: string;
+          tipo: string;
+        };
+        Insert: {
+          campanha_id?: string | null;
+          contato_id?: string | null;
+          created_at?: string;
+          detalhe?: NonNullable<Json>;
+          empresa_id?: string | null;
+          envio_id?: string | null;
+          id?: string;
+          lote_id?: string | null;
+          resultado: string;
+          tipo: string;
+        };
+        Update: {
+          campanha_id?: string | null;
+          contato_id?: string | null;
+          created_at?: string;
+          detalhe?: NonNullable<Json>;
+          empresa_id?: string | null;
+          envio_id?: string | null;
+          id?: string;
+          lote_id?: string | null;
+          resultado?: string;
+          tipo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_eventos_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "mkt_campanhas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "vw_mkt_campanhas_relatorio";
+            referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_contato_id_fkey";
+            columns: ["contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_envio_id_fkey";
+            columns: ["envio_id"];
+            referencedRelation: "mkt_envios";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "mkt_lotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_eventos_lote_id_fkey";
+            columns: ["lote_id"];
+            referencedRelation: "vw_mkt_lotes_relatorio";
+            referencedColumns: ["lote_id"];
+          },
+        ];
+      };
+      mkt_grupos_historico: {
+        Row: {
+          calculado_em: string;
+          contato_id: string;
+          empresa_id: string;
+          grupo: string | null;
+          id: string;
+          mes_ref: string;
+          motivo_fora: string | null;
+        };
+        Insert: {
+          calculado_em?: string;
+          contato_id: string;
+          empresa_id: string;
+          grupo?: string | null;
+          id?: string;
+          mes_ref: string;
+          motivo_fora?: string | null;
+        };
+        Update: {
+          calculado_em?: string;
+          contato_id?: string;
+          empresa_id?: string;
+          grupo?: string | null;
+          id?: string;
+          mes_ref?: string;
+          motivo_fora?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_grupos_historico_contato_id_fkey";
+            columns: ["contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_grupos_historico_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_lotes: {
+        Row: {
+          campanha_id: string;
+          concluido_em: string | null;
+          created_at: string;
+          data_prevista: string;
+          empresa_id: string;
+          etiqueta_chatwoot: string;
+          id: string;
+          iniciado_em: string | null;
+          motivo_pausa: string | null;
+          numero: number;
+          quantidade: number;
+          sincronizado_em: string | null;
+          status: string;
+        };
+        Insert: {
+          campanha_id: string;
+          concluido_em?: string | null;
+          created_at?: string;
+          data_prevista: string;
+          empresa_id: string;
+          etiqueta_chatwoot: string;
+          id?: string;
+          iniciado_em?: string | null;
+          motivo_pausa?: string | null;
+          numero: number;
+          quantidade?: number;
+          sincronizado_em?: string | null;
+          status?: string;
+        };
+        Update: {
+          campanha_id?: string;
+          concluido_em?: string | null;
+          created_at?: string;
+          data_prevista?: string;
+          empresa_id?: string;
+          etiqueta_chatwoot?: string;
+          id?: string;
+          iniciado_em?: string | null;
+          motivo_pausa?: string | null;
+          numero?: number;
+          quantidade?: number;
+          sincronizado_em?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_lotes_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "mkt_campanhas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_lotes_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "vw_mkt_campanhas_relatorio";
+            referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_lotes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mkt_tarefas: {
+        Row: {
+          contato_id: string | null;
+          conversa_id: string | null;
+          created_at: string;
+          empresa_id: string;
+          erro: string | null;
+          feita_em: string | null;
+          id: string;
+          situacao: string;
+          tentativas: number;
+          tipo: string;
+        };
+        Insert: {
+          contato_id?: string | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          empresa_id: string;
+          erro?: string | null;
+          feita_em?: string | null;
+          id?: string;
+          situacao?: string;
+          tentativas?: number;
+          tipo: string;
+        };
+        Update: {
+          contato_id?: string | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          empresa_id?: string;
+          erro?: string | null;
+          feita_em?: string | null;
+          id?: string;
+          situacao?: string;
+          tentativas?: number;
+          tipo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_tarefas_contato_id_fkey";
+            columns: ["contato_id"];
+            referencedRelation: "mkt_contatos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_tarefas_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_tarefas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
         ];
@@ -4242,6 +5077,75 @@ export type Database = {
           },
         ];
       };
+      vw_mkt_campanhas_relatorio: {
+        Row: {
+          bloqueios: number | null;
+          campanha_id: string | null;
+          contatos: number | null;
+          custo_estimado: number | null;
+          empresa_id: string | null;
+          enviados: number | null;
+          erros: number | null;
+          gatilho: string | null;
+          mes_ref: string | null;
+          nome: string | null;
+          optouts: number | null;
+          orcamentos: number | null;
+          respostas: number | null;
+          retorno: number | null;
+          status: string | null;
+          tipo: string | null;
+          valor_vendido: number | null;
+          vendas: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_campanhas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      vw_mkt_lotes_relatorio: {
+        Row: {
+          bloqueios: number | null;
+          campanha_id: string | null;
+          data_prevista: string | null;
+          empresa_id: string | null;
+          enviados: number | null;
+          erro_pct: number | null;
+          erros: number | null;
+          lote_id: string | null;
+          motivo_pausa: string | null;
+          numero: number | null;
+          optout_bloqueio_pct: number | null;
+          optouts: number | null;
+          quantidade: number | null;
+          status: string | null;
+          tentativas: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mkt_lotes_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "mkt_campanhas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mkt_lotes_campanha_id_fkey";
+            columns: ["campanha_id"];
+            referencedRelation: "vw_mkt_campanhas_relatorio";
+            referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_lotes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       ads_registrar_clique: {
@@ -4333,6 +5237,81 @@ export type Database = {
         Returns: Database["public"]["Enums"]["papel_empresa"];
       };
       minha_empresa: { Args: Record<PropertyKey, never>; Returns: string };
+      mkt_aprovar_campanha: {
+        Args: { _campanha: string; _hoje?: string; _usuario: string };
+        Returns: Json;
+      };
+      mkt_calcular_grupos: {
+        Args: { _emp: string; _hoje?: string };
+        Returns: Json;
+      };
+      mkt_confirmar_envio: {
+        Args: { _agora?: string; _envio: string };
+        Returns: boolean;
+      };
+      mkt_encerrar_campanha: {
+        Args: { _campanha: string; _motivo: string; _status: string };
+        Returns: undefined;
+      };
+      mkt_gerar_gatilhos: {
+        Args: { _emp: string; _hoje?: string };
+        Returns: Json;
+      };
+      mkt_importar_contatos: {
+        Args: { _emp: string; _linhas: Json; _origem: string };
+        Returns: Json;
+      };
+      mkt_pausar: {
+        Args: { _campanha: string; _lote: string; _motivo: string };
+        Returns: number;
+      };
+      mkt_preparar_campanha: {
+        Args: { _campanha: string; _hoje?: string };
+        Returns: Json;
+      };
+      mkt_registrar_envio: {
+        Args: {
+          _conversa: number;
+          _envio: string;
+          _erro: string;
+          _mensagem: number;
+          _ok: boolean;
+        };
+        Returns: Json;
+      };
+      mkt_reservar_envios: {
+        Args: { _agora?: string; _limite: number };
+        Returns: {
+          campanha_id: string;
+          chatwoot_contact_id: number;
+          condicao_pct: number;
+          condicao_texto: string;
+          contato_id: string;
+          conversa_chatwoot_id: number;
+          conversa_status: string;
+          empresa_id: string;
+          envio_id: string;
+          etiqueta: string;
+          grupo: string;
+          idioma: string;
+          lote_id: string;
+          nome: string;
+          normalized_phone: string;
+          primeiro_nome: string;
+          template_nome: string;
+          variante_sn: boolean;
+          whatsapp_contact_id: string;
+        }[];
+      };
+      mkt_resumo_gatilhos: {
+        Args: { _dias?: number; _emp: string };
+        Returns: Json;
+      };
+      mkt_retomar: {
+        Args: { _campanha: string; _lote: string };
+        Returns: number;
+      };
+      mkt_sincronizar_base: { Args: { _emp: string }; Returns: Json };
       provisionar_empresa: {
         Args: {
           _cnpj?: string;
