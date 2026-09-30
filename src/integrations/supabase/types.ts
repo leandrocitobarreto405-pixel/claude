@@ -8,6 +8,214 @@ export type Database = {
   };
   public: {
     Tables: {
+      ads_clicks: {
+        Row: {
+          alice_contato_em: string | null;
+          created_at: string;
+          crm_lead_id: string | null;
+          empresa_id: string;
+          enviado_google_em: string | null;
+          enviado_meta_em: string | null;
+          fbclid: string | null;
+          gbraid: string | null;
+          gclid: string | null;
+          id: string;
+          nome: string | null;
+          normalized_phone: string;
+          page_url: string | null;
+          servico: string | null;
+          telefone_raw: string;
+          utm_campaign: string | null;
+          utm_content: string | null;
+          utm_medium: string | null;
+          utm_source: string | null;
+          utm_term: string | null;
+          vinculado_em: string | null;
+          wbraid: string | null;
+          whatsapp_iniciado_em: string | null;
+        };
+        Insert: {
+          alice_contato_em?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id: string;
+          enviado_google_em?: string | null;
+          enviado_meta_em?: string | null;
+          fbclid?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          nome?: string | null;
+          normalized_phone: string;
+          page_url?: string | null;
+          servico?: string | null;
+          telefone_raw: string;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          vinculado_em?: string | null;
+          wbraid?: string | null;
+          whatsapp_iniciado_em?: string | null;
+        };
+        Update: {
+          alice_contato_em?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id?: string;
+          enviado_google_em?: string | null;
+          enviado_meta_em?: string | null;
+          fbclid?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          nome?: string | null;
+          normalized_phone?: string;
+          page_url?: string | null;
+          servico?: string | null;
+          telefone_raw?: string;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          vinculado_em?: string | null;
+          wbraid?: string | null;
+          whatsapp_iniciado_em?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_clicks_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_clicks_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ads_configuracoes: {
+        Row: {
+          alice_iniciar_apos_minutos: number;
+          alice_iniciar_conversa: boolean;
+          alice_template_idioma: string;
+          alice_template_nome: string | null;
+          created_at: string;
+          empresa_id: string;
+          google_planilha_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          alice_iniciar_apos_minutos?: number;
+          alice_iniciar_conversa?: boolean;
+          alice_template_idioma?: string;
+          alice_template_nome?: string | null;
+          created_at?: string;
+          empresa_id: string;
+          google_planilha_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          alice_iniciar_apos_minutos?: number;
+          alice_iniciar_conversa?: boolean;
+          alice_template_idioma?: string;
+          alice_template_nome?: string | null;
+          created_at?: string;
+          empresa_id?: string;
+          google_planilha_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_configuracoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ads_dominios: {
+        Row: {
+          created_at: string;
+          dominio: string;
+          empresa_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          dominio: string;
+          empresa_id: string;
+        };
+        Update: {
+          created_at?: string;
+          dominio?: string;
+          empresa_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_dominios_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ads_eventos: {
+        Row: {
+          ads_click_id: string | null;
+          created_at: string;
+          detalhe: NonNullable<Json>;
+          empresa_id: string | null;
+          id: string;
+          ip_hash: string | null;
+          resultado: string;
+          tipo: string;
+        };
+        Insert: {
+          ads_click_id?: string | null;
+          created_at?: string;
+          detalhe?: NonNullable<Json>;
+          empresa_id?: string | null;
+          id?: string;
+          ip_hash?: string | null;
+          resultado: string;
+          tipo: string;
+        };
+        Update: {
+          ads_click_id?: string | null;
+          created_at?: string;
+          detalhe?: NonNullable<Json>;
+          empresa_id?: string | null;
+          id?: string;
+          ip_hash?: string | null;
+          resultado?: string;
+          tipo?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_eventos_ads_click_id_fkey";
+            columns: ["ads_click_id"];
+            referencedRelation: "ads_clicks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_eventos_ads_click_id_fkey";
+            columns: ["ads_click_id"];
+            referencedRelation: "vw_conversoes_google_pendentes";
+            referencedColumns: ["ads_click_id"];
+          },
+          {
+            foreignKeyName: "ads_eventos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       app_settings: {
         Row: {
           empresa_id: string;
@@ -3998,9 +4206,48 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      vw_conversoes_google: {
+        Row: {
+          "Conversion Currency": string | null;
+          "Conversion Name": string | null;
+          "Conversion Time": string | null;
+          "Conversion Value": number | null;
+          "Google Click ID": string | null;
+        };
+        Relationships: [];
+      };
+      vw_conversoes_google_pendentes: {
+        Row: {
+          ads_click_id: string | null;
+          conversao_em: string | null;
+          conversao_horario: string | null;
+          conversao_nome: string | null;
+          crm_lead_id: string | null;
+          empresa_id: string | null;
+          gclid: string | null;
+          valor: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_clicks_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_clicks_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
+      ads_registrar_clique: {
+        Args: { _dados: Json; _host: string; _ip_hash: string };
+        Returns: Json;
+      };
       chatwoot_conexoes_resumo: {
         Args: Record<PropertyKey, never>;
         Returns: {

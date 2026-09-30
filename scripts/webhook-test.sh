@@ -87,6 +87,8 @@ PIDS+=($!)
 (cd "${ROOT}" && SUPABASE_URL="http://127.0.0.1:${PROXY_PORTA}" SUPABASE_SERVICE_ROLE_KEY="${CHAVE_SERVICO}" \
   ANTHROPIC_BASE_URL="http://127.0.0.1:${PORTA_CLAUDE}" ANTHROPIC_API_KEY="chave-de-teste-local" \
   GCE_METADATA_HOST="127.0.0.1:${PORTA_CHATWOOT}" SPEECH_API_URL="http://127.0.0.1:${PORTA_CHATWOOT}" \
+  SHEETS_API_URL="http://127.0.0.1:${PORTA_CHATWOOT}" GOOGLE_OAUTH_TOKEN_URL="http://127.0.0.1:${PORTA_CHATWOOT}/oauth/token" \
+  GOOGLE_CLIENT_ID="cliente-teste" GOOGLE_CLIENT_SECRET="segredo-teste" \
   exec setsid npx vite dev --host 127.0.0.1 --port "${APP_PORTA}" --strictPort > "${TMP}/app.log" 2>&1) &
 APP_PGID=$!
 
@@ -98,4 +100,6 @@ done
 APP_URL="http://127.0.0.1:${APP_PORTA}" node "${ROOT}/supabase/tests/api/chatwoot-webhook.test.mjs" \
   || { echo "--- log do app ---"; tail -40 "${TMP}/app.log"; exit 1; }
 APP_URL="http://127.0.0.1:${APP_PORTA}" STORAGE_DIR="${TMP}/storage" node "${ROOT}/supabase/tests/api/alice.test.mjs" \
+  || { echo "--- log do app ---"; tail -60 "${TMP}/app.log"; exit 1; }
+APP_URL="http://127.0.0.1:${APP_PORTA}" node "${ROOT}/supabase/tests/api/ads.test.mjs" \
   || { echo "--- log do app ---"; tail -60 "${TMP}/app.log"; exit 1; }

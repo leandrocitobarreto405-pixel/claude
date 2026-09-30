@@ -127,11 +127,14 @@ type RespostaToken = {
 };
 
 async function pedirToken(corpo: Record<string, string>): Promise<RespostaToken> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(corpo),
-  });
+  const res = await fetch(
+    process.env["GOOGLE_OAUTH_TOKEN_URL"] || "https://oauth2.googleapis.com/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(corpo),
+    },
+  );
   const json = (await res.json().catch(() => ({}))) as RespostaToken;
   if (!res.ok) return { error: json.error ?? `http_${res.status}` };
   return json;
@@ -172,9 +175,9 @@ export function esquecerTokenGoogle(empresaId: string) {
   cache.delete(empresaId);
 }
 
-/** Token de acesso da conta Google da empresa ativa. */
-export async function tokenGoogle(): Promise<string> {
-  const { empresaId } = contextoEmpresa();
+/** Token de acesso da conta Google da empresa ativa (ou da empresa informada, em tarefas). */
+export async function tokenGoogle(empresaDaTarefa?: string): Promise<string> {
+  const empresaId = empresaDaTarefa ?? contextoEmpresa().empresaId;
   const guardado = cache.get(empresaId);
   if (guardado && guardado.expiraEm - Date.now() > 60_000) return guardado.token;
 

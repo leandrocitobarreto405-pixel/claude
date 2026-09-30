@@ -170,7 +170,29 @@ const JPEG = Buffer.from(
   "base64",
 );
 let idMensagem = 7000;
+// Google Sheets falso (exportação das conversões): uma planilha em memória por ID.
+const planilhas = new Map();
 servidor(PORTA_CHATWOOT, (req, body) => {
+  if (req.url === "/oauth/token")
+    return { corpo: { access_token: "token-oauth-empresa", expires_in: 3600 } };
+  const sh = /^\/v4\/spreadsheets\/([^/?]+)(\/values\/([^?:]+))?(:clear)?/.exec(req.url);
+  if (sh) {
+    if (req.headers.authorization !== "Bearer token-oauth-empresa")
+      return { status: 401, corpo: { error: "sem token" } };
+    const id = decodeURIComponent(sh[1]);
+    if (id === "planilha-sem-acesso-0000000000")
+      return { status: 403, corpo: { error: "forbidden" } };
+    if (!sh[2]) return { corpo: { sheets: [{ properties: { title: "Página1" } }] } };
+    if (sh[4]) {
+      planilhas.set(id, []);
+      return { corpo: {} };
+    }
+    if (req.method === "PUT") {
+      planilhas.set(id, body.values);
+      return { corpo: { updatedRows: body.values.length } };
+    }
+    return { corpo: { values: planilhas.get(id) ?? [] } };
+  }
   if (req.method === "GET" && req.url === "/foto-sofa.jpg")
     return { tipo: "image/jpeg", bruto: JPEG };
   if (req.method === "GET" && req.url === "/audio-cliente.ogg")

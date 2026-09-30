@@ -20,7 +20,14 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
         if (!tarefaAutorizada(request)) return json({ error: "Não autorizado." }, 401);
         try {
           const { varrerFila } = await import("@/lib/alice/fila.server");
-          return json({ ok: true, ...(await varrerFila()) });
+          const { iniciarContatosPendentes } = await import("@/lib/ads/alice-contato.server");
+          const fila = await varrerFila();
+          // Fase 2 dos anúncios (desligada por padrão): Alice inicia a conversa do pop-up.
+          const anuncios = await iniciarContatosPendentes().catch((e) => {
+            console.error("[ads] alice_contato.falha", e);
+            return null;
+          });
+          return json({ ok: true, ...fila, anuncios });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);
           return json({ ok: false, error: "Falha temporária." }, 500);

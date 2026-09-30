@@ -45,7 +45,9 @@ import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
+import { Route as ApiPublicAdsLeadRouteImport } from './routes/api/public/ads/lead'
 import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
+import { Route as ApiPublicHooksAdsExportarGoogleRouteImport } from './routes/api/public/hooks/ads-exportar-google'
 import { Route as ApiPublicHooksAliceProcessarRouteImport } from './routes/api/public/hooks/alice-processar'
 import { Route as ApiPublicHooksAliceVarreduraRouteImport } from './routes/api/public/hooks/alice-varredura'
 import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
@@ -249,11 +251,22 @@ const AuthenticatedCrmLeadLeadIdRoute =
     path: '/crm/lead/$leadId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicAdsLeadRoute = ApiPublicAdsLeadRouteImport.update({
+  id: '/api/public/ads/lead',
+  path: '/api/public/ads/lead',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGoogleRetornoRoute = ApiPublicGoogleRetornoRouteImport.update({
   id: '/api/public/google/retorno',
   path: '/api/public/google/retorno',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAdsExportarGoogleRoute =
+  ApiPublicHooksAdsExportarGoogleRouteImport.update({
+    id: '/api/public/hooks/ads-exportar-google',
+    path: '/api/public/hooks/ads-exportar-google',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAliceProcessarRoute =
   ApiPublicHooksAliceProcessarRouteImport.update({
     id: '/api/public/hooks/alice-processar',
@@ -344,7 +357,9 @@ export interface FileRoutesByFullPath {
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/ads-exportar-google': typeof ApiPublicHooksAdsExportarGoogleRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
@@ -391,7 +406,9 @@ export interface FileRoutesByTo {
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/ads-exportar-google': typeof ApiPublicHooksAdsExportarGoogleRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
@@ -440,7 +457,9 @@ export interface FileRoutesById {
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
+  '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
   '/api/public/google/retorno': typeof ApiPublicGoogleRetornoRoute
+  '/api/public/hooks/ads-exportar-google': typeof ApiPublicHooksAdsExportarGoogleRoute
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
@@ -489,7 +508,9 @@ export interface FileRouteTypes {
     | '/os/$osNumber'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
+    | '/api/public/ads/lead'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/ads-exportar-google'
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
@@ -536,7 +557,9 @@ export interface FileRouteTypes {
     | '/os/$osNumber'
     | '/orcamentos'
     | '/crm/lead/$leadId'
+    | '/api/public/ads/lead'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/ads-exportar-google'
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
@@ -584,7 +607,9 @@ export interface FileRouteTypes {
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
+    | '/api/public/ads/lead'
     | '/api/public/google/retorno'
+    | '/api/public/hooks/ads-exportar-google'
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
@@ -602,7 +627,9 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
+  ApiPublicAdsLeadRoute: typeof ApiPublicAdsLeadRoute
   ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
+  ApiPublicHooksAdsExportarGoogleRoute: typeof ApiPublicHooksAdsExportarGoogleRoute
   ApiPublicHooksAliceProcessarRoute: typeof ApiPublicHooksAliceProcessarRoute
   ApiPublicHooksAliceVarreduraRoute: typeof ApiPublicHooksAliceVarreduraRoute
   ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
@@ -868,11 +895,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmLeadLeadIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/ads/lead': {
+      id: '/api/public/ads/lead'
+      path: '/api/public/ads/lead'
+      fullPath: '/api/public/ads/lead'
+      preLoaderRoute: typeof ApiPublicAdsLeadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/google/retorno': {
       id: '/api/public/google/retorno'
       path: '/api/public/google/retorno'
       fullPath: '/api/public/google/retorno'
       preLoaderRoute: typeof ApiPublicGoogleRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/ads-exportar-google': {
+      id: '/api/public/hooks/ads-exportar-google'
+      path: '/api/public/hooks/ads-exportar-google'
+      fullPath: '/api/public/hooks/ads-exportar-google'
+      preLoaderRoute: typeof ApiPublicHooksAdsExportarGoogleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/alice-processar': {
@@ -1018,7 +1059,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
+  ApiPublicAdsLeadRoute: ApiPublicAdsLeadRoute,
   ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
+  ApiPublicHooksAdsExportarGoogleRoute: ApiPublicHooksAdsExportarGoogleRoute,
   ApiPublicHooksAliceProcessarRoute: ApiPublicHooksAliceProcessarRoute,
   ApiPublicHooksAliceVarreduraRoute: ApiPublicHooksAliceVarreduraRoute,
   ApiPublicHooksChatwootReprocessarRoute:
