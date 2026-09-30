@@ -130,10 +130,11 @@ Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app preci
 ### Ferramentas
 | Ferramenta | O que faz |
 |---|---|
-| `consultar_cliente` | Já é cliente? OS anteriores, orçamentos deste atendimento, retornos pendentes, "IA desligada" / "sem pós-venda". |
+| `consultar_cliente` | Já é cliente? OS anteriores, orçamentos deste atendimento, retornos pendentes, "IA desligada" / "sem pós-venda"; se veio de disparo de marketing, campanha, grupo, modelo e condição (e até quando vale), indicação/crédito e link da avaliação no Google (ver MARKETING.md). |
 | `consultar_cep` | ViaCEP + distância pelas ruas até a base do técnico; dentro/fora do raio configurado. |
 | `consultar_tabela_precos` | Tabela ativa, por serviço. |
-| `criar_orcamento` | Grava o orçamento (status enviado) no lead e devolve total, parcela (÷ parcelas), Pix (− %) e validade com dia da semana. Nomes da tabela sem diferença de acento/caixa. |
+| `criar_orcamento` | Grava o orçamento (status enviado) no lead e devolve total, parcela (÷ parcelas), Pix (− %) e validade com dia da semana. Nomes da tabela sem diferença de acento/caixa. `desconto: "campanha"` ou `"indicacao"`: percentual calculado pelo sistema, em linha separada, Pix sobre o total com desconto. |
+| `registrar_indicacao` | Nome e telefone de quem o cliente indicou: grava a indicação e põe o indicado na base de marketing. |
 | `enviar_video` / `enviar_audio_padrao` | Só aparecem quando o arquivo está cadastrado. Saem logo depois do texto escrito antes. |
 | `agendar_followup` | Tarefa da Alice + repescagem (responsável Alice). Ajusta para o horário permitido; fora da janela de 24 h vira tarefa da equipe. Substitui o follow-up pendente da conversa. |
 | `registrar_motivo_perda` | Um dos 6 motivos do playbook (usa o motivo equivalente do CRM ou cria); "Adiou" com data gera repescagem da equipe. |

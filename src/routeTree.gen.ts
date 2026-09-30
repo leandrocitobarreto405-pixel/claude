@@ -22,6 +22,7 @@ import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dr
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedMarketingRouteImport } from './routes/_authenticated/marketing'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated/nova-os'
@@ -51,6 +52,8 @@ import { Route as ApiPublicHooksAdsExportarGoogleRouteImport } from './routes/ap
 import { Route as ApiPublicHooksAliceProcessarRouteImport } from './routes/api/public/hooks/alice-processar'
 import { Route as ApiPublicHooksAliceVarreduraRouteImport } from './routes/api/public/hooks/alice-varredura'
 import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/api/public/hooks/chatwoot-reprocessar'
+import { Route as ApiPublicHooksMktDiariaRouteImport } from './routes/api/public/hooks/mkt-diaria'
+import { Route as ApiPublicHooksMktDisparoRouteImport } from './routes/api/public/hooks/mkt-disparo'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
 import { Route as ApiPublicHooksWhatsappRouteImport } from './routes/api/public/hooks/whatsapp'
@@ -123,6 +126,11 @@ const AuthenticatedIndicadoresRoute =
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMarketingRoute = AuthenticatedMarketingRouteImport.update({
+  id: '/marketing',
+  path: '/marketing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
@@ -285,6 +293,17 @@ const ApiPublicHooksChatwootReprocessarRoute =
     path: '/api/public/hooks/chatwoot-reprocessar',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksMktDiariaRoute = ApiPublicHooksMktDiariaRouteImport.update({
+  id: '/api/public/hooks/mkt-diaria',
+  path: '/api/public/hooks/mkt-diaria',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksMktDisparoRoute =
+  ApiPublicHooksMktDisparoRouteImport.update({
+    id: '/api/public/hooks/mkt-disparo',
+    path: '/api/public/hooks/mkt-disparo',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksMonthlyMileageClosingRoute =
   ApiPublicHooksMonthlyMileageClosingRouteImport.update({
     id: '/api/public/hooks/monthly-mileage-closing',
@@ -334,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/exportacoes': typeof AuthenticatedExportacoesRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
@@ -363,6 +383,8 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
+  '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
+  '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
@@ -383,6 +405,7 @@ export interface FileRoutesByTo {
   '/exportacoes': typeof AuthenticatedExportacoesRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
@@ -412,6 +435,8 @@ export interface FileRoutesByTo {
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
+  '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
+  '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
@@ -434,6 +459,7 @@ export interface FileRoutesById {
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/marketing': typeof AuthenticatedMarketingRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/nova-os': typeof AuthenticatedNovaOsRoute
@@ -463,6 +489,8 @@ export interface FileRoutesById {
   '/api/public/hooks/alice-processar': typeof ApiPublicHooksAliceProcessarRoute
   '/api/public/hooks/alice-varredura': typeof ApiPublicHooksAliceVarreduraRoute
   '/api/public/hooks/chatwoot-reprocessar': typeof ApiPublicHooksChatwootReprocessarRoute
+  '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
+  '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
@@ -485,6 +513,7 @@ export interface FileRouteTypes {
     | '/exportacoes'
     | '/indicadores'
     | '/inicio'
+    | '/marketing'
     | '/mensagens'
     | '/notas'
     | '/nova-os'
@@ -514,6 +543,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
+    | '/api/public/hooks/mkt-diaria'
+    | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
@@ -534,6 +565,7 @@ export interface FileRouteTypes {
     | '/exportacoes'
     | '/indicadores'
     | '/inicio'
+    | '/marketing'
     | '/mensagens'
     | '/notas'
     | '/nova-os'
@@ -563,6 +595,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
+    | '/api/public/hooks/mkt-diaria'
+    | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
@@ -584,6 +618,7 @@ export interface FileRouteTypes {
     | '/_authenticated/exportacoes'
     | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
+    | '/_authenticated/marketing'
     | '/_authenticated/mensagens'
     | '/_authenticated/notas'
     | '/_authenticated/nova-os'
@@ -613,6 +648,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/alice-processar'
     | '/api/public/hooks/alice-varredura'
     | '/api/public/hooks/chatwoot-reprocessar'
+    | '/api/public/hooks/mkt-diaria'
+    | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
@@ -633,6 +670,8 @@ export interface RootRouteChildren {
   ApiPublicHooksAliceProcessarRoute: typeof ApiPublicHooksAliceProcessarRoute
   ApiPublicHooksAliceVarreduraRoute: typeof ApiPublicHooksAliceVarreduraRoute
   ApiPublicHooksChatwootReprocessarRoute: typeof ApiPublicHooksChatwootReprocessarRoute
+  ApiPublicHooksMktDiariaRoute: typeof ApiPublicHooksMktDiariaRoute
+  ApiPublicHooksMktDisparoRoute: typeof ApiPublicHooksMktDisparoRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
   ApiPublicHooksWhatsappRoute: typeof ApiPublicHooksWhatsappRoute
@@ -732,6 +771,13 @@ declare module '@tanstack/react-router' {
       path: '/inicio'
       fullPath: '/inicio'
       preLoaderRoute: typeof AuthenticatedInicioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/marketing': {
+      id: '/_authenticated/marketing'
+      path: '/marketing'
+      fullPath: '/marketing'
+      preLoaderRoute: typeof AuthenticatedMarketingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mensagens': {
@@ -937,6 +983,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksChatwootReprocessarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/mkt-diaria': {
+      id: '/api/public/hooks/mkt-diaria'
+      path: '/api/public/hooks/mkt-diaria'
+      fullPath: '/api/public/hooks/mkt-diaria'
+      preLoaderRoute: typeof ApiPublicHooksMktDiariaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/mkt-disparo': {
+      id: '/api/public/hooks/mkt-disparo'
+      path: '/api/public/hooks/mkt-disparo'
+      fullPath: '/api/public/hooks/mkt-disparo'
+      preLoaderRoute: typeof ApiPublicHooksMktDisparoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/monthly-mileage-closing': {
       id: '/api/public/hooks/monthly-mileage-closing'
       path: '/api/public/hooks/monthly-mileage-closing'
@@ -991,6 +1051,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedMarketingRoute: typeof AuthenticatedMarketingRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedNovaOsRoute: typeof AuthenticatedNovaOsRoute
@@ -1025,6 +1086,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedMarketingRoute: AuthenticatedMarketingRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedNovaOsRoute: AuthenticatedNovaOsRoute,
@@ -1066,6 +1128,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAliceVarreduraRoute: ApiPublicHooksAliceVarreduraRoute,
   ApiPublicHooksChatwootReprocessarRoute:
     ApiPublicHooksChatwootReprocessarRoute,
+  ApiPublicHooksMktDiariaRoute: ApiPublicHooksMktDiariaRoute,
+  ApiPublicHooksMktDisparoRoute: ApiPublicHooksMktDisparoRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:
     ApiPublicHooksMonthlyMileageClosingRoute,
   ApiPublicHooksRecurringExpensesRoute: ApiPublicHooksRecurringExpensesRoute,
