@@ -154,7 +154,7 @@ const nomesFerramentas = (primeira.body.tools ?? []).map((t) => t.name).join(","
 check(
   "ferramentas da fase 1 (vídeo cadastrado, agenda desligada)",
   nomesFerramentas ===
-    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,enviar_mensagem,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
+    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,registrar_indicacao,enviar_mensagem,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
   nomesFerramentas,
 );
 check(

@@ -20,6 +20,13 @@ import {
   type MotivoPerda,
 } from "./regras";
 
+import {
+  descontoPermitido,
+  lerMarketing,
+  registrarIndicacao,
+  textoMarketing,
+} from "./marketing.server";
+
 type Admin = SupabaseClient<Database>;
 export type ConfigIa = Database["public"]["Tables"]["ia_configuracoes"]["Row"];
 type Servico = "higienizacao" | "impermeabilizacao";
@@ -76,6 +83,11 @@ const CriarOrcamento = z.object({
     .max(15),
   cep: z.string().trim().max(10).optional(),
   rotulo: z.string().trim().max(40).optional(),
+  desconto: z.enum(["campanha", "indicacao"]).optional(),
+});
+const RegistrarIndicacao = z.object({
+  nome: z.string().trim().min(1).max(120),
+  telefone: z.string().trim().min(8).max(30),
 });
 const EnviarMidia = z.object({ servico: SERVICO });
 const EnviarMensagem = z.object({ texto: z.string().trim().min(1).max(4000) });
@@ -159,7 +171,7 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
     {
       name: "consultar_cliente",
       description:
-        "Histórico do cliente no sistema: se já é cliente, serviços anteriores, orçamentos deste atendimento, retornos pendentes e as marcações 'IA desligada' e 'sem pós-venda'.",
+        "Histórico do cliente no sistema: se já é cliente, serviços anteriores, orçamentos deste atendimento, retornos pendentes, as marcações 'IA desligada' e 'sem pós-venda' e, se veio de disparo de marketing, a campanha, o grupo, a mensagem recebida e a condição; indicação (quem indicou, crédito) e o link da avaliação no Google.",
       input_schema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -204,8 +216,31 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
           },
           cep: { type: "string", description: "CEP do cliente, se já souber." },
           rotulo: { type: "string", description: "Ex.: 'Opção 1'." },
+          desconto: {
+            type: "string",
+            enum: ["campanha", "indicacao"],
+            description:
+              "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao). O sistema calcula o percentual. Nunca os dois juntos.",
+          },
         },
         required: ["servico", "itens"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "registrar_indicacao",
+      description:
+        "Registra a indicação que o cliente fez (nome e telefone de quem ele indicou): o indicado ganha o desconto de indicação no primeiro serviço e o cliente ganha crédito no próximo quando o indicado fechar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          nome: { type: "string", description: "Nome da pessoa indicada." },
+          telefone: {
+            type: "string",
+            description: "Telefone (WhatsApp) da pessoa indicada, com DDD.",
+          },
+        },
+        required: ["nome", "telefone"],
         additionalProperties: false,
       },
     },
@@ -492,6 +527,7 @@ async function consultarCliente(ctx: ContextoFerramenta) {
       );
     }
   }
+  linhas.push(...textoMarketing(await lerMarketing(ctx)));
   return linhas.join("\n");
 }
 
@@ -584,7 +620,15 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   }
 
   const lead = await lerLead(ctx);
-  const total = escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0);
+  const bruto = escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0);
+  // Desconto de campanha ou de indicação: linha separada; o Pix vale sobre o total com desconto.
+  let desconto: { pct: number; rotulo: string; valor: number } | null = null;
+  if (input.desconto) {
+    const d = descontoPermitido(await lerMarketing(ctx), input.desconto);
+    if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
+    desconto = { ...d, valor: Math.round(bruto * d.pct) / 100 };
+  }
+  const total = bruto - (desconto?.valor ?? 0);
   const cond = condicoesPagamento(
     total,
     ctx.cfg.parcelas_max,
@@ -612,8 +656,8 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       cliente_endereco: endereco,
       customer_id: lead?.customer_id ?? null,
       data_servico: null,
-      observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}. Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
-      desconto: 0,
+      observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct}% (${reais(desconto.valor)}).` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
+      desconto: desconto?.valor ?? 0,
       valor_a_vista: cond.pix,
       km_ida_volta: km,
       custo_produtos: 0,
@@ -647,7 +691,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — nº ${String(salvo.id).slice(0, 8)}. Use exatamente estes valores:`,
       `Serviço: ${input.servico === "higienizacao" ? "Higienização" : "Impermeabilização"}`,
       ...linhas,
-      `Total: ${reais(cond.total)}`,
+      ...(desconto
+        ? [
+            `Subtotal: ${reais(bruto)}`,
+            `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`,
+          ]
+        : []),
+      `Total${desconto ? " com desconto" : ""}: ${reais(cond.total)}`,
       `Cartão: ${cond.parcelas}x de ${reais(cond.parcela)} sem juros`,
       `Pix (${cond.descontoPixPercentual}% off): ${reais(cond.pix)}`,
       `Válido até ${val.texto}`,
@@ -983,6 +1033,10 @@ export async function executarFerramenta(
       case "criar_orcamento": {
         const p = CriarOrcamento.safeParse(entrada);
         return p.success ? r(await criarOrcamento(ctx, p.data)) : invalida(p.error);
+      }
+      case "registrar_indicacao": {
+        const p = RegistrarIndicacao.safeParse(entrada);
+        return p.success ? r(await registrarIndicacao(ctx, p.data)) : invalida(p.error);
       }
       case "enviar_mensagem": {
         const p = EnviarMensagem.safeParse(entrada);

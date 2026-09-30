@@ -448,6 +448,16 @@ SELECT public.mkt_preparar_campanha('d4000000-0000-0000-0000-000000000004', '202
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_envios WHERE campanha_id = 'd4000000-0000-0000-0000-000000000004'
                       AND normalized_phone = '5511910000001') = 0, 'opt-out depois do cálculo fica fora do preparo');
 
+-- O servidor (chave de serviço) grava indicação e contato direto (índices por telefone).
+SET LOCAL ROLE service_role;
+INSERT INTO public.indicacoes (empresa_id, indicador_contato_id, indicado_nome, indicado_phone)
+VALUES ('11111111-1111-1111-1111-111111111111', (pg_temp.ct('11910000005')).id, 'Rui', '11 91000-0050');
+UPDATE public.mkt_contatos SET indicado_por_contato_id = (pg_temp.ct('11910000005')).id
+ WHERE normalized_phone = '5511910000007';
+RESET ROLE;
+SELECT pg_temp.ok((SELECT count(*) FROM public.indicacoes WHERE indicado_phone = '5511910000050') = 1,
+  'servidor grava indicação');
+
 -- 14. Condição da campanha até 25%.
 DO $$ BEGIN
   UPDATE public.mkt_campanhas SET condicao_pct = 30 WHERE id = 'd4000000-0000-0000-0000-000000000001';

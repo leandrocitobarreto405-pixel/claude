@@ -283,6 +283,86 @@ const contatoDono = (await logFake())
   .filter((x) => x.method === "POST" && x.url.endsWith("/contacts"));
 check("dono: uma conversa só para os avisos", contatoDono.length === 1, contatoDono.length);
 
+// ---------------------------------------------------------------- 7. Alice com cliente da campanha
+const CLAUDE = `http://127.0.0.1:${process.env.PORTA_CLAUDE ?? 3995}`;
+const caio = { id: 1801, name: "Caio", phone_number: "+5511955550001", type: "contact" };
+const webhook = (corpo) =>
+  fetch(`${APP}/api/public/hooks/chatwoot/${"a".repeat(64)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+sql(`UPDATE ia_configuracoes SET ativo = true WHERE empresa_id = '${EMP}'`);
+const antesClaude = (await (await fetch(`${CLAUDE}/__log`)).json()).length;
+await webhook({
+  event: "conversation_created",
+  id: 1990,
+  inbox_id: 4242,
+  status: "pending",
+  account: { id: 187966 },
+  meta: { sender: caio },
+  created_at: 1790100000,
+  updated_at: 1790100001,
+  last_activity_at: 1790100000,
+});
+await webhook({
+  event: "message_created",
+  id: 19901,
+  message_type: "incoming",
+  content: "Oi! Quero usar a condição da campanha no meu sofá",
+  private: false,
+  created_at: new Date().toISOString(),
+  account: { id: 187966 },
+  inbox: { id: 4242 },
+  sender: caio,
+  conversation: { id: 1990, inbox_id: 4242, status: "pending", meta: { sender: caio } },
+});
+const situacaoCaio = () =>
+  sql(`SELECT coalesce(string_agg(t.tipo || ':' || t.situacao, ','), '-') FROM ia_tarefas t
+         JOIN conversas c ON c.id = t.conversa_id WHERE c.chatwoot_conversation_id = 1990 AND t.tipo = 'responder'`);
+for (let i = 0; i < 80 && situacaoCaio() !== "responder:concluida"; i++)
+  await new Promise((ok) => setTimeout(ok, 250));
+check(
+  "Alice respondeu o cliente da campanha",
+  situacaoCaio() === "responder:concluida",
+  situacaoCaio(),
+);
+check(
+  "resposta ligada ao envio da campanha",
+  sql(`SELECT count(*) FROM mkt_envios WHERE campanha_id = '${C1}' AND normalized_phone = '5511955550001'
+         AND respondido_em IS NOT NULL AND crm_lead_id IS NOT NULL`) === "1",
+);
+const rodadas = (await (await fetch(`${CLAUDE}/__log`)).json()).slice(antesClaude);
+const resultados = JSON.stringify(rodadas.map((x) => x.body.messages));
+check(
+  "consultar_cliente traz a campanha, o grupo e a condição",
+  resultados.includes('Veio de disparo de marketing: campanha \\"Primavera E2E\\"') &&
+    resultados.includes("grupo C4, modelo tc_oferta_trimestral") &&
+    resultados.includes("Condição da campanha: 10% na higienização — 10%"),
+  resultados.slice(
+    resultados.indexOf("Base de marketing") - 20,
+    resultados.indexOf("Base de marketing") + 700,
+  ),
+);
+check(
+  "orçamento com o desconto da campanha em linha separada e Pix sobre o total com desconto",
+  sql(`SELECT subtotal || '|' || desconto || '|' || total || '|' || valor_a_vista FROM quotes
+         WHERE cliente_telefone LIKE '%955550001' ORDER BY created_at DESC LIMIT 1`) ===
+    "180.00|18.00|162.00|153.90" &&
+    resultados.includes("Condição da campanha Primavera E2E (10%): -R$"),
+  sql(
+    `SELECT subtotal || '|' || desconto || '|' || total || '|' || valor_a_vista FROM quotes ORDER BY created_at DESC LIMIT 1`,
+  ),
+);
+check(
+  "indicação registrada e indicado pré-cadastrado",
+  sql(`SELECT count(*) FROM indicacoes i JOIN mkt_contatos c ON c.id = i.indicador_contato_id
+         WHERE i.indicado_phone = '5511955557777' AND c.normalized_phone = '5511955550001'
+           AND i.indicado_contato_id IS NOT NULL`) === "1" &&
+    sql(`SELECT tipo FROM mkt_contatos WHERE normalized_phone = '5511955557777'`) ===
+      "nao_comprador",
+);
+
 if (falhas) {
   console.error(`\n${falhas} verificação(ões) falharam`);
   process.exit(1);

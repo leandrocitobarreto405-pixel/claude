@@ -134,6 +134,20 @@ servidor(PORTA_CLAUDE, (req, body) => {
       "tool_use",
     );
   }
+  if (pedido.includes("condição da campanha")) {
+    return resposta(
+      [
+        ferramenta("toolu_cli", "consultar_cliente", {}),
+        ferramenta("toolu_orc_camp", "criar_orcamento", {
+          servico: "higienizacao",
+          itens: [{ item: "Sofá 3 lugares", quantidade: 1 }],
+          desconto: "campanha",
+        }),
+        ferramenta("toolu_ind", "registrar_indicacao", { nome: "Paula", telefone: "(11) 95555-7777" }),
+      ],
+      "tool_use",
+    );
+  }
   if (pedido.includes("orçamento do sofá")) {
     return resposta(
       [

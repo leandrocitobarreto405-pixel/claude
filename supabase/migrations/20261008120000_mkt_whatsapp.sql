@@ -138,6 +138,10 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   FROM (SELECT lower(split_part(btrim(regexp_replace(coalesce(_nome, ''), '\s+', ' ', 'g')), ' ', 1)) AS w) s;
 $$;
 REVOKE ALL ON FUNCTION private.mkt_primeiro_nome(text) FROM PUBLIC, anon, authenticated;
+-- O servidor (chave de serviço) grava contatos e indicações direto; os índices e gatilhos de
+-- telefone rodam com as permissões dele.
+GRANT EXECUTE ON FUNCTION private.telefone_chave(text), private.normalizar_telefone(text),
+  private.mkt_primeiro_nome(text) TO service_role;
 
 -- Tipo de serviço a partir de um texto livre.
 CREATE OR REPLACE FUNCTION private.mkt_tipo_servico(_texto text)
