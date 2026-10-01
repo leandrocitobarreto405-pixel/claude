@@ -66,7 +66,11 @@ condição (a campanha é bloqueada).
 
 ### Gatilhos diários (9h)
 
-- **C1** `tc_posvenda_resultado`: dia seguinte à OS concluída e paga.
+- **C1** pós-venda: dia seguinte à OS concluída e paga. Se o cliente escreveu nas últimas 24 h, vai
+  como **mensagem comum** (o texto do modelo, sem modelo, para parecer conversa); senão, o modelo
+  `tc_posvenda_resultado` (Utilidade, sem botões). A Alice interpreta a resposta: gostou →
+  avaliação no Google + indicação; qualquer reclamação → passa para a equipe com prioridade e marca
+  o cliente como sem pós-venda.
 - **C2** `tc_higienizacao_6meses`: 6 meses da higienização (uma vez).
 - **C3** `tc_imper_13meses` no 13º mês da impermeabilização, e `tc_imper_13meses_lembrete` uma
   vez se não responder em 24 h.
@@ -81,8 +85,10 @@ a campanha do CRM; o envio guarda `respondido_em` e o botão. A Alice atende (me
 - **Não quero mais ofertas** → opt-out, cancela o que estava na fila, tira as etiquetas de
   campanha e põe `optout` (conversa e contato); a Alice se despede.
 - **Agora não / Já resolvi** → não recebe outro disparo desse grupo por 120 dias.
-- **Tive um problema** → sem pós-venda, a Alice sai, conversa urgente para a equipe + aviso.
-- **Ficou ótimo** → a Alice pede a avaliação no Google (link na Configuração) e a indicação.
+- **Pós-venda** (sem botões, a Alice lê a resposta): elogio → avaliação no Google (link na
+  Configuração) e indicação; reclamação → `transferir_para_humano` com `problema_pos_venda`: sem
+  pós-venda, conversa urgente para a equipe, aviso no Nexa. (Se alguém digitar exatamente "Tive um
+  problema", o banco faz o mesmo.)
 - Erro 131026 (não entregue/bloqueio) conta como bloqueio; 131050 (parou de receber marketing)
   vira opt-out.
 - Orçamento e venda (OS paga) em até 30 dias ficam ligados ao envio (relatório).
@@ -133,7 +139,7 @@ Cada um com a variante `_sn` (sem o nome). Botões de resposta rápida com o tex
 | `tc_reativacao_cliente`                          | Marketing | `{{1}}`, `{{2}}`               | Quero ver as datas · Agora não · Não quero mais ofertas  |
 | `tc_orcamento_retomada`                          | Marketing | `{{1}}`, `{{2}}`               | Quero o valor · Agora não · Não quero mais ofertas       |
 | `tc_sazonal_<mês>` (out, nov, dez, …)            | Marketing | `{{1}}`, `{{2}}`               | Quero orçamento · Não quero mais ofertas                 |
-| `tc_posvenda_resultado`                          | Utilidade | `{{1}}`                        | Ficou ótimo · Tive um problema                           |
+| `tc_posvenda_resultado`                          | Utilidade | `{{1}}`                        | sem botões (a Alice interpreta a resposta)               |
 | `tc_higienizacao_6meses`                         | Marketing | `{{1}}`                        | Quero ver as datas · Já resolvi · Não quero mais ofertas |
 | `tc_imper_13meses` e `tc_imper_13meses_lembrete` | Marketing | `{{1}}`                        | Quero ver as datas · Já resolvi · Não quero mais ofertas |
 | `nexa_aviso` (avisos para o dono)                | Utilidade | `{{1}}` = texto do aviso       | —                                                        |

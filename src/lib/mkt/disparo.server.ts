@@ -7,6 +7,8 @@
  *    intervalo_segundos entre um e outro.
  * 2. Antes de cada mensagem, mkt_confirmar_envio (pausa no meio, flag desligada, opt-out).
  * 3. Contato e conversa no Chatwoot, modelo com o primeiro nome e a condição, etiqueta do lote.
+ *    Pós-venda (C1) com o cliente tendo escrito nas últimas 24 h: vai como mensagem comum (o texto
+ *    do modelo, sem modelo), para parecer conversa; fora da janela, o modelo de utilidade.
  * 4. mkt_registrar_envio: grava o resultado e pausa sozinho o lote se passar dos limites.
  */
 import {
@@ -25,6 +27,7 @@ import {
   garantirContato,
   modelosDaCaixa,
 } from "./chatwoot.server";
+import { enviarMensagem } from "@/lib/alice/chatwoot-api.server";
 import {
   preencher,
   situacaoModelo,
@@ -46,9 +49,32 @@ type Reservado = {
   condicao_texto: string | null;
   condicao_pct: number | null;
   etiqueta: string;
+  whatsapp_contact_id: string | null;
   chatwoot_contact_id: number | null;
   conversa_chatwoot_id: number | null;
 };
+
+/** Modelos que, com a janela de 24 h aberta, saem como mensagem comum. */
+const TEXTO_LIVRE_NA_JANELA = ["tc_posvenda_resultado"];
+/** Margem de segurança: a janela do WhatsApp é de 24 h; usamos 23 h 30. */
+const JANELA_MS = 23.5 * 3600_000;
+
+/** O cliente escreveu nas últimas 24 h (dá para mandar texto livre na conversa dele)? */
+async function janelaAberta(db: Db, r: Reservado): Promise<boolean> {
+  if (!r.whatsapp_contact_id || !r.conversa_chatwoot_id) return false;
+  if (!TEXTO_LIVRE_NA_JANELA.includes(r.template_nome.replace(/_sn$/, ""))) return false;
+  const { data } = await db
+    .from("whatsapp_messages")
+    .select("message_timestamp, created_at")
+    .eq("empresa_id", r.empresa_id)
+    .eq("whatsapp_contact_id", r.whatsapp_contact_id)
+    .eq("direction", "Recebida")
+    .order("message_timestamp", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  const quando = data?.message_timestamp ?? data?.created_at;
+  return Boolean(quando && Date.now() - Date.parse(quando) < JANELA_MS);
+}
 
 export type ResultadoDisparo = {
   reservados: number;
@@ -114,6 +140,7 @@ async function enviarUm(
   ctx: ContextoEmpresa,
   p: Pronto,
   r: Reservado,
+  textoLivre: boolean,
 ): Promise<{ conversa: number; mensagem: number }> {
   let conversa = r.conversa_chatwoot_id;
   if (!conversa) {
@@ -137,13 +164,15 @@ async function enviarUm(
         ctx.aliceAtiva ? "pending" : "open",
       ));
   }
-  const msg = await enviarModelo(
-    ctx.conta,
-    ctx.tokenRobo!,
-    conversa,
-    p.texto,
-    templateParams(p.modelo, p.parametros),
-  );
+  const msg = textoLivre
+    ? await enviarMensagem(ctx.conta, ctx.tokenRobo!, conversa, p.texto)
+    : await enviarModelo(
+        ctx.conta,
+        ctx.tokenRobo!,
+        conversa,
+        p.texto,
+        templateParams(p.modelo, p.parametros),
+      );
   // Etiqueta do lote: falha aqui não desfaz o envio.
   await etiquetarConversa(ctx.conta, ctx.tokenRobo!, conversa, [r.etiqueta]).catch((e) =>
     log("WARNING", "etiqueta.falha", { envio: r.envio_id, erro: String(e) }),
@@ -201,8 +230,10 @@ export async function processarFila(
     let erro: string | null = null;
     let conversa: number | null = null;
     let mensagem: number | null = null;
+    let textoLivre = false;
     try {
-      const e = await enviarUm(c.ctx, pronto, r);
+      textoLivre = await janelaAberta(db, r);
+      const e = await enviarUm(c.ctx, pronto, r, textoLivre);
       ok = true;
       conversa = e.conversa;
       mensagem = e.mensagem;
@@ -225,9 +256,21 @@ export async function processarFila(
       campanha: r.campanha_id,
       lote: r.lote_id,
       modelo: r.template_nome,
+      texto_livre: textoLivre,
       erro,
       pausou,
     });
+    if (ok && textoLivre) {
+      await db.from("mkt_eventos").insert({
+        empresa_id: r.empresa_id,
+        tipo: "envio",
+        resultado: "texto_livre",
+        detalhe: { motivo: "cliente escreveu nas últimas 24 h", modelo: r.template_nome },
+        campanha_id: r.campanha_id,
+        lote_id: r.lote_id,
+        envio_id: r.envio_id,
+      });
+    }
   }
   log("INFO", "disparo.fim", res);
   return res;

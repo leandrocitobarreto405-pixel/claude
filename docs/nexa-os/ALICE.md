@@ -139,7 +139,7 @@ Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app preci
 | `agendar_followup` | Tarefa da Alice + repescagem (responsável Alice). Ajusta para o horário permitido; fora da janela de 24 h vira tarefa da equipe. Substitui o follow-up pendente da conversa. |
 | `registrar_motivo_perda` | Um dos 6 motivos do playbook (usa o motivo equivalente do CRM ou cria); "Adiou" com data gera repescagem da equipe. |
 | `atualizar_etapa` | Status abertos do CRM da empresa. |
-| `transferir_para_humano` | Motivo obrigatório: nota privada, repescagem da equipe "agora" e conversa aberta (Alice pausada). |
+| `transferir_para_humano` | Motivo obrigatório: nota privada, repescagem da equipe "agora" e conversa aberta (Alice pausada). Com `problema_pos_venda: true` (reclamação de serviço feito): nota de prioridade, conversa urgente no Chatwoot, cliente sem pós-venda e aviso no Nexa. |
 | `consultar_agenda` | Só com "agenda (fase 2)" ligada nos ajustes; ela ainda não reserva. |
 
 ### Follow-up e janela de 24 h

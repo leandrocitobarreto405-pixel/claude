@@ -179,7 +179,11 @@ export function textoMarketing(m: Marketing): string[] {
       }${m.contato.optout_em ? "; pediu para não receber ofertas" : ""}.`,
     );
   }
-  if (m.envio) {
+  if (m.envio?.campanha?.gatilho === "C1") {
+    l.push(
+      `Recebeu a mensagem de pós-venda ("como ficou o serviço?") em ${dia(m.envio.enviado_em)}. Interprete a resposta: gostou → agradeça, peça a avaliação no Google e fale da indicação; qualquer reclamação ou problema → acolha e use transferir_para_humano com problema_pos_venda: true (não peça avaliação).`,
+    );
+  } else if (m.envio) {
     const k = m.envio.campanha;
     l.push(
       `Veio de disparo de marketing: ${
@@ -340,4 +344,49 @@ export async function registrarIndicacao(
     erro: false,
     texto: `Indicação registrada: ${input.nome} ganha 15% no primeiro serviço e o cliente ganha 15% no próximo quando ${input.nome} fechar. Agradeça ao cliente.`,
   };
+}
+
+/**
+ * Cliente reclamou de um serviço já feito: sem pós-venda (não recebe mais o C1 nem campanhas para
+ * compradores), conversa urgente no Chatwoot e aviso no Nexa. A passagem para a equipe é feita
+ * pelo transferir_para_humano.
+ */
+export async function registrarProblemaPosVenda(ctx: Ctx & { conversaId: string }, resumo: string) {
+  const fones = variantesTelefone(await telefoneDaConversa(ctx));
+  if (ctx.contatoId) {
+    await ctx.admin
+      .from("whatsapp_contacts")
+      .update({ sem_pos_venda: true })
+      .eq("id", ctx.contatoId)
+      .eq("empresa_id", ctx.empresaId);
+  }
+  const { data: contato } = fones.length
+    ? await ctx.admin
+        .from("mkt_contatos")
+        .update({ sem_pos_venda: true })
+        .eq("empresa_id", ctx.empresaId)
+        .in("normalized_phone", fones)
+        .select("id, nome")
+        .maybeSingle()
+    : { data: null };
+  await ctx.admin.from("mkt_tarefas").insert({
+    empresa_id: ctx.empresaId,
+    tipo: "prioridade_urgente",
+    contato_id: contato?.id ?? null,
+    conversa_id: ctx.conversaId,
+  });
+  const quem = contato?.nome ?? fones[0] ?? "Um cliente";
+  await ctx.admin.from("mkt_avisos").insert({
+    empresa_id: ctx.empresaId,
+    tipo: "problema_pos_venda",
+    titulo: "Cliente com problema no pós-venda",
+    mensagem: `${quem} reclamou do serviço: ${resumo.slice(0, 300)}. A conversa foi para a equipe com prioridade.`,
+  });
+  await ctx.admin.from("mkt_eventos").insert({
+    empresa_id: ctx.empresaId,
+    tipo: "resposta",
+    resultado: "problema",
+    contato_id: contato?.id ?? null,
+    detalhe: { origem: "alice", conversa_id: ctx.conversaId },
+  });
 }

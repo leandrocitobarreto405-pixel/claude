@@ -134,6 +134,20 @@ servidor(PORTA_CLAUDE, (req, body) => {
       "tool_use",
     );
   }
+  if (pedido.includes("ficou manchado")) {
+    return resposta(
+      [
+        texto("Poxa, sinto muito! Já estou chamando a equipe para resolver com prioridade."),
+        ferramenta("toolu_pv_cli", "consultar_cliente", {}),
+        ferramenta("toolu_pv", "transferir_para_humano", {
+          motivo: "reclamou do resultado",
+          resumo: "Cliente disse que o sofá ficou manchado depois do serviço.",
+          problema_pos_venda: true,
+        }),
+      ],
+      "tool_use",
+    );
+  }
   if (pedido.includes("condição da campanha")) {
     return resposta(
       [
@@ -201,6 +215,10 @@ const mktModelos = {
       components: [{ type: "BODY", text: "Oi! Ainda quer aquele orçamento? {{1}}." }] },
     { name: "tc_sazonal_nov", language: "pt_BR", status: "PENDING", category: "MARKETING",
       components: [{ type: "BODY", text: "Black Friday: {{2}}" }] },
+    { name: "tc_posvenda_resultado", language: "pt_BR", status: "APPROVED", category: "UTILITY",
+      components: [{ type: "BODY", text: "Oi, {{1}}! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?" }] },
+    { name: "tc_posvenda_resultado_sn", language: "pt_BR", status: "APPROVED", category: "UTILITY",
+      components: [{ type: "BODY", text: "Oi! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?" }] },
     { name: "nexa_aviso", language: "pt_BR", status: "APPROVED", category: "UTILITY",
       components: [{ type: "BODY", text: "Aviso do Nexa: {{1}}" }] },
   ],

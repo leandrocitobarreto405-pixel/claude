@@ -24,6 +24,7 @@ import {
   descontoPermitido,
   lerMarketing,
   registrarIndicacao,
+  registrarProblemaPosVenda,
   textoMarketing,
 } from "./marketing.server";
 
@@ -126,6 +127,7 @@ const AtualizarEtapa = z.object({
 const Transferir = z.object({
   motivo: z.string().trim().min(1).max(300),
   resumo: z.string().trim().min(1).max(1500),
+  problema_pos_venda: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------- definições
@@ -379,6 +381,11 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
             type: "string",
             description:
               "Para a equipe: o que o cliente quer, estofados, valores passados, dores e próximo passo.",
+          },
+          problema_pos_venda: {
+            type: "boolean",
+            description:
+              "true quando o cliente reclamou de um serviço já feito (resposta ao pós-venda ou qualquer queixa do serviço): passa com prioridade e marca o cliente como sem pós-venda.",
           },
         },
         required: ["motivo", "resumo"],
@@ -1073,7 +1080,13 @@ export async function executarFerramenta(
       case "transferir_para_humano": {
         const p = Transferir.safeParse(entrada);
         if (!p.success) return invalida(p.error);
-        ctx.passagem = p.data;
+        if (p.data.problema_pos_venda) await registrarProblemaPosVenda(ctx, p.data.resumo);
+        ctx.passagem = {
+          motivo: p.data.problema_pos_venda
+            ? `⚠️ PRIORIDADE (problema no pós-venda): ${p.data.motivo}`
+            : p.data.motivo,
+          resumo: p.data.resumo,
+        };
         return {
           conteudo:
             "Transferência registrada: a equipe assume depois desta resposta. Se as instruções pedirem, avise o cliente numa frase curta; senão, não escreva nada.",

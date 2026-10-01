@@ -363,6 +363,126 @@ check(
       "nao_comprador",
 );
 
+// ---------------------------------------------------------------- 8. pós-venda (C1): janela de 24 h
+// Caio escreveu agora (seção 7): vai como mensagem comum. Dora não escreveu: vai o modelo.
+const C1C = "e5000000-0000-0000-0000-0000000000c1";
+const hojeSP = sql(`SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date`);
+sql(`INSERT INTO mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, gatilho, template_nome, status, grupos)
+     VALUES ('${C1C}', '${EMP}', 'Pós-venda teste', 'gatilho', '2030-01-01', 'C1', 'tc_posvenda_resultado',
+       'enviando', '{C1}')`);
+sql(`INSERT INTO mkt_lotes (id, empresa_id, campanha_id, numero, etiqueta_chatwoot, data_prevista, status)
+     VALUES ('e6000000-0000-0000-0000-0000000000c1', '${EMP}', '${C1C}', 1, 'gat-c1-teste', '${hojeSP}', 'aprovado')`);
+sql(`INSERT INTO mkt_envios (empresa_id, campanha_id, lote_id, contato_id, normalized_phone, grupo, template_nome,
+       status, agendado_para, gatilho_ref, ordem)
+     SELECT '${EMP}', '${C1C}', 'e6000000-0000-0000-0000-0000000000c1', id, normalized_phone, 'C1',
+            'tc_posvenda_resultado', 'pendente', '${hojeSP} 09:00-03', 'C1:teste:' || normalized_phone,
+            CASE normalized_phone WHEN '5511955550001' THEN 0 ELSE 1 END
+       FROM mkt_contatos WHERE normalized_phone IN ('5511955550001', '5511955550002')`);
+sql(`UPDATE mkt_configuracoes SET gatilho_c1_ligado = true WHERE empresa_id = '${EMP}'`);
+const antes5 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${hojeSP}T10:05:00-03:00`)}`);
+const log5 = (await logFake())
+  .slice(antes5)
+  .filter((x) => x.method === "POST" && x.url.endsWith("/messages"));
+const paraCaio = log5.find((x) => x.url.includes("/conversations/1990/"));
+const paraDora = log5.find((x) => x.body?.template_params?.name === "tc_posvenda_resultado");
+check(
+  "C1 com o cliente tendo escrito nas últimas 24 h: mensagem comum, sem modelo",
+  r.corpo?.disparo?.enviados === 2 &&
+    paraCaio &&
+    !paraCaio.body.template_params &&
+    paraCaio.body.content ===
+      "Oi, Caio! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?" &&
+    paraCaio.headers.api_access_token === "token-robo",
+  { disparo: r.corpo?.disparo, msgs: log5.map((x) => [x.url, x.body]) },
+);
+check(
+  "C1 fora da janela: modelo de utilidade com o primeiro nome",
+  JSON.stringify(paraDora?.body.template_params) ===
+    JSON.stringify({
+      name: "tc_posvenda_resultado",
+      category: "UTILITY",
+      language: "pt_BR",
+      processed_params: { body: { 1: "Dora" } },
+    }),
+  paraDora?.body,
+);
+check(
+  "envio em texto livre registrado",
+  sql(
+    `SELECT count(*) FROM mkt_eventos WHERE resultado = 'texto_livre' AND campanha_id = '${C1C}'`,
+  ) === "1",
+);
+
+// ---------------------------------------------------------------- 9. reclamação no pós-venda
+const dora = { id: 1802, name: "Dora", phone_number: "+5511955550002", type: "contact" };
+await webhook({
+  event: "conversation_created",
+  id: 1992,
+  inbox_id: 4242,
+  status: "pending",
+  account: { id: 187966 },
+  meta: { sender: dora },
+  created_at: 1790100000,
+  updated_at: 1790100001,
+  last_activity_at: 1790100000,
+});
+await webhook({
+  event: "message_created",
+  id: 19921,
+  message_type: "incoming",
+  content: "O sofá ficou manchado, não gostei",
+  private: false,
+  created_at: new Date().toISOString(),
+  account: { id: 187966 },
+  inbox: { id: 4242 },
+  sender: dora,
+  conversation: { id: 1992, inbox_id: 4242, status: "pending", meta: { sender: dora } },
+});
+const situacaoDora = () =>
+  sql(`SELECT coalesce(string_agg(t.tipo || ':' || t.situacao, ','), '-') FROM ia_tarefas t
+         JOIN conversas c ON c.id = t.conversa_id WHERE c.chatwoot_conversation_id = 1992 AND t.tipo = 'responder'`);
+const antesDora = (await logFake()).length;
+const antesClaudeDora = (await (await fetch(`${CLAUDE}/__log`)).json()).length;
+for (let i = 0; i < 80 && situacaoDora() !== "responder:concluida"; i++)
+  await new Promise((ok) => setTimeout(ok, 250));
+const logDora = (await logFake())
+  .slice(antesDora)
+  .filter((x) => x.url.includes("/conversations/1992/"));
+check(
+  "reclamação: Alice passa para a equipe com prioridade",
+  situacaoDora() === "responder:concluida" &&
+    logDora.some((x) => x.url.endsWith("/toggle_status") && x.body?.status === "open") &&
+    logDora.some(
+      (x) =>
+        x.body?.private && String(x.body.content).includes("PRIORIDADE (problema no pós-venda)"),
+    ),
+  { situacao: situacaoDora(), chamadas: logDora.map((x) => [x.url, x.body]) },
+);
+check(
+  "reclamação: sem pós-venda, prioridade urgente e aviso",
+  sql(`SELECT sem_pos_venda FROM mkt_contatos WHERE normalized_phone = '5511955550002'`) === "t" &&
+    sql(
+      `SELECT bool_and(sem_pos_venda) FROM whatsapp_contacts WHERE normalized_phone = '5511955550002'`,
+    ) === "t" &&
+    sql(`SELECT count(*) FROM mkt_tarefas t JOIN conversas c ON c.id = t.conversa_id
+          WHERE c.chatwoot_conversation_id = 1992 AND t.tipo = 'prioridade_urgente'`) === "1" &&
+    sql(
+      `SELECT count(*) FROM mkt_avisos WHERE tipo = 'problema_pos_venda' AND mensagem LIKE 'Dora reclamou%'`,
+    ) === "1",
+  sql(
+    `SELECT string_agg(tipo || ':' || mensagem, ' | ') FROM mkt_avisos WHERE tipo = 'problema_pos_venda'`,
+  ),
+);
+const rodadasDora = JSON.stringify(
+  (await (await fetch(`${CLAUDE}/__log`)).json()).slice(antesClaudeDora),
+);
+check(
+  "consultar_cliente avisa a Alice que é resposta ao pós-venda",
+  rodadasDora.includes("Recebeu a mensagem de pós-venda"),
+  rodadasDora.slice(0, 400),
+);
+
 if (falhas) {
   console.error(`\n${falhas} verificação(ões) falharam`);
   process.exit(1);
