@@ -38,6 +38,17 @@ VALUES ('11111111-1111-1111-1111-111111111111', true, 8);
 INSERT INTO public.mkt_configuracoes (empresa_id, lote_tamanho, amostra_minima)
 VALUES ('11111111-1111-1111-1111-111111111111', 2, 2);
 
+-- Supabase (safeupdate): DELETE/UPDATE sem WHERE falha nas chamadas pelo PostgREST, mesmo dentro de
+-- função. Nenhuma função do Nexa pode ter.
+SELECT pg_temp.ok(NOT EXISTS (
+  SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname IN ('public', 'private') AND p.prokind = 'f'
+     AND (p.prosrc ~* '\mDELETE\s+FROM\s+[a-z_.]+\s*;'
+       OR p.prosrc ~* '\mUPDATE\s+[a-z_.]+(\s+[a-z_]+)?\s+SET\s+[^;]*;' AND p.prosrc !~* '\mUPDATE\s+[a-z_.]+(\s+[a-z_]+)?\s+SET\s+[^;]*\mWHERE\M[^;]*;')),
+  'função com DELETE sem WHERE: ' || coalesce((SELECT string_agg(p.proname, ', ') FROM pg_proc p
+     JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname IN ('public', 'private')
+      AND p.prosrc ~* '\mDELETE\s+FROM\s+[a-z_.]+\s*;'), '-'));
+
 -- 0. Primeiro nome confiável.
 SELECT pg_temp.ok(private.mkt_primeiro_nome('  ana maria souza ') = 'Ana', 'primeiro nome');
 SELECT pg_temp.ok(private.mkt_primeiro_nome('JOÃO') = 'João', 'acento e maiúscula');
