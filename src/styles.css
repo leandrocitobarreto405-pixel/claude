@@ -6,8 +6,19 @@
 
 /*
  * Design system — Nexa OS
- * Azul-marinho (confiança) + verde-água (limpeza) sobre fundo muito claro.
+ * Verde-escuro da marca + verde-água de destaque sobre fundo claro levemente quente.
  * Todas as cores em oklch. Nunca usar cores literais nos componentes.
+ *
+ * Tokens da marca (use estes nas telas novas, via src/components/nexa):
+ *   marca / marca-foreground   verde-escuro (#0B3D36) com texto branco
+ *   marca-fundo                verde mais escuro (barra lateral)
+ *   marca-claro                fundo verde-claro (#DCF3E9)
+ *   destaque                   verde-água sobre o escuro (#7CE8C2)
+ *   dado                       verde de gráficos e barras (#2FB58A); não usar em texto
+ *   atencao / problema         fundos de aviso, com o texto em *-foreground
+ *   alerta                     badge de alerta (#D9480F) com texto branco
+ * Os tokens antigos (primary, navy, secondary, success, warning, destructive…) apontam para
+ * as mesmas cores, para as telas atuais seguirem o tema.
  */
 
 @theme inline {
@@ -46,48 +57,84 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --shadow-card: 0 1px 2px 0 oklch(0.256 0.05 246 / 5%), 0 6px 20px -14px oklch(0.256 0.05 246 / 22%);
-  --shadow-card-hover: 0 2px 4px 0 oklch(0.256 0.05 246 / 7%), 0 14px 30px -16px oklch(0.256 0.05 246 / 26%);
+  /* Sem sombras pesadas: o cartão se separa do fundo pela borda. */
+  --shadow-card: 0 1px 2px 0 oklch(0.2226 0.0248 182 / 4%);
+  --shadow-card-hover: 0 2px 6px 0 oklch(0.2226 0.0248 182 / 7%);
   --color-navy: var(--navy);
   --color-navy-foreground: var(--navy-foreground);
   --color-navy-deep: var(--navy-deep);
   --color-teal-soft: var(--teal-soft);
+  --color-marca: var(--marca);
+  --color-marca-foreground: var(--marca-foreground);
+  --color-marca-fundo: var(--marca-fundo);
+  --color-marca-claro: var(--marca-claro);
+  --color-destaque: var(--destaque);
+  --color-dado: var(--dado);
+  --color-atencao: var(--atencao);
+  --color-atencao-foreground: var(--atencao-foreground);
+  --color-problema: var(--problema);
+  --color-problema-foreground: var(--problema-foreground);
+  --color-alerta: var(--alerta);
+  --color-alerta-foreground: var(--alerta-foreground);
+  --color-desligado: var(--desligado);
+  --radius-card: 1.25rem;
+  --radius-card-lg: 1.5rem;
+  --radius-botao: 0.875rem;
+  --radius-chip: 0.5rem;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --radius: 1rem;
-  --background: oklch(0.9767 0.005 228.8);
-  --foreground: oklch(0.2796 0.0381 242.3);
+  --radius: 0.75rem;
+  /* Marca */
+  --marca: oklch(0.3259 0.0526 181.4);
+  --marca-foreground: oklch(1 0 0);
+  --marca-fundo: oklch(0.2623 0.0412 182);
+  --marca-claro: oklch(0.9445 0.0276 167.8);
+  --destaque: oklch(0.8558 0.1148 168.5);
+  --dado: oklch(0.6919 0.1298 166.5);
+  --atencao: oklch(0.9622 0.0384 83.8);
+  --atencao-foreground: oklch(0.479 0.1124 59.9);
+  --problema: oklch(0.9484 0.0231 11);
+  --problema-foreground: oklch(0.4563 0.1728 18.9);
+  --alerta: oklch(0.5999 0.1905 37.9);
+  --alerta-foreground: oklch(1 0 0);
+  --desligado: oklch(0.8157 0.0148 180.6);
+  /* Base */
+  --background: oklch(0.9656 0.0041 121.6);
+  --foreground: oklch(0.2226 0.0248 182);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2796 0.0381 242.3);
+  --card-foreground: oklch(0.2226 0.0248 182);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2796 0.0381 242.3);
-  --primary: oklch(0.6584 0.1085 194.8);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.9616 0.0201 189.2);
-  --secondary-foreground: oklch(0.3424 0.0748 247.4);
-  --muted: oklch(0.9616 0.0088 228.9);
-  --muted-foreground: oklch(0.5544 0.0407 257.4);
-  --accent: oklch(0.9616 0.0201 189.2);
-  --accent-foreground: oklch(0.3424 0.0748 247.4);
-  --destructive: oklch(0.5966 0.1818 24.5);
+  --popover-foreground: oklch(0.2226 0.0248 182);
+  --primary: var(--marca);
+  --primary-foreground: var(--marca-foreground);
+  --secondary: var(--marca-claro);
+  --secondary-foreground: var(--marca);
+  --muted: oklch(0.9422 0.0058 153.8);
+  --muted-foreground: oklch(0.5124 0.0214 179.6);
+  --accent: var(--marca-claro);
+  --accent-foreground: var(--marca);
+  --destructive: var(--problema-foreground);
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.6268 0.133 159.6);
+  /* Verde de texto e ícone (o verde de dados é claro demais para texto). */
+  --success: oklch(0.5171 0.0989 169.7);
   --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.7677 0.1585 81.3);
-  --warning-foreground: oklch(0.2562 0.0508 246.1);
-  --border: oklch(0.9188 0.0127 228.9);
-  --input: oklch(0.9188 0.0127 228.9);
-  --ring: oklch(0.6584 0.1085 194.8);
-  --navy: oklch(0.3424 0.0748 247.4);
-  --navy-foreground: oklch(1 0 0);
-  --navy-deep: oklch(0.2562 0.0508 246.1);
-  --teal-soft: oklch(0.9616 0.0201 189.2);
-  --chart-1: oklch(0.3424 0.0748 247.4);
-  --chart-2: oklch(0.6584 0.1085 194.8);
-  --chart-3: oklch(0.6268 0.133 159.6);
-  --chart-4: oklch(0.7677 0.1585 81.3);
-  --chart-5: oklch(0.2562 0.0508 246.1);
+  --warning: var(--atencao-foreground);
+  --warning-foreground: var(--atencao-foreground);
+  --border: oklch(0.9238 0.0068 145.5);
+  --input: oklch(0.9238 0.0068 145.5);
+  --ring: var(--dado);
+  --navy: var(--marca);
+  --navy-foreground: var(--marca-foreground);
+  --navy-deep: var(--marca-fundo);
+  --teal-soft: var(--marca-claro);
+  --chart-1: var(--marca);
+  --chart-2: var(--dado);
+  --chart-3: var(--destaque);
+  --chart-4: var(--atencao-foreground);
+  --chart-5: var(--alerta);
 }
 
 .dark {
@@ -119,10 +166,23 @@
   --chart-3: oklch(0.78 0.14 70);
   --chart-4: oklch(0.65 0.19 25);
   --chart-5: oklch(0.65 0.15 300);
-  --navy: oklch(0.3424 0.0748 247.4);
+  --navy: oklch(0.3259 0.0526 181.4);
   --navy-foreground: oklch(1 0 0);
-  --navy-deep: oklch(0.2562 0.0508 246.1);
-  --teal-soft: oklch(0.3 0.04 200);
+  --navy-deep: oklch(0.2623 0.0412 182);
+  --teal-soft: oklch(0.3 0.04 180);
+  --marca: oklch(0.3259 0.0526 181.4);
+  --marca-foreground: oklch(1 0 0);
+  --marca-fundo: oklch(0.2623 0.0412 182);
+  --marca-claro: oklch(0.3 0.04 180);
+  --destaque: oklch(0.8558 0.1148 168.5);
+  --dado: oklch(0.6919 0.1298 166.5);
+  --atencao: oklch(0.35 0.06 70);
+  --atencao-foreground: oklch(0.9622 0.0384 83.8);
+  --problema: oklch(0.35 0.08 18);
+  --problema-foreground: oklch(0.9484 0.0231 11);
+  --alerta: oklch(0.5999 0.1905 37.9);
+  --alerta-foreground: oklch(1 0 0);
+  --desligado: oklch(0.45 0.02 180);
 }
 
 @layer base {
@@ -133,6 +193,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 }
@@ -141,7 +202,7 @@
   background-color: var(--color-card);
   color: var(--color-card-foreground);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   transition: box-shadow 180ms ease, border-color 180ms ease;
 
@@ -172,9 +233,17 @@
 
 @utility section-title {
   font-size: 1.0625rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--color-navy);
+  color: var(--color-foreground);
+}
+
+/* Títulos e números grandes. */
+@utility font-titulo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
 }
 
 @utility field-readonly {
@@ -184,14 +253,20 @@
 
 @layer base {
   h1, h2, h3, h4 {
-    color: var(--color-navy);
+    color: var(--color-foreground);
     letter-spacing: -0.01em;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
 
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 22%, transparent);
-    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 28%, transparent);
+    border-color: var(--color-ring);
   }
 }

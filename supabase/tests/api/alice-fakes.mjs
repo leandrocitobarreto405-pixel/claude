@@ -157,7 +157,10 @@ servidor(PORTA_CLAUDE, (req, body) => {
           itens: [{ item: "Sofá 3 lugares", quantidade: 1 }],
           desconto: "campanha",
         }),
-        ferramenta("toolu_ind", "registrar_indicacao", { nome: "Paula", telefone: "(11) 95555-7777" }),
+        ferramenta("toolu_ind", "registrar_indicacao", {
+          nome: "Paula",
+          telefone: "(11) 95555-7777",
+        }),
       ],
       "tool_use",
     );
@@ -204,23 +207,78 @@ const planilhas = new Map();
 // POST /__modelos troca a lista de modelos. Telefone terminado em 0999: o envio falha (131026).
 const mktModelos = {
   lista: [
-    { name: "tc_oferta_trimestral", language: "pt_BR", status: "APPROVED", category: "MARKETING",
-      components: [{ type: "BODY", text: "Oi, {{1}}! {{2}} nesta semana." },
-        { type: "BUTTONS", buttons: [{ text: "Quero ver as datas" }, { text: "Não quero mais ofertas" }] }] },
-    { name: "tc_oferta_trimestral_sn", language: "pt_BR", status: "APPROVED", category: "MARKETING",
-      components: [{ type: "BODY", text: "Oi! {{1}} nesta semana." }] },
-    { name: "tc_orcamento_retomada", language: "pt_BR", status: "APPROVED", category: "MARKETING",
-      components: [{ type: "BODY", text: "Oi, {{1}}! Ainda quer aquele orçamento? {{2}}." }] },
-    { name: "tc_orcamento_retomada_sn", language: "pt_BR", status: "APPROVED", category: "MARKETING",
-      components: [{ type: "BODY", text: "Oi! Ainda quer aquele orçamento? {{1}}." }] },
-    { name: "tc_sazonal_nov", language: "pt_BR", status: "PENDING", category: "MARKETING",
-      components: [{ type: "BODY", text: "Black Friday: {{2}}" }] },
-    { name: "tc_posvenda_resultado", language: "pt_BR", status: "APPROVED", category: "UTILITY",
-      components: [{ type: "BODY", text: "Oi, {{1}}! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?" }] },
-    { name: "tc_posvenda_resultado_sn", language: "pt_BR", status: "APPROVED", category: "UTILITY",
-      components: [{ type: "BODY", text: "Oi! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?" }] },
-    { name: "nexa_aviso", language: "pt_BR", status: "APPROVED", category: "UTILITY",
-      components: [{ type: "BODY", text: "Aviso do Nexa: {{1}}" }] },
+    {
+      name: "tc_oferta_trimestral",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [
+        { type: "BODY", text: "Oi, {{1}}! {{2}} nesta semana." },
+        {
+          type: "BUTTONS",
+          buttons: [{ text: "Quero ver as datas" }, { text: "Não quero mais ofertas" }],
+        },
+      ],
+    },
+    {
+      name: "tc_oferta_trimestral_sn",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi! {{1}} nesta semana." }],
+    },
+    {
+      name: "tc_orcamento_retomada",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi, {{1}}! Ainda quer aquele orçamento? {{2}}." }],
+    },
+    {
+      name: "tc_orcamento_retomada_sn",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [{ type: "BODY", text: "Oi! Ainda quer aquele orçamento? {{1}}." }],
+    },
+    {
+      name: "tc_sazonal_nov",
+      language: "pt_BR",
+      status: "PENDING",
+      category: "MARKETING",
+      components: [{ type: "BODY", text: "Black Friday: {{2}}" }],
+    },
+    {
+      name: "tc_posvenda_resultado",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text: "Oi, {{1}}! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?",
+        },
+      ],
+    },
+    {
+      name: "tc_posvenda_resultado_sn",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text: "Oi! Aqui é a Alice, da Turbine Clean. Como ficou o seu estofado depois do serviço?",
+        },
+      ],
+    },
+    {
+      name: "nexa_aviso",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "UTILITY",
+      components: [{ type: "BODY", text: "Aviso do Nexa: {{1}}" }],
+    },
   ],
 };
 const mktContatos = [];
@@ -238,7 +296,9 @@ function chatwootMarketing(req, body) {
   }
   if (p === "/inboxes/4242" && req.method === "GET") {
     if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
-    return { corpo: { id: 4242, channel_type: "Channel::Whatsapp", message_templates: mktModelos.lista } };
+    return {
+      corpo: { id: 4242, channel_type: "Channel::Whatsapp", message_templates: mktModelos.lista },
+    };
   }
   if (p === "/contacts/search") {
     if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
@@ -247,8 +307,12 @@ function chatwootMarketing(req, body) {
   }
   if (p === "/contacts" && req.method === "POST") {
     if (token !== "token-admin") return { status: 401, corpo: { error: "admin" } };
-    const c = { id: ++mktId, name: body.name ?? null, phone_number: body.phone_number,
-      contact_inboxes: [{ source_id: digitos(body.phone_number), inbox: { id: body.inbox_id } }] };
+    const c = {
+      id: ++mktId,
+      name: body.name ?? null,
+      phone_number: body.phone_number,
+      contact_inboxes: [{ source_id: digitos(body.phone_number), inbox: { id: body.inbox_id } }],
+    };
     mktContatos.push(c);
     return { corpo: { payload: { contact: c, contact_inbox: c.contact_inboxes[0] } } };
   }
@@ -269,8 +333,13 @@ function chatwootMarketing(req, body) {
   }
   if (p === "/conversations" && req.method === "POST") {
     if (token !== "token-robo") return { status: 401, corpo: { error: "robo" } };
-    const v = { id: ++mktId, inbox_id: body.inbox_id, contact_id: body.contact_id, status: body.status,
-      last_activity_at: Date.now() };
+    const v = {
+      id: ++mktId,
+      inbox_id: body.inbox_id,
+      contact_id: body.contact_id,
+      status: body.status,
+      last_activity_at: Date.now(),
+    };
     mktConversas.push(v);
     return { corpo: v };
   }

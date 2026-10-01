@@ -148,10 +148,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 {active ? (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"
+                    className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-destaque"
                   />
                 ) : null}
-                <Icon className={cn("size-4 shrink-0", active && "text-primary")} />
+                <Icon className={cn("size-4 shrink-0", active && "text-destaque")} />
                 <span className="truncate">{item.label}</span>
               </Link>
             );
@@ -166,7 +166,7 @@ function Brand() {
   const { data: ctx } = useContextoTenant();
   return (
     <div className="flex items-center gap-3 border-b border-navy-foreground/10 px-4 py-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-destaque text-marca">
         <Droplets className="size-5" />
       </span>
       <div className="min-w-0 leading-tight">

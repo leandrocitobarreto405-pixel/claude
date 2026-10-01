@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center gap-1 rounded-chip border px-2 py-0.5 text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
@@ -13,13 +13,13 @@ const badgeVariants = cva(
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-        outline: "border-border bg-card text-navy",
-        success: "border-success/25 bg-success/12 text-success",
-        warning: "border-warning/35 bg-warning/18 text-[color:var(--warning-foreground)]",
-        info: "border-primary/25 bg-primary/12 text-primary",
-        navy: "border-navy/20 bg-navy/10 text-navy",
-        danger: "border-destructive/25 bg-destructive/10 text-destructive",
-        muted: "border-border bg-muted text-muted-foreground",
+        outline: "border-border bg-card text-foreground",
+        success: "border-transparent bg-marca-claro text-marca",
+        warning: "border-transparent bg-atencao text-atencao-foreground",
+        info: "border-transparent bg-marca-claro text-marca",
+        navy: "border-transparent bg-marca text-marca-foreground",
+        danger: "border-transparent bg-problema text-problema-foreground",
+        muted: "border-transparent bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {
