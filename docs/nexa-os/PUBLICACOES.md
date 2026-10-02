@@ -16,6 +16,8 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Modelos de mensagem" (`20261012120000`): só acrescenta as tabelas `meta_conexoes`,
   `meta_conexao_segredos` (o token da Meta, legível só pelo servidor), `modelos_edicoes` e
   `mensagens_textos`.
+- "Notificações no celular" (`20261013120000`): só acrescenta `push_inscricoes`,
+  `push_preferencias` e `push_envios`. Avisos pelo WhatsApp desligados em 02/10 (dado, não código).
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -30,6 +32,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 02/10/2026 14:31 | Marketing           | `79ef000`        | `8d7cbd9`                |
 | 02/10/2026 16:56 | Agenda + promoção   | `f9e84ce`        | `4d9ef1f`                |
 | 02/10/2026 17:28 | Modelos de mensagem | `316b11e`        | `2f900e8`                |
+| 02/10/2026 18:27 | Notificações push   | `b84c49d`        | `50112f8`                |
+| 02/10/2026 18:38 | Tela do serviço     | `3c40039`        | `b84c49d`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -38,7 +42,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=2f900e80376df60690408c8b3a2a1a5b432448ea
+COMMIT=b84c49dd6fbac8411560bf0a9a42b1111451a857
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
