@@ -499,6 +499,12 @@ sql(`INSERT INTO conversas (empresa_id, conexao_id, chatwoot_conversation_id, st
        now() - interval '20 minutes'),
             ('${EMP}', 'c0000000-0000-0000-0000-000000000001', 99002, 'open', now() - interval '3 minutes',
        now() - interval '3 minutes')`);
+// Espera de verdade: a última mensagem da conversa é do cliente.
+sql(`INSERT INTO whatsapp_messages (empresa_id, whatsapp_contact_id, conversa_id, direction, text_content,
+       created_at, message_timestamp)
+     SELECT '${EMP}', (SELECT id FROM whatsapp_contacts WHERE empresa_id = '${EMP}' LIMIT 1), c.id, 'Recebida',
+            'Oi, alguém aí?', c.aguardando_desde, c.aguardando_desde
+       FROM conversas c WHERE c.chatwoot_conversation_id IN (99001, 99002)`);
 let antes10 = (await logFake()).length;
 r = await rota("mkt-disparo");
 let enviados10 = await nexaAvisos(antes10);
@@ -638,6 +644,12 @@ sql(`INSERT INTO conversas (empresa_id, conexao_id, chatwoot_conversation_id, st
        ultima_atividade_em)
      VALUES ('${EMP}', 'c0000000-0000-0000-0000-000000000001', 99003, 'open', now() - interval '25 minutes',
        now() - interval '25 minutes')`);
+// Espera de verdade: a última mensagem da conversa é do cliente.
+sql(`INSERT INTO whatsapp_messages (empresa_id, whatsapp_contact_id, conversa_id, direction, text_content,
+       created_at, message_timestamp)
+     SELECT '${EMP}', (SELECT id FROM whatsapp_contacts WHERE empresa_id = '${EMP}' LIMIT 1), c.id, 'Recebida',
+            'Oi, alguém aí?', c.aguardando_desde, c.aguardando_desde
+       FROM conversas c WHERE c.chatwoot_conversation_id IN (99003)`);
 r = await rota("mkt-disparo");
 check(
   "aviso de cliente esperando usa o texto editado no app",
@@ -751,6 +763,48 @@ check(
   "avisos pelo WhatsApp desligados: nenhuma mensagem sai",
   (await logFake()).slice(antes13c).filter((x) => x.body?.template_params?.name === "nexa_aviso")
     .length === 0,
+);
+
+// ---------------------------------------------------------------- 14. resumo das 9h por papel
+// Técnico recebe só os serviços dele (vinculado pelo e-mail); admin recebe o resumo da equipe.
+sql(`INSERT INTO users_profiles (id, email, full_name) VALUES ('${TEC}', 'tec@push.test', 'Tec Push')
+     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email`);
+sql(`INSERT INTO technicians (id, empresa_id, name, email) VALUES
+       ('e7000000-0000-0000-0000-000000000001', '${EMP}', 'Tec Push', 'TEC@push.test'),
+       ('e7000000-0000-0000-0000-000000000002', '${EMP}', 'Outro Técnico', null)`);
+sql(`INSERT INTO customers (id, empresa_id, full_name, phone, neighborhood) VALUES
+       ('e7000000-0000-0000-0000-0000000000c1', '${EMP}', 'Carla Push', '11955559991', 'Pinheiros'),
+       ('e7000000-0000-0000-0000-0000000000c2', '${EMP}', 'Pedro Outro', '11955559992', 'Lapa')`);
+sql(`INSERT INTO work_orders (id, empresa_id, os_number, customer_id) VALUES
+       ('e7000000-0000-0000-0000-0000000000a1', '${EMP}', 'PUSH-1', 'e7000000-0000-0000-0000-0000000000c1'),
+       ('e7000000-0000-0000-0000-0000000000a2', '${EMP}', 'PUSH-2', 'e7000000-0000-0000-0000-0000000000c2')`);
+sql(`INSERT INTO visits (empresa_id, work_order_id, scheduled_date, scheduled_time, technician_id) VALUES
+       ('${EMP}', 'e7000000-0000-0000-0000-0000000000a1', '${hojeSP}', '10:00', 'e7000000-0000-0000-0000-000000000001'),
+       ('${EMP}', 'e7000000-0000-0000-0000-0000000000a2', '${hojeSP}', '11:00', 'e7000000-0000-0000-0000-000000000002')`);
+sql(`INSERT INTO push_preferencias (empresa_id, user_id, resumo_dia) VALUES ('${EMP}', '${TEC}', true)
+     ON CONFLICT (empresa_id, user_id) DO UPDATE SET resumo_dia = true`);
+sql(`UPDATE push_preferencias SET resumo_dia = true WHERE user_id = '${ADM}'`);
+const antes14 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${hojeSP}T09:30:00-03:00`)}`);
+const log14 = (await logFake()).slice(antes14).filter((x) => x.url.startsWith("/push/"));
+const doTec = log14.filter((x) => x.url === "/push/tec").map((x) => abrir(celTec, x.bruto64));
+const doAdm = log14.filter((x) => x.url === "/push/admin").map((x) => abrir(celAdmin, x.bruto64));
+check(
+  "resumo das 9h do técnico: só os serviços dele",
+  doTec.some(
+    (n) =>
+      n.titulo === "Seu dia" &&
+      n.corpo === "Hoje você tem 1 serviço: 10:00 Carla (Pinheiros)." &&
+      n.url === "/agenda",
+  ),
+  { doTec, notificacoes: r.corpo?.notificacoes },
+);
+check(
+  "resumo das 9h do admin: o da equipe",
+  doAdm.some(
+    (n) => n.titulo === "Resumo do dia" && /serviços? hoje/.test(n.corpo) && n.url === "/inicio",
+  ),
+  doAdm,
 );
 
 if (falhas) {

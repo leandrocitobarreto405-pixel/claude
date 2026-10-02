@@ -110,7 +110,13 @@ export async function gerarAvisosDeEspera(agora = new Date()) {
         whatsapp_contacts: { profile_name: string | null; display_phone: string | null } | null;
       }>;
       if (!lista.length) continue;
-      const ids = lista.map((c) => c.id);
+      // Só quem está esperando de verdade (o cliente falou por último).
+      const { esperasReais } = await import("@/lib/conversas-espera.server");
+      const reais = new Set(
+        (await esperasReais(db, cfg.empresa_id, { desde: desde24h })).map((e) => e.id),
+      );
+      const ids = lista.filter((c) => reais.has(c.id)).map((c) => c.id);
+      if (!ids.length) continue;
       const [{ data: existentes }, { data: execs }] = await Promise.all([
         db
           .from("mkt_avisos")
@@ -125,12 +131,16 @@ export async function gerarAvisosDeEspera(agora = new Date()) {
           .order("created_at", { ascending: false })
           .limit(200),
       ]);
-      const esperas: EsperaConversa[] = lista.map((c) => ({
-        id: c.id,
-        nome: c.whatsapp_contacts?.profile_name || c.whatsapp_contacts?.display_phone || "Cliente",
-        desde: c.aguardando_desde,
-        motivo: ultimaPassagem((execs ?? []).filter((e) => e.conversa_id === c.id))?.motivo ?? null,
-      }));
+      const esperas: EsperaConversa[] = lista
+        .filter((c) => ids.includes(c.id))
+        .map((c) => ({
+          id: c.id,
+          nome:
+            c.whatsapp_contacts?.profile_name || c.whatsapp_contacts?.display_phone || "Cliente",
+          desde: c.aguardando_desde,
+          motivo:
+            ultimaPassagem((execs ?? []).filter((e) => e.conversa_id === c.id))?.motivo ?? null,
+        }));
       const novas = esperasParaAvisar(
         esperas,
         (existentes ?? []).map((a) => ({ conversaId: a.conversa_id!, criadoEm: a.created_at })),
@@ -180,18 +190,13 @@ export async function contagensDoDia(db: Db, empresaId: string, hoje = hojeSP())
       .eq("empresa_id", empresaId)
       .is("technician_id", null)
       .neq("status", "Cancelado"),
-    db
-      .from("conversas")
-      .select("id", { count: "exact", head: true })
-      .eq("empresa_id", empresaId)
-      .eq("status", "open")
-      .not("aguardando_desde", "is", null),
+    import("@/lib/conversas-espera.server").then(({ esperasReais }) => esperasReais(db, empresaId)),
   ]);
   return {
     servicosHoje: servicos.count ?? 0,
     atrasados: atrasados.count ?? 0,
     semTecnico: semTecnico.count ?? 0,
-    esperando: esperando.count ?? 0,
+    esperando: esperando.length,
   };
 }
 

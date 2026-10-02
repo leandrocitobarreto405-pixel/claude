@@ -7,6 +7,8 @@ import {
   notificacaoEspera,
   notificacaoPromocao,
   notificacaoResumo,
+  notificacaoResumoTecnico,
+  tecnicoDoUsuario,
   querReceber,
   tiposDoPapel,
   urlSegura,
@@ -74,4 +76,30 @@ test("textos e telas certas", () => {
   assert.equal(urlSegura("/os/1234"), "/os/1234");
   assert.equal(urlSegura("https://ruim.com"), "/avisos");
   assert.equal(urlSegura("//ruim.com"), "/avisos");
+});
+
+test("resumo do técnico: só os serviços dele, em ordem", () => {
+  assert.deepEqual(
+    notificacaoResumoTecnico(
+      [
+        { hora: "14:00:00", cliente: "João Pedro", bairro: null },
+        { hora: "09:30:00", cliente: "Carla Mendes", bairro: "Pinheiros" },
+      ],
+      1,
+    ),
+    {
+      titulo: "Seu dia",
+      corpo:
+        "Hoje você tem 2 serviços: 09:30 Carla (Pinheiros), 14:00 João. 1 atrasado para resolver.",
+      url: "/agenda",
+    },
+  );
+  assert.equal(notificacaoResumoTecnico([], 0).corpo, "Hoje você não tem serviços na agenda.");
+  const tecs = [
+    { id: "t1", email: "Josue@Turbine.com", nome: "Josué" },
+    { id: "t2", email: null, nome: "Marcos" },
+  ];
+  assert.equal(tecnicoDoUsuario({ email: "josue@turbine.com", nome: null }, tecs), "t1");
+  assert.equal(tecnicoDoUsuario({ email: "outro@x.com", nome: "marcos" }, tecs), "t2");
+  assert.equal(tecnicoDoUsuario({ email: null, nome: "Ana" }, tecs), null);
 });

@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { MessageCircle } from "lucide-react";
 import { BadgeAlerta, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { CartaoConversa } from "@/components/conversas/cartao-conversa";
+import { EncerrarParadas } from "@/components/conversas/encerrar-paradas";
+import { usePapel } from "@/lib/tenant";
 import { resumoAliceHoje } from "@/lib/alice.functions";
 import type { GrupoConversa } from "@/lib/conversas";
 import { listarConversas, type ConversaResumo } from "@/lib/conversas.functions";
@@ -72,6 +74,7 @@ function Conversas() {
   const atual = ABAS.find((a) => a.id === aba)!;
   const itens = porGrupo.get(aba) ?? [];
   const agora = new Date();
+  const { papel } = usePapel();
   const a = alice.data;
 
   return (
@@ -98,6 +101,8 @@ function Conversas() {
           {a.passagensHoje} {a.passagensHoje === 1 ? "passada" : "passadas"} para a equipe
         </p>
       ) : null}
+
+      {papel === "admin" ? <EncerrarParadas /> : null}
 
       <div
         role="tablist"

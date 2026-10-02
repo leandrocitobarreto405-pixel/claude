@@ -17,6 +17,8 @@ import {
   notificacaoEspera,
   notificacaoPromocao,
   notificacaoResumo,
+  notificacaoResumoTecnico,
+  tecnicoDoUsuario,
   querReceber,
   urlSegura,
   type EsperaPush,
@@ -291,13 +293,74 @@ async function eventosDaEmpresa(
       textosDaEmpresa(db, empresaId),
     ]);
     const textoEquipe = textoResumoDoDia(n, textos["aviso_resumo"]);
-    for (const papel of ["admin", "atendente", "tecnico"] as Papel[])
+    for (const papel of ["admin", "atendente"] as Papel[])
       eventos.push({
         tipo: "resumo_dia",
         ref: hoje,
         n: notificacaoResumo(papel, n, textoEquipe),
         para: (x) => x.papel === papel,
       });
+    // Técnico: só os serviços dele (vinculado pelo e-mail ou nome do cadastro de técnicos).
+    const tecnicosPessoas = pessoas.filter(
+      (p) => p.papel === "tecnico" && querReceber("resumo_dia", p.papel, p.pref),
+    );
+    if (tecnicosPessoas.length) {
+      const [{ data: perfis }, { data: tecnicos }, { data: visitas }] = await Promise.all([
+        db
+          .from("users_profiles")
+          .select("id, email, full_name")
+          .in(
+            "id",
+            tecnicosPessoas.map((p) => p.userId),
+          ),
+        db.from("technicians").select("id, email, name").eq("empresa_id", empresaId),
+        db
+          .from("visits")
+          .select(
+            "technician_id, scheduled_date, scheduled_time, status, work_order:work_order_id ( customer:customer_id ( full_name, neighborhood ) )",
+          )
+          .eq("empresa_id", empresaId)
+          .lte("scheduled_date", hoje)
+          .in("status", ["Agendado", "Confirmado", "Em deslocamento", "Em execução", "Reagendado"])
+          .gte(
+            "scheduled_date",
+            new Date(agora.getTime() - 30 * 86_400_000).toISOString().slice(0, 10),
+          )
+          .limit(2000),
+      ]);
+      const lista = (visitas ?? []) as unknown as Array<{
+        technician_id: string | null;
+        scheduled_date: string;
+        scheduled_time: string;
+        work_order: { customer: { full_name: string; neighborhood: string | null } | null } | null;
+      }>;
+      for (const p of tecnicosPessoas) {
+        const perfil = perfis?.find((x) => x.id === p.userId);
+        const tecId = tecnicoDoUsuario(
+          { email: perfil?.email ?? null, nome: perfil?.full_name ?? null },
+          (tecnicos ?? []).map((t) => ({ id: t.id, email: t.email, nome: t.name })),
+        );
+        const nota = tecId
+          ? notificacaoResumoTecnico(
+              lista
+                .filter((v) => v.technician_id === tecId && v.scheduled_date === hoje)
+                .map((v) => ({
+                  hora: v.scheduled_time ?? "",
+                  cliente: v.work_order?.customer?.full_name ?? "Cliente",
+                  bairro: v.work_order?.customer?.neighborhood ?? null,
+                })),
+              lista.filter((v) => v.technician_id === tecId && v.scheduled_date < hoje).length,
+            )
+          : // Sem técnico vinculado: o resumo da operação, como antes.
+            notificacaoResumo("tecnico", n, textoEquipe);
+        eventos.push({
+          tipo: "resumo_dia",
+          ref: hoje,
+          n: nota,
+          para: (x) => x.userId === p.userId,
+        });
+      }
+    }
   }
   return eventos;
 }

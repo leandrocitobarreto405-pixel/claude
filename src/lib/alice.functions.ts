@@ -659,12 +659,10 @@ export const resumoAliceHoje = createServerFn({ method: "GET" })
         .eq("empresa_id", context.empresaId)
         .eq("status", "pending")
         .gte("ultima_atividade_em", desde),
-      db
-        .from("conversas")
-        .select("id", { count: "exact", head: true })
-        .eq("empresa_id", context.empresaId)
-        .eq("status", "open")
-        .not("aguardando_desde", "is", null),
+      // Só quem está esperando de verdade (o cliente falou por último).
+      import("@/lib/conversas-espera.server").then(({ esperasReais }) =>
+        esperasReais(db, context.empresaId),
+      ),
       db
         .from("ia_execucoes")
         .select("erro, ferramentas")
@@ -676,7 +674,7 @@ export const resumoAliceHoje = createServerFn({ method: "GET" })
     return {
       ligada: Boolean(cfg.data?.ativo),
       comAlice: comAlice.count ?? 0,
-      esperandoEquipe: esperando.count ?? 0,
+      esperandoEquipe: esperando.length,
       respostasHoje: lista.filter((e) => !e.erro).length,
       passagensHoje: lista.filter((e) => passouParaEquipe(e.ferramentas)).length,
     };

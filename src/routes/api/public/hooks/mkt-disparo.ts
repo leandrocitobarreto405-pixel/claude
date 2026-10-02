@@ -44,7 +44,9 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         await passo("avisos", () => processarAvisosWhatsapp());
         // Notificações no celular (Web Push da Nexa; não usa WhatsApp).
         const { processarNotificacoes } = await import("@/lib/push/notificacoes.server");
-        await passo("notificacoes", () => processarNotificacoes());
+        await passo("notificacoes", () =>
+          processarNotificacoes(agora ? new Date(agora) : undefined),
+        );
         return json({ ok, ...resultado }, ok ? 200 : 500);
       },
     },

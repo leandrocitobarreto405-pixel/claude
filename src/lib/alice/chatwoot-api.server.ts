@@ -73,7 +73,7 @@ export function mudarSituacao(
   conta: Conta,
   token: string,
   conversa: number,
-  situacao: "open" | "pending",
+  situacao: "open" | "pending" | "resolved",
 ) {
   return chamar(conta, token, `/conversations/${conversa}/toggle_status`, {
     method: "POST",

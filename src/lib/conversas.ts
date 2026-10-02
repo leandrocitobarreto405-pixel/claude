@@ -9,13 +9,29 @@ export type GrupoConversa = "precisam" | "alice" | "equipe" | "finalizadas";
  * pending = com a Alice; open = com a equipe (precisa de você se o cliente espera resposta);
  * resolved = finalizada; snoozed (adiada) conta como com a equipe.
  */
+/**
+ * Aba da conversa. "Precisam de você" só quando o cliente está esperando de verdade: a conversa
+ * está com a equipe, marcada como aguardando e a última mensagem é do cliente (se a equipe falou
+ * por último, não está esperando, mesmo que o Chatwoot ainda marque).
+ */
 export function grupoDaConversa(
   status: string | null,
   aguardandoDesde: string | null,
+  ultimaDoCliente = true,
 ): GrupoConversa {
   if (status === "pending") return "alice";
   if (status === "resolved") return "finalizadas";
-  return aguardandoDesde ? "precisam" : "equipe";
+  return aguardandoDesde && ultimaDoCliente ? "precisam" : "equipe";
+}
+
+/** Direção da última mensagem de cada conversa (lista em ordem da mais nova para a mais antiga). */
+export function ultimaDirecaoPorConversa(
+  msgs: { conversa_id: string | null; direction: string }[],
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const x of msgs)
+    if (x.conversa_id && !m.has(x.conversa_id)) m.set(x.conversa_id, x.direction);
+  return m;
 }
 
 /** "agora", "há 4 min", "há 2 h", "ontem" ou "12/09". */

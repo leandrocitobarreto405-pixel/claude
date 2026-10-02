@@ -86,7 +86,7 @@ function resumir(
     id: c.id,
     nome: c.contato?.profile_name || c.lead?.lead_name || telefone || "Cliente",
     telefone,
-    grupo: grupoDaConversa(c.status, c.aguardando_desde),
+    grupo: grupoDaConversa(c.status, c.aguardando_desde, ultima?.direction === "Recebida"),
     esperandoDesde: c.aguardando_desde,
     ultimaEm: ultima?.message_timestamp ?? c.ultima_atividade_em,
     ultimaMensagem: ultima ? textoDaMensagem(ultima.text_content, ultima.message_type) : null,

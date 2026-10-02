@@ -34,7 +34,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
               .eq("status", "open")
               .not("aguardando_desde", "is", null)
               .order("aguardando_desde")
-              .limit(30)
+              .limit(300)
           : Promise.resolve(vazio),
         escritorio
           ? db
@@ -81,7 +81,14 @@ export const listarAvisos = createServerFn({ method: "GET" })
       aguardando_desde: string;
       contato: { profile_name: string | null; display_phone: string | null } | null;
     };
-    const esperando = (conversas.data ?? []) as unknown as LinhaConversa[];
+    // Só quem está esperando de verdade (o cliente falou por último).
+    const { esperasReais } = await import("@/lib/conversas-espera.server");
+    const reais = escritorio
+      ? new Set((await esperasReais(db, context.empresaId)).map((e) => e.id))
+      : new Set<string>();
+    const esperando = ((conversas.data ?? []) as unknown as LinhaConversa[]).filter((c) =>
+      reais.has(c.id),
+    );
     const ids = esperando.map((c) => c.id);
     const { data: execs } = ids.length
       ? await db

@@ -1,6 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { grupoDaConversa, haQuanto, iniciais, textoDaMensagem, ultimaPassagem } from "./conversas";
+import {
+  grupoDaConversa,
+  haQuanto,
+  iniciais,
+  textoDaMensagem,
+  ultimaDirecaoPorConversa,
+  ultimaPassagem,
+} from "./conversas";
+
+test("última direção por conversa (lista da mais nova para a mais antiga)", () => {
+  const m = ultimaDirecaoPorConversa([
+    { conversa_id: "a", direction: "Enviada" },
+    { conversa_id: "b", direction: "Recebida" },
+    { conversa_id: "a", direction: "Recebida" },
+  ]);
+  assert.equal(m.get("a"), "Enviada");
+  assert.equal(m.get("b"), "Recebida");
+});
 
 test("grupoDaConversa pelo status do Chatwoot", () => {
   assert.equal(grupoDaConversa("pending", null), "alice");
@@ -8,6 +25,8 @@ test("grupoDaConversa pelo status do Chatwoot", () => {
   assert.equal(grupoDaConversa("open", null), "equipe");
   assert.equal(grupoDaConversa("snoozed", null), "equipe");
   assert.equal(grupoDaConversa("resolved", "2026-10-02T10:00:00Z"), "finalizadas");
+  // A equipe falou por último: não está esperando, mesmo marcada no Chatwoot.
+  assert.equal(grupoDaConversa("open", "2026-10-02T10:00:00Z", false), "equipe");
 });
 
 test("haQuanto", () => {

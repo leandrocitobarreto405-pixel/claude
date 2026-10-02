@@ -169,6 +169,50 @@ export function notificacaoResumo(
   return { titulo: "Resumo do dia", corpo: textoEquipe ?? "", url: "/inicio" };
 }
 
+/** Resumo das 9h do técnico: só os serviços dele, em ordem de horário. */
+export function notificacaoResumoTecnico(
+  servicos: { hora: string; cliente: string; bairro: string | null }[],
+  atrasados: number,
+): Notificacao {
+  const lista = [...servicos].sort((a, b) => a.hora.localeCompare(b.hora));
+  const itens = lista
+    .slice(0, 6)
+    .map(
+      (s) =>
+        `${s.hora.slice(0, 5)} ${s.cliente.split(/\s+/)[0]}${s.bairro ? ` (${s.bairro})` : ""}`,
+    )
+    .join(", ");
+  const mais = lista.length > 6 ? ` e mais ${lista.length - 6}` : "";
+  const corpo = lista.length
+    ? `Hoje você tem ${plural(lista.length, "serviço", "serviços")}: ${itens}${mais}.`
+    : "Hoje você não tem serviços na agenda.";
+  return {
+    titulo: "Seu dia",
+    corpo: atrasados
+      ? `${corpo} ${plural(atrasados, "atrasado", "atrasados")} para resolver.`
+      : corpo,
+    url: "/agenda",
+  };
+}
+
+/** O técnico deste usuário: pelo e-mail cadastrado no técnico; se não houver, pelo nome. */
+export function tecnicoDoUsuario(
+  usuario: { email: string | null; nome: string | null },
+  tecnicos: { id: string; email: string | null; nome: string }[],
+): string | null {
+  const email = (usuario.email ?? "").trim().toLowerCase();
+  if (email) {
+    const t = tecnicos.find((x) => (x.email ?? "").trim().toLowerCase() === email);
+    if (t) return t.id;
+  }
+  const nome = (usuario.nome ?? "").trim().toLowerCase();
+  if (nome) {
+    const iguais = tecnicos.filter((x) => x.nome.trim().toLowerCase() === nome);
+    if (iguais.length === 1) return iguais[0]!.id;
+  }
+  return null;
+}
+
 /** Janela em que o resumo pode sair (São Paulo): das 9h às 11h, uma vez por dia. */
 export function horaDoResumo(horaSP: number): boolean {
   return horaSP >= 9 && horaSP < 11;
