@@ -18,7 +18,6 @@ import { Route as AuthenticatedAReceberRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
@@ -35,6 +34,8 @@ import { Route as AuthenticatedPagamentosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
+import { Route as AuthenticatedConversasConversaIdRouteImport } from './routes/_authenticated/conversas.$conversaId'
 import { Route as AuthenticatedCrmCampanhasRouteImport } from './routes/_authenticated/crm/campanhas'
 import { Route as AuthenticatedCrmFunilRouteImport } from './routes/_authenticated/crm/funil'
 import { Route as AuthenticatedCrmImportarRouteImport } from './routes/_authenticated/crm/importar'
@@ -109,11 +110,6 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
-  id: '/conversas',
-  path: '/conversas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
   id: '/design',
   path: '/design',
@@ -196,6 +192,18 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConversasIndexRoute =
+  AuthenticatedConversasIndexRouteImport.update({
+    id: '/conversas/',
+    path: '/conversas/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConversasConversaIdRoute =
+  AuthenticatedConversasConversaIdRouteImport.update({
+    id: '/conversas/$conversaId',
+    path: '/conversas/$conversaId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCrmCampanhasRoute =
   AuthenticatedCrmCampanhasRouteImport.update({
     id: '/crm/campanhas',
@@ -367,7 +375,6 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
-  '/conversas': typeof AuthenticatedConversasRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -384,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
@@ -396,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
@@ -422,7 +431,6 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
-  '/conversas': typeof AuthenticatedConversasRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -439,6 +447,7 @@ export interface FileRoutesByTo {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
@@ -451,6 +460,7 @@ export interface FileRoutesByTo {
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/conversas': typeof AuthenticatedConversasIndexRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
@@ -479,7 +489,6 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
-  '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
@@ -496,6 +505,7 @@ export interface FileRoutesById {
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/_authenticated/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/_authenticated/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/_authenticated/crm/importar': typeof AuthenticatedCrmImportarRoute
@@ -508,6 +518,7 @@ export interface FileRoutesById {
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
   '/api/public/ads/lead': typeof ApiPublicAdsLeadRoute
@@ -536,7 +547,6 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/avisos'
     | '/configuracoes'
-    | '/conversas'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -553,6 +563,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/funil'
     | '/crm/importar'
@@ -565,6 +576,7 @@ export interface FileRouteTypes {
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
+    | '/conversas/'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
     | '/api/public/ads/lead'
@@ -591,7 +603,6 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/avisos'
     | '/configuracoes'
-    | '/conversas'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -608,6 +619,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/funil'
     | '/crm/importar'
@@ -620,6 +632,7 @@ export interface FileRouteTypes {
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
+    | '/conversas'
     | '/orcamentos'
     | '/crm/lead/$leadId'
     | '/api/public/ads/lead'
@@ -647,7 +660,6 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/avisos'
     | '/_authenticated/configuracoes'
-    | '/_authenticated/conversas'
     | '/_authenticated/design'
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
@@ -664,6 +676,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
+    | '/_authenticated/conversas/$conversaId'
     | '/_authenticated/crm/campanhas'
     | '/_authenticated/crm/funil'
     | '/_authenticated/crm/importar'
@@ -676,6 +689,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nexa/empresas'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
+    | '/_authenticated/conversas/'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
     | '/api/public/ads/lead'
@@ -779,13 +793,6 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/conversas': {
-      id: '/_authenticated/conversas'
-      path: '/conversas'
-      fullPath: '/conversas'
-      preLoaderRoute: typeof AuthenticatedConversasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/design': {
@@ -898,6 +905,20 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversas/': {
+      id: '/_authenticated/conversas/'
+      path: '/conversas'
+      fullPath: '/conversas/'
+      preLoaderRoute: typeof AuthenticatedConversasIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversas/$conversaId': {
+      id: '/_authenticated/conversas/$conversaId'
+      path: '/conversas/$conversaId'
+      fullPath: '/conversas/$conversaId'
+      preLoaderRoute: typeof AuthenticatedConversasConversaIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/crm/campanhas': {
@@ -1104,7 +1125,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
-  AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
@@ -1121,6 +1141,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRotasRoute: typeof AuthenticatedRotasRoute
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedConversasConversaIdRoute: typeof AuthenticatedConversasConversaIdRoute
   AuthenticatedCrmCampanhasRoute: typeof AuthenticatedCrmCampanhasRoute
   AuthenticatedCrmFunilRoute: typeof AuthenticatedCrmFunilRoute
   AuthenticatedCrmImportarRoute: typeof AuthenticatedCrmImportarRoute
@@ -1133,6 +1154,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
+  AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
   AuthenticatedOrcamentosIndexRoute: typeof AuthenticatedOrcamentosIndexRoute
   AuthenticatedCrmLeadLeadIdRoute: typeof AuthenticatedCrmLeadLeadIdRoute
 }
@@ -1142,7 +1164,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
-  AuthenticatedConversasRoute: AuthenticatedConversasRoute,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
@@ -1159,6 +1180,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRotasRoute: AuthenticatedRotasRoute,
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedConversasConversaIdRoute: AuthenticatedConversasConversaIdRoute,
   AuthenticatedCrmCampanhasRoute: AuthenticatedCrmCampanhasRoute,
   AuthenticatedCrmFunilRoute: AuthenticatedCrmFunilRoute,
   AuthenticatedCrmImportarRoute: AuthenticatedCrmImportarRoute,
@@ -1171,6 +1193,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
+  AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
   AuthenticatedOrcamentosIndexRoute: AuthenticatedOrcamentosIndexRoute,
   AuthenticatedCrmLeadLeadIdRoute: AuthenticatedCrmLeadLeadIdRoute,
 }

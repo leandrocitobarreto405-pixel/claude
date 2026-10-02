@@ -359,7 +359,10 @@ function Inicio() {
           </BlocoEscuro>
         </div>
         <Botao asChild variante="claro" tamanho="grande" larguraTotal>
-          <Link to="/conversas">
+          <Link
+            to="/conversas"
+            search={{ aba: a && a.esperandoEquipe > 0 ? "precisam" : undefined }}
+          >
             {a && a.esperandoEquipe > 0 ? (
               <>
                 <BadgeAlerta numero={a.esperandoEquipe} />

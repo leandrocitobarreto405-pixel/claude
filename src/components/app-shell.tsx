@@ -40,7 +40,9 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { resumoAliceHoje } from "@/lib/alice.functions";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { podeAcessar, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
@@ -207,7 +209,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const vinculo = ctx?.ativa ?? null;
   const rotaNexa = pathname === "/nexa" || pathname.startsWith("/nexa/");
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
-  const abas = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
+  const abasBase = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
+  // Número na aba Conversas: clientes esperando resposta da equipe.
+  const temConversas = abasBase.some((a) => a.to === "/conversas");
+  const resumoFn = useServerFn(resumoAliceHoje);
+  const resumoAlice = useQuery({
+    queryKey: ["alice_resumo_hoje"],
+    queryFn: () => resumoFn(),
+    enabled: temConversas,
+    refetchInterval: 60_000,
+  });
+  const esperando = resumoAlice.data?.esperandoEquipe ?? 0;
+  const abas = abasBase.map((a) => (a.to === "/conversas" ? { ...a, badge: esperando } : a));
   const nome = displayName(profile, user?.email);
 
   async function sair() {
