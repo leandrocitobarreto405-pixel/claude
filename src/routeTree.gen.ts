@@ -16,7 +16,9 @@ import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAReceberRouteImport } from './routes/_authenticated/a-receber'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
@@ -96,12 +98,22 @@ const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   path: '/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
+  id: '/avisos',
+  path: '/avisos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConfiguracoesRoute =
   AuthenticatedConfiguracoesRouteImport.update({
     id: '/configuracoes',
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
+  id: '/conversas',
+  path: '/conversas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
   id: '/design',
   path: '/design',
@@ -353,7 +365,9 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/a-receber': typeof AuthenticatedAReceberRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/conversas': typeof AuthenticatedConversasRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -406,7 +420,9 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/a-receber': typeof AuthenticatedAReceberRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/conversas': typeof AuthenticatedConversasRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -461,7 +477,9 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/_authenticated/a-receber': typeof AuthenticatedAReceberRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
@@ -516,7 +534,9 @@ export interface FileRouteTypes {
     | '/termos'
     | '/a-receber'
     | '/agenda'
+    | '/avisos'
     | '/configuracoes'
+    | '/conversas'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -569,7 +589,9 @@ export interface FileRouteTypes {
     | '/termos'
     | '/a-receber'
     | '/agenda'
+    | '/avisos'
     | '/configuracoes'
+    | '/conversas'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -623,7 +645,9 @@ export interface FileRouteTypes {
     | '/termos'
     | '/_authenticated/a-receber'
     | '/_authenticated/agenda'
+    | '/_authenticated/avisos'
     | '/_authenticated/configuracoes'
+    | '/_authenticated/conversas'
     | '/_authenticated/design'
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
@@ -743,11 +767,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/avisos': {
+      id: '/_authenticated/avisos'
+      path: '/avisos'
+      fullPath: '/avisos'
+      preLoaderRoute: typeof AuthenticatedAvisosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversas': {
+      id: '/_authenticated/conversas'
+      path: '/conversas'
+      fullPath: '/conversas'
+      preLoaderRoute: typeof AuthenticatedConversasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/design': {
@@ -1064,7 +1102,9 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAReceberRoute: typeof AuthenticatedAReceberRoute
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
+  AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
@@ -1100,7 +1140,9 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAReceberRoute: AuthenticatedAReceberRoute,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
+  AuthenticatedConversasRoute: AuthenticatedConversasRoute,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,

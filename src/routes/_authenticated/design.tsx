@@ -53,7 +53,7 @@ const CORES: { nome: string; classe: string; hex: string; texto?: string }[] = [
   { nome: "Verde de dado", classe: "bg-dado", hex: "#2FB58A" },
   { nome: "Atenção", classe: "bg-atencao", hex: "#FFF1D6", texto: "text-atencao-foreground" },
   { nome: "Problema", classe: "bg-problema", hex: "#FDE8EA", texto: "text-problema-foreground" },
-  { nome: "Alerta", classe: "bg-alerta", hex: "#D9480F", texto: "text-alerta-foreground" },
+  { nome: "Alerta", classe: "bg-alerta", hex: "#C9430E", texto: "text-alerta-foreground" },
 ];
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {

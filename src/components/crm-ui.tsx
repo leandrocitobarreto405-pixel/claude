@@ -134,7 +134,7 @@ export function LeadLink({ id, children }: { id: string; children: React.ReactNo
     <Link
       to="/crm/lead/$leadId"
       params={{ leadId: id }}
-      className="font-medium text-navy underline-offset-2 hover:text-primary hover:underline"
+      className="relative font-medium text-navy underline-offset-2 after:absolute after:-inset-y-3 after:inset-x-0 after:content-[''] hover:text-primary hover:underline lg:after:hidden"
     >
       {children}
     </Link>

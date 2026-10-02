@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   HandCoins,
   BarChart3,
+  Bell,
   PieChart,
   CalendarClock,
   CalendarDays,
@@ -23,6 +24,7 @@ import {
   Inbox,
   LogOut,
   Menu,
+  MessageCircle,
   MessageSquareText,
   MessagesSquare,
   Receipt,
@@ -32,9 +34,10 @@ import {
   Building2,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,12 +52,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
+import { BarraDeNavegacaoInferior } from "@/components/nexa";
+import { abasDoPapel } from "@/lib/navegacao";
+
+const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
 const NAV_GROUPS = [
   {
     label: "Operação",
     items: [
       { to: "/inicio", label: "Início", icon: Home },
+      { to: "/conversas", label: "Conversas", icon: MessageCircle },
+      { to: "/avisos", label: "Avisos", icon: Bell },
       { to: "/nova-os", label: "Nova OS", icon: ClipboardPlus },
       { to: "/oss", label: "OSs criadas", icon: ClipboardList },
       { to: "/orcamentos", label: "Orçamentos", icon: FileText },
@@ -162,7 +171,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function Brand() {
+function Brand({ fechar = false }: { fechar?: boolean }) {
   const { data: ctx } = useContextoTenant();
   return (
     <div className="flex items-center gap-3 border-b border-navy-foreground/10 px-4 py-4">
@@ -175,6 +184,14 @@ function Brand() {
           {ctx?.ativa?.empresa.nome ?? "Nexa Performance"}
         </p>
       </div>
+      {fechar ? (
+        <SheetClose
+          className="ml-auto grid size-11 shrink-0 place-items-center rounded-botao text-navy-foreground/80 hover:bg-navy-foreground/10 hover:text-navy-foreground"
+          aria-label="Fechar"
+        >
+          <X className="size-5" />
+        </SheetClose>
+      ) : null}
     </div>
   );
 }
@@ -190,6 +207,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const vinculo = ctx?.ativa ?? null;
   const rotaNexa = pathname === "/nexa" || pathname.startsWith("/nexa/");
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
+  const abas = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
+  const nome = displayName(profile, user?.email);
 
   async function sair() {
     await queryClient.cancelQueries();
@@ -210,58 +229,78 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 shadow-[0_1px_2px_rgba(11,37,58,0.04)] backdrop-blur">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="lg:hidden" aria-label="Abrir menu">
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 border-0 bg-navy-deep p-0">
-              <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-              <Brand />
-              <ScrollArea className="h-[calc(100vh-73px)]">
-                <NavList onNavigate={() => setOpen(false)} />
-              </ScrollArea>
-            </SheetContent>
-          </Sheet>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-navy">
-              {displayName(profile, user?.email)}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {vinculo ? `${vinculo.empresa.nome} · ${vinculo.papel}` : user?.email}
-            </p>
-          </div>
-
-          {ctx && ctx.empresas.length > 1 ? (
-            <Select
-              value={vinculo?.empresa.id ?? ""}
-              onValueChange={(id) => {
-                if (id !== vinculo?.empresa.id) trocarEmpresa(id);
-              }}
+        <header className="sticky top-0 z-20 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+          <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
+            <span
+              aria-hidden
+              className="grid size-[38px] shrink-0 place-items-center rounded-xl bg-marca font-titulo text-[19px] text-destaque lg:hidden"
             >
-              <SelectTrigger className="w-[180px] sm:w-[240px]" aria-label="Empresa">
-                <SelectValue placeholder="Escolha a empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                {ctx.empresas.map((v) => (
-                  <SelectItem key={v.empresa.id} value={v.empresa.id}>
-                    {v.empresa.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
+              N
+            </span>
 
-          <Button variant="ghost" size="sm" onClick={sair} className="gap-2">
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Sair</span>
-          </Button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-bold">{vinculo?.empresa.nome ?? nome}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {vinculo ? `${nome} · ${NOME_PAPEL[vinculo.papel]}` : user?.email}
+              </p>
+            </div>
+
+            {ctx && ctx.empresas.length > 1 ? (
+              <div className="hidden lg:block">
+                <SeletorEmpresa />
+              </div>
+            ) : null}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={sair}
+              className="hidden gap-2 lg:inline-flex"
+            >
+              <LogOut className="size-4" />
+              Sair
+            </Button>
+
+            {/* Celular: o menu completo (CRM, financeiro, configurações...) fica no "Mais". */}
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="h-11 gap-2 rounded-botao px-3.5 lg:hidden">
+                  <Menu className="size-5" />
+                  Mais
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="flex w-[86vw] max-w-80 flex-col gap-0 border-0 bg-navy-deep p-0 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-navy-foreground [&>button:first-child]:hidden"
+              >
+                <SheetTitle className="sr-only">Mais opções</SheetTitle>
+                <Brand fechar />
+                <ScrollArea className="min-h-0 flex-1">
+                  <NavList onNavigate={() => setOpen(false)} />
+                </ScrollArea>
+                <div className="flex flex-col gap-2 border-t border-navy-foreground/10 p-3">
+                  {ctx && ctx.empresas.length > 1 ? <SeletorEmpresa /> : null}
+                  <button
+                    type="button"
+                    onClick={sair}
+                    className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-navy-foreground/80 hover:bg-navy-foreground/8 hover:text-navy-foreground"
+                  >
+                    <LogOut className="size-4" />
+                    Sair
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 md:p-6 lg:p-8">
+        <main
+          className={cn(
+            "mx-auto w-full max-w-[1400px] flex-1 p-4 md:p-6 lg:p-8",
+            // Espaço para a barra de abas (e a barra do iPhone) não cobrir o fim da página.
+            abas.length > 0 && "pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-8",
+          )}
+        >
           <InstallPrompt />
           {carregandoVinculo ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -311,7 +350,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </main>
       </div>
+
+      {abas.length > 0 ? <BarraDeNavegacaoInferior itens={abas} className="lg:hidden" /> : null}
     </div>
+  );
+}
+
+/** Troca de empresa (só para quem tem mais de uma, como a equipe da Nexa). */
+function SeletorEmpresa() {
+  const { data: ctx } = useContextoTenant();
+  const vinculo = ctx?.ativa ?? null;
+  return (
+    <Select
+      value={vinculo?.empresa.id ?? ""}
+      onValueChange={(id) => {
+        if (id !== vinculo?.empresa.id) trocarEmpresa(id);
+      }}
+    >
+      <SelectTrigger className="w-full lg:w-[240px]" aria-label="Empresa">
+        <SelectValue placeholder="Escolha a empresa" />
+      </SelectTrigger>
+      <SelectContent>
+        {(ctx?.empresas ?? []).map((v) => (
+          <SelectItem key={v.empresa.id} value={v.empresa.id}>
+            {v.empresa.nome}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

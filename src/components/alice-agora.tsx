@@ -9,8 +9,11 @@ import { LeadLink } from "@/components/crm-ui";
 import { conversasComAlice, pararAliceNaConversa } from "@/lib/alice.functions";
 import { dateTimeBR } from "@/lib/format";
 
-/** Conversas que a Alice está atendendo agora, com um toque para a equipe assumir. */
-export function AliceAgora() {
+/**
+ * Conversas que a Alice está atendendo agora, com um toque para a equipe assumir.
+ * Sem conversas, mostra `vazio` (ou nada).
+ */
+export function AliceAgora({ vazio = null }: { vazio?: React.ReactNode } = {}) {
   const qc = useQueryClient();
   const listarFn = useServerFn(conversasComAlice);
   const pararFn = useServerFn(pararAliceNaConversa);
@@ -22,7 +25,7 @@ export function AliceAgora() {
   const [parando, setParando] = useState<string | null>(null);
 
   const conversas = q.data ?? [];
-  if (!conversas.length) return null;
+  if (!conversas.length) return q.isLoading ? null : <>{vazio}</>;
 
   async function parar(id: string) {
     setParando(id);

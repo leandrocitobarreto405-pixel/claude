@@ -16,7 +16,7 @@
  *   destaque                   verde-água sobre o escuro (#7CE8C2)
  *   dado                       verde de gráficos e barras (#2FB58A); não usar em texto
  *   atencao / problema         fundos de aviso, com o texto em *-foreground
- *   alerta                     badge de alerta (#D9480F) com texto branco
+ *   alerta                     badge de alerta (#C9430E, contraste 4,9 com o branco)
  * Os tokens antigos (primary, navy, secondary, success, warning, destructive…) apontam para
  * as mesmas cores, para as telas atuais seguirem o tema.
  */
@@ -98,7 +98,7 @@
   --atencao-foreground: oklch(0.479 0.1124 59.9);
   --problema: oklch(0.9484 0.0231 11);
   --problema-foreground: oklch(0.4563 0.1728 18.9);
-  --alerta: oklch(0.5999 0.1905 37.9);
+  --alerta: oklch(0.5676 0.179 38.1);
   --alerta-foreground: oklch(1 0 0);
   --desligado: oklch(0.8157 0.0148 180.6);
   /* Base */
@@ -180,7 +180,7 @@
   --atencao-foreground: oklch(0.9622 0.0384 83.8);
   --problema: oklch(0.35 0.08 18);
   --problema-foreground: oklch(0.9484 0.0231 11);
-  --alerta: oklch(0.5999 0.1905 37.9);
+  --alerta: oklch(0.5676 0.179 38.1);
   --alerta-foreground: oklch(1 0 0);
   --desligado: oklch(0.45 0.02 180);
 }
@@ -195,6 +195,15 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Celular: campos nativos com pelo menos 44 px de altura para o toque, mesmo quando a tela
+     define uma altura menor (min-height vence a altura). O computador fica como está. */
+  @media (width < 64rem) {
+    select,
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]) {
+      min-height: 2.75rem;
+    }
   }
 }
 
