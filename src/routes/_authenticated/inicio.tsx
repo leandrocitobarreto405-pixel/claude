@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronRight, MessageCircle, Plus } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   BadgeAlerta,
   BlocoEscuro,
@@ -13,6 +12,7 @@ import {
   CardEscuro,
   Chip,
   NumeroGrande,
+  Recolhido,
 } from "@/components/nexa";
 import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
 import { VisitDialog } from "@/components/visit-dialog";
@@ -478,15 +478,24 @@ function Inicio() {
 
       {/* Pendências e números do mês: recolhidos, para não tomar a tela. */}
       <Recolhido titulo="Pendências" contagem={totalPendencias}>
-        {pendencias.map((p) => (
-          <LinhaLink key={p.label} item={p} liberado={pode(p.to)} destaque={Number(p.valor) > 0} />
-        ))}
+        <ul className="flex flex-col divide-y divide-border px-4">
+          {pendencias.map((p) => (
+            <LinhaLink
+              key={p.label}
+              item={p}
+              liberado={pode(p.to)}
+              destaque={Number(p.valor) > 0}
+            />
+          ))}
+        </ul>
       </Recolhido>
 
       <Recolhido titulo="Números do mês">
-        {numeros.map((n) => (
-          <LinhaLink key={n.label} item={n} liberado={pode(n.to)} />
-        ))}
+        <ul className="flex flex-col divide-y divide-border px-4">
+          {numeros.map((n) => (
+            <LinhaLink key={n.label} item={n} liberado={pode(n.to)} />
+          ))}
+        </ul>
       </Recolhido>
 
       <VisitDialog
@@ -502,35 +511,6 @@ function Inicio() {
         onChanged={recarregar}
       />
     </div>
-  );
-}
-
-/** Cartão que abre e fecha com um toque (fechado por padrão). */
-function Recolhido({
-  titulo,
-  contagem,
-  children,
-}: {
-  titulo: string;
-  contagem?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <Collapsible className="rounded-card border border-border bg-card">
-      <CollapsibleTrigger className="group flex min-h-14 w-full items-center gap-3 rounded-card px-4 text-left">
-        <span className="flex-1 text-[15px] font-bold">{titulo}</span>
-        {contagem ? <BadgeAlerta numero={contagem} /> : null}
-        <ChevronDown
-          aria-hidden
-          className="size-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="flex flex-col divide-y divide-border border-t border-border px-4">
-          {children}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
 

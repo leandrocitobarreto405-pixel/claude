@@ -387,3 +387,67 @@ export const salvarConfigMktFn = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+// ---------------------------------------------------------------- indicações (só leitura)
+export type ResumoIndicacoes = {
+  noMes: number;
+  viraramServicoNoMes: number;
+  descontoIndicadoPct: number;
+  creditoIndicadorPct: number;
+  recentes: {
+    id: string;
+    indicador: string;
+    indicado: string;
+    criadaEm: string;
+    virouServico: boolean;
+  }[];
+};
+
+/** Indique e ganhe: quantas indicações no mês, quantas viraram serviço e as últimas. */
+export const resumoIndicacoesFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<ResumoIndicacoes> => {
+    const sb = context.supabase;
+    const { todayISO } = await import("@/lib/format");
+    const inicioMes = new Date(`${todayISO().slice(0, 7)}-01T00:00:00-03:00`).toISOString();
+    const [doMes, recentes] = await Promise.all([
+      sb
+        .from("indicacoes")
+        .select("indicado_work_order_id")
+        .eq("empresa_id", context.empresaId)
+        .gte("criada_em", inicioMes)
+        .limit(1000),
+      sb
+        .from("indicacoes")
+        .select(
+          "id, indicado_nome, indicado_phone, criada_em, indicado_work_order_id, desconto_indicado_pct, credito_indicador_pct, indicador:indicador_contato_id ( nome )",
+        )
+        .eq("empresa_id", context.empresaId)
+        .order("criada_em", { ascending: false })
+        .limit(10),
+    ]);
+    if (doMes.error || recentes.error) throw new Error("Não foi possível carregar as indicações.");
+    const lista = (recentes.data ?? []) as unknown as Array<{
+      id: string;
+      indicado_nome: string | null;
+      indicado_phone: string;
+      criada_em: string;
+      indicado_work_order_id: string | null;
+      desconto_indicado_pct: number;
+      credito_indicador_pct: number;
+      indicador: { nome: string | null } | null;
+    }>;
+    return {
+      noMes: doMes.data?.length ?? 0,
+      viraramServicoNoMes: (doMes.data ?? []).filter((i) => i.indicado_work_order_id).length,
+      descontoIndicadoPct: Number(lista[0]?.desconto_indicado_pct ?? 15),
+      creditoIndicadorPct: Number(lista[0]?.credito_indicador_pct ?? 15),
+      recentes: lista.map((i) => ({
+        id: i.id,
+        indicador: i.indicador?.nome || "Cliente",
+        indicado: i.indicado_nome || i.indicado_phone,
+        criadaEm: i.criada_em,
+        virouServico: Boolean(i.indicado_work_order_id),
+      })),
+    };
+  });

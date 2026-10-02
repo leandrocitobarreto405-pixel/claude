@@ -6,3 +6,4 @@ export { Switch, LinhaSwitch } from "./switch";
 export { NumeroGrande } from "./numero-grande";
 export { CabecalhoDeTela } from "./cabecalho-de-tela";
 export { BarraDeNavegacaoInferior, type ItemDeNavegacao } from "./barra-de-navegacao-inferior";
+export { Recolhido } from "./recolhido";
