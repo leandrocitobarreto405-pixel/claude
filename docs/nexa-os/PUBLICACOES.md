@@ -16,6 +16,7 @@ app anterior simplesmente não usa os campos novos.
 | 02/10/2026 13:41 | Início + Conversas | `a8568c6`        | `86d9d15`                |
 | 02/10/2026 13:59 | Avisos (tela)      | `133e6bc`        | `fab37c7`                |
 | 02/10/2026 14:21 | Avisos no WhatsApp | `91771de`        | `61c19e2`                |
+| 02/10/2026 14:31 | Marketing          | `79ef000`        | `8d7cbd9`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -24,7 +25,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=61c19e22312aff7897d68140805314cfe56cd8dc
+COMMIT=8d7cbd9135762270e087154c2ed3c881bd6b4fee
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
