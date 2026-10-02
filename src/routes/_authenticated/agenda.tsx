@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card, NumeroGrande } from "@/components/nexa";
 import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
+import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -308,6 +309,8 @@ function Agenda() {
           )
         }
       />
+
+      {papel && podeAcessar(papel, "/promocao") ? <FaixaHorariosLivres /> : null}
 
       {/* Navegação: semana anterior/próxima, hoje e as outras opções. */}
       <div className="flex items-center gap-2">

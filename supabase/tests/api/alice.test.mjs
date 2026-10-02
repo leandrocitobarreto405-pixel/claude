@@ -449,6 +449,23 @@ check(
     "equipe|Pendente",
 );
 
+// Contato interno da equipe (marcado pelo admin): follow-up de cliente não sai.
+await webhook(conversaNova(14));
+await webhook(msg(96401, 14, "Oi"));
+await ate(() => situacao(14) === "responder:concluida");
+sql(`INSERT INTO contatos_internos (empresa_id, telefone, nome, chave)
+     VALUES ('${EMPRESA}', '11988000014', 'Equipe', '')`);
+const antes14 = (await doChatwoot(964)).length;
+const f14 = followupAgora(14);
+const r14 = await processar(f14);
+check(
+  "contato interno: follow-up não sai e a repescagem é cancelada",
+  r14.situacao === "ignorada" &&
+    (await doChatwoot(964)).length === antes14 &&
+    sql(`SELECT status FROM crm_followups WHERE ia_tarefa_id = '${f14}'`) === "Cancelada",
+  r14,
+);
+
 // ---------------------------------------------------------------- 4d. áudio transcrito
 await webhook(conversaNova(7));
 await webhook(

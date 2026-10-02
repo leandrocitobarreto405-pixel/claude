@@ -15,6 +15,7 @@ import {
   Recolhido,
 } from "@/components/nexa";
 import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
+import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -313,6 +314,8 @@ function Inicio() {
           ) : null
         }
       />
+
+      {pode("/promocao") ? <FaixaHorariosLivres /> : null}
 
       {/* Alice: o que ela está fazendo agora e o que precisa da equipe. */}
       <CardEscuro aria-label="Alice">

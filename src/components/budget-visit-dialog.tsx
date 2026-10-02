@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
+import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -502,6 +503,7 @@ export function BudgetVisitDialog({
               ))}
             </NativeSelect>
           </div>
+          <AlertaRodizio data={data} hora={hora} tecnicoId={tecnicoId} className="sm:col-span-2" />
           <div className="space-y-1">
             <Label>Origem do contato</Label>
             <NativeSelect value={origemId} onChange={(e) => setOrigemId(e.target.value)}>

@@ -29,6 +29,7 @@ import {
   type MensagemHistorico,
   type Uso,
 } from "./prompt";
+import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido } from "./regras";
 
 type Admin = SupabaseClient<Database>;
@@ -120,7 +121,7 @@ type DadosConversa = {
   conta: Conta;
   tokenRobo: string | null;
   tokenAdmin: string | null;
-  contato: { ia_desligada: boolean; sem_pos_venda: boolean } | null;
+  contato: { ia_desligada: boolean; sem_pos_venda: boolean; normalized_phone: string } | null;
 };
 
 async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> {
@@ -145,7 +146,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
     conversa.whatsapp_contact_id
       ? db
           .from("whatsapp_contacts")
-          .select("ia_desligada, sem_pos_venda")
+          .select("ia_desligada, sem_pos_venda, normalized_phone")
           .eq("id", conversa.whatsapp_contact_id)
           .eq("empresa_id", tarefa.empresa_id)
           .maybeSingle()
@@ -523,6 +524,35 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       "IA desligada para o cliente",
     );
     return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
+  }
+  // Contato interno da equipe (marcado pelo admin) não recebe follow-up de cliente.
+  const chave = chaveTelefone(d.contato?.normalized_phone);
+  if (chave) {
+    const { data: interno } = await db
+      .from("contatos_internos")
+      .select("id")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("chave", chave)
+      .limit(1);
+    if (interno?.length) {
+      await cancelarFollowupPendente(
+        db,
+        tarefa.empresa_id,
+        d.conversa.id,
+        "contato interno da equipe",
+      );
+      await db
+        .from("crm_followups")
+        .update({
+          status: "Cancelada",
+          completed_at: new Date().toISOString(),
+          result: "contato interno da equipe",
+        })
+        .eq("empresa_id", tarefa.empresa_id)
+        .eq("ia_tarefa_id", tarefa.id)
+        .eq("status", "Pendente");
+      return { situacao: "ignorada", detalhe: "contato interno da equipe" };
+    }
   }
   if (d.conversa.status !== "pending") {
     await followupParaEquipe(db, tarefa, "conversa está com a equipe");

@@ -104,3 +104,19 @@ test("texto da condição", () => {
   assert.equal(textoCondicao(null, 7.5), "7,5% de desconto");
   assert.equal(textoCondicao("", 0), null);
 });
+
+test("promoção: {{3}} vem dos extras (desconto do Pix); sem extras, não preenche", () => {
+  const promo: ModeloMeta = {
+    name: "tc_promocao_agenda",
+    language: "pt_BR",
+    status: "APPROVED",
+    category: "MARKETING",
+    components: corpo("Oi, {{1}}! Desconto de {{2}}, e mais {{3}} no Pix."),
+  };
+  const r = preencher(promo, { primeiroNome: "Ana", condicao: "20%", extras: ["5%"] });
+  assert.ok(r.ok);
+  assert.deepEqual(r.parametros, { "1": "Ana", "2": "20%", "3": "5%" });
+  assert.equal(r.texto, "Oi, Ana! Desconto de 20%, e mais 5% no Pix.");
+  const sem = preencher(promo, { primeiroNome: "Ana", condicao: "20%" });
+  assert.equal(sem.ok, false);
+});

@@ -129,6 +129,7 @@ const ROTAS_ATENDENTE = [
   "/conversas",
   "/marketing",
   "/avisos",
+  "/promocao",
 ];
 
 const ROTAS_TECNICO = ["/agenda", "/mensagens", "/servicos", "/os", "/avisos"];

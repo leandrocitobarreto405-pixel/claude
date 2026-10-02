@@ -216,6 +216,104 @@ export type Database = {
           },
         ];
       };
+      agenda_configuracoes: {
+        Row: {
+          deslocamento_volta_min: number;
+          duracao_atendimento_min: number;
+          empresa_id: string;
+          promo_conversas_novas: boolean;
+          promo_desconto_pct: number;
+          promo_dias_a_frente: number;
+          promo_orcamento_dias: number;
+          promo_pix_pct: number;
+          promo_template_nome: string;
+          rodizio_comecar_a_partir: string;
+          rodizio_manha_fim: string;
+          rodizio_manha_inicio: string;
+          rodizio_tarde_fim: string;
+          rodizio_tarde_inicio: string;
+          updated_at: string;
+        };
+        Insert: {
+          deslocamento_volta_min?: number;
+          duracao_atendimento_min?: number;
+          empresa_id: string;
+          promo_conversas_novas?: boolean;
+          promo_desconto_pct?: number;
+          promo_dias_a_frente?: number;
+          promo_orcamento_dias?: number;
+          promo_pix_pct?: number;
+          promo_template_nome?: string;
+          rodizio_comecar_a_partir?: string;
+          rodizio_manha_fim?: string;
+          rodizio_manha_inicio?: string;
+          rodizio_tarde_fim?: string;
+          rodizio_tarde_inicio?: string;
+          updated_at?: string;
+        };
+        Update: {
+          deslocamento_volta_min?: number;
+          duracao_atendimento_min?: number;
+          empresa_id?: string;
+          promo_conversas_novas?: boolean;
+          promo_desconto_pct?: number;
+          promo_dias_a_frente?: number;
+          promo_orcamento_dias?: number;
+          promo_pix_pct?: number;
+          promo_template_nome?: string;
+          rodizio_comecar_a_partir?: string;
+          rodizio_manha_fim?: string;
+          rodizio_manha_inicio?: string;
+          rodizio_tarde_fim?: string;
+          rodizio_tarde_inicio?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "agenda_configuracoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      agenda_horarios_base: {
+        Row: {
+          dia_semana: number;
+          empresa_id: string;
+          hora: string;
+          id: string;
+          tecnico_id: string;
+        };
+        Insert: {
+          dia_semana: number;
+          empresa_id: string;
+          hora: string;
+          id?: string;
+          tecnico_id: string;
+        };
+        Update: {
+          dia_semana?: number;
+          empresa_id?: string;
+          hora?: string;
+          id?: string;
+          tecnico_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "agenda_horarios_base_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "agenda_horarios_base_tecnico_id_fkey";
+            columns: ["tecnico_id"];
+            referencedRelation: "technicians";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       app_settings: {
         Row: {
           empresa_id: string;
@@ -590,6 +688,43 @@ export type Database = {
           valor?: NonNullable<Json>;
         };
         Relationships: [];
+      };
+      contatos_internos: {
+        Row: {
+          chave: string;
+          created_at: string;
+          criado_por: string | null;
+          empresa_id: string;
+          id: string;
+          nome: string | null;
+          telefone: string;
+        };
+        Insert: {
+          chave?: string;
+          created_at?: string;
+          criado_por?: string | null;
+          empresa_id: string;
+          id?: string;
+          nome?: string | null;
+          telefone: string;
+        };
+        Update: {
+          chave?: string;
+          created_at?: string;
+          criado_por?: string | null;
+          empresa_id?: string;
+          id?: string;
+          nome?: string | null;
+          telefone?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contatos_internos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       contratos_comissao: {
         Row: {
@@ -2459,6 +2594,7 @@ export type Database = {
           crm_campaign_id: string | null;
           custo_msg_estimado: number;
           datas_disparo: string[];
+          desconto_pix_pct: number | null;
           empresa_id: string;
           estimativa: Json | null;
           gatilho: string | null;
@@ -2486,6 +2622,7 @@ export type Database = {
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
           datas_disparo?: string[];
+          desconto_pix_pct?: number | null;
           empresa_id: string;
           estimativa?: Json | null;
           gatilho?: string | null;
@@ -2513,6 +2650,7 @@ export type Database = {
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
           datas_disparo?: string[];
+          desconto_pix_pct?: number | null;
           empresa_id?: string;
           estimativa?: Json | null;
           gatilho?: string | null;
@@ -4413,6 +4551,46 @@ export type Database = {
           },
         ];
       };
+      veiculos: {
+        Row: {
+          created_at: string;
+          dia_rodizio: number | null;
+          empresa_id: string;
+          id: string;
+          nome: string;
+          tecnico_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          dia_rodizio?: number | null;
+          empresa_id: string;
+          id?: string;
+          nome: string;
+          tecnico_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          dia_rodizio?: number | null;
+          empresa_id?: string;
+          id?: string;
+          nome?: string;
+          tecnico_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "veiculos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "veiculos_tecnico_id_fkey";
+            columns: ["tecnico_id"];
+            referencedRelation: "technicians";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       visits: {
         Row: {
           completion_date: string | null;
@@ -5275,6 +5453,18 @@ export type Database = {
       };
       mkt_importar_contatos: {
         Args: { _emp: string; _linhas: Json; _origem: string };
+        Returns: Json;
+      };
+      mkt_criar_promocao: {
+        Args: {
+          _contatos: Json;
+          _desconto: number;
+          _emp: string;
+          _hoje?: string;
+          _pix: number;
+          _template: string;
+          _usuario: string;
+        };
         Returns: Json;
       };
       mkt_pausar: {

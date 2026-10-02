@@ -24,7 +24,12 @@ export type ModeloMeta = {
   components?: ComponenteModelo[] | undefined;
 };
 
-export type DadosMensagem = { primeiroNome: string | null; condicao: string | null };
+export type DadosMensagem = {
+  primeiroNome: string | null;
+  condicao: string | null;
+  /** Variáveis seguintes ({{3}}, {{4}}...), ex.: o desconto extra do Pix na promoção. */
+  extras?: string[] | undefined;
+};
 
 export type Preenchimento =
   | { ok: true; parametros: Record<string, string>; texto: string; botoes: string[] }
@@ -98,7 +103,10 @@ export function preencher(modelo: ModeloMeta, dados: DadosMensagem): Preenchimen
   }
   const corpo = comps.find((c) => c.type?.toUpperCase() === "BODY")?.text ?? "";
   const semNome = modelo.name.endsWith("_sn");
-  const ordem = semNome ? [dados.condicao] : [dados.primeiroNome, dados.condicao];
+  const ordem = [
+    ...(semNome ? [dados.condicao] : [dados.primeiroNome, dados.condicao]),
+    ...(dados.extras ?? []),
+  ];
   const parametros: Record<string, string> = {};
   for (const v of variaveis(corpo)) {
     let valor: string | null | undefined;

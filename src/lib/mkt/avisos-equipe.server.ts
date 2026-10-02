@@ -5,6 +5,7 @@
  * Nada aqui envia mensagem para cliente.
  */
 import {
+  chaveTelefone,
   esperasParaAvisar,
   numeroDeCliente,
   textoEspera,
@@ -15,7 +16,27 @@ import { ultimaPassagem } from "@/lib/conversas";
 import { avisar, hojeSP } from "./campanhas.server";
 import { dbServico, log, type Db } from "./contexto.server";
 
-/** O número é de alguém da base de clientes da empresa (clientes com OS ou contatos de marketing)? */
+/** O número foi marcado pelo admin como contato interno da equipe? */
+export async function numeroEhInterno(
+  db: Db,
+  empresaId: string,
+  numero: string | null | undefined,
+): Promise<boolean> {
+  const chave = chaveTelefone(numero ?? "");
+  if (!chave) return false;
+  const { data, error } = await db
+    .from("contatos_internos")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("chave", chave)
+    .limit(1);
+  return !error && (data?.length ?? 0) > 0;
+}
+
+/**
+ * O número é de alguém da base de clientes da empresa (clientes com OS ou contatos de marketing)?
+ * Contato interno da equipe (marcado pelo admin) não conta como cliente.
+ */
 export async function numeroEhDeCliente(
   db: Db,
   empresaId: string,
@@ -23,6 +44,7 @@ export async function numeroEhDeCliente(
 ): Promise<boolean> {
   const digitos = (numero ?? "").replace(/\D/g, "");
   if (digitos.length < 8) return false;
+  if (await numeroEhInterno(db, empresaId, numero)) return false;
   const fim = digitos.slice(-8);
   const [contatos, clientes] = await Promise.all([
     db

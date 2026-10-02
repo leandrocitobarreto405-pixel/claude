@@ -273,6 +273,25 @@ const mktModelos = {
       ],
     },
     {
+      name: "tc_promocao_agenda",
+      language: "pt_BR",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [
+        {
+          type: "BODY",
+          text: "Oi, {{1}}! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com {{2}} de desconto, e mais {{3}} se pagar no Pix. Quer que eu reserve para você?",
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            { type: "QUICK_REPLY", text: "Quero reservar" },
+            { type: "QUICK_REPLY", text: "Não quero mais ofertas" },
+          ],
+        },
+      ],
+    },
+    {
       name: "nexa_aviso",
       language: "pt_BR",
       status: "APPROVED",

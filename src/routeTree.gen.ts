@@ -16,6 +16,7 @@ import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAReceberRouteImport } from './routes/_authenticated/a-receber'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedAgendaConfigRouteImport } from './routes/_authenticated/agenda-config'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
@@ -31,6 +32,7 @@ import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedOrigensRouteImport } from './routes/_authenticated/origens'
 import { Route as AuthenticatedOssRouteImport } from './routes/_authenticated/oss'
 import { Route as AuthenticatedPagamentosRouteImport } from './routes/_authenticated/pagamentos'
+import { Route as AuthenticatedPromocaoRouteImport } from './routes/_authenticated/promocao'
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
@@ -99,6 +101,12 @@ const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   path: '/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAgendaConfigRoute =
+  AuthenticatedAgendaConfigRouteImport.update({
+    id: '/agenda-config',
+    path: '/agenda-config',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
   id: '/avisos',
   path: '/avisos',
@@ -175,6 +183,11 @@ const AuthenticatedOssRoute = AuthenticatedOssRouteImport.update({
 const AuthenticatedPagamentosRoute = AuthenticatedPagamentosRouteImport.update({
   id: '/pagamentos',
   path: '/pagamentos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPromocaoRoute = AuthenticatedPromocaoRouteImport.update({
+  id: '/promocao',
+  path: '/promocao',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRotasRoute = AuthenticatedRotasRouteImport.update({
@@ -373,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/a-receber': typeof AuthenticatedAReceberRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/design': typeof AuthenticatedDesignRoute
@@ -388,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
+  '/promocao': typeof AuthenticatedPromocaoRoute
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -429,6 +444,7 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/a-receber': typeof AuthenticatedAReceberRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/design': typeof AuthenticatedDesignRoute
@@ -444,6 +460,7 @@ export interface FileRoutesByTo {
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
+  '/promocao': typeof AuthenticatedPromocaoRoute
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -487,6 +504,7 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/_authenticated/a-receber': typeof AuthenticatedAReceberRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/design': typeof AuthenticatedDesignRoute
@@ -502,6 +520,7 @@ export interface FileRoutesById {
   '/_authenticated/origens': typeof AuthenticatedOrigensRoute
   '/_authenticated/oss': typeof AuthenticatedOssRoute
   '/_authenticated/pagamentos': typeof AuthenticatedPagamentosRoute
+  '/_authenticated/promocao': typeof AuthenticatedPromocaoRoute
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -545,6 +564,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/a-receber'
     | '/agenda'
+    | '/agenda-config'
     | '/avisos'
     | '/configuracoes'
     | '/design'
@@ -560,6 +580,7 @@ export interface FileRouteTypes {
     | '/origens'
     | '/oss'
     | '/pagamentos'
+    | '/promocao'
     | '/rotas'
     | '/servicos'
     | '/usuarios'
@@ -601,6 +622,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/a-receber'
     | '/agenda'
+    | '/agenda-config'
     | '/avisos'
     | '/configuracoes'
     | '/design'
@@ -616,6 +638,7 @@ export interface FileRouteTypes {
     | '/origens'
     | '/oss'
     | '/pagamentos'
+    | '/promocao'
     | '/rotas'
     | '/servicos'
     | '/usuarios'
@@ -658,6 +681,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/_authenticated/a-receber'
     | '/_authenticated/agenda'
+    | '/_authenticated/agenda-config'
     | '/_authenticated/avisos'
     | '/_authenticated/configuracoes'
     | '/_authenticated/design'
@@ -673,6 +697,7 @@ export interface FileRouteTypes {
     | '/_authenticated/origens'
     | '/_authenticated/oss'
     | '/_authenticated/pagamentos'
+    | '/_authenticated/promocao'
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
@@ -781,6 +806,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/agenda-config': {
+      id: '/_authenticated/agenda-config'
+      path: '/agenda-config'
+      fullPath: '/agenda-config'
+      preLoaderRoute: typeof AuthenticatedAgendaConfigRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/avisos': {
       id: '/_authenticated/avisos'
       path: '/avisos'
@@ -884,6 +916,13 @@ declare module '@tanstack/react-router' {
       path: '/pagamentos'
       fullPath: '/pagamentos'
       preLoaderRoute: typeof AuthenticatedPagamentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/promocao': {
+      id: '/_authenticated/promocao'
+      path: '/promocao'
+      fullPath: '/promocao'
+      preLoaderRoute: typeof AuthenticatedPromocaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/rotas': {
@@ -1123,6 +1162,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAReceberRoute: typeof AuthenticatedAReceberRoute
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedAgendaConfigRoute: typeof AuthenticatedAgendaConfigRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
@@ -1138,6 +1178,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrigensRoute: typeof AuthenticatedOrigensRoute
   AuthenticatedOssRoute: typeof AuthenticatedOssRoute
   AuthenticatedPagamentosRoute: typeof AuthenticatedPagamentosRoute
+  AuthenticatedPromocaoRoute: typeof AuthenticatedPromocaoRoute
   AuthenticatedRotasRoute: typeof AuthenticatedRotasRoute
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -1162,6 +1203,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAReceberRoute: AuthenticatedAReceberRoute,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedAgendaConfigRoute: AuthenticatedAgendaConfigRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
@@ -1177,6 +1219,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrigensRoute: AuthenticatedOrigensRoute,
   AuthenticatedOssRoute: AuthenticatedOssRoute,
   AuthenticatedPagamentosRoute: AuthenticatedPagamentosRoute,
+  AuthenticatedPromocaoRoute: AuthenticatedPromocaoRoute,
   AuthenticatedRotasRoute: AuthenticatedRotasRoute,
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,

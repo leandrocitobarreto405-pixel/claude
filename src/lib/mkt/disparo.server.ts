@@ -59,10 +59,33 @@ const TEXTO_LIVRE_NA_JANELA = ["tc_posvenda_resultado"];
 /** Margem de segurança: a janela do WhatsApp é de 24 h; usamos 23 h 30. */
 const JANELA_MS = 23.5 * 3600_000;
 
+/** Dados da campanha que a fila não traz (tipo e desconto do Pix da promoção). */
+type InfoCampanha = { tipo: string; pix: number | null };
+type CacheCampanhas = Map<string, InfoCampanha>;
+
+async function infoCampanha(db: Db, cache: CacheCampanhas, id: string): Promise<InfoCampanha> {
+  let c = cache.get(id);
+  if (!c) {
+    const { data } = await db
+      .from("mkt_campanhas")
+      .select("tipo, desconto_pix_pct")
+      .eq("id", id)
+      .maybeSingle();
+    c = { tipo: data?.tipo ?? "", pix: data?.desconto_pix_pct ?? null };
+    cache.set(id, c);
+  }
+  return c;
+}
+
 /** O cliente escreveu nas últimas 24 h (dá para mandar texto livre na conversa dele)? */
-async function janelaAberta(db: Db, r: Reservado): Promise<boolean> {
+async function janelaAberta(db: Db, r: Reservado, info: InfoCampanha): Promise<boolean> {
   if (!r.whatsapp_contact_id || !r.conversa_chatwoot_id) return false;
-  if (!TEXTO_LIVRE_NA_JANELA.includes(r.template_nome.replace(/_sn$/, ""))) return false;
+  // A promoção da agenda também sai como mensagem comum quando o cliente acabou de escrever.
+  if (
+    info.tipo !== "promocao" &&
+    !TEXTO_LIVRE_NA_JANELA.includes(r.template_nome.replace(/_sn$/, ""))
+  )
+    return false;
   const { data } = await db
     .from("whatsapp_messages")
     .select("message_timestamp, created_at")
@@ -108,12 +131,21 @@ async function contextoComModelos(db: Db, cache: Cache, empresaId: string) {
 type Pronto = { modelo: ModeloMeta; texto: string; parametros: Record<string, string> };
 
 /** Modelo aprovado e preenchível? Se não, o problema é da campanha, não do contato. */
-function montar(modelos: ModeloMeta[], r: Reservado): Pronto | { erro: string } {
+function montar(
+  modelos: ModeloMeta[],
+  r: Reservado,
+  info: InfoCampanha,
+): Pronto | { erro: string } {
   const sit = situacaoModelo(modelos, r.template_nome, r.idioma);
   if (!sit.ok) return { erro: sit.erro };
+  const promocao = info.tipo === "promocao";
   const p = preencher(sit.modelo, {
     primeiroNome: r.variante_sn ? null : r.primeiro_nome,
-    condicao: textoCondicao(r.condicao_texto, r.condicao_pct),
+    // Na promoção o modelo já diz "de desconto": {{2}} é só o percentual, {{3}} o do Pix.
+    condicao: promocao
+      ? (r.condicao_texto ?? null)
+      : textoCondicao(r.condicao_texto, r.condicao_pct),
+    extras: promocao ? [`${String(Number(info.pix ?? 0)).replace(".", ",")}%`] : undefined,
   });
   if (!p.ok) return { erro: p.erro };
   return { modelo: sit.modelo, texto: p.texto, parametros: p.parametros };
@@ -202,6 +234,7 @@ export async function processarFila(
   log("INFO", "disparo.inicio", { reservados: fila.length });
 
   const cache: Cache = new Map();
+  const campanhas: CacheCampanhas = new Map();
   const pausadas = new Set<string>();
   let anterior = 0;
   for (const r of fila) {
@@ -210,7 +243,8 @@ export async function processarFila(
     const falta = anterior + intervalo - Date.now();
     if (anterior && falta > 0) await esperar(falta);
 
-    const pronto = "erro" in c ? c : montar(c.modelos, r);
+    const info = await infoCampanha(db, campanhas, r.campanha_id);
+    const pronto = "erro" in c ? c : montar(c.modelos, r, info);
     if ("erro" in pronto && !pausadas.has(r.campanha_id)) {
       pausadas.add(r.campanha_id);
       await pausarPorProblema(db, r, pronto.erro);
@@ -232,7 +266,7 @@ export async function processarFila(
     let mensagem: number | null = null;
     let textoLivre = false;
     try {
-      textoLivre = await janelaAberta(db, r);
+      textoLivre = await janelaAberta(db, r, info);
       const e = await enviarUm(c.ctx, pronto, r, textoLivre);
       ok = true;
       conversa = e.conversa;

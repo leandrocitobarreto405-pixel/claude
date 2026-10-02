@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { toast } from "sonner";
 import { Copy, MapPin, Phone, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -442,6 +443,11 @@ export function VisitDialog({
               </select>
             </div>
           </div>
+          <AlertaRodizio
+            data={novaData}
+            hora={novoHorario}
+            tecnicoId={tecnicoReagendamento || visit.technician?.id || visit.technician_id}
+          />
 
           {tipoReagendamento === "with_travel" ? (
             <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/10 p-3">

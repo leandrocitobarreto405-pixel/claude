@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
 import { toast } from "sonner";
 import { Copy, PlusCircle, Trash2 } from "lucide-react";
@@ -1179,6 +1180,12 @@ function NovaOS() {
                       ))}
                     </NativeSelect>
                   </div>
+                  <AlertaRodizio
+                    data={v.scheduled_date}
+                    hora={v.scheduled_time}
+                    tecnicoId={v.technician_id}
+                    className="sm:col-span-2 xl:col-span-4"
+                  />
                   <div className="space-y-2 sm:col-span-2 xl:col-span-4">
                     <Label>Observações do atendimento</Label>
                     <Input

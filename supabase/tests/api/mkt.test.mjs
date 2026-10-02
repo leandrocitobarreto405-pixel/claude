@@ -546,6 +546,69 @@ check(
   r.corpo,
 );
 
+// ---------------------------------------------------------------- 11. promoção para agenda vazia
+// Caio escreveu há pouco (texto livre), Fabio nunca escreveu (modelo com 3 variáveis) e Eva vira
+// contato interno depois de a promoção ser criada (o envio dela é cancelado no disparo).
+sql(`UPDATE mkt_configuracoes SET disparo_ligado = true WHERE empresa_id = '${EMP}'`);
+const promo = JSON.parse(
+  sql(`SELECT mkt_criar_promocao('${EMP}', NULL, '[
+    {"telefone": "11955550001", "nome": "Caio Souza"},
+    {"telefone": "11955550444", "nome": "Eva Lima"},
+    {"telefone": "11955550445", "nome": "Fabio Reis"}
+  ]'::jsonb, 20, 5, 'tc_promocao_agenda')`),
+);
+check("promoção criada para 3", promo.envios === 3, promo);
+sql(
+  `UPDATE mkt_envios SET agendado_para = '${hojeSP} 09:00-03' WHERE campanha_id = '${promo.campanha}'`,
+);
+sql(`INSERT INTO contatos_internos (empresa_id, telefone, nome, chave)
+     VALUES ('${EMP}', '11955550444', 'Eva (equipe)', '')`);
+const antes11 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${hojeSP}T10:05:00-03:00`)}`);
+const log11 = (await logFake())
+  .slice(antes11)
+  .filter((x) => x.method === "POST" && x.url.endsWith("/messages"));
+const promoCaio = log11.find((x) => x.url.includes("/conversations/1990/"));
+const promoFabio = log11.find((x) => x.body?.template_params?.name === "tc_promocao_agenda");
+check(
+  "promoção: Caio (escreveu há pouco) recebe o texto como mensagem comum",
+  promoCaio &&
+    !promoCaio.body.template_params &&
+    promoCaio.body.content ===
+      "Oi, Caio! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com 20% de desconto, e mais 5% se pagar no Pix. Quer que eu reserve para você?",
+  { disparo: r.corpo?.disparo, msgs: log11.map((x) => [x.url, x.body]) },
+);
+check(
+  "promoção: modelo com nome, desconto e Pix",
+  JSON.stringify(promoFabio?.body.template_params) ===
+    JSON.stringify({
+      name: "tc_promocao_agenda",
+      category: "MARKETING",
+      language: "pt_BR",
+      processed_params: { body: { 1: "Fabio", 2: "20%", 3: "5%" } },
+    }),
+  promoFabio?.body,
+);
+check(
+  "promoção: contato interno cancelado, nada enviado para ele",
+  r.corpo?.disparo?.enviados === 2 &&
+    sql(`SELECT e.status || '|' || e.erro FROM mkt_envios e
+          WHERE e.campanha_id = '${promo.campanha}' AND e.normalized_phone = '5511955550444'`) ===
+      "cancelado|contato interno da equipe",
+  r.corpo?.disparo,
+);
+// Aviso da equipe para um número interno que também é contato de marketing: agora sai.
+sql(`UPDATE mkt_configuracoes SET aviso_telefone = '11955550444' WHERE empresa_id = '${EMP}'`);
+sql(`INSERT INTO mkt_avisos (empresa_id, tipo, titulo, mensagem)
+     VALUES ('${EMP}', 'teste', 'Teste', 'aviso para o interno')`);
+const antes11b = (await logFake()).length;
+r = await rota("mkt-disparo");
+check(
+  "contato interno recebe os avisos da equipe",
+  (await nexaAvisos(antes11b)).some((t) => t.includes("aviso para o interno")),
+  r.corpo?.avisos,
+);
+
 if (falhas) {
   console.error(`\n${falhas} verificação(ões) falharam`);
   process.exit(1);
