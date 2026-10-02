@@ -23,6 +23,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   as funções de horário, reserva e gatilhos para lerem esses campos. A Turbine ficou com os
   mesmos nomes tc_ e terça a quinta. `20261014120002` (preparação de campanhas) ainda não foi
   aplicada: o Supabase pede confirmação; até lá a preparação segue com tc_ e terça a quinta.
+- "Configuração da empresa" (`20261015120000` e `20261015120001`): acrescenta
+  `implantacao_etapas`, a liberação em `empresas` (a Turbine entrou liberada), travas que impedem
+  ligar a Alice e os envios de empresa não liberada, e a reserva do disparo passa a ignorar
+  empresa não liberada. Voltar o app não precisa mexer no banco: o app anterior não usa nada disso.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -41,6 +45,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 02/10/2026 18:38 | Tela do serviço     | `3c40039`        | `b84c49d`                |
 | 02/10/2026 19:15 | Conversas (espera)  | `716ea28`        | `3c40039`                |
 | 02/10/2026 22:19 | Config. por empresa | `0e7ab52`        | `716ea28`                |
+| 02/10/2026 22:44 | Checklist empresa   | `4a6ac5a`        | `30a7c79`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
