@@ -199,3 +199,14 @@ export function mapsLink(address: string | null | undefined): string | null {
   if (!address) return null;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
+
+export function wazeLink(address: string | null | undefined): string | null {
+  if (!address) return null;
+  return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
+}
+
+export function telLink(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = onlyDigits(phone);
+  return digits.length >= 8 ? `tel:${digits}` : null;
+}

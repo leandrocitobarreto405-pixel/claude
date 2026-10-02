@@ -867,6 +867,7 @@ export type VisitRow = {
       document_number: string | null;
       full_address: string | null;
       reference_point: string | null;
+      neighborhood?: string | null;
     } | null;
   } | null;
 };
