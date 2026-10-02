@@ -200,6 +200,10 @@ UPDATE public.mkt_configuracoes SET disparo_ligado = true;
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-20 09:59-03')) = 0, 'antes das 10h');
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-24 10:30-03')) = 0, 'sábado');
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-21 21:30-03')) = 0, 'à noite');
+-- Empresa ainda em implantação (não liberada pela Nexa) não envia nada.
+UPDATE public.empresas SET implantacao_liberada_em = NULL WHERE id = '11111111-1111-1111-1111-111111111111';
+SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-20 10:05-03')) = 0, 'empresa não liberada');
+UPDATE public.empresas SET implantacao_liberada_em = now() WHERE id = '11111111-1111-1111-1111-111111111111';
 CREATE TEMP TABLE res AS SELECT * FROM public.mkt_reservar_envios(10, '2026-10-20 10:05-03');
 SELECT pg_temp.ok((SELECT count(*) FROM res) = 2 AND (SELECT count(*) FROM res WHERE variante_sn) = 1
                AND (SELECT primeiro_nome FROM res WHERE NOT variante_sn) = 'Caio',

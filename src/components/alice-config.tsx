@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { AvisoNaoLiberada } from "@/components/implantacao/aviso-liberacao";
+import { useLiberada } from "@/lib/implantacao-cliente";
 import { Bot, CheckCircle2, CircleAlert, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +72,7 @@ type Execucao = {
 };
 
 export function AliceConfig() {
+  const liberada = useLiberada();
   const qc = useQueryClient();
   const situacaoFn = useServerFn(situacaoAlice);
   const salvarFn = useServerFn(salvarAlice);
@@ -196,12 +199,13 @@ export function AliceConfig() {
           </div>
           <Button
             onClick={() => void alternar()}
-            disabled={ocupado || (!s.config.ativo && !pronto)}
+            disabled={ocupado || (!s.config.ativo && (!pronto || !liberada))}
           >
             {s.config.ativo ? "Desligar" : "Ligar a Alice"}
           </Button>
         </div>
 
+        <AvisoNaoLiberada oque="A Alice fica desligada" />
         <ul className="mt-4 grid gap-1 text-sm">
           <Requisito ok={s.iaNoServidor} texto="Chave da IA (Anthropic) configurada no servidor" />
           <Requisito

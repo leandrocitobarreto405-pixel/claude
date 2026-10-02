@@ -470,11 +470,12 @@ async function historico(
 
 // ---------------------------------------------------------------- tarefas
 async function lerConfig(db: Admin, empresaId: string) {
-  const { data } = await db
-    .from("ia_configuracoes")
-    .select("*")
-    .eq("empresa_id", empresaId)
-    .maybeSingle();
+  const [{ data }, { data: empresa }] = await Promise.all([
+    db.from("ia_configuracoes").select("*").eq("empresa_id", empresaId).maybeSingle(),
+    db.from("empresas").select("implantacao_liberada_em").eq("id", empresaId).maybeSingle(),
+  ]);
+  // Empresa ainda em implantação (não liberada pela Nexa): a Alice não atende.
+  if (data && !empresa?.implantacao_liberada_em) return { ...data, ativo: false };
   return data;
 }
 

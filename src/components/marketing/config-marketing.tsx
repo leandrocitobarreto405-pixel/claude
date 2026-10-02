@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { AvisoNaoLiberada } from "@/components/implantacao/aviso-liberacao";
+import { useLiberada } from "@/lib/implantacao-cliente";
 import { SectionCard } from "@/components/app-shell";
 import { salvarConfigMktFn, type ConfigMktEditavel } from "@/lib/marketing.functions";
 import { CHAVE_MKT, type Situacao } from "./campanha-card";
@@ -48,6 +50,7 @@ const FLAGS: Array<{ chave: keyof ConfigMktEditavel; titulo: string; texto: stri
 
 export function ConfigMarketing({ dados }: { dados: Situacao }) {
   const qc = useQueryClient();
+  const liberada = useLiberada();
   const salvarFn = useServerFn(salvarConfigMktFn);
   const c = dados.config;
   const [form, setForm] = useState<ConfigMktEditavel>({
@@ -96,6 +99,7 @@ export function ConfigMarketing({ dados }: { dados: Situacao }) {
       description="Tudo que envia mensagem começa desligado. Ligue depois do teste com os celulares da equipe."
     >
       <div className="grid gap-4">
+        <AvisoNaoLiberada oque="Os envios para clientes ficam desligados" />
         {FLAGS.map((f) => (
           <label key={f.chave} className="flex items-start justify-between gap-4">
             <span>
@@ -104,7 +108,7 @@ export function ConfigMarketing({ dados }: { dados: Situacao }) {
             </span>
             <Switch
               checked={Boolean(form[f.chave])}
-              disabled={!dados.admin}
+              disabled={!dados.admin || (!liberada && !form[f.chave])}
               onCheckedChange={(v) => setForm({ ...form, [f.chave]: v })}
             />
           </label>

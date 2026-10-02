@@ -1656,6 +1656,8 @@ export type Database = {
           controle_insumos_ativo: boolean;
           created_at: string;
           id: string;
+          implantacao_liberada_em: string | null;
+          implantacao_liberada_por: string | null;
           nome: string;
           plano: string;
           telefone: string | null;
@@ -1667,6 +1669,8 @@ export type Database = {
           controle_insumos_ativo?: boolean;
           created_at?: string;
           id?: string;
+          implantacao_liberada_em?: string | null;
+          implantacao_liberada_por?: string | null;
           nome: string;
           plano?: string;
           telefone?: string | null;
@@ -1678,6 +1682,8 @@ export type Database = {
           controle_insumos_ativo?: boolean;
           created_at?: string;
           id?: string;
+          implantacao_liberada_em?: string | null;
+          implantacao_liberada_por?: string | null;
           nome?: string;
           plano?: string;
           telefone?: string | null;
@@ -2162,6 +2168,30 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      implantacao_etapas: {
+        Row: {
+          empresa_id: string;
+          etapa: string;
+          marcado_em: string;
+          marcado_por: string | null;
+          situacao: string;
+        };
+        Insert: {
+          empresa_id: string;
+          etapa: string;
+          marcado_em?: string;
+          marcado_por?: string | null;
+          situacao: string;
+        };
+        Update: {
+          empresa_id?: string;
+          etapa?: string;
+          marcado_em?: string;
+          marcado_por?: string | null;
+          situacao?: string;
+        };
+        Relationships: [];
       };
       indicacoes: {
         Row: {
@@ -5700,6 +5730,10 @@ export type Database = {
         Returns: Json;
       };
       is_staff: { Args: { _user_id: string }; Returns: boolean };
+      liberar_empresa: {
+        Args: { _emp: string; _liberar: boolean };
+        Returns: string | null;
+      };
       meu_papel: {
         Args: Record<PropertyKey, never>;
         Returns: Database["public"]["Enums"]["papel_empresa"];

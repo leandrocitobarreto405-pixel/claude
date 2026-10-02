@@ -23,6 +23,7 @@ import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
+import { Route as AuthenticatedImplantacaoRouteImport } from './routes/_authenticated/implantacao'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedMarketingRouteImport } from './routes/_authenticated/marketing'
@@ -139,6 +140,12 @@ const AuthenticatedExportacoesRoute =
   AuthenticatedExportacoesRouteImport.update({
     id: '/exportacoes',
     path: '/exportacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedImplantacaoRoute =
+  AuthenticatedImplantacaoRouteImport.update({
+    id: '/implantacao',
+    path: '/implantacao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedIndicadoresRoute =
@@ -407,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/marketing': typeof AuthenticatedMarketingRoute
@@ -467,6 +475,7 @@ export interface FileRoutesByTo {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
   '/marketing': typeof AuthenticatedMarketingRoute
@@ -529,6 +538,7 @@ export interface FileRoutesById {
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/_authenticated/implantacao': typeof AuthenticatedImplantacaoRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/marketing': typeof AuthenticatedMarketingRoute
@@ -591,6 +601,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/implantacao'
     | '/indicadores'
     | '/inicio'
     | '/marketing'
@@ -651,6 +662,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/implantacao'
     | '/indicadores'
     | '/inicio'
     | '/marketing'
@@ -712,6 +724,7 @@ export interface FileRouteTypes {
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
     | '/_authenticated/exportacoes'
+    | '/_authenticated/implantacao'
     | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
     | '/_authenticated/marketing'
@@ -879,6 +892,13 @@ declare module '@tanstack/react-router' {
       path: '/exportacoes'
       fullPath: '/exportacoes'
       preLoaderRoute: typeof AuthenticatedExportacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/implantacao': {
+      id: '/_authenticated/implantacao'
+      path: '/implantacao'
+      fullPath: '/implantacao'
+      preLoaderRoute: typeof AuthenticatedImplantacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/indicadores': {
@@ -1209,6 +1229,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
+  AuthenticatedImplantacaoRoute: typeof AuthenticatedImplantacaoRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedMarketingRoute: typeof AuthenticatedMarketingRoute
@@ -1252,6 +1273,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
+  AuthenticatedImplantacaoRoute: AuthenticatedImplantacaoRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedMarketingRoute: AuthenticatedMarketingRoute,

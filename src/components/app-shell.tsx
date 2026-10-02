@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Percent,
   ScrollText,
+  ListChecks,
   ClipboardList,
   Columns3,
   Gauge,
@@ -114,6 +115,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/notas", label: "Notas a emitir", icon: Receipt },
       { to: "/exportacoes", label: "Exportações", icon: FileSpreadsheet },
+      { to: "/implantacao", label: "Configuração da empresa", icon: ListChecks },
       { to: "/configuracoes", label: "Configurações", icon: Settings },
       { to: "/agenda-config", label: "Agenda e promoção", icon: CalendarCog },
       { to: "/modelos-mensagem", label: "Modelos de mensagem", icon: ScrollText },

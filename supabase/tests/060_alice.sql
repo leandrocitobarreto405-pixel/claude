@@ -125,7 +125,7 @@ SET LOCAL ROLE authenticated;
 UPDATE public.ia_configuracoes SET instrucoes = 'Sempre pedir foto do sofá.';
 SELECT pg_temp.ok((SELECT instrucoes FROM public.ia_configuracoes) = 'Sempre pedir foto do sofá.', 'admin altera a configuração');
 DO $$ BEGIN
-  INSERT INTO public.ia_configuracoes (empresa_id, ativo) VALUES ('22222222-2222-2222-2222-222222222222', true);
+  INSERT INTO public.ia_configuracoes (empresa_id, ativo) VALUES ('22222222-2222-2222-2222-222222222222', false);
   RAISE EXCEPTION 'FALHOU: criou configuração de outra empresa';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 RESET ROLE;

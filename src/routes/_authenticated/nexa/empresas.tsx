@@ -18,6 +18,12 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { dateBR } from "@/lib/format";
 import { CONTEXTO_TENANT_KEY, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  CHAVE_IMPLANTACOES_NEXA,
+  ImplantacaoDaEmpresa,
+} from "@/components/implantacao/implantacao-nexa";
+import { implantacoesNexaFn } from "@/lib/implantacao.functions";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
   head: () => ({
@@ -95,6 +101,13 @@ function EmpresasNexa() {
         return { ...e, historico, vigente: historico.find((c) => c.vigencia_fim === null) ?? null };
       });
     },
+  });
+
+  const implantacoesFn = useServerFn(implantacoesNexaFn);
+  const implantacoes = useQuery({
+    queryKey: CHAVE_IMPLANTACOES_NEXA,
+    queryFn: () => implantacoesFn(),
+    enabled: Boolean(ctx?.souNexa),
   });
 
   const [nome, setNome] = useState("");
@@ -234,9 +247,10 @@ function EmpresasNexa() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          A empresa nova recebe uma cópia dos catálogos da empresa-modelo (status do CRM, origens,
-          tipos de serviço, taxas e parâmetros). Depois, convide os usuários dela em “Usuários”, com
-          a empresa aberta.
+          A empresa nova recebe as listas da empresa-modelo (status do CRM, origens, tipos de
+          serviço) e os textos da OS e da nota. Taxas, margens e metas ela preenche: a tela
+          “Configuração da empresa” mostra o que falta. Ela começa em implantação, com a Alice e os
+          envios desligados, até você tocar em “Liberar empresa”.
         </p>
       </section>
 
@@ -294,6 +308,14 @@ function EmpresasNexa() {
                   Abrir
                 </Button>
               </div>
+              {(() => {
+                const imp = implantacoes.data?.find((i) => i.empresaId === e.id);
+                return imp ? (
+                  <ImplantacaoDaEmpresa dados={imp} />
+                ) : implantacoes.isLoading ? (
+                  <p className="w-full text-sm text-muted-foreground">Conferindo a configuração…</p>
+                ) : null;
+              })()}
             </section>
           ))}
         </div>
