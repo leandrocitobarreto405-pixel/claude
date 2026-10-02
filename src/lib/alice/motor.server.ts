@@ -290,6 +290,7 @@ async function contextoEmpresa(
     telefone: v.phone || empresa.data?.telefone || null,
     instagram: v.instagram || null,
     nomeAssistente: cfg.nome,
+    descricaoNegocio: cfg.descricao_negocio ?? "",
     instrucoes: cfg.instrucoes,
     perguntasFrequentes: cfg.perguntas_frequentes,
     precos: (precos.data ?? []).map((p) => ({

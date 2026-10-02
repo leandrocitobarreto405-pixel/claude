@@ -40,7 +40,7 @@ export const CONFIG_AGENDA_PADRAO: ConfigAgenda = {
   pixPct: 5,
   orcamentoDias: 15,
   conversasNovas: true,
-  template: "tc_promocao_agenda",
+  template: "promocao_agenda",
 };
 
 export type TecnicoAgenda = { id: string; nome: string; ativo: boolean };

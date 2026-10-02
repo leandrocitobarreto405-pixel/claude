@@ -11,6 +11,8 @@ export const MODELOS_ALICE = [
 export type ConfigAlice = {
   ativo: boolean;
   nome: string;
+  /** O que a empresa faz, numa frase (vai no começo das instruções da Alice). */
+  descricao_negocio: string;
   instrucoes: string;
   perguntas_frequentes: string;
   modelo: string;
@@ -51,6 +53,7 @@ export type SituacaoAlice = {
 const PADRAO: ConfigAlice = {
   ativo: false,
   nome: "Alice",
+  descricao_negocio: "",
   instrucoes: "",
   perguntas_frequentes: "",
   modelo: "claude-opus-5-5",
@@ -159,6 +162,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
         ? {
             ativo: cfg.ativo,
             nome: cfg.nome,
+            descricao_negocio: cfg.descricao_negocio ?? "",
             instrucoes: cfg.instrucoes,
             perguntas_frequentes: cfg.perguntas_frequentes,
             modelo: cfg.modelo,
@@ -209,6 +213,8 @@ export const salvarAlice = createServerFn({ method: "POST" })
       throw new Error(
         "Texto muito longo (instruções até 60 mil caracteres, perguntas até 20 mil).",
       );
+    if ((input.descricao_negocio ?? "").length > 300)
+      throw new Error("Descrição do negócio: no máximo 300 caracteres.");
     if (Number(input.hora_inicio) >= Number(input.hora_fim))
       throw new Error("O horário das mensagens ativas precisa começar antes de terminar.");
     return input;
@@ -218,6 +224,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
       {
         empresa_id: context.empresaId,
         nome: data.nome.trim(),
+        descricao_negocio: (data.descricao_negocio ?? "").trim(),
         instrucoes: data.instrucoes,
         perguntas_frequentes: data.perguntas_frequentes,
         modelo: data.modelo,

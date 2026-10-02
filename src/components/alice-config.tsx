@@ -317,6 +317,20 @@ export function AliceConfig() {
           mensagens ativas.
         </p>
         <div className="space-y-1">
+          <Label htmlFor="alice-descricao">O que a empresa faz</Label>
+          <Input
+            id="alice-descricao"
+            maxLength={300}
+            value={form.descricao_negocio}
+            onChange={(e) => campo("descricao_negocio", e.target.value)}
+            placeholder="Ex.: empresa de higienização e impermeabilização de estofados"
+          />
+          <p className="text-xs text-muted-foreground">
+            Uma frase. A {form.nome || "Alice"} se apresenta como atendente de uma &quot;
+            {form.descricao_negocio || "empresa de prestação de serviços"}&quot;.
+          </p>
+        </div>
+        <div className="space-y-1">
           <Label htmlFor="alice-instrucoes">
             Prompt da {form.nome || "Alice"} (instruções da empresa)
           </Label>

@@ -102,7 +102,7 @@ test("prévia e percentuais", () => {
   assert.equal(pct(20), "20%");
   assert.equal(pct(12.5), "12,5%");
   assert.equal(
-    previaMensagem("Carla Mendes", 20, 5),
+    previaMensagem("Carla Mendes", 20, 5, "Turbine Clean"),
     "Oi, Carla! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com 20% de desconto, e mais 5% se pagar no Pix. Quer que eu reserve para você?",
   );
 });

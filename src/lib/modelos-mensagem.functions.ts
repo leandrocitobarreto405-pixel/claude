@@ -158,3 +158,72 @@ export const salvarTextoFn = createServerFn({ method: "POST" })
     if (error) throw new Error(`Não foi possível salvar: ${error.message}`);
     return { ok: true };
   });
+
+// ---------------------------------------------------------------- modelo de cada finalidade
+export type FinalidadesEmpresa = {
+  /** Nome do modelo de cada finalidade (padrão preenchido). */
+  modelos: Record<string, string>;
+  promocao: string;
+  /** Dias de disparo das campanhas (1 = segunda ... 7 = domingo). */
+  dias: number[];
+};
+
+export const finalidadesFn = createServerFn({ method: "GET" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }): Promise<FinalidadesEmpresa> => {
+    const { modelosDaEmpresa } = await import("@/lib/modelos-mensagem");
+    const [{ data: mkt }, { data: agenda }] = await Promise.all([
+      context.supabase
+        .from("mkt_configuracoes")
+        .select("modelos, dias_disparo")
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle(),
+      context.supabase
+        .from("agenda_configuracoes")
+        .select("promo_template_nome")
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle(),
+    ]);
+    return {
+      modelos: modelosDaEmpresa(mkt?.modelos),
+      promocao: agenda?.promo_template_nome ?? "promocao_agenda",
+      dias: mkt?.dias_disparo ?? [2, 3, 4],
+    };
+  });
+
+export const salvarFinalidadesFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: FinalidadesEmpresa) => {
+    const nome = (v: unknown, rotulo: string) => {
+      const n = String(v ?? "").trim();
+      if (!/^[a-z0-9_]{1,512}$/.test(n))
+        throw new Error(`${rotulo}: só letras minúsculas sem acento, números e _.`);
+      return n;
+    };
+    const modelos: Record<string, string> = {};
+    for (const [k, v] of Object.entries(i.modelos ?? {}))
+      if (/^[a-z0-9_]{1,40}$/.test(k)) modelos[k] = nome(v, "Nome do modelo");
+    const dias = [...new Set((i.dias ?? []).map(Number))]
+      .filter((d) => Number.isInteger(d) && d >= 1 && d <= 7)
+      .sort();
+    if (!dias.length) throw new Error("Escolha pelo menos um dia de disparo.");
+    return { modelos, promocao: nome(i.promocao, "Modelo da promoção"), dias };
+  })
+  .handler(async ({ data, context }) => {
+    const db = context.supabase;
+    const { error: e1 } = await db
+      .from("mkt_configuracoes")
+      .upsert(
+        { empresa_id: context.empresaId, modelos: data.modelos, dias_disparo: data.dias },
+        { onConflict: "empresa_id" },
+      );
+    if (e1) throw new Error(`Não foi possível salvar: ${e1.message}`);
+    const { error: e2 } = await db
+      .from("agenda_configuracoes")
+      .upsert(
+        { empresa_id: context.empresaId, promo_template_nome: data.promocao },
+        { onConflict: "empresa_id" },
+      );
+    if (e2) throw new Error(`Não foi possível salvar o modelo da promoção: ${e2.message}`);
+    return { ok: true };
+  });

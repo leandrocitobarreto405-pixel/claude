@@ -58,9 +58,10 @@ RESET ROLE;
 SELECT pg_temp.ok(
   (SELECT count(*) FROM public.config_options WHERE empresa_id = current_setting('teste.b')::uuid) > 0,
   'catálogos copiados da empresa-modelo');
+-- Taxas da maquininha são do negócio de cada empresa: não vêm da empresa-modelo (02/10/2026).
 SELECT pg_temp.ok(
-  (SELECT count(*) FROM public.payment_rates WHERE empresa_id = current_setting('teste.b')::uuid) > 0,
-  'taxas copiadas da empresa-modelo');
+  (SELECT count(*) FROM public.payment_rates WHERE empresa_id = current_setting('teste.b')::uuid) = 0,
+  'taxas não copiadas da empresa-modelo');
 
 INSERT INTO public.usuarios_empresa (user_id, empresa_id, papel)
 SELECT id, current_setting('teste.b')::uuid, 'admin' FROM auth.users WHERE email = 'admin@b.test';

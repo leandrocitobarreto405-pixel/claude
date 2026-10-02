@@ -9,11 +9,12 @@ import { gatilhosDeHoje, marcarGatilhoFn, NOMES_GRUPOS } from "@/lib/marketing.f
 import { dateBR } from "@/lib/format";
 import { CHAVE_MKT } from "./campanha-card";
 
-const MODELO_TEXTO: Record<string, string> = {
-  tc_posvenda_resultado: "Pós-venda: como ficou o serviço?",
-  tc_higienizacao_6meses: "6 meses da higienização",
-  tc_imper_13meses: "13º mês da impermeabilização",
-  tc_imper_13meses_lembrete: "Lembrete do 13º mês",
+/** O que é cada toque, pelo gatilho (vale para qualquer nome de modelo da empresa). */
+const GATILHO_TEXTO: Record<string, string> = {
+  C1: "Pós-venda: como ficou o serviço?",
+  C2: "6 meses da higienização",
+  C3: "13º mês da impermeabilização",
+  C3L: "Lembrete do 13º mês",
 };
 
 /** Toques do dia que ficaram para envio manual (flag do gatilho desligada). */
@@ -77,7 +78,9 @@ export function GatilhosHoje({ admin, ligados }: { admin: boolean; ligados: stri
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {e.grupo} · {NOMES_GRUPOS[e.grupo ?? ""] ?? ""} ·{" "}
-                    {MODELO_TEXTO[e.template_nome.replace(/_sn$/, "")] ?? e.template_nome}
+                    {GATILHO_TEXTO[
+                      (e.mkt_campanhas as { gatilho?: string | null } | null)?.gatilho ?? ""
+                    ] ?? e.template_nome}
                     {e.variante_sn ? " (sem nome)" : ""}
                     {c?.ultimo_servico_em ? ` · serviço em ${dateBR(c.ultimo_servico_em)}` : ""}
                     {" · gerado em "}

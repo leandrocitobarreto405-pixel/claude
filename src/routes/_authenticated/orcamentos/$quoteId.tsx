@@ -28,6 +28,7 @@ import {
   type TipoServico,
 } from "@/lib/quotes";
 import { quoteWhatsappMessage, whatsappLink } from "@/lib/quote-message";
+import { useTextosEmpresa } from "@/lib/textos-cliente";
 import {
   custoFixoPorServico,
   duplicarOrcamento,
@@ -345,12 +346,18 @@ function OrcamentoDetalhe() {
     }
   }
 
+  const textosEmpresa = useTextosEmpresa();
+
   function gerarMensagem() {
     if (!carregado) {
       toast.info("Salve o orçamento antes de gerar a mensagem.");
       return;
     }
-    setMensagem(quoteWhatsappMessage(carregado.quote, carregado.items));
+    if (!textosEmpresa) {
+      toast.info("Carregando os textos da empresa. Tente de novo em instantes.");
+      return;
+    }
+    setMensagem(quoteWhatsappMessage(carregado.quote, carregado.items, textosEmpresa));
   }
 
   return (

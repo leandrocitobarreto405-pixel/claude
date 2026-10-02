@@ -5,6 +5,8 @@ import {
   componentesDoFormulario,
   formularioDoModelo,
   motivoDaRecusa,
+  modelosDaEmpresa,
+  modelosEsperados,
   ondeEUsado,
   preencherTexto,
   previaDoFormulario,
@@ -16,7 +18,11 @@ import {
   defDoTexto,
 } from "./modelos-mensagem";
 
-const promo = sugestaoDeModelo("tc_promocao_agenda")!;
+const promo = sugestaoDeModelo("tc_promocao_agenda", {
+  modeloPromocao: "tc_promocao_agenda",
+  modeloAviso: null,
+  empresa: "Turbine Clean",
+})!;
 
 test("formulário válido vira os blocos da Meta, com exemplos", () => {
   assert.deepEqual(validarFormulario(promo), []);
@@ -114,11 +120,29 @@ test("motivo da recusa e onde é usado", () => {
   assert.match(motivoDaRecusa("INCORRECT_CATEGORY"), /categoria errada/);
   assert.equal(motivoDaRecusa("NONE"), "");
   assert.equal(motivoDaRecusa(null), "");
-  const ctx = { modeloAviso: "nexa_aviso", modeloPromocao: "tc_promocao_agenda" };
+  // Turbine: nomes tc_ salvos na configuração.
+  const turbine = modelosDaEmpresa({
+    posvenda: "tc_posvenda_resultado",
+    sazonal_prefixo: "tc_sazonal_",
+  });
+  const ctx = { modeloAviso: "nexa_aviso", modeloPromocao: "tc_promocao_agenda", modelos: turbine };
   assert.equal(ondeEUsado("nexa_aviso", ctx), "Avisos da equipe no WhatsApp");
   assert.match(ondeEUsado("tc_posvenda_resultado_sn", ctx) ?? "", /sem o nome/);
   assert.match(ondeEUsado("tc_sazonal_nov", ctx) ?? "", /sazonal \(nov\)/);
   assert.equal(ondeEUsado("outro", ctx), null);
+  // Empresa nova: nomes neutros; o que falta inclui o pós-venda neutro e não pede o aviso desligado.
+  const nova = {
+    modeloAviso: null,
+    modeloPromocao: "promocao_agenda",
+    modelos: modelosDaEmpresa({}),
+  };
+  assert.match(ondeEUsado("posvenda_resultado", nova) ?? "", /Pós-venda/);
+  assert.deepEqual(modelosEsperados(nova).slice(0, 2), ["posvenda_resultado", "oferta_trimestral"]);
+  assert.ok(!modelosEsperados(nova).includes("nexa_aviso"));
+  assert.match(
+    sugestaoDeModelo("promocao_agenda", { ...nova, empresa: "Lava Bem" })!.corpo,
+    /Aqui é da Lava Bem\./,
+  );
 });
 
 test("textos sem aprovação: variáveis, validação e padrão", () => {

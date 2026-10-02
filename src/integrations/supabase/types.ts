@@ -1922,6 +1922,7 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          descricao_negocio: string;
           agenda_automatica: boolean;
           ativo: boolean;
           audio_higienizacao: string | null;
@@ -1948,6 +1949,7 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          descricao_negocio?: string;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
@@ -1974,6 +1976,7 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          descricao_negocio?: string;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
@@ -2773,6 +2776,8 @@ export type Database = {
       };
       mkt_configuracoes: {
         Row: {
+          modelos: Json;
+          dias_disparo: number[];
           amostra_minima: number;
           aviso_espera_minutos: number | null;
           aviso_resumo_diario: boolean;
@@ -2801,6 +2806,8 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          modelos?: Json;
+          dias_disparo?: number[];
           amostra_minima?: number;
           aviso_espera_minutos?: number | null;
           aviso_resumo_diario?: boolean;
@@ -2829,6 +2836,8 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          modelos?: Json;
+          dias_disparo?: number[];
           amostra_minima?: number;
           aviso_espera_minutos?: number | null;
           aviso_resumo_diario?: boolean;

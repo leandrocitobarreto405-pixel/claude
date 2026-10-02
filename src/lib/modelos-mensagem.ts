@@ -89,7 +89,7 @@ export const LIMITES = { corpo: 1024, cabecalho: 60, rodape: 60, botao: 25, boto
 export function validarFormulario(f: FormModelo): string[] {
   const p: string[] = [];
   if (!/^[a-z0-9_]{1,512}$/.test(f.nome))
-    p.push("Nome: só letras minúsculas sem acento, números e _ (ex.: tc_promocao_agenda).");
+    p.push("Nome: só letras minúsculas sem acento, números e _ (ex.: promocao_agenda).");
   if (!/^[a-z]{2}(_[A-Z]{2})?$/.test(f.idioma)) p.push("Idioma inválido (ex.: pt_BR).");
   if (!["MARKETING", "UTILITY", "AUTHENTICATION"].includes(f.categoria))
     p.push("Escolha a categoria.");
@@ -316,8 +316,67 @@ export function regraDeEdicao(status: string, edicoes: string[], agora = new Dat
   return { ...base, pode: true, motivo: "", resumo };
 }
 
-// ---------------------------------------------------------------- onde cada modelo é usado
-export type ContextoUso = { modeloAviso: string | null; modeloPromocao: string | null };
+// ---------------------------------------------------------------- modelo de cada finalidade
+/**
+ * Cada envio usa o modelo da sua finalidade. A empresa escolhe o nome (cada empresa tem a própria
+ * conta do WhatsApp na Meta); sem escolha, vale o nome neutro. A Turbine Clean usa os nomes tc_.
+ */
+export const FINALIDADES: { chave: string; rotulo: string; padrao: string }[] = [
+  {
+    chave: "posvenda",
+    rotulo: "Pós-venda (dia seguinte ao serviço)",
+    padrao: "posvenda_resultado",
+  },
+  { chave: "oferta", rotulo: "Campanhas: clientes de 3 a 12 meses", padrao: "oferta_trimestral" },
+  {
+    chave: "reativacao",
+    rotulo: "Campanhas: reativação de clientes antigos",
+    padrao: "reativacao_cliente",
+  },
+  {
+    chave: "orcamento",
+    rotulo: "Campanhas: orçamentos que não fecharam",
+    padrao: "orcamento_retomada",
+  },
+  {
+    chave: "higienizacao_6m",
+    rotulo: "Lembrete de higienização (6 meses)",
+    padrao: "higienizacao_6meses",
+  },
+  {
+    chave: "imper_13m",
+    rotulo: "Lembrete de impermeabilização (13 meses)",
+    padrao: "imper_13meses",
+  },
+  {
+    chave: "imper_13m_lembrete",
+    rotulo: "Segundo lembrete de impermeabilização",
+    padrao: "imper_13meses_lembrete",
+  },
+  {
+    chave: "sazonal_prefixo",
+    rotulo: "Campanha sazonal (começo do nome + mês)",
+    padrao: "sazonal_",
+  },
+];
+
+/** Nome do modelo de cada finalidade, com os padrões preenchidos. */
+export function modelosDaEmpresa(salvos: unknown): Record<string, string> {
+  const s = (salvos && typeof salvos === "object" ? salvos : {}) as Record<string, unknown>;
+  return Object.fromEntries(
+    FINALIDADES.map((f) => {
+      const v = typeof s[f.chave] === "string" ? String(s[f.chave]).trim() : "";
+      return [f.chave, v || f.padrao];
+    }),
+  );
+}
+
+export type ContextoUso = {
+  modeloAviso: string | null;
+  modeloPromocao: string | null;
+  /** Nome do modelo de cada finalidade (de modelosDaEmpresa). */
+  modelos: Record<string, string>;
+};
 
 /** Onde o Nexa usa o modelo (null = nenhum lugar conhecido). */
 export function ondeEUsado(nome: string, ctx: ContextoUso): string | null {
@@ -325,49 +384,45 @@ export function ondeEUsado(nome: string, ctx: ContextoUso): string | null {
   const sn = nome.endsWith("_sn") ? " (versão sem o nome do cliente)" : "";
   if (ctx.modeloAviso && nome === ctx.modeloAviso) return "Avisos da equipe no WhatsApp";
   if (ctx.modeloPromocao && nome === ctx.modeloPromocao) return "Promoção da agenda";
-  const fixos: Record<string, string> = {
-    tc_posvenda_resultado: "Pós-venda (dia seguinte ao serviço)",
-    tc_oferta_trimestral: "Campanhas: clientes de 3 a 12 meses",
-    tc_reativacao_cliente: "Campanhas: reativação de clientes antigos",
-    tc_orcamento_retomada: "Campanhas: orçamentos que não fecharam",
-    tc_higienizacao_6meses: "Lembrete de higienização (6 meses)",
-    tc_imper_13meses: "Lembrete de impermeabilização (13 meses)",
-  };
-  if (fixos[base]) return fixos[base] + sn;
-  if (base.startsWith("tc_sazonal_")) return `Campanha sazonal (${base.slice(11)})${sn}`;
+  const sazonal = ctx.modelos["sazonal_prefixo"];
+  for (const f of FINALIDADES) {
+    if (f.chave === "sazonal_prefixo") continue;
+    if (ctx.modelos[f.chave] === base) return f.rotulo + sn;
+  }
+  if (sazonal && base.startsWith(sazonal))
+    return `Campanha sazonal (${base.slice(sazonal.length)})${sn}`;
   return null;
 }
 
 /** Modelos que o Nexa usa e que precisam existir na Meta. */
 export function modelosEsperados(ctx: ContextoUso): string[] {
   return [
-    "tc_posvenda_resultado",
-    "tc_oferta_trimestral",
-    "tc_reativacao_cliente",
-    "tc_orcamento_retomada",
-    "tc_higienizacao_6meses",
-    "tc_imper_13meses",
+    ...["posvenda", "oferta", "reativacao", "orcamento", "higienizacao_6m", "imper_13m"].map(
+      (k) => ctx.modelos[k],
+    ),
     ctx.modeloPromocao,
     ctx.modeloAviso,
   ].filter((n, i, a): n is string => Boolean(n) && a.indexOf(n) === i);
 }
 
 /** Texto inicial para criar um modelo que falta (quando o Nexa sabe qual é). */
-export function sugestaoDeModelo(nome: string): FormModelo | null {
-  if (nome === "tc_promocao_agenda")
+export function sugestaoDeModelo(
+  nome: string,
+  ctx: { modeloPromocao: string | null; modeloAviso: string | null; empresa: string },
+): FormModelo | null {
+  if (nome === ctx.modeloPromocao)
     return {
       ...FORM_VAZIO,
       nome,
       categoria: "MARKETING",
-      corpo:
-        "Oi, {{1}}! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com {{2}} de desconto, e mais {{3}} se pagar no Pix. Quer que eu reserve para você?",
+      corpo: `Oi, {{1}}! Aqui é da ${ctx.empresa}. Abriu um horário amanhã e consigo fazer o seu serviço com {{2}} de desconto, e mais {{3}} se pagar no Pix. Quer que eu reserve para você?`,
       exemplos: ["Carla", "20%", "5%"],
       botoes: [
         { tipo: "QUICK_REPLY", texto: "Quero reservar" },
         { tipo: "QUICK_REPLY", texto: "Não quero mais ofertas" },
       ],
     };
-  if (nome === "nexa_aviso")
+  if (nome === ctx.modeloAviso)
     return {
       ...FORM_VAZIO,
       nome,
@@ -387,9 +442,10 @@ export type DefTexto = {
   /** Quando o texto sai, em linguagem simples. */
   quando: string;
   variaveis: VariavelTexto[];
-  /** Texto padrão do app; null = igual ao modelo aprovado na Meta (`modeloBase`). */
+  /** Texto padrão do app; null = igual ao modelo aprovado na Meta (o da `finalidade`). */
   padrao: string | null;
-  modeloBase?: string;
+  /** "posvenda" (modelos da empresa) ou "promocao" (modelo da promoção da agenda). */
+  finalidade?: string;
 };
 
 export const TEXTOS: DefTexto[] = [
@@ -400,7 +456,7 @@ export const TEXTOS: DefTexto[] = [
       "Sai no lugar do modelo de pós-venda quando o cliente mandou mensagem nas últimas 24 h.",
     variaveis: [{ nome: "nome", descricao: "primeiro nome do cliente", exemplo: "Carla" }],
     padrao: null,
-    modeloBase: "tc_posvenda_resultado",
+    finalidade: "posvenda",
   },
   {
     chave: "livre_promocao",
@@ -412,7 +468,7 @@ export const TEXTOS: DefTexto[] = [
       { nome: "pix", descricao: "desconto a mais no Pix", exemplo: "5%" },
     ],
     padrao: null,
-    modeloBase: "tc_promocao_agenda",
+    finalidade: "promocao",
   },
   {
     chave: "aviso_espera",
@@ -454,6 +510,108 @@ export const TEXTOS: DefTexto[] = [
     ],
     padrao:
       "Oi, {cliente}! Aqui é o {tecnico}, da {empresa}. Estou a caminho para o seu atendimento das {hora}. Até já!",
+  },
+  {
+    chave: "orcamento_higienizacao",
+    titulo: "Orçamento: apresentação da higienização",
+    quando:
+      "Começo da mensagem de orçamento (tela do orçamento → Gerar mensagem) só com higienização.",
+    variaveis: [{ nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" }],
+    padrao: `*Higienização Premium {empresa}*
+
+Higienização profunda com extração a quente, produtos biodegradáveis e sem cheiro forte. Removemos poeira, ácaros, manchas, suor e odores, devolvendo o toque e o frescor do seu estofado.
+
+✅ Equipamento profissional de extração
+✅ Produtos seguros para crianças e animais
+✅ Secagem rápida, sem molhar o ambiente
+✅ Equipe uniformizada e horário combinado`,
+  },
+  {
+    chave: "orcamento_impermeabilizacao",
+    titulo: "Orçamento: apresentação da impermeabilização",
+    quando: "Começo da mensagem de orçamento só com impermeabilização.",
+    variaveis: [{ nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" }],
+    padrao: `*Impermeabilização Premium {empresa}*
+
+Aplicamos uma proteção invisível que envolve cada fibra do tecido. Líquidos escorrem sem penetrar, sujeira não gruda e a limpeza do dia a dia passa a ser feita com um pano.
+
+✅ Proteção contra líquidos, manchas e sujeira
+✅ Não altera a cor nem o toque do tecido
+✅ Produto atóxico, seguro para crianças e animais
+🛡️ *Garantia de 3 anos* na proteção aplicada`,
+  },
+  {
+    chave: "orcamento_combinado",
+    titulo: "Orçamento: apresentação dos dois serviços juntos",
+    quando: "Começo da mensagem de orçamento com higienização e impermeabilização.",
+    variaveis: [{ nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" }],
+    padrao: `*Higienização e Impermeabilização Premium {empresa}*
+
+Primeiro fazemos a higienização profunda com extração a quente, removendo poeira, ácaros, manchas e odores. Depois aplicamos a impermeabilização, que protege cada fibra: líquidos escorrem sem penetrar e a sujeira não gruda.
+
+✅ Higienização profunda com equipamento profissional
+✅ Proteção contra líquidos, manchas e sujeira
+✅ Produtos atóxicos, seguros para crianças e animais
+✅ Secagem rápida, sem molhar o ambiente
+🛡️ *Garantia de 3 anos* na impermeabilização`,
+  },
+  {
+    chave: "orcamento_fechamento",
+    titulo: "Orçamento: total e validade",
+    quando: "Fim da mensagem de orçamento. Parcelas e validade vêm da configuração da Alice.",
+    variaveis: [
+      { nome: "parcelas", descricao: "número de parcelas", exemplo: "5" },
+      { nome: "parcela", descricao: "valor de cada parcela", exemplo: "R$ 127,98" },
+      { nome: "a_vista", descricao: "valor à vista", exemplo: "R$ 607,90" },
+      { nome: "validade", descricao: "dias de validade", exemplo: "2" },
+    ],
+    padrao: `*Total: {parcelas}x de {parcela} sem juros ou à vista por {a_vista}*
+
+_Orçamento válido por {validade} dias._`,
+  },
+  {
+    chave: "crm_primeiro_contato",
+    titulo: "CRM: primeiro contato",
+    quando: "Mensagem pronta na tela do lead. A equipe envia pelo WhatsApp.",
+    variaveis: [
+      { nome: "nome", descricao: "nome do cliente", exemplo: "Carla" },
+      { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
+    ],
+    padrao:
+      "Olá {nome}! Aqui é da {empresa}. Vi seu contato sobre a higienização do seu estofado. Pode me contar quais peças você quer higienizar?",
+  },
+  {
+    chave: "crm_orcamento_enviado",
+    titulo: "CRM: orçamento enviado",
+    quando: "Mensagem pronta na tela do lead.",
+    variaveis: [
+      { nome: "nome", descricao: "nome do cliente", exemplo: "Carla" },
+      { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
+    ],
+    padrao:
+      "Olá {nome}! Enviei o orçamento do seu estofado. Ficou alguma dúvida? Posso reservar uma data para você.",
+  },
+  {
+    chave: "crm_repescagem",
+    titulo: "CRM: repescagem",
+    quando: "Mensagem pronta na tela do lead.",
+    variaveis: [
+      { nome: "nome", descricao: "nome do cliente", exemplo: "Carla" },
+      { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
+    ],
+    padrao:
+      "Oi {nome}, tudo bem? Passando para saber se você ainda tem interesse na higienização. Consigo encaixar você nesta semana.",
+  },
+  {
+    chave: "crm_confirmacao",
+    titulo: "CRM: confirmação de agendamento",
+    quando: "Mensagem pronta na tela do lead.",
+    variaveis: [
+      { nome: "nome", descricao: "nome do cliente", exemplo: "Carla" },
+      { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
+    ],
+    padrao:
+      "Oi {nome}! Confirmando seu atendimento. Assim que fechar a data eu te envio todos os detalhes por aqui.",
   },
 ];
 

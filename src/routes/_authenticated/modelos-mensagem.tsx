@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { EditorModelo, type ModeloEmEdicao } from "@/components/modelos/editor-modelo";
+import { Finalidades } from "@/components/modelos/finalidades";
 import {
   conexaoMetaFn,
   listarModelosFn,
@@ -88,6 +89,8 @@ function ModelosMensagem() {
           </span>
         </p>
       </Card>
+
+      <Finalidades aoSalvar={() => void qc.invalidateQueries({ queryKey: CHAVE_LISTA })} />
 
       <section aria-labelledby="com-aprovacao" className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -193,7 +196,7 @@ function ModelosMensagem() {
         <h2 id="sem-aprovacao" className="text-lg font-bold">
           Não precisam de aprovação
         </h2>
-        <TextosSemAprovacao modelos={l?.modelos ?? []} />
+        <TextosSemAprovacao modelos={l?.modelos ?? []} nomes={l?.nomes ?? {}} />
         <Card className="gap-2 text-sm">
           <p className="font-bold">Outros textos do app</p>
           <Link
@@ -407,7 +410,13 @@ function ConexaoMeta() {
 }
 
 // ---------------------------------------------------------------- textos sem aprovação
-function TextosSemAprovacao({ modelos }: { modelos: LinhaModelo[] }) {
+function TextosSemAprovacao({
+  modelos,
+  nomes,
+}: {
+  modelos: LinhaModelo[];
+  nomes: Record<string, string>;
+}) {
   const lerFn = useServerFn(textosDaEmpresaFn);
   const q = useQuery({ queryKey: CHAVE_TEXTOS, queryFn: () => lerFn() });
   return (
@@ -417,7 +426,7 @@ function TextosSemAprovacao({ modelos }: { modelos: LinhaModelo[] }) {
           <CartaoTexto
             def={def}
             atual={q.data?.[def.chave]?.texto ?? null}
-            modelo={modelos.find((m) => m.nome === def.modeloBase) ?? null}
+            modelo={modelos.find((m) => def.finalidade && m.nome === nomes[def.finalidade]) ?? null}
           />
         </li>
       ))}
@@ -467,7 +476,7 @@ function CartaoTexto({
       <p className="text-sm text-muted-foreground">{def.quando}</p>
       {!atual && def.padrao === null ? (
         <p className="text-sm">
-          Hoje sai o mesmo texto do modelo {def.modeloBase}
+          Hoje sai o mesmo texto do modelo {modelo?.nome ?? "aprovado"}
           {modelo ? `: "${previaDoFormulario(modelo.form)}"` : ""}. Escreva abaixo para usar um
           texto próprio.
         </p>

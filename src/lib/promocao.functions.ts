@@ -219,7 +219,7 @@ export const situacaoPromocaoFn = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
   .handler(async ({ context }): Promise<SituacaoPromocao> => {
     const db = context.supabase;
-    const [{ data: papel }, cfg, mkt] = await Promise.all([
+    const [{ data: papel }, cfg, mkt, empresa] = await Promise.all([
       db.rpc("meu_papel" as never),
       lerConfig(db, context.empresaId),
       db
@@ -227,6 +227,7 @@ export const situacaoPromocaoFn = createServerFn({ method: "GET" })
         .select("disparo_ligado")
         .eq("empresa_id", context.empresaId)
         .maybeSingle(),
+      db.from("empresas").select("nome").eq("id", context.empresaId).maybeSingle(),
     ]);
     const [horarios, destinatarios, deHoje] = await Promise.all([
       calcularLivres(db, context.empresaId, cfg),
@@ -239,7 +240,12 @@ export const situacaoPromocaoFn = createServerFn({ method: "GET" })
       config: cfg,
       horarios,
       destinatarios,
-      previa: previaMensagem(destinatarios[0]?.nome ?? "Carla", cfg.descontoPct, cfg.pixPct),
+      previa: previaMensagem(
+        destinatarios[0]?.nome ?? "Carla",
+        cfg.descontoPct,
+        cfg.pixPct,
+        empresa.data?.nome ?? "nossa empresa",
+      ),
       promocaoDeHoje: deHoje,
     };
   });

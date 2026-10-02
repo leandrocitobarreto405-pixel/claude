@@ -127,7 +127,7 @@ export function EditorModelo({
                 id="mod-nome"
                 value={f.nome}
                 disabled={editando}
-                placeholder="ex.: tc_promocao_agenda"
+                placeholder="ex.: promocao_agenda"
                 onChange={(e) => muda({ nome: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
               />
             </div>

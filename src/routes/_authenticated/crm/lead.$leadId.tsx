@@ -1,5 +1,7 @@
+import { preencherTexto } from "@/lib/modelos-mensagem";
+import { useTextosEmpresa } from "@/lib/textos-cliente";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, CalendarClock, ClipboardPlus, MessageCircle, Sparkles } from "lucide-react";
@@ -65,23 +67,12 @@ export const Route = createFileRoute("/_authenticated/crm/lead/$leadId")({
   component: LeadDetalhe,
 });
 
+/** Mensagens prontas (texto editável em Modelos de mensagem, com {nome} e {empresa}). */
 const MODELOS_MENSAGEM = [
-  {
-    label: "Primeiro contato",
-    text: "Olá {{nome}}! Aqui é da Turbine Clean. Vi seu contato sobre a higienização do seu estofado. Pode me contar quais peças você quer higienizar?",
-  },
-  {
-    label: "Orçamento enviado",
-    text: "Olá {{nome}}! Enviei o orçamento do seu estofado. Ficou alguma dúvida? Posso reservar uma data para você.",
-  },
-  {
-    label: "Repescagem",
-    text: "Oi {{nome}}, tudo bem? Passando para saber se você ainda tem interesse na higienização. Consigo encaixar você nesta semana.",
-  },
-  {
-    label: "Confirmação de agendamento",
-    text: "Oi {{nome}}! Confirmando seu atendimento. Assim que fechar a data eu te envio todos os detalhes por aqui.",
-  },
+  { label: "Primeiro contato", chave: "crm_primeiro_contato" },
+  { label: "Orçamento enviado", chave: "crm_orcamento_enviado" },
+  { label: "Repescagem", chave: "crm_repescagem" },
+  { label: "Confirmação de agendamento", chave: "crm_confirmacao" },
 ];
 
 function LeadDetalhe() {
@@ -105,7 +96,12 @@ function LeadDetalhe() {
   const [statusDialog, setStatusDialog] = useState<string | null>(null);
   const [motivoPerda, setMotivoPerda] = useState("");
   const [obsStatus, setObsStatus] = useState("");
-  const [modelo, setModelo] = useState(MODELOS_MENSAGEM[0]!.text);
+  const textosEmpresa = useTextosEmpresa();
+  const [modelo, setModelo] = useState("");
+  // Abre com o "Primeiro contato" assim que os textos da empresa chegam.
+  useEffect(() => {
+    if (textosEmpresa && !modelo) setModelo(textosEmpresa.texto("crm_primeiro_contato"));
+  }, [textosEmpresa, modelo]);
   const [gerandoIA, setGerandoIA] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -180,10 +176,10 @@ function LeadDetalhe() {
     );
 
   const meta = statusMeta(lead.status);
-  const mensagemPronta = modelo.replace(
-    /\{\{nome\}\}/g,
-    (lead.lead_name || "").split(" ")[0] ?? "",
-  );
+  const mensagemPronta = preencherTexto(modelo.replace(/\{\{(nome|empresa)\}\}/g, "{$1}"), {
+    nome: (lead.lead_name || "").split(" ")[0] ?? "",
+    empresa: textosEmpresa?.empresa ?? "",
+  });
   const linkWhats = whatsappLink(lead.phone, mensagemPronta);
 
   async function aplicarStatus(statusId: string) {
@@ -613,8 +609,8 @@ function LeadDetalhe() {
               <NativeSelect
                 placeholder="Escolher modelo"
                 value=""
-                onChange={(v) => setModelo(v)}
-                options={MODELOS_MENSAGEM.map((m) => ({ value: m.text, label: m.label }))}
+                onChange={(v) => setModelo(textosEmpresa?.texto(v) ?? "")}
+                options={MODELOS_MENSAGEM.map((m) => ({ value: m.chave, label: m.label }))}
               />
               <Textarea
                 value={modelo}

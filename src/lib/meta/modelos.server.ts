@@ -7,6 +7,7 @@ import { log, type Db } from "@/lib/mkt/contexto.server";
 import {
   componentesDoFormulario,
   formularioDoModelo,
+  modelosDaEmpresa,
   modelosEsperados,
   motivoDaRecusa,
   ondeEUsado,
@@ -71,11 +72,14 @@ export async function salvarConexao(
   return { nome };
 }
 
-async function contextoDeUso(db: Db, empresaId: string): Promise<ContextoUso> {
-  const [{ data: mkt }, { data: agenda }] = await Promise.all([
+async function contextoDeUso(
+  db: Db,
+  empresaId: string,
+): Promise<ContextoUso & { empresa: string }> {
+  const [{ data: mkt }, { data: agenda }, { data: empresa }] = await Promise.all([
     db
       .from("mkt_configuracoes")
-      .select("aviso_template_nome, aviso_whatsapp_ligado")
+      .select("aviso_template_nome, aviso_whatsapp_ligado, modelos")
       .eq("empresa_id", empresaId)
       .maybeSingle(),
     db
@@ -83,11 +87,14 @@ async function contextoDeUso(db: Db, empresaId: string): Promise<ContextoUso> {
       .select("promo_template_nome")
       .eq("empresa_id", empresaId)
       .maybeSingle(),
+    db.from("empresas").select("nome").eq("id", empresaId).maybeSingle(),
   ]);
   return {
     // Avisos pelo WhatsApp desligados: o modelo de aviso não é necessário.
     modeloAviso: mkt?.aviso_whatsapp_ligado ? (mkt.aviso_template_nome ?? "nexa_aviso") : null,
-    modeloPromocao: agenda?.promo_template_nome ?? "tc_promocao_agenda",
+    modeloPromocao: agenda?.promo_template_nome ?? "promocao_agenda",
+    modelos: modelosDaEmpresa(mkt?.modelos),
+    empresa: empresa?.nome ?? "nossa empresa",
   };
 }
 
@@ -130,6 +137,8 @@ export type ListaModelos = {
   erro: string | null;
   modelos: LinhaModelo[];
   faltando: Array<{ nome: string; sugestao: FormModelo | null }>;
+  /** Modelo de cada finalidade e o da promoção (para os textos sem aprovação). */
+  nomes: Record<string, string>;
 };
 
 function qualidade(q: ModeloDaMeta["quality_score"]): string | null {
@@ -194,8 +203,14 @@ export async function listarParaTela(db: Db, empresaId: string): Promise<ListaMo
       ? []
       : modelosEsperados(uso)
           .filter((n) => !nomes.has(n))
-          .map((nome) => ({ nome, sugestao: sugestaoDeModelo(nome) }));
-  return { fonte, erro, modelos, faltando };
+          .map((nome) => ({ nome, sugestao: sugestaoDeModelo(nome, uso) }));
+  return {
+    fonte,
+    erro,
+    modelos,
+    faltando,
+    nomes: { ...uso.modelos, promocao: uso.modeloPromocao ?? "" },
+  };
 }
 
 async function registrar(

@@ -35,8 +35,13 @@ INSERT INTO public.chatwoot_inboxes (conexao_id, inbox_id, empresa_id) VALUES
   ('88888888-8888-8888-8888-888888888888', 12, '11111111-1111-1111-1111-111111111111');
 INSERT INTO public.ia_configuracoes (empresa_id, ativo, espera_segundos)
 VALUES ('11111111-1111-1111-1111-111111111111', true, 8);
-INSERT INTO public.mkt_configuracoes (empresa_id, lote_tamanho, amostra_minima)
-VALUES ('11111111-1111-1111-1111-111111111111', 2, 2);
+-- Modelos da Turbine Clean (os nomes tc_ de produção).
+INSERT INTO public.mkt_configuracoes (empresa_id, lote_tamanho, amostra_minima, modelos)
+VALUES ('11111111-1111-1111-1111-111111111111', 2, 2, jsonb_build_object(
+  'oferta', 'tc_oferta_trimestral', 'reativacao', 'tc_reativacao_cliente',
+  'orcamento', 'tc_orcamento_retomada', 'higienizacao_6m', 'tc_higienizacao_6meses',
+  'imper_13m', 'tc_imper_13meses', 'imper_13m_lembrete', 'tc_imper_13meses_lembrete',
+  'posvenda', 'tc_posvenda_resultado', 'sazonal_prefixo', 'tc_sazonal_'));
 
 -- Supabase (safeupdate): DELETE/UPDATE sem WHERE falha nas chamadas pelo PostgREST, mesmo dentro de
 -- função. Nenhuma função do Nexa pode ter.

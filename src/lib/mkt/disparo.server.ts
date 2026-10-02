@@ -28,7 +28,7 @@ import {
   modelosDaCaixa,
 } from "./chatwoot.server";
 import { enviarMensagem } from "@/lib/alice/chatwoot-api.server";
-import { preencherTexto } from "@/lib/modelos-mensagem";
+import { modelosDaEmpresa, preencherTexto } from "@/lib/modelos-mensagem";
 import { textosDaEmpresa } from "./textos.server";
 import {
   preencher,
@@ -57,7 +57,8 @@ type Reservado = {
 };
 
 /** Modelos que, com a janela de 24 h aberta, saem como mensagem comum. */
-const TEXTO_LIVRE_NA_JANELA = ["tc_posvenda_resultado"];
+/** Finalidades cujo modelo sai como mensagem comum com a janela aberta (além da promoção). */
+const TEXTO_LIVRE_NA_JANELA = ["posvenda"];
 /** Margem de segurança: a janela do WhatsApp é de 24 h; usamos 23 h 30. */
 const JANELA_MS = 23.5 * 3600_000;
 
@@ -80,13 +81,16 @@ async function infoCampanha(db: Db, cache: CacheCampanhas, id: string): Promise<
 }
 
 /** O cliente escreveu nas últimas 24 h (dá para mandar texto livre na conversa dele)? */
-async function janelaAberta(db: Db, r: Reservado, info: InfoCampanha): Promise<boolean> {
+async function janelaAberta(
+  db: Db,
+  r: Reservado,
+  info: InfoCampanha,
+  modelos: Record<string, string>,
+): Promise<boolean> {
   if (!r.whatsapp_contact_id || !r.conversa_chatwoot_id) return false;
   // A promoção da agenda também sai como mensagem comum quando o cliente acabou de escrever.
-  if (
-    info.tipo !== "promocao" &&
-    !TEXTO_LIVRE_NA_JANELA.includes(r.template_nome.replace(/_sn$/, ""))
-  )
+  const base = r.template_nome.replace(/_sn$/, "");
+  if (info.tipo !== "promocao" && !TEXTO_LIVRE_NA_JANELA.some((f) => modelos[f] === base))
     return false;
   const { data } = await db
     .from("whatsapp_messages")
@@ -102,18 +106,19 @@ async function janelaAberta(db: Db, r: Reservado, info: InfoCampanha): Promise<b
 }
 
 /** Textos editáveis (tela Modelos de mensagem) que substituem o modelo quando sai texto livre. */
-const CHAVE_TEXTO_LIVRE: Record<string, string> = { tc_posvenda_resultado: "livre_posvenda" };
-
 function comTextoEditado(
   p: Pronto,
   r: Reservado,
   info: InfoCampanha,
   textos: Record<string, string>,
+  modelos: Record<string, string>,
 ): Pronto {
   const chave =
     info.tipo === "promocao"
       ? "livre_promocao"
-      : CHAVE_TEXTO_LIVRE[r.template_nome.replace(/_sn$/, "")];
+      : modelos["posvenda"] === r.template_nome.replace(/_sn$/, "")
+        ? "livre_posvenda"
+        : undefined;
   const t = chave ? textos[chave] : undefined;
   if (!t) return p;
   const nome = r.variante_sn ? null : r.primeiro_nome?.trim() || null;
@@ -297,7 +302,9 @@ export async function processarFila(
     let mensagem: number | null = null;
     let textoLivre = false;
     try {
-      textoLivre = await janelaAberta(db, r, info);
+      // Modelo de cada finalidade da empresa (Turbine: tc_; empresa nova: nomes neutros).
+      const modelos = modelosDaEmpresa(c.ctx.cfg.modelos);
+      textoLivre = await janelaAberta(db, r, info, modelos);
       let final = pronto;
       if (textoLivre) {
         let textos = textosPorEmpresa.get(r.empresa_id);
@@ -305,7 +312,7 @@ export async function processarFila(
           textos = await textosDaEmpresa(db, r.empresa_id);
           textosPorEmpresa.set(r.empresa_id, textos);
         }
-        final = comTextoEditado(pronto, r, info, textos);
+        final = comTextoEditado(pronto, r, info, textos, modelos);
       }
       const e = await enviarUm(c.ctx, final, r, textoLivre);
       ok = true;

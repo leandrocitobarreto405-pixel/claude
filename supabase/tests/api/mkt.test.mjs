@@ -47,12 +47,23 @@ sql(`UPDATE chatwoot_conexoes SET base_url = '${FAKE}' WHERE webhook_token = rep
 sql(`INSERT INTO chatwoot_conexao_segredos (conexao_id, api_token, alice_bot_token)
      VALUES ('c0000000-0000-0000-0000-000000000001', 'token-admin', 'token-robo')
      ON CONFLICT (conexao_id) DO UPDATE SET api_token = 'token-admin', alice_bot_token = 'token-robo'`);
-sql(`INSERT INTO mkt_configuracoes (empresa_id, chatwoot_inbox_id, lote_tamanho, amostra_minima, intervalo_segundos)
-     VALUES ('${EMP}', 4242, 2, 2, 1)
+// Modelos da Turbine (tc_), como em produção.
+const MODELOS_TC = JSON.stringify({
+  oferta: "tc_oferta_trimestral",
+  reativacao: "tc_reativacao_cliente",
+  orcamento: "tc_orcamento_retomada",
+  higienizacao_6m: "tc_higienizacao_6meses",
+  imper_13m: "tc_imper_13meses",
+  imper_13m_lembrete: "tc_imper_13meses_lembrete",
+  posvenda: "tc_posvenda_resultado",
+  sazonal_prefixo: "tc_sazonal_",
+});
+sql(`INSERT INTO mkt_configuracoes (empresa_id, chatwoot_inbox_id, lote_tamanho, amostra_minima, intervalo_segundos, modelos)
+     VALUES ('${EMP}', 4242, 2, 2, 1, '${MODELOS_TC}'::jsonb)
      ON CONFLICT (empresa_id) DO UPDATE SET chatwoot_inbox_id = 4242, lote_tamanho = 2, amostra_minima = 2,
-       intervalo_segundos = 1`);
+       intervalo_segundos = 1, modelos = EXCLUDED.modelos`);
 // Primeiro disparo daqui a uns 12 dias (terça a quinta); "hoje" da rotina = 10 dias antes.
-const D = sql(`SELECT private.mkt_proximo_dia_util(current_date + 12)`);
+const D = sql(`SELECT private.mkt_proximo_dia_util(current_date + 12, '{2,3,4}')`);
 const H = somarDias(D, -10);
 // Grupo C4 = comprou há 3–12 meses (na data da rotina).
 sql(`SELECT mkt_importar_contatos('${EMP}', '[

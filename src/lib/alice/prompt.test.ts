@@ -102,6 +102,7 @@ const empresa = {
   telefone: null,
   instagram: null,
   nomeAssistente: "Alice",
+  descricaoNegocio: "empresa de higienização e impermeabilização de estofados",
   instrucoes: "",
   perguntasFrequentes: "",
   precos: [

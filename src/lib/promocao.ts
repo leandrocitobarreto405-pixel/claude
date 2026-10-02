@@ -80,9 +80,14 @@ export function pct(n: number): string {
 }
 
 /** Prévia da mensagem (o texto exato vem do modelo aprovado na Meta). */
-export function previaMensagem(nome: string, desconto: number, pix: number): string {
+export function previaMensagem(
+  nome: string,
+  desconto: number,
+  pix: number,
+  empresa: string,
+): string {
   const primeiro = nome.trim().split(/\s+/)[0] ?? "";
-  return `Oi, ${primeiro}! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com ${pct(
+  return `Oi, ${primeiro}! Aqui é da ${empresa}. Abriu um horário amanhã e consigo fazer o seu serviço com ${pct(
     desconto,
   )} de desconto, e mais ${pct(pix)} se pagar no Pix. Quer que eu reserve para você?`;
 }
