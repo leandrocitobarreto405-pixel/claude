@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AlertTriangle, Bell, CheckCheck, ChevronRight, Clock } from "lucide-react";
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card } from "@/components/nexa";
+import { WhatsappEquipe } from "@/components/avisos/whatsapp-equipe";
 import type { Aviso } from "@/lib/avisos";
 import { listarAvisos } from "@/lib/avisos.functions";
 import { haQuanto } from "@/lib/conversas";
@@ -88,6 +89,8 @@ function Avisos() {
           ))}
         </ul>
       )}
+
+      {papel === "admin" || papel === "atendente" ? <WhatsappEquipe /> : null}
     </div>
   );
 }

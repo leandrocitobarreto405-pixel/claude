@@ -379,6 +379,8 @@ export const salvarConfigMktFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (data.aviso_whatsapp_ligado && (!data.aviso_telefone || !data.aviso_template_nome))
       throw new Error("Para avisar no WhatsApp, informe o telefone e o modelo do aviso.");
+    const { recusarNumeroDeCliente } = await import("@/lib/mkt/avisos-equipe.server");
+    await recusarNumeroDeCliente(context.supabase, context.empresaId, data.aviso_telefone);
     const { error } = await context.supabase
       .from("mkt_configuracoes")
       .upsert({ empresa_id: context.empresaId, ...data }, { onConflict: "empresa_id" });

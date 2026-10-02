@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireEmpresa } from "@/lib/empresa.middleware";
+import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import { montarAvisos, type Aviso, type FontesDeAvisos } from "@/lib/avisos";
 import { ultimaPassagem } from "@/lib/conversas";
 import { addDaysISO, todayISO } from "@/lib/format";
@@ -41,6 +41,8 @@ export const listarAvisos = createServerFn({ method: "GET" })
               .from("mkt_avisos")
               .select("id, tipo, titulo, mensagem, created_at, lido_em")
               .eq("empresa_id", context.empresaId)
+              // A espera já aparece pela própria conversa; este tipo só existe para o WhatsApp.
+              .neq("tipo", "cliente_esperando")
               .gte("created_at", desde14)
               .order("created_at", { ascending: false })
               .limit(30)
@@ -142,4 +144,118 @@ export const listarAvisos = createServerFn({ method: "GET" })
       pagamentosPendentes: pagamentos.count ?? 0,
     };
     return montarAvisos(fontes, papel);
+  });
+
+// ---------------------------------------------------------------- WhatsApp da equipe
+
+export type ConfigAvisosWhatsapp = {
+  admin: boolean;
+  ligado: boolean;
+  telefone: string | null;
+  modelo: string | null;
+  esperaMinutos: number | null;
+  resumoDiario: boolean;
+  /** Último erro de envio nas últimas 24 h (para mostrar na tela). */
+  ultimoErro: string | null;
+  enviadosHoje: number;
+  /** O celular configurado está na base de clientes: nada é enviado até trocar. */
+  numeroBloqueado: boolean;
+};
+
+export const configAvisosWhatsapp = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<ConfigAvisosWhatsapp> => {
+    const db = context.supabase;
+    const desde = new Date(Date.now() - 86_400_000).toISOString();
+    const [{ data: papel }, { data: cfg }, { data: erro }, enviados] = await Promise.all([
+      db.rpc("meu_papel" as never),
+      db
+        .from("mkt_configuracoes")
+        .select(
+          "aviso_whatsapp_ligado, aviso_telefone, aviso_template_nome, aviso_espera_minutos, aviso_resumo_diario",
+        )
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle(),
+      db
+        .from("mkt_avisos")
+        .select("whatsapp_erro")
+        .eq("empresa_id", context.empresaId)
+        .not("whatsapp_erro", "is", null)
+        .gte("created_at", desde)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      db
+        .from("mkt_avisos")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", context.empresaId)
+        .gte("whatsapp_enviado_em", desde),
+    ]);
+    const { numeroEhDeCliente } = await import("@/lib/mkt/avisos-equipe.server");
+    const numeroBloqueado = cfg?.aviso_telefone
+      ? await numeroEhDeCliente(db, context.empresaId, cfg.aviso_telefone)
+      : false;
+    return {
+      numeroBloqueado,
+      admin: (papel as unknown as string) === "admin",
+      ligado: Boolean(cfg?.aviso_whatsapp_ligado),
+      telefone: cfg?.aviso_telefone ?? null,
+      modelo: cfg?.aviso_template_nome ?? null,
+      esperaMinutos: cfg?.aviso_espera_minutos ?? null,
+      resumoDiario: Boolean(cfg?.aviso_resumo_diario),
+      ultimoErro: erro?.whatsapp_erro ?? null,
+      enviadosHoje: enviados.count ?? 0,
+    };
+  });
+
+export const salvarAvisosWhatsapp = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator(
+    (input: {
+      ligado: boolean;
+      telefone: string | null;
+      modelo: string | null;
+      esperaMinutos: number | null;
+      resumoDiario: boolean;
+    }) => {
+      const telefone = String(input.telefone ?? "").replace(/\D/g, "") || null;
+      if (telefone && (telefone.length < 10 || telefone.length > 13))
+        throw new Error("Telefone inválido. Use DDD + número, ex.: 11 98888-7777.");
+      const modelo =
+        String(input.modelo ?? "")
+          .trim()
+          .slice(0, 100) || null;
+      const espera =
+        input.esperaMinutos === null || input.esperaMinutos === undefined
+          ? null
+          : Math.round(Number(input.esperaMinutos));
+      if (espera !== null && !(espera >= 5 && espera <= 240))
+        throw new Error("O tempo de espera precisa ficar entre 5 e 240 minutos.");
+      return {
+        ligado: Boolean(input.ligado),
+        telefone,
+        modelo,
+        esperaMinutos: espera,
+        resumoDiario: Boolean(input.resumoDiario),
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    if (data.ligado && (!data.telefone || !data.modelo))
+      throw new Error("Para ligar, informe o celular da equipe e o nome do modelo.");
+    const { recusarNumeroDeCliente } = await import("@/lib/mkt/avisos-equipe.server");
+    await recusarNumeroDeCliente(context.supabase, context.empresaId, data.telefone);
+    const { error } = await context.supabase.from("mkt_configuracoes").upsert(
+      {
+        empresa_id: context.empresaId,
+        aviso_whatsapp_ligado: data.ligado,
+        aviso_telefone: data.telefone,
+        aviso_template_nome: data.modelo,
+        aviso_espera_minutos: data.esperaMinutos,
+        aviso_resumo_diario: data.resumoDiario,
+      },
+      { onConflict: "empresa_id" },
+    );
+    if (error) throw new Error("Não foi possível salvar.");
+    return { ok: true };
   });

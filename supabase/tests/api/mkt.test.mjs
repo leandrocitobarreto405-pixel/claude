@@ -1,7 +1,8 @@
 // Teste ponta a ponta do marketing: rotina diária (preparo D-10, bloqueio por modelo não aprovado),
 // aprovação, disparo pelo Chatwoot falso (flag, janela, modelo com nome e condição, variante sem
 // nome, etiqueta do lote, pausa automática, retomada, conclusão), problema de modelo no disparo,
-// tarefas no Chatwoot (opt-out, prioridade) e avisos no WhatsApp do dono.
+// tarefas no Chatwoot (opt-out, prioridade), avisos no WhatsApp do dono e avisos da equipe
+// (cliente esperando, resumo do dia, nunca para número de cliente).
 import { execFileSync } from "node:child_process";
 
 const APP = process.env.APP_URL ?? "http://127.0.0.1:3996";
@@ -481,6 +482,68 @@ check(
   "consultar_cliente avisa a Alice que é resposta ao pós-venda",
   rodadasDora.includes("Recebeu a mensagem de pós-venda"),
   rodadasDora.slice(0, 400),
+);
+
+// ---------------------------------------------------------------- 10. avisos da equipe
+const nexaAvisos = async (desde) =>
+  (await logFake())
+    .slice(desde)
+    .filter((x) => x.body?.template_params?.name === "nexa_aviso")
+    .map((x) => x.body.template_params.processed_params.body["1"]);
+sql(`UPDATE mkt_configuracoes SET aviso_whatsapp_ligado = true, aviso_telefone = '11955558888',
+       aviso_template_nome = 'nexa_aviso', aviso_espera_minutos = 10 WHERE empresa_id = '${EMP}'`);
+sql(`INSERT INTO conversas (empresa_id, conexao_id, chatwoot_conversation_id, status, aguardando_desde,
+       ultima_atividade_em)
+     VALUES ('${EMP}', 'c0000000-0000-0000-0000-000000000001', 99001, 'open', now() - interval '20 minutes',
+       now() - interval '20 minutes'),
+            ('${EMP}', 'c0000000-0000-0000-0000-000000000001', 99002, 'open', now() - interval '3 minutes',
+       now() - interval '3 minutes')`);
+let antes10 = (await logFake()).length;
+r = await rota("mkt-disparo");
+let enviados10 = await nexaAvisos(antes10);
+check(
+  "espera de 20 min vira aviso no WhatsApp da equipe; a de 3 min ainda não",
+  sql(`SELECT count(*) FROM mkt_avisos WHERE tipo = 'cliente_esperando'`) === "1" &&
+    enviados10.some((t) => /espera resposta da equipe há 2\d min/.test(t)),
+  { espera: r.corpo?.espera, enviados10 },
+);
+antes10 = (await logFake()).length;
+r = await rota("mkt-disparo");
+check(
+  "a mesma espera não é avisada duas vezes",
+  sql(`SELECT count(*) FROM mkt_avisos WHERE tipo = 'cliente_esperando'`) === "1" &&
+    (await nexaAvisos(antes10)).length === 0,
+  r.corpo?.espera,
+);
+
+// Número de cliente (Caio, da base de marketing) no lugar do celular da equipe: nada sai.
+for (const fone of ["11955550001", "1155550001"]) {
+  sql(`UPDATE mkt_configuracoes SET aviso_telefone = '${fone}' WHERE empresa_id = '${EMP}'`);
+  sql(`INSERT INTO mkt_avisos (empresa_id, tipo, titulo, mensagem)
+       VALUES ('${EMP}', 'teste', 'Teste', 'não pode chegar no cliente ${fone}')`);
+  antes10 = (await logFake()).length;
+  r = await rota("mkt-disparo");
+  const depois = (await logFake()).slice(antes10);
+  check(
+    `nenhum aviso para número de cliente (${fone})`,
+    depois.filter((x) => x.body?.template_params).length === 0 &&
+      sql(
+        `SELECT count(*) FROM mkt_avisos WHERE mensagem LIKE '%${fone}' AND whatsapp_enviado_em IS NULL`,
+      ) === "1",
+    { avisos: r.corpo?.avisos, depois: depois.length },
+  );
+}
+sql(`UPDATE mkt_configuracoes SET aviso_telefone = '11955558888', aviso_resumo_diario = true
+     WHERE empresa_id = '${EMP}'`);
+const hojeResumo = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+r = await rota("mkt-diaria", `?empresa=${EMP}&hoje=${hojeResumo}`);
+check(
+  "resumo do dia às 9h para a equipe",
+  sql(`SELECT count(*) FROM mkt_avisos WHERE tipo = 'resumo_diario'`) === "1" &&
+    /clientes? esperando a equipe/.test(
+      sql(`SELECT mensagem FROM mkt_avisos WHERE tipo = 'resumo_diario'`),
+    ),
+  r.corpo,
 );
 
 if (falhas) {

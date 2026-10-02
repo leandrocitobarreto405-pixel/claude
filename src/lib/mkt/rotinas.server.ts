@@ -179,6 +179,14 @@ async function rotinaEmpresa(db: Db, empresaId: string, hoje: string): Promise<R
     return JSON.stringify(g);
   });
 
+  // Resumo do dia para a equipe (opção da tela Avisos).
+  if (cfg.aviso_resumo_diario) {
+    await passo("resumo_dia", async () => {
+      const { avisoResumoDoDia } = await import("./avisos-equipe.server");
+      return avisoResumoDoDia(db, empresaId, hoje);
+    });
+  }
+
   // Segunda-feira: resumo da semana.
   if (new Date(`${hoje}T12:00:00Z`).getUTCDay() === 1) {
     await passo("resumo", async () => {
@@ -337,6 +345,10 @@ export async function processarAvisosWhatsapp() {
       .limit(10);
     if (!avisos?.length) continue;
     try {
+      // Trava: o aviso é só para a equipe. Se o número configurado for de um cliente, nada sai.
+      const { numeroEhDeCliente } = await import("./avisos-equipe.server");
+      if (await numeroEhDeCliente(db, cfg.empresa_id, cfg.aviso_telefone))
+        throw new Error("o telefone do aviso é de um cliente; nada foi enviado");
       const ctx = await contextoEmpresa(db, cfg.empresa_id);
       if (!ctx.tokenAdmin || !ctx.tokenRobo) throw new Error("tokens do Chatwoot não configurados");
       const modelos = await modelosDaCaixa(ctx.conta, ctx.tokenAdmin, ctx.caixa);

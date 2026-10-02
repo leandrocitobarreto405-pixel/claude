@@ -39,6 +39,8 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
           process.env["MKT_TESTE"] === "1" ? new URL(request.url).searchParams.get("agora") : null;
         await passo("disparo", () => processarFila({ agora }));
         await passo("tarefas", () => processarTarefas());
+        const { gerarAvisosDeEspera } = await import("@/lib/mkt/avisos-equipe.server");
+        await passo("espera", () => gerarAvisosDeEspera());
         await passo("avisos", () => processarAvisosWhatsapp());
         return json({ ok, ...resultado }, ok ? 200 : 500);
       },

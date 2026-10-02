@@ -2369,6 +2369,7 @@ export type Database = {
       mkt_avisos: {
         Row: {
           campanha_id: string | null;
+          conversa_id: string | null;
           created_at: string;
           empresa_id: string;
           id: string;
@@ -2382,6 +2383,7 @@ export type Database = {
         };
         Insert: {
           campanha_id?: string | null;
+          conversa_id?: string | null;
           created_at?: string;
           empresa_id: string;
           id?: string;
@@ -2395,6 +2397,7 @@ export type Database = {
         };
         Update: {
           campanha_id?: string | null;
+          conversa_id?: string | null;
           created_at?: string;
           empresa_id?: string;
           id?: string;
@@ -2407,6 +2410,13 @@ export type Database = {
           whatsapp_erro?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "mkt_avisos_conversa_id_fkey";
+            columns: ["conversa_id"];
+            isOneToOne: false;
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "mkt_avisos_campanha_id_fkey";
             columns: ["campanha_id"];
@@ -2539,6 +2549,8 @@ export type Database = {
       mkt_configuracoes: {
         Row: {
           amostra_minima: number;
+          aviso_espera_minutos: number | null;
+          aviso_resumo_diario: boolean;
           aviso_telefone: string | null;
           aviso_template_nome: string | null;
           aviso_whatsapp_ligado: boolean;
@@ -2565,6 +2577,8 @@ export type Database = {
         };
         Insert: {
           amostra_minima?: number;
+          aviso_espera_minutos?: number | null;
+          aviso_resumo_diario?: boolean;
           aviso_telefone?: string | null;
           aviso_template_nome?: string | null;
           aviso_whatsapp_ligado?: boolean;
@@ -2591,6 +2605,8 @@ export type Database = {
         };
         Update: {
           amostra_minima?: number;
+          aviso_espera_minutos?: number | null;
+          aviso_resumo_diario?: boolean;
           aviso_telefone?: string | null;
           aviso_template_nome?: string | null;
           aviso_whatsapp_ligado?: boolean;
