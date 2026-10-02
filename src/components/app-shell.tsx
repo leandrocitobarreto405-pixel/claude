@@ -43,6 +43,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { resumoAliceHoje } from "@/lib/alice.functions";
+import { temAvisoImportante } from "@/lib/avisos";
+import { listarAvisos } from "@/lib/avisos.functions";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { podeAcessar, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
@@ -220,7 +222,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refetchInterval: 60_000,
   });
   const esperando = resumoAlice.data?.esperandoEquipe ?? 0;
-  const abas = abasBase.map((a) => (a.to === "/conversas" ? { ...a, badge: esperando } : a));
+  // Ponto na aba Avisos quando há algo que pede atenção.
+  const temAvisos = abasBase.some((a) => a.to === "/avisos");
+  const avisosFn = useServerFn(listarAvisos);
+  const avisos = useQuery({
+    queryKey: ["avisos"],
+    queryFn: () => avisosFn(),
+    enabled: temAvisos,
+    refetchInterval: 60_000,
+  });
+  const pontoAvisos = temAvisoImportante(avisos.data ?? []);
+  const abas = abasBase.map((a) =>
+    a.to === "/conversas"
+      ? { ...a, badge: esperando }
+      : a.to === "/avisos"
+        ? { ...a, ponto: pontoAvisos }
+        : a,
+  );
   const nome = displayName(profile, user?.email);
 
   async function sair() {
