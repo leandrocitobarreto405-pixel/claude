@@ -13,19 +13,23 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   tabelas `contatos_internos`, `veiculos`, `agenda_horarios_base` e `agenda_configuracoes`, o tipo
   de campanha "promocao" e troca as funções de reserva e conferência do disparo para cancelar
   envios a contatos internos e respeitar o "Envio ligado" na promoção.
+- "Modelos de mensagem" (`20261012120000`): só acrescenta as tabelas `meta_conexoes`,
+  `meta_conexao_segredos` (o token da Meta, legível só pelo servidor), `modelos_edicoes` e
+  `mensagens_textos`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 
-| Data (UTC)       | Etapa              | Commit publicado | Versão anterior (commit) |
-| ---------------- | ------------------ | ---------------- | ------------------------ |
-| 02/10/2026 00:56 | Base + Agenda      | `86d9d15`        | `4a942a7`                |
-| 02/10/2026 13:41 | Início + Conversas | `a8568c6`        | `86d9d15`                |
-| 02/10/2026 13:59 | Avisos (tela)      | `133e6bc`        | `fab37c7`                |
-| 02/10/2026 14:21 | Avisos no WhatsApp | `91771de`        | `61c19e2`                |
-| 02/10/2026 14:31 | Marketing          | `79ef000`        | `8d7cbd9`                |
-| 02/10/2026 16:56 | Agenda + promoção  | `f9e84ce`        | `4d9ef1f`                |
+| Data (UTC)       | Etapa               | Commit publicado | Versão anterior (commit) |
+| ---------------- | ------------------- | ---------------- | ------------------------ |
+| 02/10/2026 00:56 | Base + Agenda       | `86d9d15`        | `4a942a7`                |
+| 02/10/2026 13:41 | Início + Conversas  | `a8568c6`        | `86d9d15`                |
+| 02/10/2026 13:59 | Avisos (tela)       | `133e6bc`        | `fab37c7`                |
+| 02/10/2026 14:21 | Avisos no WhatsApp  | `91771de`        | `61c19e2`                |
+| 02/10/2026 14:31 | Marketing           | `79ef000`        | `8d7cbd9`                |
+| 02/10/2026 16:56 | Agenda + promoção   | `f9e84ce`        | `4d9ef1f`                |
+| 02/10/2026 17:28 | Modelos de mensagem | `316b11e`        | `2f900e8`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -34,7 +38,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=4d9ef1f85d850104f64a7d0d2df6f43c44206dee
+COMMIT=2f900e80376df60690408c8b3a2a1a5b432448ea
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
