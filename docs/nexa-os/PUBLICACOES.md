@@ -11,6 +11,7 @@ seguro.
 | ---------------- | ------------------ | ---------------- | ------------------------ |
 | 02/10/2026 00:56 | Base + Agenda      | `86d9d15`        | `4a942a7`                |
 | 02/10/2026 13:41 | Início + Conversas | `a8568c6`        | `86d9d15`                |
+| 02/10/2026 13:59 | Avisos (tela)      | `133e6bc`        | `fab37c7`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -19,7 +20,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=86d9d1569953b7a9994f3b231c07e69497d17efb
+COMMIT=fab37c7fb5c9724a18d8ac318a2390b238a34e6d
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
