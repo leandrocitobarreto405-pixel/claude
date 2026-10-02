@@ -27,14 +27,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card, NumeroGrande } from "@/components/nexa";
-import { CartaoAtendimento, type Atendimento } from "@/components/agenda/cartao-atendimento";
+import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
 import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import { VISIT_STATUSES, useTechnicians } from "@/lib/data";
-import { contagemPorDia, idAtual, rotuloDoMes, semanaDe } from "@/lib/agenda";
+import {
+  contagemPorDia,
+  deOrcamento,
+  deVisita,
+  idAtual,
+  rotuloDoMes,
+  semanaDe,
+  type Atendimento,
+} from "@/lib/agenda";
 import {
   addDaysISO,
   brl,
@@ -45,6 +53,7 @@ import {
   todayISO,
   weekdayPT,
 } from "@/lib/format";
+import { dataPorExtenso } from "@/lib/inicio";
 import { podeAcessar, usePapel } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +66,10 @@ export const Route = createFileRoute("/_authenticated/agenda")({
         : ("dia" as const),
       tecnico: search["tecnico"] ? String(search["tecnico"]) : undefined,
       status: search["status"] ? String(search["status"]) : undefined,
+      // Dia que a agenda abre (AAAA-MM-DD), ex.: o "Ver amanhã" do Início.
+      dia: /^\d{4}-\d{2}-\d{2}$/.test(String(search["dia"] ?? ""))
+        ? String(search["dia"])
+        : undefined,
     };
   },
   head: () => ({
@@ -94,12 +107,6 @@ const ATRASADOS_STATUSES = ["Agendado", "Em execução", "Reagendado"];
 /** Visitas de orçamento ainda em aberto. */
 const ORCAMENTOS_ABERTOS = ["Agendado", "Confirmado", "Em deslocamento", "Reagendado"];
 
-/** "1 de outubro" */
-function dataPorExtenso(iso: string) {
-  const mes = monthLabelPT(iso).split(" de ")[0];
-  return `${Number(iso.slice(8, 10))} de ${mes}`;
-}
-
 /** "R$ 2.400" (sem centavos, para caber no resumo do dia). */
 function reaisSemCentavos(valor: number) {
   return valor.toLocaleString("pt-BR", {
@@ -110,62 +117,11 @@ function reaisSemCentavos(valor: number) {
   });
 }
 
-function deVisita(v: VisitRow): Atendimento {
-  const cli = v.work_order?.customer;
-  const nota =
-    v.status === "Reagendado com deslocamento"
-      ? `Deslocamento feito · serviço reagendado${v.rescheduled_to_visit_id ? " (novo atendimento criado)" : ""}`
-      : v.rescheduled_from_visit_id
-        ? `Reagendamento${v.original_scheduled_date ? ` de ${dateBR(v.original_scheduled_date)}` : ""}`
-        : null;
-  return {
-    id: `os-${v.id}`,
-    tipo: "os",
-    data: v.scheduled_date,
-    hora: v.scheduled_time,
-    status: v.status,
-    cliente: cli?.full_name ?? "Cliente",
-    servico: [
-      v.service_type?.name ?? "Serviço",
-      v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    peca: v.upholstery_description || v.upholstery_type?.name || null,
-    bairro: cli?.neighborhood ?? null,
-    endereco: cli?.full_address ?? null,
-    telefone: cli?.phone ?? null,
-    tecnico: v.technician?.name ?? null,
-    valor: Number(v.final_value ?? v.visit_value ?? 0) || null,
-    nota,
-  };
-}
-
-function deOrcamento(b: BudgetVisitRow): Atendimento {
-  const cli = b.customer;
-  return {
-    id: `orc-${b.id}`,
-    tipo: "orcamento",
-    data: b.scheduled_date,
-    hora: b.scheduled_time,
-    status: b.status,
-    cliente: cli?.full_name ?? "Cliente",
-    servico: "Visita de orçamento",
-    peca: b.upholstery_description || null,
-    bairro: cli?.neighborhood ?? null,
-    endereco: cli?.full_address ?? null,
-    telefone: cli?.phone ?? null,
-    tecnico: b.technician?.name ?? null,
-    valor: Number(b.visit_fee ?? 0) || null,
-    nota: b.generated_work_order ? `OS gerada: ${b.generated_work_order.os_number}` : null,
-  };
-}
-
 function Agenda() {
   const search = Route.useSearch();
   const hoje = todayISO();
   const [modo, setModo] = useState<Modo>(search.modo);
-  const [ref, setRef] = useState(hoje);
+  const [ref, setRef] = useState(search.dia ?? hoje);
   const [tecnico, setTecnico] = useState(search.tecnico ?? "todos");
   const [status, setStatus] = useState(search.status ?? "todos");
   // undefined = automático (abre o próximo serviço de hoje); null = todos fechados.

@@ -1,45 +1,57 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState, PageHeader, SectionCard } from "@/components/app-shell";
+import { useServerFn } from "@tanstack/react-start";
+import { ChevronDown, ChevronRight, MessageCircle, Plus } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  AlertTriangle,
-  BadgeCheck,
-  CalendarClock,
-  Coins,
-  Route as RouteIcon,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
-import { StatusBadge, VisitDialog } from "@/components/visit-dialog";
-import { AliceAgora } from "@/components/alice-agora";
+  BadgeAlerta,
+  BlocoEscuro,
+  Botao,
+  CabecalhoDeTela,
+  Card,
+  CardEscuro,
+  Chip,
+  NumeroGrande,
+} from "@/components/nexa";
+import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
+import { VisitDialog } from "@/components/visit-dialog";
+import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { VISIT_SELECT, type VisitRow } from "@/lib/os";
-import { useMonthSummary } from "@/lib/reports";
+import { resumoAliceHoje } from "@/lib/alice.functions";
+import { deOrcamento, deVisita, idAtual } from "@/lib/agenda";
+import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import {
   brl,
   currentMonth,
-  dateBR,
   monthLabelPT,
   remainingDaysInMonth,
-  timeBR,
   todayISO,
   tomorrowISO,
   weekdayPT,
 } from "@/lib/format";
+import {
+  dataPorExtenso,
+  horaEmSaoPaulo,
+  percentualDaMeta,
+  primeiroNome,
+  saudacao,
+} from "@/lib/inicio";
+import { VISIT_SELECT, type VisitRow } from "@/lib/os";
+import { useMonthSummary } from "@/lib/reports";
+import { displayName, useProfile, useSession } from "@/lib/session";
+import { podeAcessar, usePapel } from "@/lib/tenant";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/inicio")({
   head: () => ({
     meta: [
       { title: "Início — Nexa OS" },
-      { name: "description", content: "Painel do dia com meta do mês, agenda e pendências." },
+      { name: "description", content: "O dia de hoje: Alice, serviços, meta do mês e pendências." },
       { property: "og:title", content: "Início — Nexa OS" },
       {
         property: "og:description",
-        content: "Painel do dia com meta do mês, agenda e pendências.",
+        content: "O dia de hoje: Alice, serviços, meta do mês e pendências.",
       },
     ],
   }),
@@ -59,6 +71,21 @@ function useVisitsBetween(from: string, to: string) {
         .order("scheduled_time");
       if (error) throw error;
       return (data ?? []) as unknown as VisitRow[];
+    },
+  });
+}
+
+function useOrcamentosDoDia(dia: string) {
+  return useQuery({
+    queryKey: ["orcamentos", "inicio", dia],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("budget_visits")
+        .select(BUDGET_VISIT_SELECT)
+        .eq("scheduled_date", dia)
+        .order("scheduled_time");
+      if (error) throw error;
+      return (data ?? []) as unknown as BudgetVisitRow[];
     },
   });
 }
@@ -143,199 +170,321 @@ function usePendencias() {
   });
 }
 
+type ItemLink = {
+  label: string;
+  valor: string | number;
+  to: string;
+  search?: Record<string, string>;
+  /** Detalhe em letra menor embaixo do nome. */
+  detalhe?: string;
+};
+
 function Inicio() {
   const month = currentMonth();
   const hoje = todayISO();
   const amanha = tomorrowISO();
+  const profile = useProfile();
+  const { user } = useSession();
+  const { papel } = usePapel();
   const { data: resumo } = useMonthSummary(month);
   const { data: meta } = useGoal(month);
   const { data: pend } = usePendencias();
   const visitasHoje = useVisitsBetween(hoje, hoje);
   const visitasAmanha = useVisitsBetween(amanha, amanha);
+  const orcamentosHoje = useOrcamentosDoDia(hoje);
+  const resumoFn = useServerFn(resumoAliceHoje);
+  const alice = useQuery({
+    queryKey: ["alice_resumo_hoje"],
+    queryFn: () => resumoFn(),
+    refetchInterval: 60_000,
+  });
+  const [aberto, setAberto] = useState<string | null | undefined>(undefined);
   const [selecionada, setSelecionada] = useState<VisitRow | null>(null);
+  const [orcamento, setOrcamento] = useState<BudgetVisitRow | null>(null);
+
+  const pode = (to: string) => (papel ? podeAcessar(papel, to) : false);
+  const nome = primeiroNome(displayName(profile, user?.email));
+
+  const doDia = useMemo(
+    () =>
+      [
+        ...(visitasHoje.data ?? []).map(deVisita),
+        ...(orcamentosHoje.data ?? []).map(deOrcamento),
+      ].sort((a, b) => a.hora.localeCompare(b.hora)),
+    [visitasHoje.data, orcamentosHoje.data],
+  );
+  const atualId = idAtual(
+    doDia.map((i) => ({ id: i.id, status: i.status, time: i.hora })),
+    hoje,
+    hoje,
+  );
+  const abertoId = aberto === undefined ? atualId : aberto;
+  const qtdAmanha = (visitasAmanha.data ?? []).filter((v) => v.status !== "Cancelado").length;
 
   const metaValor = Number(meta?.goal_amount ?? 0);
   // Faturamento = valor efetivamente recebido no mês (pagamentos ativos).
   const realizado = resumo?.received ?? 0;
-  const percentual = metaValor > 0 ? Math.min(100, (realizado / metaValor) * 100) : 0;
+  const percentual = percentualDaMeta(realizado, metaValor);
   const faltam = Math.max(0, metaValor - realizado);
-  const diasRestantes = remainingDaysInMonth(month);
+  const nomeDoMes = monthLabelPT(month).split(" de ")[0] ?? "";
 
-  function recarregar() {
-    visitasHoje.refetch();
-    visitasAmanha.refetch();
+  const pendencias: ItemLink[] = [
+    {
+      label: "Serviços sem técnico",
+      valor: pend?.semTecnico ?? 0,
+      to: "/agenda",
+      search: { modo: "sem-tecnico" },
+    },
+    {
+      label: "Serviços atrasados sem conclusão",
+      valor: pend?.atrasadas ?? 0,
+      to: "/agenda",
+      search: { modo: "atrasados" },
+    },
+    { label: "Notas fiscais a emitir", valor: pend?.notas ?? 0, to: "/notas" },
+    {
+      label: "OS com pagamento pendente",
+      valor: pend?.naoPagos ?? 0,
+      to: "/pagamentos",
+      search: { status: "Não pago" },
+    },
+    {
+      label: "Despesas vencidas",
+      valor: pend?.despesas ?? 0,
+      to: "/despesas",
+      search: { aba: "Vencidas" },
+    },
+    {
+      label: "Despesas pendentes do mês",
+      valor: pend?.despesasMes ?? 0,
+      to: "/despesas",
+      search: { aba: "Pendentes" },
+    },
+    { label: "Rotas pendentes de cálculo", valor: pend?.rotasPend ?? 0, to: "/rotas" },
+    { label: "Rotas alteradas após o pagamento", valor: pend?.rotasDif ?? 0, to: "/rotas" },
+  ];
+  const totalPendencias = pendencias.reduce((s, p) => s + Number(p.valor), 0);
+
+  const numeros: ItemLink[] = [
+    { label: "Serviços concluídos no mês", valor: resumo?.completedCount ?? 0, to: "/servicos" },
+    {
+      label: "Recebido líquido no mês",
+      valor: brl(resumo?.receivedNet),
+      to: "/pagamentos",
+      detalhe: `Bruto ${brl(resumo?.received)} · Taxas ${brl(resumo?.fees)}`,
+    },
+    {
+      label: "A receber",
+      valor: brl(resumo?.receivable),
+      to: "/a-receber",
+      search: { aba: "concluido" },
+      detalhe: `Concluídos ${brl(resumo?.receivableCompleted)} · Agendados ${brl(resumo?.receivableScheduled)}`,
+    },
+    { label: "Lucro líquido estimado", valor: brl(resumo?.netProfit), to: "/dre" },
+  ];
+
+  function detalhes(id: string) {
+    const v = (visitasHoje.data ?? []).find((x) => `os-${x.id}` === id);
+    if (v) return setSelecionada(v);
+    const b = (orcamentosHoje.data ?? []).find((x) => `orc-${x.id}` === id);
+    if (b) setOrcamento(b);
   }
 
+  function recarregar() {
+    void visitasHoje.refetch();
+    void visitasAmanha.refetch();
+    void orcamentosHoje.refetch();
+  }
+
+  const a = alice.data;
+
   return (
-    <>
-      <PageHeader
-        title={`Olá! Hoje é ${weekdayPT(hoje)}, ${dateBR(hoje)}`}
-        description={`Visão geral de ${monthLabelPT(month)}`}
-        actions={
-          <Button asChild>
-            <Link to="/nova-os">Nova OS</Link>
-          </Button>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+      <CabecalhoDeTela
+        sobretitulo={`${weekdayPT(hoje)}, ${dataPorExtenso(hoje)}`}
+        titulo={`${saudacao(horaEmSaoPaulo())}${nome ? `, ${nome}` : ""}`}
+        acao={
+          pode("/nova-os") ? (
+            <Botao asChild>
+              <Link to="/nova-os">
+                <Plus /> Nova OS
+              </Link>
+            </Botao>
+          ) : null
         }
       />
 
-      <AliceAgora />
-
-      <section className="card-surface card-accent-teal mb-6 p-5 md:p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-muted-foreground">Meta de faturamento do mês</p>
-            <p className="mt-1 text-3xl font-bold text-navy md:text-4xl">
-              {brl(realizado)}{" "}
-              <span className="text-base font-medium text-muted-foreground">
-                de {brl(metaValor)}
-              </span>
-            </p>
-          </div>
-          <div className="text-right text-sm">
-            <Badge variant={percentual >= 100 ? "success" : "info"} className="mb-1">
-              {percentual.toFixed(1).replace(".", ",")}% da meta
-            </Badge>
-            <p className="text-muted-foreground">
-              Faltam {brl(faltam)} em {diasRestantes} dia(s)
-            </p>
-          </div>
+      {/* Alice: o que ela está fazendo agora e o que precisa da equipe. */}
+      <CardEscuro aria-label="Alice">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            <span
+              aria-hidden
+              className={cn("size-2 rounded-full", a?.ligada ? "bg-destaque" : "bg-desligado")}
+            />
+            {a ? (a.ligada ? "Alice online" : "Alice desligada") : "Alice"}
+          </span>
         </div>
-        <Progress
-          value={percentual}
-          className="mt-4 h-3 bg-secondary [&>div]:bg-linear-to-r [&>div]:from-primary [&>div]:to-navy"
+        <NumeroGrande
+          tamanho="grande"
+          disposicao="ao-lado"
+          valor={a?.comAlice ?? "–"}
+          legenda={a?.comAlice === 1 ? "conversa com a Alice agora" : "conversas com a Alice agora"}
+          sobreEscuro
         />
-        {metaValor === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Nenhuma meta definida para este mês.{" "}
-            <Link to="/configuracoes" className="font-medium text-primary underline">
-              Definir meta
-            </Link>
+        <div className="grid grid-cols-3 gap-2">
+          <BlocoEscuro>
+            <NumeroGrande
+              tamanho="pequeno"
+              valor={a?.respostasHoje ?? "–"}
+              legenda="respostas hoje"
+              sobreEscuro
+            />
+          </BlocoEscuro>
+          <BlocoEscuro>
+            <NumeroGrande
+              tamanho="pequeno"
+              valor={a?.passagensHoje ?? "–"}
+              legenda="passou para a equipe"
+              sobreEscuro
+            />
+          </BlocoEscuro>
+          <BlocoEscuro>
+            <NumeroGrande
+              tamanho="pequeno"
+              valor={doDia.filter((i) => i.status !== "Cancelado").length}
+              legenda="serviços hoje"
+              sobreEscuro
+            />
+          </BlocoEscuro>
+        </div>
+        <Botao asChild variante="claro" tamanho="grande" larguraTotal>
+          <Link to="/conversas">
+            {a && a.esperandoEquipe > 0 ? (
+              <>
+                <BadgeAlerta numero={a.esperandoEquipe} />
+                {a.esperandoEquipe === 1
+                  ? "1 conversa precisa de você"
+                  : `${a.esperandoEquipe} conversas precisam de você`}
+              </>
+            ) : (
+              <>
+                <MessageCircle /> Ver conversas
+              </>
+            )}
+          </Link>
+        </Botao>
+      </CardEscuro>
+
+      {/* Hoje: o próximo serviço já aberto, com rota e contato. */}
+      <section className="flex flex-col gap-2.5" aria-labelledby="inicio-hoje">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="inicio-hoje" className="font-titulo text-xl">
+            Hoje
+          </h2>
+          <Link
+            to="/agenda"
+            search={{ modo: "dia", tecnico: undefined, status: undefined, dia: undefined }}
+            className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-success hover:text-marca"
+          >
+            Ver agenda <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        </div>
+        {visitasHoje.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : doDia.length === 0 ? (
+          <Card className="py-6 text-center">
+            <p className="text-[15px] font-bold">Nenhum serviço hoje</p>
+            <p className="text-sm text-muted-foreground">
+              Aproveite para organizar as próximas vendas.
+            </p>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-2.5">
+            {doDia.map((item) => (
+              <CartaoAtendimento
+                key={item.id}
+                item={item}
+                aberto={abertoId === item.id}
+                onAlternar={() => setAberto(abertoId === item.id ? null : item.id)}
+                onDetalhes={() => detalhes(item.id)}
+              />
+            ))}
+          </ul>
+        )}
+        <Link
+          to="/agenda"
+          search={{ modo: "dia", tecnico: undefined, status: undefined, dia: amanha }}
+          className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3 hover:border-marca/40"
+        >
+          <span className="flex flex-col">
+            <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+              Amanhã
+            </span>
+            <span className="text-[15px] font-bold">
+              {qtdAmanha === 0
+                ? "Nenhum serviço"
+                : qtdAmanha === 1
+                  ? "1 serviço"
+                  : `${qtdAmanha} serviços`}
+            </span>
+          </span>
+          <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
+        </Link>
+      </section>
+
+      {/* Meta do mês. */}
+      <Card aria-label="Meta do mês">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-bold">Meta de {nomeDoMes}</span>
+          {metaValor > 0 ? (
+            <Chip tom={percentual >= 100 ? "sucesso" : "neutro"}>{Math.floor(percentual)}%</Chip>
+          ) : null}
+        </div>
+        <NumeroGrande
+          valor={brl(realizado)}
+          complemento={metaValor > 0 ? `de ${brl(metaValor)}` : undefined}
+        />
+        <div
+          className="h-2.5 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(percentual)}
+          aria-label="Meta do mês"
+        >
+          <div className="h-full rounded-full bg-dado" style={{ width: `${percentual}%` }} />
+        </div>
+        {metaValor > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {faltam > 0
+              ? `Faltam ${brl(faltam)} em ${remainingDaysInMonth(month)} dia(s)`
+              : "Meta batida!"}
           </p>
-        ) : null}
-      </section>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">Nenhuma meta definida para este mês.</p>
+            {pode("/configuracoes") ? (
+              <Botao asChild variante="contorno" className="self-start">
+                <Link to="/configuracoes">Definir meta</Link>
+              </Botao>
+            ) : null}
+          </>
+        )}
+      </Card>
 
-      <section className="mb-6">
-        <h2 className="section-title mb-3">Operação</h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Kpi
-            icon={CalendarClock}
-            label="Serviços de hoje"
-            value={String(visitasHoje.data?.length ?? 0)}
-          />
-          <Kpi
-            icon={BadgeCheck}
-            label="Serviços concluídos no mês"
-            value={String(resumo?.completedCount ?? 0)}
-          />
-          <Kpi
-            icon={CalendarClock}
-            label="Serviços atrasados"
-            value={String(pend?.atrasadas ?? 0)}
-            accent="warning"
-            to="/agenda"
-            search={{ modo: "atrasados" }}
-          />
-          <Kpi
-            icon={RouteIcon}
-            label="Rotas aguardando cálculo"
-            value={String(pend?.rotasPend ?? 0)}
-            accent="warning"
-            to="/rotas"
-          />
-        </div>
-      </section>
+      {/* Pendências e números do mês: recolhidos, para não tomar a tela. */}
+      <Recolhido titulo="Pendências" contagem={totalPendencias}>
+        {pendencias.map((p) => (
+          <LinhaLink key={p.label} item={p} liberado={pode(p.to)} destaque={Number(p.valor) > 0} />
+        ))}
+      </Recolhido>
 
-      <section className="mb-6">
-        <h2 className="section-title mb-3">Financeiro</h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Kpi
-            icon={TrendingUp}
-            label="Recebido líquido no mês"
-            value={brl(resumo?.receivedNet)}
-            hint={`Bruto ${brl(resumo?.received)} · Taxas ${brl(resumo?.fees)}`}
-            accent="success"
-            to="/pagamentos"
-          />
-          <Kpi
-            icon={Wallet}
-            label="A receber"
-            value={brl(resumo?.receivable)}
-            hint={`Concluídos ${brl(resumo?.receivableCompleted)} · Agendados ${brl(resumo?.receivableScheduled)}`}
-            to="/a-receber"
-            search={{ aba: "concluido" }}
-          />
-          <Kpi
-            icon={Coins}
-            label="Despesas pendentes do mês"
-            value={String(pend?.despesasMes ?? 0)}
-            accent="warning"
-            to="/despesas"
-            search={{ aba: "Pendentes" }}
-          />
-          <Kpi
-            icon={TrendingUp}
-            label="Lucro líquido estimado"
-            value={brl(resumo?.netProfit)}
-            accent="navy"
-          />
-        </div>
-      </section>
-
-      <section className="mb-6 grid gap-4 lg:grid-cols-2">
-        <DayList
-          title={`Serviços de hoje (${visitasHoje.data?.length ?? 0})`}
-          visits={visitasHoje.data ?? []}
-          onSelect={setSelecionada}
-        />
-        <DayList
-          title={`Serviços de amanhã (${visitasAmanha.data?.length ?? 0})`}
-          visits={visitasAmanha.data ?? []}
-          onSelect={setSelecionada}
-        />
-      </section>
-
-      <SectionCard
-        icon={AlertTriangle}
-        title="Pendências"
-        description="Itens que precisam da sua atenção agora."
-        accent="warning"
-      >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Pend
-            label="Serviços sem técnico definido"
-            value={pend?.semTecnico ?? 0}
-            to="/agenda"
-            search={{ modo: "sem-tecnico" }}
-          />
-          <Pend
-            label="Serviços atrasados sem conclusão"
-            value={pend?.atrasadas ?? 0}
-            to="/agenda"
-            search={{ modo: "atrasados" }}
-          />
-          <Pend label="Notas fiscais a emitir" value={pend?.notas ?? 0} to="/notas" />
-          <Pend
-            label="OS com pagamento pendente"
-            value={pend?.naoPagos ?? 0}
-            to="/pagamentos"
-            search={{ status: "Não pago" }}
-          />
-          <Pend
-            label="Despesas vencidas"
-            value={pend?.despesas ?? 0}
-            to="/despesas"
-            search={{ aba: "Vencidas" }}
-          />
-          <Pend
-            label="Despesas pendentes do mês"
-            value={pend?.despesasMes ?? 0}
-            to="/despesas"
-            search={{ aba: "Pendentes" }}
-          />
-          <Pend label="Rotas pendentes de cálculo" value={pend?.rotasPend ?? 0} to="/rotas" />
-          <Pend label="Rotas alteradas após o pagamento" value={pend?.rotasDif ?? 0} to="/rotas" />
-        </div>
-      </SectionCard>
+      <Recolhido titulo="Números do mês">
+        {numeros.map((n) => (
+          <LinhaLink key={n.label} item={n} liberado={pode(n.to)} />
+        ))}
+      </Recolhido>
 
       <VisitDialog
         visit={selecionada}
@@ -343,131 +492,83 @@ function Inicio() {
         onOpenChange={(v) => !v && setSelecionada(null)}
         onChanged={recarregar}
       />
-    </>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  accent = "teal",
-  to,
-  search,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  accent?: "teal" | "navy" | "success" | "warning";
-  to?: string;
-  search?: Record<string, string>;
-}) {
-  const accentClass =
-    accent === "navy"
-      ? "card-accent-navy"
-      : accent === "success"
-        ? "card-accent-success"
-        : accent === "warning"
-          ? "card-accent-warning"
-          : "card-accent-teal";
-  const inner = (
-    <div className="flex items-start gap-3">
-      {Icon ? (
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
-          <Icon className="size-4" />
-        </span>
-      ) : null}
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-bold text-navy">{value}</p>
-        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
-      </div>
+      <BudgetVisitDialog
+        visit={orcamento}
+        open={!!orcamento}
+        onOpenChange={(v) => !v && setOrcamento(null)}
+        onChanged={recarregar}
+      />
     </div>
   );
-  if (to) {
-    return (
-      <Link
-        to={to}
-        search={search ?? {}}
-        className={`card-surface ${accentClass} block p-4 transition-all duration-200 hover:border-primary/40 hover:bg-secondary/40`}
-      >
-        {inner}
-      </Link>
-    );
-  }
-  return <div className={`card-surface ${accentClass} p-4`}>{inner}</div>;
 }
 
-function Pend({
-  label,
-  value,
-  to,
-  search,
+/** Cartão que abre e fecha com um toque (fechado por padrão). */
+function Recolhido({
+  titulo,
+  contagem,
+  children,
 }: {
-  label: string;
-  value: number;
-  to: string;
-  search?: Record<string, string>;
+  titulo: string;
+  contagem?: number;
+  children: React.ReactNode;
 }) {
   return (
-    <Link
-      to={to}
-      search={search ?? {}}
-      className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 transition-all duration-200 hover:border-primary/40 hover:bg-secondary/60"
-    >
-      <span className="text-sm">{label}</span>
-      <Badge variant={value > 0 ? "warning" : "muted"}>{value}</Badge>
-    </Link>
+    <Collapsible className="rounded-card border border-border bg-card">
+      <CollapsibleTrigger className="group flex min-h-14 w-full items-center gap-3 rounded-card px-4 text-left">
+        <span className="flex-1 text-[15px] font-bold">{titulo}</span>
+        {contagem ? <BadgeAlerta numero={contagem} /> : null}
+        <ChevronDown
+          aria-hidden
+          className="size-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="flex flex-col divide-y divide-border border-t border-border px-4">
+          {children}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function DayList({
-  title,
-  visits,
-  onSelect,
+/** Linha com nome e valor. Abre a tela do item quando a pessoa tem acesso a ela. */
+function LinhaLink({
+  item,
+  liberado,
+  destaque = false,
 }: {
-  title: string;
-  visits: VisitRow[];
-  onSelect: (v: VisitRow) => void;
+  item: ItemLink;
+  liberado: boolean;
+  destaque?: boolean;
 }) {
+  const conteudo = (
+    <>
+      <span className="flex min-w-0 flex-col">
+        <span>{item.label}</span>
+        {item.detalhe ? (
+          <span className="text-xs text-muted-foreground">{item.detalhe}</span>
+        ) : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        {typeof item.valor === "number" ? (
+          <Chip tom={destaque ? "atencao" : "neutro"}>{item.valor}</Chip>
+        ) : (
+          <span className="font-bold">{item.valor}</span>
+        )}
+        {liberado ? <ChevronRight className="size-4 text-muted-foreground" aria-hidden /> : null}
+      </span>
+    </>
+  );
+  const classe = "flex min-h-12 items-center justify-between gap-3 py-2 text-sm";
   return (
-    <SectionCard icon={CalendarClock} title={title} accent="navy">
-      {visits.length === 0 ? (
-        <EmptyState
-          icon={CalendarClock}
-          title="Nenhum serviço agendado"
-          description="Aproveite para organizar as próximas vendas."
-        />
+    <li>
+      {liberado ? (
+        <Link to={item.to} search={item.search ?? {}} className={cn(classe, "hover:text-marca")}>
+          {conteudo}
+        </Link>
       ) : (
-        <ul className="space-y-2">
-          {visits.map((v) => (
-            <li key={v.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(v)}
-                className="w-full rounded-xl border border-border bg-card p-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-secondary/50"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-navy">
-                    {timeBR(v.scheduled_time)} · {v.work_order?.customer?.full_name}
-                  </span>
-                  <StatusBadge status={v.status} />
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  OS {v.work_order?.os_number} · {v.service_type?.name} ·{" "}
-                  {v.upholstery_description || v.upholstery_type?.name} ·{" "}
-                  {brl(v.final_value ?? v.visit_value)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {v.technician?.name ?? "Sem técnico"} · {v.work_order?.customer?.full_address}
-                </p>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className={classe}>{conteudo}</div>
       )}
-    </SectionCard>
+    </li>
   );
 }

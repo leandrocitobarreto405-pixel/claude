@@ -1,6 +1,29 @@
 // Regras da tela Agenda (sem acesso a banco, para poder testar).
 import type { TomChip } from "@/components/nexa";
-import { addDaysISO } from "@/lib/format";
+import type { BudgetVisitRow } from "@/lib/budget-visits";
+import { addDaysISO, dateBR } from "@/lib/format";
+import type { VisitRow } from "@/lib/os";
+
+/** Atendimento da agenda já no formato da tela (serviço de uma OS ou visita de orçamento). */
+export type Atendimento = {
+  id: string;
+  tipo: "os" | "orcamento";
+  data: string;
+  hora: string;
+  status: string;
+  cliente: string;
+  /** Tipo de serviço (ou "Visita de orçamento"). */
+  servico: string;
+  /** O que vai ser limpo (ex.: "Sofá 3 lugares"). */
+  peca: string | null;
+  bairro: string | null;
+  endereco: string | null;
+  telefone: string | null;
+  tecnico: string | null;
+  valor: number | null;
+  /** Observação curta (reagendamento, OS gerada...). */
+  nota: string | null;
+};
 
 const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -92,4 +115,55 @@ export function rotuloDoMes(dias: { iso: string }[]): string {
   return a1 === a2
     ? `${curto(m1)} – ${curto(m2)} ${a2}`
     : `${curto(m1)} ${a1} – ${curto(m2)} ${a2}`;
+}
+
+export function deVisita(v: VisitRow): Atendimento {
+  const cli = v.work_order?.customer;
+  const nota =
+    v.status === "Reagendado com deslocamento"
+      ? `Deslocamento feito · serviço reagendado${v.rescheduled_to_visit_id ? " (novo atendimento criado)" : ""}`
+      : v.rescheduled_from_visit_id
+        ? `Reagendamento${v.original_scheduled_date ? ` de ${dateBR(v.original_scheduled_date)}` : ""}`
+        : null;
+  return {
+    id: `os-${v.id}`,
+    tipo: "os",
+    data: v.scheduled_date,
+    hora: v.scheduled_time,
+    status: v.status,
+    cliente: cli?.full_name ?? "Cliente",
+    servico: [
+      v.service_type?.name ?? "Serviço",
+      v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    peca: v.upholstery_description || v.upholstery_type?.name || null,
+    bairro: cli?.neighborhood ?? null,
+    endereco: cli?.full_address ?? null,
+    telefone: cli?.phone ?? null,
+    tecnico: v.technician?.name ?? null,
+    valor: Number(v.final_value ?? v.visit_value ?? 0) || null,
+    nota,
+  };
+}
+
+export function deOrcamento(b: BudgetVisitRow): Atendimento {
+  const cli = b.customer;
+  return {
+    id: `orc-${b.id}`,
+    tipo: "orcamento",
+    data: b.scheduled_date,
+    hora: b.scheduled_time,
+    status: b.status,
+    cliente: cli?.full_name ?? "Cliente",
+    servico: "Visita de orçamento",
+    peca: b.upholstery_description || null,
+    bairro: cli?.neighborhood ?? null,
+    endereco: cli?.full_address ?? null,
+    telefone: cli?.phone ?? null,
+    tecnico: b.technician?.name ?? null,
+    valor: Number(b.visit_fee ?? 0) || null,
+    nota: b.generated_work_order ? `OS gerada: ${b.generated_work_order.os_number}` : null,
+  };
 }

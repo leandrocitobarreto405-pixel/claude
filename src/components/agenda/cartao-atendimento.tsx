@@ -1,29 +1,10 @@
 import { ChevronDown, MapPin, MessageCircle, Navigation, Phone } from "lucide-react";
 import { Botao, Chip } from "@/components/nexa";
-import { chipDoStatus, encerrado } from "@/lib/agenda";
+import { chipDoStatus, encerrado, type Atendimento } from "@/lib/agenda";
+
+export type { Atendimento };
 import { brl, mapsLink, telLink, timeBR, wazeLink, whatsappLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/** Atendimento da agenda já no formato da tela (serviço de uma OS ou visita de orçamento). */
-export type Atendimento = {
-  id: string;
-  tipo: "os" | "orcamento";
-  data: string;
-  hora: string;
-  status: string;
-  cliente: string;
-  /** Tipo de serviço (ou "Visita de orçamento"). */
-  servico: string;
-  /** O que vai ser limpo (ex.: "Sofá 3 lugares"). */
-  peca: string | null;
-  bairro: string | null;
-  endereco: string | null;
-  telefone: string | null;
-  tecnico: string | null;
-  valor: number | null;
-  /** Observação curta (reagendamento, OS gerada...). */
-  nota: string | null;
-};
 
 /**
  * Cartão de um atendimento. Fechado: hora, cliente, resumo e etiqueta. Aberto: endereço e os

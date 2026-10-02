@@ -192,13 +192,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
       ultimos7dias: {
         respostas: lista.filter((e) => !e.erro).length,
         custoUsd: Math.round(lista.reduce((s, e) => s + Number(e.custo_usd ?? 0), 0) * 100) / 100,
-        passagens: lista.filter(
-          (e) =>
-            Array.isArray(e.ferramentas) &&
-            (e.ferramentas as Array<{ nome?: string }>).some(
-              (f) => f.nome === "transferir_para_humano" || f.nome === "passar_para_atendente",
-            ),
-        ).length,
+        passagens: lista.filter((e) => passouParaEquipe(e.ferramentas)).length,
         erros: lista.filter((e) => e.erro).length,
       },
     };
@@ -634,6 +628,69 @@ export const conversasComAlice = createServerFn({ method: "GET" })
       };
     });
   });
+
+export type ResumoAliceHoje = {
+  /** A Alice está ligada nas configurações. */
+  ligada: boolean;
+  /** Conversas com a Alice agora (pendentes no Chatwoot, ativas nos últimos 3 dias). */
+  comAlice: number;
+  /** Conversas com a equipe em que o cliente está esperando resposta. */
+  esperandoEquipe: number;
+  /** Respostas da Alice hoje (sem erro). */
+  respostasHoje: number;
+  /** Vezes que a Alice passou a conversa para a equipe hoje. */
+  passagensHoje: number;
+};
+
+/** Números do dia para o cartão da Alice no Início (só leitura, dados da empresa ativa). */
+export const resumoAliceHoje = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<ResumoAliceHoje> => {
+    const db = context.supabase;
+    const { todayISO } = await import("@/lib/format");
+    // Início do dia em São Paulo (UTC-3, sem horário de verão).
+    const inicioHoje = new Date(`${todayISO()}T00:00:00-03:00`).toISOString();
+    const desde = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+    const [cfg, comAlice, esperando, execs] = await Promise.all([
+      db.from("ia_configuracoes").select("ativo").eq("empresa_id", context.empresaId).maybeSingle(),
+      db
+        .from("conversas")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", context.empresaId)
+        .eq("status", "pending")
+        .gte("ultima_atividade_em", desde),
+      db
+        .from("conversas")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", context.empresaId)
+        .eq("status", "open")
+        .not("aguardando_desde", "is", null),
+      db
+        .from("ia_execucoes")
+        .select("erro, ferramentas")
+        .eq("empresa_id", context.empresaId)
+        .gte("created_at", inicioHoje)
+        .limit(5000),
+    ]);
+    const lista = (execs.data ?? []) as Array<{ erro: string | null; ferramentas: unknown }>;
+    return {
+      ligada: Boolean(cfg.data?.ativo),
+      comAlice: comAlice.count ?? 0,
+      esperandoEquipe: esperando.count ?? 0,
+      respostasHoje: lista.filter((e) => !e.erro).length,
+      passagensHoje: lista.filter((e) => passouParaEquipe(e.ferramentas)).length,
+    };
+  });
+
+/** A execução usou a ferramenta de passar a conversa para a equipe. */
+function passouParaEquipe(ferramentas: unknown): boolean {
+  return (
+    Array.isArray(ferramentas) &&
+    (ferramentas as Array<{ nome?: string }>).some(
+      (f) => f.nome === "transferir_para_humano" || f.nome === "passar_para_atendente",
+    )
+  );
+}
 
 /** Tira a Alice de uma conversa pelo Nexa OS: a conversa fica com a equipe. */
 export const pararAliceNaConversa = createServerFn({ method: "POST" })
