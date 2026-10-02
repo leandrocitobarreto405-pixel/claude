@@ -206,3 +206,18 @@ SELECT created_at, tipo, resultado, detalhe FROM mkt_eventos ORDER BY created_at
 | `supabase/tests/110_mkt.sql`      | Nome confiável, importação (dedup com/sem 9, comprador vence), lead e OS na base, grupos e exclusões, preparo (lotes, `_sn`, datas, limites), aprovação só até a véspera, janela (terça a quinta, 10h–19h, nunca 21h–8h, flag), conferência antes de cada envio (pausa no meio, flag, opt-out), pausa automática (erro e opt-out, cada um sozinho), retomada, respostas e botões, falhas 131026/131050, orçamento, venda (30 dias), indicação, gatilhos C1/C2/C3/lembrete, relatório, condição até 25%, isolamento e permissões. Proteções validadas com mutação. |
 | `supabase/tests/api/mkt.test.mjs` | Rotina D-10 (preparo e bloqueio por modelo pendente), disparo pelo Chatwoot falso (flag, horário, primeiro nome, `_sn`, robô, etiqueta, pausa automática, retomada, conclusão), modelo inexistente no disparo, tarefas (opt-out, prioridade), avisos no WhatsApp e a Alice com cliente da campanha (campanha no `consultar_cliente`, desconto no orçamento, indicação).                                                                                                                                                                                           |
 | `src/lib/mkt/modelos.test.ts`     | Modelo aprovado/pendente/inexistente, preenchimento com e sem nome, variáveis nomeadas, cabeçalho com mídia, condição.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## Avisos no WhatsApp da equipe (tela Avisos)
+
+Na tela **Avisos**, o cartão "Avisos no WhatsApp da equipe" (só o admin altera) liga o envio
+dos avisos para **um celular da equipe**, com o modelo `nexa_aviso` (Utilidade, `{{1}}` = texto
+do aviso). Além dos avisos de campanha e de problema no pós-venda, há duas opções, desligadas
+por padrão:
+
+- **Cliente esperando a equipe há mais de N minutos** (10, 15, 30 ou 60): a rotina de 1 em 1
+  minuto cria um aviso por espera (não repete a mesma espera).
+- **Resumo do dia às 9h**: serviços de hoje, atrasados, sem técnico e clientes esperando.
+
+Trava: se o celular configurado for de um cliente (clientes com OS ou base de marketing, pela
+chave DDD + 8 últimos dígitos), a tela não salva e a rotina não envia nada. Migração
+`20261010120000_avisos_equipe_whatsapp.sql`; código em `src/lib/mkt/avisos-equipe.server.ts`.

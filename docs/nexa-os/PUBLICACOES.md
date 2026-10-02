@@ -4,14 +4,18 @@ Desde 02/10/2026 o redesign é feito direto na branch principal
 `claude/nexa-os-multi-tenant-dl9c3s` (a que o Cloud Run `nexaos` publica) e cada etapa é
 publicada assim que passa nos testes. A equipe ainda usa no dia a dia o app antigo do Lovable,
 que tem banco próprio no Lovable Cloud (`aainaxrwirzrqmesoidz`), separado deste
-(`avvxapeplhuiruijyyed`). Nenhuma etapa até aqui mudou o banco, então voltar a versão do app é
-seguro.
+(`avvxapeplhuiruijyyed`).
+
+Mudanças no banco: só a dos "Avisos no WhatsApp" (migração `20261010120000`, aprovada em
+02/10/2026), que apenas acrescenta campos desligados. Voltar a versão do app continua seguro: o
+app anterior simplesmente não usa os campos novos.
 
 | Data (UTC)       | Etapa              | Commit publicado | Versão anterior (commit) |
 | ---------------- | ------------------ | ---------------- | ------------------------ |
 | 02/10/2026 00:56 | Base + Agenda      | `86d9d15`        | `4a942a7`                |
 | 02/10/2026 13:41 | Início + Conversas | `a8568c6`        | `86d9d15`                |
 | 02/10/2026 13:59 | Avisos (tela)      | `133e6bc`        | `fab37c7`                |
+| 02/10/2026 14:21 | Avisos no WhatsApp | `91771de`        | `61c19e2`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -20,7 +24,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=fab37c7fb5c9724a18d8ac318a2390b238a34e6d
+COMMIT=61c19e22312aff7897d68140805314cfe56cd8dc
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
