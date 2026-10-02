@@ -28,6 +28,8 @@ import {
   modelosDaCaixa,
 } from "./chatwoot.server";
 import { enviarMensagem } from "@/lib/alice/chatwoot-api.server";
+import { preencherTexto } from "@/lib/modelos-mensagem";
+import { textosDaEmpresa } from "./textos.server";
 import {
   preencher,
   situacaoModelo,
@@ -97,6 +99,34 @@ async function janelaAberta(db: Db, r: Reservado, info: InfoCampanha): Promise<b
     .maybeSingle();
   const quando = data?.message_timestamp ?? data?.created_at;
   return Boolean(quando && Date.now() - Date.parse(quando) < JANELA_MS);
+}
+
+/** Textos editáveis (tela Modelos de mensagem) que substituem o modelo quando sai texto livre. */
+const CHAVE_TEXTO_LIVRE: Record<string, string> = { tc_posvenda_resultado: "livre_posvenda" };
+
+function comTextoEditado(
+  p: Pronto,
+  r: Reservado,
+  info: InfoCampanha,
+  textos: Record<string, string>,
+): Pronto {
+  const chave =
+    info.tipo === "promocao"
+      ? "livre_promocao"
+      : CHAVE_TEXTO_LIVRE[r.template_nome.replace(/_sn$/, "")];
+  const t = chave ? textos[chave] : undefined;
+  if (!t) return p;
+  const nome = r.variante_sn ? null : r.primeiro_nome?.trim() || null;
+  // Texto pede o nome e o contato não tem nome confiável: fica o texto do modelo.
+  if (/\{nome\}/.test(t) && !nome) return p;
+  return {
+    ...p,
+    texto: preencherTexto(t, {
+      nome: nome ?? "",
+      desconto: r.condicao_texto ?? "",
+      pix: `${String(Number(info.pix ?? 0)).replace(".", ",")}%`,
+    }).trim(),
+  };
 }
 
 export type ResultadoDisparo = {
@@ -235,6 +265,7 @@ export async function processarFila(
 
   const cache: Cache = new Map();
   const campanhas: CacheCampanhas = new Map();
+  const textosPorEmpresa = new Map<string, Record<string, string>>();
   const pausadas = new Set<string>();
   let anterior = 0;
   for (const r of fila) {
@@ -267,7 +298,16 @@ export async function processarFila(
     let textoLivre = false;
     try {
       textoLivre = await janelaAberta(db, r, info);
-      const e = await enviarUm(c.ctx, pronto, r, textoLivre);
+      let final = pronto;
+      if (textoLivre) {
+        let textos = textosPorEmpresa.get(r.empresa_id);
+        if (!textos) {
+          textos = await textosDaEmpresa(db, r.empresa_id);
+          textosPorEmpresa.set(r.empresa_id, textos);
+        }
+        final = comTextoEditado(pronto, r, info, textos);
+      }
+      const e = await enviarUm(c.ctx, final, r, textoLivre);
       ok = true;
       conversa = e.conversa;
       mensagem = e.mensagem;

@@ -193,3 +193,20 @@ export function prioridadeUrgente(conta: Conta, token: string, conversa: number)
     body: { priority: "urgent" },
   });
 }
+
+/**
+ * Pede ao Chatwoot para buscar de novo os modelos na Meta (depois de criar ou editar pelo Nexa).
+ * Versões antigas do Chatwoot não têm esse pedido: aí ele atualiza sozinho de tempos em tempos.
+ */
+export async function sincronizarModelos(
+  conta: Conta,
+  tokenAdmin: string,
+  caixa: number,
+): Promise<boolean> {
+  try {
+    await chamar(conta, tokenAdmin, `/inboxes/${caixa}/sync_templates`, { method: "POST" });
+    return true;
+  } catch {
+    return false;
+  }
+}

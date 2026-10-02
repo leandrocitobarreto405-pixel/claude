@@ -15,6 +15,7 @@ import {
 import { ultimaPassagem } from "@/lib/conversas";
 import { avisar, hojeSP } from "./campanhas.server";
 import { dbServico, log, type Db } from "./contexto.server";
+import { textosDaEmpresa } from "./textos.server";
 
 /** O número foi marcado pelo admin como contato interno da equipe? */
 export async function numeroEhInterno(
@@ -136,12 +137,13 @@ export async function gerarAvisosDeEspera(agora = new Date()) {
         minutos,
         agora,
       );
+      const textos = novas.length ? await textosDaEmpresa(db, cfg.empresa_id) : {};
       for (const e of novas) {
         const { error } = await db.from("mkt_avisos").insert({
           empresa_id: cfg.empresa_id,
           tipo: "cliente_esperando",
           titulo: "Cliente esperando a equipe",
-          mensagem: textoEspera(e, agora),
+          mensagem: textoEspera(e, agora, textos["aviso_espera"]),
           conversa_id: e.id,
         });
         if (error) throw error;
@@ -185,12 +187,16 @@ export async function avisoResumoDoDia(db: Db, empresaId: string, hoje = hojeSP(
       .eq("status", "open")
       .not("aguardando_desde", "is", null),
   ]);
-  const texto = textoResumoDoDia({
-    servicosHoje: servicos.count ?? 0,
-    atrasados: atrasados.count ?? 0,
-    semTecnico: semTecnico.count ?? 0,
-    esperando: esperando.count ?? 0,
-  });
+  const textos = await textosDaEmpresa(db, empresaId);
+  const texto = textoResumoDoDia(
+    {
+      servicosHoje: servicos.count ?? 0,
+      atrasados: atrasados.count ?? 0,
+      semTecnico: semTecnico.count ?? 0,
+      esperando: esperando.count ?? 0,
+    },
+    textos["aviso_resumo"],
+  );
   await avisar(db, empresaId, "resumo_diario", "Resumo do dia", texto, null, true);
   return texto;
 }

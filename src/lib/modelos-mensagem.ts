@@ -1,0 +1,479 @@
+/**
+ * Modelos de mensagem (Meta) e textos sem aprovação: regras puras, sem banco nem rede, para poder
+ * testar. A tela "Modelos de mensagem" e o servidor usam estas funções.
+ *
+ * - Modelo da Meta: precisa de aprovação. O formulário vira os "components" da API de gestão de
+ *   modelos (cabeçalho em texto, corpo com {{1}}, {{2}}..., rodapé e botões).
+ * - Texto sem aprovação: o Nexa envia como mensagem comum (cliente escreveu nas últimas 24 h, ou
+ *   texto que vai dentro do modelo de aviso). Usa variáveis com chaves simples: {nome}.
+ */
+
+// ---------------------------------------------------------------- modelos da Meta
+export type CategoriaModelo = "MARKETING" | "UTILITY" | "AUTHENTICATION";
+
+export type BotaoMeta = {
+  type?: string;
+  text?: string;
+  url?: string;
+  phone_number?: string;
+  [k: string]: unknown;
+};
+
+export type ComponenteMeta = {
+  type: string;
+  format?: string;
+  text?: string;
+  example?: { body_text?: string[][]; header_text?: string[]; [k: string]: unknown };
+  buttons?: BotaoMeta[];
+  [k: string]: unknown;
+};
+
+/** Modelo como a API da Meta (ou o Chatwoot) devolve. */
+export type ModeloDaMeta = {
+  id?: string;
+  name: string;
+  language: string;
+  status: string;
+  category?: string;
+  quality_score?: { score?: string } | string | null;
+  rejected_reason?: string | null;
+  components?: ComponenteMeta[];
+};
+
+export type BotaoForm =
+  | { tipo: "QUICK_REPLY"; texto: string }
+  | { tipo: "URL"; texto: string; url: string }
+  | { tipo: "PHONE_NUMBER"; texto: string; telefone: string };
+
+export type FormModelo = {
+  nome: string;
+  idioma: string;
+  categoria: CategoriaModelo;
+  cabecalho: string;
+  corpo: string;
+  /** Exemplo de cada variável do corpo ({{1}}, {{2}}...), exigido pela Meta. */
+  exemplos: string[];
+  rodape: string;
+  botoes: BotaoForm[];
+};
+
+export const FORM_VAZIO: FormModelo = {
+  nome: "",
+  idioma: "pt_BR",
+  categoria: "MARKETING",
+  cabecalho: "",
+  corpo: "",
+  exemplos: [],
+  rodape: "",
+  botoes: [],
+};
+
+const VAR = /\{\{\s*([^}]*?)\s*\}\}/g;
+
+/** Variáveis do texto, na ordem em que aparecem (com repetição). */
+export function variaveisDoTexto(texto: string): string[] {
+  return [...texto.matchAll(VAR)].map((m) => m[1] ?? "");
+}
+
+/** Quantas variáveis numeradas o corpo usa (a maior: {{1}}..{{n}}). */
+export function quantasVariaveis(corpo: string): number {
+  const nums = variaveisDoTexto(corpo)
+    .filter((v) => /^\d+$/.test(v))
+    .map(Number);
+  return nums.length ? Math.max(...nums) : 0;
+}
+
+export const LIMITES = { corpo: 1024, cabecalho: 60, rodape: 60, botao: 25, botoes: 10, nome: 512 };
+
+/** Problemas que fariam a Meta recusar o envio (em português, para mostrar na tela). */
+export function validarFormulario(f: FormModelo): string[] {
+  const p: string[] = [];
+  if (!/^[a-z0-9_]{1,512}$/.test(f.nome))
+    p.push("Nome: só letras minúsculas sem acento, números e _ (ex.: tc_promocao_agenda).");
+  if (!/^[a-z]{2}(_[A-Z]{2})?$/.test(f.idioma)) p.push("Idioma inválido (ex.: pt_BR).");
+  if (!["MARKETING", "UTILITY", "AUTHENTICATION"].includes(f.categoria))
+    p.push("Escolha a categoria.");
+  const corpo = f.corpo.trim();
+  if (!corpo) p.push("Escreva o texto da mensagem.");
+  if (corpo.length > LIMITES.corpo) p.push(`Texto com mais de ${LIMITES.corpo} caracteres.`);
+  const vars = variaveisDoTexto(corpo);
+  if (vars.some((v) => !/^\d+$/.test(v)))
+    p.push("Use variáveis numeradas: {{1}}, {{2}}... (sem nomes).");
+  const n = quantasVariaveis(corpo);
+  for (let i = 1; i <= n; i++)
+    if (!vars.includes(String(i))) p.push(`Falta a variável {{${i}}} (elas vão em sequência).`);
+  for (let i = 0; i < n; i++)
+    if (!(f.exemplos[i] ?? "").trim()) p.push(`Preencha um exemplo para {{${i + 1}}}.`);
+  if (n && /^\s*\{\{/.test(corpo)) p.push("A Meta não aceita o texto começando com variável.");
+  if (n && /\}\}\s*$/.test(corpo)) p.push("A Meta não aceita o texto terminando com variável.");
+  if (/\}\}\s*\{\{/.test(corpo)) p.push("Coloque alguma palavra entre duas variáveis.");
+  if (f.cabecalho.length > LIMITES.cabecalho)
+    p.push(`Título com mais de ${LIMITES.cabecalho} caracteres.`);
+  if (variaveisDoTexto(f.cabecalho).length) p.push("O título não pode ter variável.");
+  if (f.rodape.length > LIMITES.rodape) p.push(`Rodapé com mais de ${LIMITES.rodape} caracteres.`);
+  if (variaveisDoTexto(f.rodape).length) p.push("O rodapé não pode ter variável.");
+  if (f.botoes.length > LIMITES.botoes) p.push(`No máximo ${LIMITES.botoes} botões.`);
+  for (const b of f.botoes) {
+    if (!b.texto.trim()) p.push("Botão sem texto.");
+    else if (b.texto.length > LIMITES.botao)
+      p.push(`Botão "${b.texto}" com mais de ${LIMITES.botao} caracteres.`);
+    if (b.tipo === "URL" && !/^https:\/\/\S+$/.test(b.url))
+      p.push(`Botão "${b.texto}": link inválido.`);
+    if (b.tipo === "PHONE_NUMBER" && !/^\+?\d{10,15}$/.test(b.telefone.replace(/\D/g, "")))
+      p.push(`Botão "${b.texto}": telefone inválido.`);
+  }
+  return p;
+}
+
+/** Formulário → "components" da API de gestão de modelos. */
+export function componentesDoFormulario(f: FormModelo): ComponenteMeta[] {
+  const c: ComponenteMeta[] = [];
+  if (f.cabecalho.trim()) c.push({ type: "HEADER", format: "TEXT", text: f.cabecalho.trim() });
+  const corpo = f.corpo.trim();
+  const n = quantasVariaveis(corpo);
+  c.push(
+    n
+      ? {
+          type: "BODY",
+          text: corpo,
+          example: { body_text: [f.exemplos.slice(0, n).map((e) => e.trim())] },
+        }
+      : { type: "BODY", text: corpo },
+  );
+  if (f.rodape.trim()) c.push({ type: "FOOTER", text: f.rodape.trim() });
+  if (f.botoes.length)
+    c.push({
+      type: "BUTTONS",
+      buttons: f.botoes.map((b) =>
+        b.tipo === "URL"
+          ? { type: "URL", text: b.texto.trim(), url: b.url.trim() }
+          : b.tipo === "PHONE_NUMBER"
+            ? { type: "PHONE_NUMBER", text: b.texto.trim(), phone_number: b.telefone.trim() }
+            : { type: "QUICK_REPLY", text: b.texto.trim() },
+      ),
+    });
+  return c;
+}
+
+/**
+ * Modelo da Meta → formulário. Formatos que o app não edita (cabeçalho com imagem ou vídeo,
+ * carrossel, botões de código ou de fluxo) voltam com o motivo em `naoEditavel`.
+ */
+export function formularioDoModelo(m: ModeloDaMeta): FormModelo & { naoEditavel: string | null } {
+  const comps = m.components ?? [];
+  let naoEditavel: string | null = null;
+  const tipo = (c: ComponenteMeta) => String(c.type ?? "").toUpperCase();
+  const cab = comps.find((c) => tipo(c) === "HEADER");
+  if (cab && String(cab.format ?? "TEXT").toUpperCase() !== "TEXT")
+    naoEditavel = "o título tem imagem, vídeo ou documento";
+  else if (cab && variaveisDoTexto(cab.text ?? "").length) naoEditavel = "o título tem variável";
+  const desconhecido = comps.find(
+    (c) => !["HEADER", "BODY", "FOOTER", "BUTTONS"].includes(tipo(c)),
+  );
+  if (desconhecido) naoEditavel = `tem um bloco do tipo ${tipo(desconhecido).toLowerCase()}`;
+  const corpo = comps.find((c) => tipo(c) === "BODY");
+  const botoes: BotaoForm[] = [];
+  for (const b of comps.find((c) => tipo(c) === "BUTTONS")?.buttons ?? []) {
+    const t = String(b.type ?? "QUICK_REPLY").toUpperCase();
+    if (t === "QUICK_REPLY") botoes.push({ tipo: "QUICK_REPLY", texto: b.text ?? "" });
+    else if (t === "URL") botoes.push({ tipo: "URL", texto: b.text ?? "", url: b.url ?? "" });
+    else if (t === "PHONE_NUMBER")
+      botoes.push({ tipo: "PHONE_NUMBER", texto: b.text ?? "", telefone: b.phone_number ?? "" });
+    else naoEditavel = `tem um botão do tipo ${t.toLowerCase()}`;
+  }
+  const cat = String(m.category ?? "MARKETING").toUpperCase();
+  return {
+    nome: m.name,
+    idioma: m.language,
+    categoria: (["MARKETING", "UTILITY", "AUTHENTICATION"].includes(cat)
+      ? cat
+      : "MARKETING") as CategoriaModelo,
+    cabecalho: cab?.text ?? "",
+    corpo: corpo?.text ?? "",
+    exemplos: corpo?.example?.body_text?.[0] ?? [],
+    rodape: comps.find((c) => tipo(c) === "FOOTER")?.text ?? "",
+    botoes,
+    naoEditavel,
+  };
+}
+
+/** Texto como o cliente vê, com os exemplos no lugar das variáveis. */
+export function previaDoFormulario(f: FormModelo): string {
+  const corpo = f.corpo.replace(VAR, (_, v: string) =>
+    /^\d+$/.test(v) ? f.exemplos[Number(v) - 1] || `{{${v}}}` : `{{${v}}}`,
+  );
+  return [f.cabecalho.trim(), corpo.trim(), f.rodape.trim()].filter(Boolean).join("\n\n");
+}
+
+// ---------------------------------------------------------------- situação e limites
+export type Tom = "neutro" | "sucesso" | "atencao" | "problema";
+
+export function situacaoDoModelo(status: string): { rotulo: string; tom: Tom } {
+  switch (String(status).toUpperCase()) {
+    case "APPROVED":
+      return { rotulo: "Aprovado", tom: "sucesso" };
+    case "PENDING":
+      return { rotulo: "Em análise", tom: "atencao" };
+    case "IN_APPEAL":
+      return { rotulo: "Em recurso", tom: "atencao" };
+    case "REJECTED":
+      return { rotulo: "Recusado", tom: "problema" };
+    case "PAUSED":
+      return { rotulo: "Pausado pela Meta", tom: "problema" };
+    case "DISABLED":
+      return { rotulo: "Desativado pela Meta", tom: "problema" };
+    case "LIMIT_EXCEEDED":
+      return { rotulo: "Limite de modelos", tom: "problema" };
+    case "PENDING_DELETION":
+    case "DELETED":
+      return { rotulo: "Apagado", tom: "neutro" };
+    case "ARCHIVED":
+      return { rotulo: "Arquivado", tom: "neutro" };
+    default:
+      return { rotulo: status || "Desconhecido", tom: "neutro" };
+  }
+}
+
+const MOTIVOS: Record<string, string> = {
+  ABUSIVE_CONTENT: "conteúdo considerado abusivo",
+  INCORRECT_CATEGORY: "categoria errada (ex.: promoção marcada como utilidade)",
+  INVALID_FORMAT: "formato inválido (variáveis, exemplos ou caracteres)",
+  PROMOTIONAL: "conteúdo promocional numa categoria que não é Marketing",
+  TAG_CONTENT_MISMATCH: "o texto não combina com a categoria escolhida",
+  SCAM: "suspeita de golpe",
+};
+
+/** Motivo da recusa em português ("" quando a Meta não informou). */
+export function motivoDaRecusa(motivo: string | null | undefined): string {
+  const m = String(motivo ?? "").toUpperCase();
+  if (!m || m === "NONE") return "";
+  return MOTIVOS[m] ?? m.toLowerCase().replace(/_/g, " ");
+}
+
+export type RegraEdicao = {
+  pode: boolean;
+  /** Por que não pode (ou "" quando pode). */
+  motivo: string;
+  /** Linha para mostrar na tela, ex.: "Edições: 1 de 10 nos últimos 30 dias". */
+  resumo: string;
+  usadas24h: number;
+  usadas30d: number;
+  /** Quando abre a próxima edição (ISO), se o limite estiver cheio. */
+  liberaEm: string | null;
+};
+
+const DIA = 86_400_000;
+
+/**
+ * Limite da Meta: modelo aprovado aceita 1 edição a cada 24 h e 10 a cada 30 dias; recusado ou
+ * pausado, edições à vontade; em análise, recurso, desativado etc., nenhuma.
+ * `edicoes`: quando o Nexa editou este modelo enquanto ele estava aprovado.
+ */
+export function regraDeEdicao(status: string, edicoes: string[], agora = new Date()): RegraEdicao {
+  const s = String(status).toUpperCase();
+  const t = agora.getTime();
+  const datas = edicoes.map((e) => Date.parse(e)).filter((d) => Number.isFinite(d) && d <= t);
+  const em24 = datas.filter((d) => t - d < DIA).sort((a, b) => a - b);
+  const em30 = datas.filter((d) => t - d < 30 * DIA).sort((a, b) => a - b);
+  const base = {
+    usadas24h: em24.length,
+    usadas30d: em30.length,
+    liberaEm: null as string | null,
+  };
+  if (s === "REJECTED" || s === "PAUSED")
+    return { ...base, pode: true, motivo: "", resumo: "Pode editar à vontade até ser aprovado." };
+  if (s !== "APPROVED")
+    return {
+      ...base,
+      pode: false,
+      motivo:
+        s === "PENDING" || s === "IN_APPEAL"
+          ? "A Meta ainda está analisando este modelo. Espere a resposta para editar."
+          : "A Meta não permite editar um modelo nesta situação.",
+      resumo: "",
+    };
+  const resumo = `Edições: ${em30.length} de 10 nos últimos 30 dias (no máximo 1 por dia).`;
+  if (em24.length >= 1) {
+    const libera = new Date(em24[0]! + DIA).toISOString();
+    return {
+      ...base,
+      liberaEm: libera,
+      pode: false,
+      motivo: "Este modelo já foi editado nas últimas 24 h (limite da Meta: 1 por dia).",
+      resumo,
+    };
+  }
+  if (em30.length >= 10) {
+    const libera = new Date(em30[em30.length - 10]! + 30 * DIA).toISOString();
+    return {
+      ...base,
+      liberaEm: libera,
+      pode: false,
+      motivo: "Este modelo chegou a 10 edições em 30 dias (limite da Meta).",
+      resumo,
+    };
+  }
+  return { ...base, pode: true, motivo: "", resumo };
+}
+
+// ---------------------------------------------------------------- onde cada modelo é usado
+export type ContextoUso = { modeloAviso: string | null; modeloPromocao: string | null };
+
+/** Onde o Nexa usa o modelo (null = nenhum lugar conhecido). */
+export function ondeEUsado(nome: string, ctx: ContextoUso): string | null {
+  const base = nome.replace(/_sn$/, "");
+  const sn = nome.endsWith("_sn") ? " (versão sem o nome do cliente)" : "";
+  if (ctx.modeloAviso && nome === ctx.modeloAviso) return "Avisos da equipe no WhatsApp";
+  if (ctx.modeloPromocao && nome === ctx.modeloPromocao) return "Promoção da agenda";
+  const fixos: Record<string, string> = {
+    tc_posvenda_resultado: "Pós-venda (dia seguinte ao serviço)",
+    tc_oferta_trimestral: "Campanhas: clientes de 3 a 12 meses",
+    tc_reativacao_cliente: "Campanhas: reativação de clientes antigos",
+    tc_orcamento_retomada: "Campanhas: orçamentos que não fecharam",
+    tc_higienizacao_6meses: "Lembrete de higienização (6 meses)",
+    tc_imper_13meses: "Lembrete de impermeabilização (13 meses)",
+  };
+  if (fixos[base]) return fixos[base] + sn;
+  if (base.startsWith("tc_sazonal_")) return `Campanha sazonal (${base.slice(11)})${sn}`;
+  return null;
+}
+
+/** Modelos que o Nexa usa e que precisam existir na Meta. */
+export function modelosEsperados(ctx: ContextoUso): string[] {
+  return [
+    "tc_posvenda_resultado",
+    "tc_oferta_trimestral",
+    "tc_reativacao_cliente",
+    "tc_orcamento_retomada",
+    "tc_higienizacao_6meses",
+    "tc_imper_13meses",
+    ctx.modeloPromocao,
+    ctx.modeloAviso,
+  ].filter((n, i, a): n is string => Boolean(n) && a.indexOf(n) === i);
+}
+
+/** Texto inicial para criar um modelo que falta (quando o Nexa sabe qual é). */
+export function sugestaoDeModelo(nome: string): FormModelo | null {
+  if (nome === "tc_promocao_agenda")
+    return {
+      ...FORM_VAZIO,
+      nome,
+      categoria: "MARKETING",
+      corpo:
+        "Oi, {{1}}! Aqui é da Turbine Clean. Abriu um horário amanhã e consigo fazer o seu serviço com {{2}} de desconto, e mais {{3}} se pagar no Pix. Quer que eu reserve para você?",
+      exemplos: ["Carla", "20%", "5%"],
+      botoes: [
+        { tipo: "QUICK_REPLY", texto: "Quero reservar" },
+        { tipo: "QUICK_REPLY", texto: "Não quero mais ofertas" },
+      ],
+    };
+  if (nome === "nexa_aviso")
+    return {
+      ...FORM_VAZIO,
+      nome,
+      categoria: "UTILITY",
+      corpo: "Aviso do Nexa: {{1}}. Abra o app para ver os detalhes.",
+      exemplos: ["Carla espera resposta da equipe há 12 min"],
+    };
+  return null;
+}
+
+// ---------------------------------------------------------------- textos sem aprovação
+export type VariavelTexto = { nome: string; descricao: string; exemplo: string };
+
+export type DefTexto = {
+  chave: string;
+  titulo: string;
+  /** Quando o texto sai, em linguagem simples. */
+  quando: string;
+  variaveis: VariavelTexto[];
+  /** Texto padrão do app; null = igual ao modelo aprovado na Meta (`modeloBase`). */
+  padrao: string | null;
+  modeloBase?: string;
+};
+
+export const TEXTOS: DefTexto[] = [
+  {
+    chave: "livre_posvenda",
+    titulo: "Pós-venda, quando o cliente escreveu há pouco",
+    quando:
+      "Sai no lugar do modelo de pós-venda quando o cliente mandou mensagem nas últimas 24 h.",
+    variaveis: [{ nome: "nome", descricao: "primeiro nome do cliente", exemplo: "Carla" }],
+    padrao: null,
+    modeloBase: "tc_posvenda_resultado",
+  },
+  {
+    chave: "livre_promocao",
+    titulo: "Promoção da agenda, quando o cliente escreveu há pouco",
+    quando: "Sai no lugar do modelo da promoção quando o cliente mandou mensagem nas últimas 24 h.",
+    variaveis: [
+      { nome: "nome", descricao: "primeiro nome do cliente", exemplo: "Carla" },
+      { nome: "desconto", descricao: "desconto da promoção", exemplo: "20%" },
+      { nome: "pix", descricao: "desconto a mais no Pix", exemplo: "5%" },
+    ],
+    padrao: null,
+    modeloBase: "tc_promocao_agenda",
+  },
+  {
+    chave: "aviso_espera",
+    titulo: "Aviso: cliente esperando a equipe",
+    quando: "Vai para o WhatsApp da equipe, dentro do modelo de aviso.",
+    variaveis: [
+      { nome: "cliente", descricao: "nome do cliente", exemplo: "Carla" },
+      { nome: "minutos", descricao: "minutos de espera", exemplo: "12" },
+      {
+        nome: "motivo",
+        descricao: "motivo entre parênteses, se houver",
+        exemplo: " (pediu desconto)",
+      },
+    ],
+    padrao: "{cliente} espera resposta da equipe há {minutos} min{motivo}. Abra Conversas no Nexa.",
+  },
+  {
+    chave: "aviso_resumo",
+    titulo: "Aviso: resumo do dia às 9h",
+    quando: "Vai para o WhatsApp da equipe, dentro do modelo de aviso.",
+    variaveis: [
+      { nome: "servicos_hoje", descricao: "serviços de hoje", exemplo: "3 serviços" },
+      { nome: "atrasados", descricao: "serviços atrasados", exemplo: "1 atrasado" },
+      { nome: "sem_tecnico", descricao: "serviços sem técnico", exemplo: "2 serviços" },
+      { nome: "esperando", descricao: "clientes esperando", exemplo: "1 cliente esperando" },
+    ],
+    padrao: "{servicos_hoje} hoje · {atrasados} · {sem_tecnico} sem técnico · {esperando} a equipe",
+  },
+];
+
+export const CHAVES_TEXTOS = TEXTOS.map((t) => t.chave);
+
+export function defDoTexto(chave: string): DefTexto | undefined {
+  return TEXTOS.find((t) => t.chave === chave);
+}
+
+/** Troca {variavel} pelos valores; variável sem valor vira texto vazio. */
+export function preencherTexto(texto: string, valores: Record<string, string | null | undefined>) {
+  return texto.replace(/\{([a-z_]+)\}/g, (inteiro, v: string) =>
+    v in valores ? (valores[v] ?? "") : inteiro,
+  );
+}
+
+/** Problemas do texto editado (variável desconhecida, vazio, longo demais). */
+export function validarTexto(def: DefTexto, texto: string): string[] {
+  const p: string[] = [];
+  const t = texto.trim();
+  if (!t) p.push("Escreva o texto (ou volte ao padrão).");
+  if (t.length > 2000) p.push("Texto com mais de 2.000 caracteres.");
+  const conhecidas = def.variaveis.map((v) => v.nome);
+  for (const m of t.matchAll(/\{([^{}]*)\}/g)) {
+    if (!conhecidas.includes(m[1] ?? ""))
+      p.push(
+        `Variável {${m[1]}} não existe aqui. Use: ${conhecidas.map((c) => `{${c}}`).join(", ")}.`,
+      );
+  }
+  if (/\{\{/.test(t)) p.push("Aqui as variáveis usam uma chave só: {nome}.");
+  return [...new Set(p)];
+}
+
+/** Texto da empresa (ou o padrão) para a chave. */
+export function textoOuPadrao(chave: string, daEmpresa: Record<string, string>): string | null {
+  return daEmpresa[chave] ?? defDoTexto(chave)?.padrao ?? null;
+}

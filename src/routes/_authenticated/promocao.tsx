@@ -196,7 +196,8 @@ function Promocao() {
             <p className="rounded-card bg-marca-claro p-3 text-sm leading-relaxed">{s.previa}</p>
             <p className="text-xs text-muted-foreground">
               Modelo {s.config.template}, com os botões "Quero reservar" e "Não quero mais ofertas".
-              Quem escreveu nas últimas 24 h recebe o mesmo texto como mensagem comum.
+              Quem escreveu nas últimas 24 h recebe uma mensagem comum, com o texto da tela Modelos
+              de mensagem (sem aprovação).
             </p>
           </Card>
 

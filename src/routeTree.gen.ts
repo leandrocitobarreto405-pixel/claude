@@ -27,6 +27,7 @@ import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
 import { Route as AuthenticatedMarketingRouteImport } from './routes/_authenticated/marketing'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
+import { Route as AuthenticatedModelosMensagemRouteImport } from './routes/_authenticated/modelos-mensagem'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated/nova-os'
 import { Route as AuthenticatedOrigensRouteImport } from './routes/_authenticated/origens'
@@ -160,6 +161,12 @@ const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
   path: '/mensagens',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedModelosMensagemRoute =
+  AuthenticatedModelosMensagemRouteImport.update({
+    id: '/modelos-mensagem',
+    path: '/modelos-mensagem',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNotasRoute = AuthenticatedNotasRouteImport.update({
   id: '/notas',
   path: '/notas',
@@ -397,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/inicio': typeof AuthenticatedInicioRoute
   '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
+  '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
   '/origens': typeof AuthenticatedOrigensRoute
@@ -455,6 +463,7 @@ export interface FileRoutesByTo {
   '/inicio': typeof AuthenticatedInicioRoute
   '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
+  '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
   '/origens': typeof AuthenticatedOrigensRoute
@@ -515,6 +524,7 @@ export interface FileRoutesById {
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
   '/_authenticated/marketing': typeof AuthenticatedMarketingRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
+  '/_authenticated/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/nova-os': typeof AuthenticatedNovaOsRoute
   '/_authenticated/origens': typeof AuthenticatedOrigensRoute
@@ -575,6 +585,7 @@ export interface FileRouteTypes {
     | '/inicio'
     | '/marketing'
     | '/mensagens'
+    | '/modelos-mensagem'
     | '/notas'
     | '/nova-os'
     | '/origens'
@@ -633,6 +644,7 @@ export interface FileRouteTypes {
     | '/inicio'
     | '/marketing'
     | '/mensagens'
+    | '/modelos-mensagem'
     | '/notas'
     | '/nova-os'
     | '/origens'
@@ -692,6 +704,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inicio'
     | '/_authenticated/marketing'
     | '/_authenticated/mensagens'
+    | '/_authenticated/modelos-mensagem'
     | '/_authenticated/notas'
     | '/_authenticated/nova-os'
     | '/_authenticated/origens'
@@ -881,6 +894,13 @@ declare module '@tanstack/react-router' {
       path: '/mensagens'
       fullPath: '/mensagens'
       preLoaderRoute: typeof AuthenticatedMensagensRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/modelos-mensagem': {
+      id: '/_authenticated/modelos-mensagem'
+      path: '/modelos-mensagem'
+      fullPath: '/modelos-mensagem'
+      preLoaderRoute: typeof AuthenticatedModelosMensagemRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notas': {
@@ -1173,6 +1193,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
   AuthenticatedMarketingRoute: typeof AuthenticatedMarketingRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
+  AuthenticatedModelosMensagemRoute: typeof AuthenticatedModelosMensagemRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedNovaOsRoute: typeof AuthenticatedNovaOsRoute
   AuthenticatedOrigensRoute: typeof AuthenticatedOrigensRoute
@@ -1214,6 +1235,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
   AuthenticatedMarketingRoute: AuthenticatedMarketingRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
+  AuthenticatedModelosMensagemRoute: AuthenticatedModelosMensagemRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedNovaOsRoute: AuthenticatedNovaOsRoute,
   AuthenticatedOrigensRoute: AuthenticatedOrigensRoute,

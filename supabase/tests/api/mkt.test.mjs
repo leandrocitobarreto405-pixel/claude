@@ -609,6 +609,44 @@ check(
   r.corpo?.avisos,
 );
 
+// ---------------------------------------------------------------- 12. textos editados no app
+// Pós-venda com o cliente tendo escrito há pouco: sai o texto editado (sem aprovação da Meta).
+sql(`INSERT INTO mensagens_textos (empresa_id, chave, texto)
+     VALUES ('${EMP}', 'livre_posvenda', 'Oi {nome}! Como ficou o estofado? Qualquer coisa é só falar.'),
+            ('${EMP}', 'aviso_espera', 'Atenção: {cliente} aguarda há {minutos} min.')`);
+sql(`INSERT INTO mkt_envios (empresa_id, campanha_id, lote_id, contato_id, normalized_phone, grupo, template_nome,
+       status, agendado_para, gatilho_ref, ordem)
+     SELECT '${EMP}', '${C1C}', 'e6000000-0000-0000-0000-0000000000c1', id, normalized_phone, 'C1',
+            'tc_posvenda_resultado', 'pendente', '${hojeSP} 09:00-03', 'C1:teste2:' || normalized_phone, 5
+       FROM mkt_contatos WHERE normalized_phone = '5511955550001'`);
+sql(`UPDATE mkt_lotes SET status = 'enviando' WHERE id = 'e6000000-0000-0000-0000-0000000000c1'`);
+sql(`UPDATE mkt_campanhas SET status = 'enviando' WHERE id = '${C1C}'`);
+const antes12 = (await logFake()).length;
+r = await rota("mkt-disparo", `?agora=${encodeURIComponent(`${hojeSP}T10:10:00-03:00`)}`);
+const log12 = (await logFake())
+  .slice(antes12)
+  .filter((x) => x.method === "POST" && x.url.endsWith("/messages") && !x.body?.template_params);
+check(
+  "pós-venda em texto livre usa o texto editado no app",
+  log12.some(
+    (x) => x.body?.content === "Oi Caio! Como ficou o estofado? Qualquer coisa é só falar.",
+  ),
+  { disparo: r.corpo?.disparo, msgs: log12.map((x) => x.body?.content) },
+);
+sql(`INSERT INTO conversas (empresa_id, conexao_id, chatwoot_conversation_id, status, aguardando_desde,
+       ultima_atividade_em)
+     VALUES ('${EMP}', 'c0000000-0000-0000-0000-000000000001', 99003, 'open', now() - interval '25 minutes',
+       now() - interval '25 minutes')`);
+r = await rota("mkt-disparo");
+check(
+  "aviso de cliente esperando usa o texto editado no app",
+  /^Atenção: .+ aguarda há 2\d min\.$/.test(
+    sql(`SELECT mensagem FROM mkt_avisos a JOIN conversas c ON c.id = a.conversa_id
+          WHERE c.chatwoot_conversation_id = 99003`),
+  ),
+  r.corpo?.espera,
+);
+
 if (falhas) {
   console.error(`\n${falhas} verificação(ões) falharam`);
   process.exit(1);

@@ -2501,6 +2501,93 @@ export type Database = {
           },
         ];
       };
+      mensagens_textos: {
+        Row: {
+          atualizado_por: string | null;
+          chave: string;
+          empresa_id: string;
+          texto: string;
+          updated_at: string;
+        };
+        Insert: {
+          atualizado_por?: string | null;
+          chave: string;
+          empresa_id: string;
+          texto: string;
+          updated_at?: string;
+        };
+        Update: {
+          atualizado_por?: string | null;
+          chave?: string;
+          empresa_id?: string;
+          texto?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_textos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      meta_conexao_segredos: {
+        Row: {
+          empresa_id: string;
+          token: string;
+          updated_at: string;
+        };
+        Insert: {
+          empresa_id: string;
+          token: string;
+          updated_at?: string;
+        };
+        Update: {
+          empresa_id?: string;
+          token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meta_conexao_segredos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "meta_conexoes";
+            referencedColumns: ["empresa_id"];
+          },
+        ];
+      };
+      meta_conexoes: {
+        Row: {
+          configurada_em: string;
+          configurada_por: string | null;
+          empresa_id: string;
+          waba_id: string;
+          waba_nome: string | null;
+        };
+        Insert: {
+          configurada_em?: string;
+          configurada_por?: string | null;
+          empresa_id: string;
+          waba_id: string;
+          waba_nome?: string | null;
+        };
+        Update: {
+          configurada_em?: string;
+          configurada_por?: string | null;
+          empresa_id?: string;
+          waba_id?: string;
+          waba_nome?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meta_conexoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       mkt_avisos: {
         Row: {
           campanha_id: string | null;
@@ -3279,6 +3366,55 @@ export type Database = {
           },
           {
             foreignKeyName: "mkt_tarefas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      modelos_edicoes: {
+        Row: {
+          acao: string;
+          created_at: string;
+          criado_por: string | null;
+          empresa_id: string;
+          erro: string | null;
+          id: string;
+          idioma: string;
+          ok: boolean;
+          status_antes: string | null;
+          template_id: string | null;
+          template_nome: string;
+        };
+        Insert: {
+          acao: string;
+          created_at?: string;
+          criado_por?: string | null;
+          empresa_id: string;
+          erro?: string | null;
+          id?: string;
+          idioma: string;
+          ok: boolean;
+          status_antes?: string | null;
+          template_id?: string | null;
+          template_nome: string;
+        };
+        Update: {
+          acao?: string;
+          created_at?: string;
+          criado_por?: string | null;
+          empresa_id?: string;
+          erro?: string | null;
+          id?: string;
+          idioma?: string;
+          ok?: boolean;
+          status_antes?: string | null;
+          template_id?: string | null;
+          template_nome?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "modelos_edicoes_empresa_id_fkey";
             columns: ["empresa_id"];
             referencedRelation: "empresas";
             referencedColumns: ["id"];

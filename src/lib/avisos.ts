@@ -1,5 +1,6 @@
 // Regras da tela Avisos (sem acesso a banco, para poder testar).
 // Os avisos vêm de várias fontes que já existem; nada aqui grava no banco.
+import { defDoTexto, preencherTexto } from "@/lib/modelos-mensagem";
 import type { TomChip } from "@/components/nexa";
 import type { Papel } from "@/lib/tenant";
 
@@ -200,22 +201,25 @@ export function esperasParaAvisar(
   );
 }
 
-export function textoEspera(e: EsperaConversa, agora = new Date()): string {
+/** Texto do aviso "cliente esperando". `modelo`: texto editado na tela Modelos de mensagem. */
+export function textoEspera(e: EsperaConversa, agora = new Date(), modelo?: string | null): string {
   const min = Math.max(1, Math.round((agora.getTime() - Date.parse(e.desde)) / 60_000));
-  return `${e.nome} espera resposta da equipe há ${min} min${e.motivo ? ` (${e.motivo})` : ""}. Abra Conversas no Nexa.`;
+  return preencherTexto(modelo || defDoTexto("aviso_espera")!.padrao!, {
+    cliente: e.nome,
+    minutos: String(min),
+    motivo: e.motivo ? ` (${e.motivo})` : "",
+  });
 }
 
-export function textoResumoDoDia(n: {
-  servicosHoje: number;
-  atrasados: number;
-  semTecnico: number;
-  esperando: number;
-}): string {
+export function textoResumoDoDia(
+  n: { servicosHoje: number; atrasados: number; semTecnico: number; esperando: number },
+  modelo?: string | null,
+): string {
   const plural = (q: number, um: string, varios: string) => `${q} ${q === 1 ? um : varios}`;
-  return [
-    `${plural(n.servicosHoje, "serviço", "serviços")} hoje`,
-    plural(n.atrasados, "atrasado", "atrasados"),
-    `${plural(n.semTecnico, "serviço", "serviços")} sem técnico`,
-    `${plural(n.esperando, "cliente esperando", "clientes esperando")} a equipe`,
-  ].join(" · ");
+  return preencherTexto(modelo || defDoTexto("aviso_resumo")!.padrao!, {
+    servicos_hoje: plural(n.servicosHoje, "serviço", "serviços"),
+    atrasados: plural(n.atrasados, "atrasado", "atrasados"),
+    sem_tecnico: plural(n.semTecnico, "serviço", "serviços"),
+    esperando: plural(n.esperando, "cliente esperando", "clientes esperando"),
+  });
 }
