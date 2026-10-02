@@ -18,6 +18,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `mensagens_textos`.
 - "Notificações no celular" (`20261013120000`): só acrescenta `push_inscricoes`,
   `push_preferencias` e `push_envios`. Avisos pelo WhatsApp desligados em 02/10 (dado, não código).
+- "Configuração por empresa" (`20261014120000` e `20261014120001`): acrescenta campos com o
+  valor de hoje (modelos por finalidade, dias de disparo, descrição do negócio na Alice) e troca
+  as funções de horário, reserva e gatilhos para lerem esses campos. A Turbine ficou com os
+  mesmos nomes tc_ e terça a quinta. `20261014120002` (preparação de campanhas) ainda não foi
+  aplicada: o Supabase pede confirmação; até lá a preparação segue com tc_ e terça a quinta.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -34,6 +39,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 02/10/2026 17:28 | Modelos de mensagem | `316b11e`        | `2f900e8`                |
 | 02/10/2026 18:27 | Notificações push   | `b84c49d`        | `50112f8`                |
 | 02/10/2026 18:38 | Tela do serviço     | `3c40039`        | `b84c49d`                |
+| 02/10/2026 19:15 | Conversas (espera)  | `716ea28`        | `3c40039`                |
+| 02/10/2026 22:19 | Config. por empresa | `0e7ab52`        | `716ea28`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
