@@ -6,9 +6,17 @@ publicada assim que passa nos testes. A equipe ainda usa no dia a dia o app anti
 que tem banco próprio no Lovable Cloud (`aainaxrwirzrqmesoidz`), separado deste
 (`avvxapeplhuiruijyyed`).
 
-Mudanças no banco: só a dos "Avisos no WhatsApp" (migração `20261010120000`, aprovada em
-02/10/2026), que apenas acrescenta campos desligados. Voltar a versão do app continua seguro: o
-app anterior simplesmente não usa os campos novos.
+Mudanças no banco (todas aprovadas em 02/10/2026):
+
+- "Avisos no WhatsApp" (`20261010120000`): só acrescenta campos desligados.
+- "Agenda, promoção e contato interno" (`20261011120000` e `20261011120001`): acrescenta as
+  tabelas `contatos_internos`, `veiculos`, `agenda_horarios_base` e `agenda_configuracoes`, o tipo
+  de campanha "promocao" e troca as funções de reserva e conferência do disparo para cancelar
+  envios a contatos internos e respeitar o "Envio ligado" na promoção.
+
+Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
+do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
+sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 
 | Data (UTC)       | Etapa              | Commit publicado | Versão anterior (commit) |
 | ---------------- | ------------------ | ---------------- | ------------------------ |
@@ -17,6 +25,7 @@ app anterior simplesmente não usa os campos novos.
 | 02/10/2026 13:59 | Avisos (tela)      | `133e6bc`        | `fab37c7`                |
 | 02/10/2026 14:21 | Avisos no WhatsApp | `91771de`        | `61c19e2`                |
 | 02/10/2026 14:31 | Marketing          | `79ef000`        | `8d7cbd9`                |
+| 02/10/2026 16:56 | Agenda + promoção  | `f9e84ce`        | `4d9ef1f`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -25,7 +34,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=8d7cbd9135762270e087154c2ed3c881bd6b4fee
+COMMIT=4d9ef1f85d850104f64a7d0d2df6f43c44206dee
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
