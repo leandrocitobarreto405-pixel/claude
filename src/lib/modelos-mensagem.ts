@@ -441,6 +441,20 @@ export const TEXTOS: DefTexto[] = [
     ],
     padrao: "{servicos_hoje} hoje · {atrasados} · {sem_tecnico} sem técnico · {esperando} a equipe",
   },
+  {
+    chave: "tecnico_a_caminho",
+    titulo: "Técnico: avisar que está indo",
+    quando:
+      'Mensagem pronta do botão "Avisar que estou indo" na tela do serviço. O técnico envia pelo WhatsApp dele.',
+    variaveis: [
+      { nome: "cliente", descricao: "primeiro nome do cliente", exemplo: "Carla" },
+      { nome: "tecnico", descricao: "nome do técnico", exemplo: "Josué" },
+      { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
+      { nome: "hora", descricao: "horário do atendimento", exemplo: "14:00" },
+    ],
+    padrao:
+      "Oi, {cliente}! Aqui é o {tecnico}, da {empresa}. Estou a caminho para o seu atendimento das {hora}. Até já!",
+  },
 ];
 
 export const CHAVES_TEXTOS = TEXTOS.map((t) => t.chave);

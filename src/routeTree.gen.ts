@@ -52,6 +52,7 @@ import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authent
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
+import { Route as AuthenticatedServicoVisitIdRouteImport } from './routes/_authenticated/servico.$visitId'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
 import { Route as ApiPublicAdsLeadRouteImport } from './routes/api/public/ads/lead'
 import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
@@ -299,6 +300,12 @@ const AuthenticatedOsOsNumberRoute = AuthenticatedOsOsNumberRouteImport.update({
   path: '/os/$osNumber',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedServicoVisitIdRoute =
+  AuthenticatedServicoVisitIdRouteImport.update({
+    id: '/servico/$visitId',
+    path: '/servico/$visitId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCrmLeadLeadIdRoute =
   AuthenticatedCrmLeadLeadIdRouteImport.update({
     id: '/crm/lead/$leadId',
@@ -427,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -486,6 +494,7 @@ export interface FileRoutesByTo {
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -547,6 +556,7 @@ export interface FileRoutesById {
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
+  '/_authenticated/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -608,6 +618,7 @@ export interface FileRouteTypes {
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
+    | '/servico/$visitId'
     | '/conversas/'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
@@ -667,6 +678,7 @@ export interface FileRouteTypes {
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
+    | '/servico/$visitId'
     | '/conversas'
     | '/orcamentos'
     | '/crm/lead/$leadId'
@@ -727,6 +739,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nexa/empresas'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
+    | '/_authenticated/servico/$visitId'
     | '/_authenticated/conversas/'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
@@ -1071,6 +1084,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOsOsNumberRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/servico/$visitId': {
+      id: '/_authenticated/servico/$visitId'
+      path: '/servico/$visitId'
+      fullPath: '/servico/$visitId'
+      preLoaderRoute: typeof AuthenticatedServicoVisitIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/crm/lead/$leadId': {
       id: '/_authenticated/crm/lead/$leadId'
       path: '/crm/lead/$leadId'
@@ -1216,6 +1236,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
+  AuthenticatedServicoVisitIdRoute: typeof AuthenticatedServicoVisitIdRoute
   AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
   AuthenticatedOrcamentosIndexRoute: typeof AuthenticatedOrcamentosIndexRoute
   AuthenticatedCrmLeadLeadIdRoute: typeof AuthenticatedCrmLeadLeadIdRoute
@@ -1258,6 +1279,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
+  AuthenticatedServicoVisitIdRoute: AuthenticatedServicoVisitIdRoute,
   AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
   AuthenticatedOrcamentosIndexRoute: AuthenticatedOrcamentosIndexRoute,
   AuthenticatedCrmLeadLeadIdRoute: AuthenticatedCrmLeadLeadIdRoute,

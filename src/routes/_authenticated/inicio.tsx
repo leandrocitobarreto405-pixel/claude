@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -181,6 +181,7 @@ type ItemLink = {
 };
 
 function Inicio() {
+  const navigate = useNavigate();
   const month = currentMonth();
   const hoje = todayISO();
   const amanha = tomorrowISO();
@@ -286,7 +287,8 @@ function Inicio() {
 
   function detalhes(id: string) {
     const v = (visitasHoje.data ?? []).find((x) => `os-${x.id}` === id);
-    if (v) return setSelecionada(v);
+    // Serviço: tela cheia (celular do técnico). Orçamento continua na janela.
+    if (v) return void navigate({ to: "/servico/$visitId", params: { visitId: v.id } });
     const b = (orcamentosHoje.data ?? []).find((x) => `orc-${x.id}` === id);
     if (b) setOrcamento(b);
   }

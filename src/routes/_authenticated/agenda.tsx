@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -119,6 +119,7 @@ function reaisSemCentavos(valor: number) {
 }
 
 function Agenda() {
+  const navigate = useNavigate();
   const search = Route.useSearch();
   const hoje = todayISO();
   const [modo, setModo] = useState<Modo>(search.modo);
@@ -258,7 +259,8 @@ function Agenda() {
 
   function detalhes(id: string) {
     const v = visitaPorId.get(id);
-    if (v) return setSelecionada(v);
+    // Serviço: tela cheia (celular do técnico). Orçamento continua na janela.
+    if (v) return void navigate({ to: "/servico/$visitId", params: { visitId: v.id } });
     const b = orcamentoPorId.get(id);
     if (b) setOrcamento(b);
   }
