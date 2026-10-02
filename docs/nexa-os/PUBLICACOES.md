@@ -1,12 +1,16 @@
 # Publicações do redesign e como voltar
 
-O redesign é feito na branch `redesign` e publicado, uma etapa por vez, na branch principal
-`claude/nexa-os-multi-tenant-dl9c3s` (a que o Cloud Run `nexaos` publica para a equipe).
-Nenhuma etapa até aqui mudou o banco, então voltar a versão do app é seguro.
+Desde 02/10/2026 o redesign é feito direto na branch principal
+`claude/nexa-os-multi-tenant-dl9c3s` (a que o Cloud Run `nexaos` publica) e cada etapa é
+publicada assim que passa nos testes. A equipe ainda usa no dia a dia o app antigo do Lovable,
+que tem banco próprio no Lovable Cloud (`aainaxrwirzrqmesoidz`), separado deste
+(`avvxapeplhuiruijyyed`). Nenhuma etapa até aqui mudou o banco, então voltar a versão do app é
+seguro.
 
-| Data (UTC)       | Etapa          | Commit publicado | Versão anterior (commit) |
-| ---------------- | -------------- | ---------------- | ------------------------ |
-| 02/10/2026 00:56 | Base + Agenda  | `86d9d15`        | `4a942a7`                |
+| Data (UTC)       | Etapa              | Commit publicado | Versão anterior (commit) |
+| ---------------- | ------------------ | ---------------- | ------------------------ |
+| 02/10/2026 00:56 | Base + Agenda      | `86d9d15`        | `4a942a7`                |
+| 02/10/2026 13:41 | Início + Conversas | `a8568c6`        | `86d9d15`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
@@ -15,7 +19,7 @@ Enter. Troque o commit se for voltar uma publicação diferente (coluna "Versão
 
 ```bash
 REGIAO=southamerica-east1
-COMMIT=4a942a77f18d42442930d311c422894e931ffa5c
+COMMIT=86d9d1569953b7a9994f3b231c07e69497d17efb
 REV=$(gcloud run revisions list --service nexaos --region "$REGIAO" \
   --filter="metadata.labels.commit-sha=$COMMIT" \
   --sort-by=~metadata.creationTimestamp --format='value(metadata.name)' --limit 1)
