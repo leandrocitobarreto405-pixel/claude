@@ -75,7 +75,7 @@ async function contextoDeUso(db: Db, empresaId: string): Promise<ContextoUso> {
   const [{ data: mkt }, { data: agenda }] = await Promise.all([
     db
       .from("mkt_configuracoes")
-      .select("aviso_template_nome")
+      .select("aviso_template_nome, aviso_whatsapp_ligado")
       .eq("empresa_id", empresaId)
       .maybeSingle(),
     db
@@ -85,7 +85,8 @@ async function contextoDeUso(db: Db, empresaId: string): Promise<ContextoUso> {
       .maybeSingle(),
   ]);
   return {
-    modeloAviso: mkt?.aviso_template_nome ?? "nexa_aviso",
+    // Avisos pelo WhatsApp desligados: o modelo de aviso não é necessário.
+    modeloAviso: mkt?.aviso_whatsapp_ligado ? (mkt.aviso_template_nome ?? "nexa_aviso") : null,
     modeloPromocao: agenda?.promo_template_nome ?? "tc_promocao_agenda",
   };
 }

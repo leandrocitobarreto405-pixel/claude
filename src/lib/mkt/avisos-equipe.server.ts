@@ -159,8 +159,8 @@ export async function gerarAvisosDeEspera(agora = new Date()) {
   return { criados };
 }
 
-/** Resumo do dia (rotina das 9h): um aviso por dia, se a opção estiver ligada. */
-export async function avisoResumoDoDia(db: Db, empresaId: string, hoje = hojeSP()) {
+/** Números do resumo do dia (serviços de hoje, atrasados, sem técnico, clientes esperando). */
+export async function contagensDoDia(db: Db, empresaId: string, hoje = hojeSP()) {
   const [servicos, atrasados, semTecnico, esperando] = await Promise.all([
     db
       .from("visits")
@@ -187,16 +187,18 @@ export async function avisoResumoDoDia(db: Db, empresaId: string, hoje = hojeSP(
       .eq("status", "open")
       .not("aguardando_desde", "is", null),
   ]);
+  return {
+    servicosHoje: servicos.count ?? 0,
+    atrasados: atrasados.count ?? 0,
+    semTecnico: semTecnico.count ?? 0,
+    esperando: esperando.count ?? 0,
+  };
+}
+
+/** Resumo do dia (rotina das 9h): um aviso por dia, se a opção estiver ligada. */
+export async function avisoResumoDoDia(db: Db, empresaId: string, hoje = hojeSP()) {
   const textos = await textosDaEmpresa(db, empresaId);
-  const texto = textoResumoDoDia(
-    {
-      servicosHoje: servicos.count ?? 0,
-      atrasados: atrasados.count ?? 0,
-      semTecnico: semTecnico.count ?? 0,
-      esperando: esperando.count ?? 0,
-    },
-    textos["aviso_resumo"],
-  );
+  const texto = textoResumoDoDia(await contagensDoDia(db, empresaId, hoje), textos["aviso_resumo"]);
   await avisar(db, empresaId, "resumo_diario", "Resumo do dia", texto, null, true);
   return texto;
 }

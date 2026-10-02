@@ -4,6 +4,7 @@
 // tarefas no Chatwoot (opt-out, prioridade), avisos no WhatsApp do dono e avisos da equipe
 // (cliente esperando, resumo do dia, nunca para número de cliente).
 import { execFileSync } from "node:child_process";
+import { createDecipheriv, createECDH, createHmac } from "node:crypto";
 
 const APP = process.env.APP_URL ?? "http://127.0.0.1:3996";
 const FAKE = `http://127.0.0.1:${process.env.PORTA_CHATWOOT ?? 3994}`;
@@ -645,6 +646,111 @@ check(
           WHERE c.chatwoot_conversation_id = 99003`),
   ),
   r.corpo?.espera,
+);
+
+// ---------------------------------------------------------------- 13. notificações no celular
+// Admin (espera de 5 min) e técnico com celular ativo; um celular antigo que cancelou (410).
+const celular = () => {
+  const ecdh = createECDH("prime256v1");
+  ecdh.generateKeys();
+  return { ecdh, auth: Buffer.from("segredo-auth-16b") };
+};
+const abrir = (cel, b64) => {
+  const c = Buffer.from(b64, "base64");
+  const h = (k, v) => createHmac("sha256", k).update(v).digest();
+  const sal = c.subarray(0, 16);
+  const asPub = c.subarray(21, 86);
+  const dados = c.subarray(86);
+  const ikm = h(
+    h(cel.auth, cel.ecdh.computeSecret(asPub)),
+    Buffer.concat([
+      Buffer.from("WebPush: info\0"),
+      cel.ecdh.getPublicKey(),
+      asPub,
+      Buffer.from([1]),
+    ]),
+  );
+  const prk = h(sal, ikm);
+  const dec = createDecipheriv(
+    "aes-128-gcm",
+    h(prk, Buffer.from("Content-Encoding: aes128gcm\0\x01", "binary")).subarray(0, 16),
+    h(prk, Buffer.from("Content-Encoding: nonce\0\x01", "binary")).subarray(0, 12),
+  );
+  dec.setAuthTag(dados.subarray(dados.length - 16));
+  const claro = Buffer.concat([dec.update(dados.subarray(0, dados.length - 16)), dec.final()]);
+  return JSON.parse(claro.subarray(0, -1).toString());
+};
+const celAdmin = celular();
+const celTec = celular();
+const celVelho = celular();
+const ADM = "00000000-0000-0000-0000-00000000f001";
+const TEC = "00000000-0000-0000-0000-00000000f002";
+sql(
+  `INSERT INTO auth.users (id, email) VALUES ('${ADM}', 'adm@push.test'), ('${TEC}', 'tec@push.test')`,
+);
+sql(
+  `INSERT INTO usuarios_empresa (user_id, empresa_id, papel) VALUES ('${ADM}', '${EMP}', 'admin'), ('${TEC}', '${EMP}', 'tecnico')`,
+);
+const insc = (user, nome, cel) =>
+  `('${EMP}', '${user}', 'http://127.0.0.1:3994/push/${nome}', '${cel.ecdh.getPublicKey().toString("base64url")}', '${cel.auth.toString("base64url")}')`;
+// Banco de teste (descartável): libera o endereço http do serviço de push falso.
+sql(`ALTER TABLE push_inscricoes DROP CONSTRAINT push_inscricoes_endpoint_check`);
+sql(`INSERT INTO push_inscricoes (empresa_id, user_id, endpoint, p256dh, auth)
+     VALUES ${insc(ADM, "admin", celAdmin)}, ${insc(TEC, "tec", celTec)}, ${insc(ADM, "velho", celVelho)}`);
+sql(
+  `INSERT INTO push_preferencias (empresa_id, user_id, espera_minutos) VALUES ('${EMP}', '${ADM}', 5)`,
+);
+// Caio escreveu (seção 7) e a conversa ficou com a equipe há 7 min; campanha esperando aprovação.
+sql(`UPDATE conversas SET status = 'open', aguardando_desde = now() - interval '7 minutes'
+      WHERE chatwoot_conversation_id = 1990`);
+sql(`UPDATE whatsapp_messages SET created_at = now() - interval '8 minutes'
+      WHERE conversa_id = (SELECT id FROM conversas WHERE chatwoot_conversation_id = 1990)`);
+sql(`INSERT INTO mkt_campanhas (empresa_id, nome, tipo, mes_ref, status, grupos)
+     VALUES ('${EMP}', 'Campanha do push', 'calendario', '2031-01-01', 'aguardando_aprovacao', '{C4}')`);
+const antes13 = (await logFake()).length;
+r = await rota("mkt-disparo");
+const pushes = (await logFake()).slice(antes13).filter((x) => x.url.startsWith("/push/"));
+const doAdmin = pushes
+  .filter((x) => x.url === "/push/admin")
+  .map((x) => abrir(celAdmin, x.bruto64));
+check(
+  "push: admin recebe cliente esperando e campanha, com a tela certa",
+  doAdmin.some((n) => n.titulo === "Cliente esperando a equipe" && /^\/conversas\//.test(n.url)) &&
+    doAdmin.some((n) => n.titulo === "Campanha esperando aprovação" && n.url === "/marketing") &&
+    pushes.every(
+      (x) =>
+        /^vapid t=.+, k=.+/.test(x.headers.authorization) &&
+        x.headers["content-encoding"] === "aes128gcm",
+    ),
+  { notificacoes: r.corpo?.notificacoes, doAdmin, urls: pushes.map((x) => x.url) },
+);
+check(
+  "push: técnico não recebe conversa nem campanha",
+  !pushes.some((x) => x.url === "/push/tec"),
+  pushes.map((x) => x.url),
+);
+check(
+  "push: celular que cancelou sai da lista",
+  sql(`SELECT count(*) FROM push_inscricoes WHERE endpoint LIKE '%/push/velho'`) === "0",
+);
+const antes13b = (await logFake()).length;
+r = await rota("mkt-disparo");
+check(
+  "push: a mesma notificação não se repete",
+  (await logFake()).slice(antes13b).filter((x) => x.url.startsWith("/push/")).length === 0,
+  r.corpo?.notificacoes,
+);
+// Avisos pelo WhatsApp desligados: nada de modelo de aviso.
+sql(`UPDATE mkt_configuracoes SET aviso_whatsapp_ligado = false WHERE empresa_id = '${EMP}'`);
+sql(
+  `INSERT INTO mkt_avisos (empresa_id, tipo, titulo, mensagem) VALUES ('${EMP}', 'teste', 'Teste', 'não vai')`,
+);
+const antes13c = (await logFake()).length;
+await rota("mkt-disparo");
+check(
+  "avisos pelo WhatsApp desligados: nenhuma mensagem sai",
+  (await logFake()).slice(antes13c).filter((x) => x.body?.template_params?.name === "nexa_aviso")
+    .length === 0,
 );
 
 if (falhas) {

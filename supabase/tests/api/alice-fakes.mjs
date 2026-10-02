@@ -33,6 +33,8 @@ function servidor(porta, tratar) {
         body: json,
         // Multipart (anexo): guarda o texto para achar nome do arquivo e campos.
         multipart: tipo.startsWith("multipart/") ? bruto.toString("latin1") : null,
+        // Notificação no celular (corpo cifrado): guarda os bytes para o teste abrir.
+        bruto64: tipo === "application/octet-stream" ? bruto.toString("base64") : null,
       });
       const r = tratar(req, json);
       res.writeHead(r.status ?? 200, { "Content-Type": r.tipo ?? "application/json" });
@@ -380,6 +382,8 @@ function chatwootMarketing(req, body) {
 }
 
 servidor(PORTA_CHATWOOT, (req, body) => {
+  // Serviço de push falso: /push/velho = celular que cancelou (410).
+  if (req.url.startsWith("/push/")) return { status: req.url === "/push/velho" ? 410 : 201 };
   if (req.url === "/oauth/token")
     return { corpo: { access_token: "token-oauth-empresa", expires_in: 3600 } };
   const sh = /^\/v4\/spreadsheets\/([^/?]+)(\/values\/([^?:]+))?(:clear)?/.exec(req.url);

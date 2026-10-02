@@ -3966,6 +3966,135 @@ export type Database = {
           },
         ];
       };
+      push_envios: {
+        Row: {
+          created_at: string;
+          empresa_id: string;
+          enviados: number;
+          id: string;
+          ref: string;
+          tipo: string;
+          titulo: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          empresa_id: string;
+          enviados?: number;
+          id?: string;
+          ref: string;
+          tipo: string;
+          titulo: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          empresa_id?: string;
+          enviados?: number;
+          id?: string;
+          ref?: string;
+          tipo?: string;
+          titulo?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_envios_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      push_inscricoes: {
+        Row: {
+          aparelho: string | null;
+          auth: string;
+          created_at: string;
+          empresa_id: string;
+          endpoint: string;
+          falhas: number;
+          id: string;
+          p256dh: string;
+          ultimo_envio_em: string | null;
+          user_id: string;
+        };
+        Insert: {
+          aparelho?: string | null;
+          auth: string;
+          created_at?: string;
+          empresa_id: string;
+          endpoint: string;
+          falhas?: number;
+          id?: string;
+          p256dh: string;
+          ultimo_envio_em?: string | null;
+          user_id: string;
+        };
+        Update: {
+          aparelho?: string | null;
+          auth?: string;
+          created_at?: string;
+          empresa_id?: string;
+          endpoint?: string;
+          falhas?: number;
+          id?: string;
+          p256dh?: string;
+          ultimo_envio_em?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_inscricoes_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      push_preferencias: {
+        Row: {
+          agendamento_promocao: boolean;
+          campanha_aprovacao: boolean;
+          cliente_esperando: boolean;
+          empresa_id: string;
+          espera_minutos: number;
+          resumo_dia: boolean;
+          servico_concluido: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          agendamento_promocao?: boolean;
+          campanha_aprovacao?: boolean;
+          cliente_esperando?: boolean;
+          empresa_id: string;
+          espera_minutos?: number;
+          resumo_dia?: boolean;
+          servico_concluido?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          agendamento_promocao?: boolean;
+          campanha_aprovacao?: boolean;
+          cliente_esperando?: boolean;
+          empresa_id?: string;
+          espera_minutos?: number;
+          resumo_dia?: boolean;
+          servico_concluido?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_preferencias_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       quote_items: {
         Row: {
           created_at: string;

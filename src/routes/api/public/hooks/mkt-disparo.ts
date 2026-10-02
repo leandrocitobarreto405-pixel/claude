@@ -10,8 +10,8 @@ function json(body: unknown, status = 200) {
 /**
  * Disparo do marketing (Cloud Scheduler a cada minuto): envia o que já pode sair (flags ligadas,
  * campanha aprovada, horário permitido), faz as tarefas no Chatwoot (etiqueta de opt-out,
- * prioridade) e manda os avisos no WhatsApp do dono (se ligado). Com as flags desligadas não sai
- * nada. Autenticação: Authorization: Bearer $NEXA_TAREFAS_SEGREDO.
+ * prioridade), manda os avisos no WhatsApp do dono (se ligado) e as notificações no celular de
+ * quem ativou. Com as flags desligadas não sai nada para cliente. Autenticação: Authorization: Bearer $NEXA_TAREFAS_SEGREDO.
  * ?agora=<ISO> só nos testes (MKT_TESTE=1).
  */
 export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
@@ -42,6 +42,9 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         const { gerarAvisosDeEspera } = await import("@/lib/mkt/avisos-equipe.server");
         await passo("espera", () => gerarAvisosDeEspera());
         await passo("avisos", () => processarAvisosWhatsapp());
+        // Notificações no celular (Web Push da Nexa; não usa WhatsApp).
+        const { processarNotificacoes } = await import("@/lib/push/notificacoes.server");
+        await passo("notificacoes", () => processarNotificacoes());
         return json({ ok, ...resultado }, ok ? 200 : 500);
       },
     },
