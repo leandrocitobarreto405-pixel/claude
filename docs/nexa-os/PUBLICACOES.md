@@ -51,6 +51,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 02/10/2026 22:44 | Checklist empresa   | `4a6ac5a`        | `30a7c79`                |
 | 03/10/2026 13:40 | Cidade e estado     | `78be8c4`        | `e4aa78c`                |
 | 03/10/2026 18:32 | Convite (WhatsApp)  | `4e03e42`        | `25a9ad6`                |
+| 03/10/2026 19:05 | Esqueci a senha     | `2703b3f`        | `f54d21b`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
