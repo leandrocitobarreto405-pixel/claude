@@ -21,8 +21,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Configuração por empresa" (`20261014120000` e `20261014120001`): acrescenta campos com o
   valor de hoje (modelos por finalidade, dias de disparo, descrição do negócio na Alice) e troca
   as funções de horário, reserva e gatilhos para lerem esses campos. A Turbine ficou com os
-  mesmos nomes tc_ e terça a quinta. `20261014120002` (preparação de campanhas) ainda não foi
-  aplicada: o Supabase pede confirmação; até lá a preparação segue com tc_ e terça a quinta.
+  mesmos nomes tc_ e terça a quinta. `20261014120002` (preparação de campanhas) foi aplicada em 03/10 pelo SQL Editor (o Supabase
+  pedia uma confirmação que não chegava a esta sessão); a função ficou igual à testada (só as
+  quebras de linha vieram no formato do Windows, o que não muda nada).
 - "Configuração da empresa" (`20261015120000` e `20261015120001`): acrescenta
   `implantacao_etapas`, a liberação em `empresas` (a Turbine entrou liberada), travas que impedem
   ligar a Alice e os envios de empresa não liberada, e a reserva do disparo passa a ignorar
