@@ -35,6 +35,8 @@ function AuthPage() {
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [carregando, setCarregando] = useState(false);
+  /** E-mail que ainda não confirmou o cadastro (mostra "Reenviar confirmação"). */
+  const [naoConfirmado, setNaoConfirmado] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -55,11 +57,12 @@ function AuthPage() {
     });
     if (error) {
       setCarregando(false);
-      toast.error(
-        error.message.toLowerCase().includes("not confirmed")
-          ? "E-mail ainda não confirmado. Crie a conta novamente para liberar o acesso."
-          : "Não foi possível entrar. Verifique e-mail e senha.",
-      );
+      if (error.message.toLowerCase().includes("not confirmed")) {
+        setNaoConfirmado(email.trim());
+        toast.error("Seu e-mail ainda não foi confirmado: toque no link que enviamos para ele.");
+      } else {
+        toast.error("Não foi possível entrar. Verifique e-mail e senha.");
+      }
       return;
     }
     try {
@@ -70,6 +73,43 @@ function AuthPage() {
     setCarregando(false);
     toast.success("Bem-vindo de volta!");
     navigate({ to: "/inicio", replace: true });
+  }
+
+  async function esqueciSenha() {
+    const alvo = email.trim();
+    if (!alvo.includes("@")) {
+      toast.error("Escreva seu e-mail no campo acima e toque de novo em “Esqueci minha senha”.");
+      return;
+    }
+    setCarregando(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(alvo, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    setCarregando(false);
+    if (error) {
+      toast.error(`Não foi possível enviar o link: ${error.message}`);
+      return;
+    }
+    toast.success(
+      `Se ${alvo} tiver conta, enviamos um link para criar uma nova senha. Confira também o spam.`,
+      { duration: 10000 },
+    );
+  }
+
+  async function reenviarConfirmacao() {
+    if (!naoConfirmado) return;
+    setCarregando(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: naoConfirmado,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setCarregando(false);
+    if (error) {
+      toast.error(`Não foi possível reenviar: ${error.message}`);
+      return;
+    }
+    toast.success(`Enviamos de novo o link de confirmação para ${naoConfirmado}.`);
   }
 
   async function cadastrar(e: React.FormEvent) {
@@ -104,7 +144,15 @@ function AuthPage() {
       });
       if (loginError) {
         setCarregando(false);
-        toast.error("Conta criada. Tente entrar na aba “Entrar”.");
+        if (loginError.message.toLowerCase().includes("not confirmed")) {
+          setNaoConfirmado(email.trim());
+          toast.success(
+            `Conta criada! Enviamos um link de confirmação para ${email.trim()}. Toque nele e depois entre pela aba “Entrar”.`,
+            { duration: 10000 },
+          );
+        } else {
+          toast.error("Conta criada. Tente entrar na aba “Entrar”.");
+        }
         return;
       }
     }
@@ -179,6 +227,26 @@ function AuthPage() {
                 <Button type="submit" className="h-11 w-full" disabled={carregando}>
                   {carregando ? "Entrando..." : "Entrar"}
                 </Button>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <button
+                    type="button"
+                    className="min-h-11 text-sm font-semibold text-marca hover:underline"
+                    onClick={() => void esqueciSenha()}
+                    disabled={carregando}
+                  >
+                    Esqueci minha senha
+                  </button>
+                  {naoConfirmado ? (
+                    <button
+                      type="button"
+                      className="min-h-11 text-sm font-semibold text-marca hover:underline"
+                      onClick={() => void reenviarConfirmacao()}
+                      disabled={carregando}
+                    >
+                      Reenviar confirmação
+                    </button>
+                  ) : null}
+                </div>
               </form>
             </TabsContent>
 
@@ -213,6 +281,16 @@ function AuthPage() {
                 <Button type="submit" className="h-11 w-full" disabled={carregando}>
                   {carregando ? "Criando conta..." : "Criar conta"}
                 </Button>
+                {naoConfirmado ? (
+                  <button
+                    type="button"
+                    className="min-h-11 w-full text-sm font-semibold text-marca hover:underline"
+                    onClick={() => void reenviarConfirmacao()}
+                    disabled={carregando}
+                  >
+                    Não chegou? Reenviar confirmação
+                  </button>
+                ) : null}
               </form>
             </TabsContent>
           </Tabs>

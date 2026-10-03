@@ -74,34 +74,28 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
     >();
     let encerradas = 0;
     let falhas = 0;
-    for (const c of lista) {
-      if (!conexoes.has(c.conexao_id)) {
-        const [{ data: cx }, { data: sg }] = await Promise.all([
-          db
-            .from("chatwoot_conexoes")
-            .select("base_url, account_id")
-            .eq("id", c.conexao_id)
-            .maybeSingle(),
-          db
-            .from("chatwoot_conexao_segredos")
-            .select("api_token")
-            .eq("conexao_id", c.conexao_id)
-            .maybeSingle(),
-        ]);
-        conexoes.set(
-          c.conexao_id,
-          cx && sg?.api_token
-            ? {
-                conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
-                token: sg.api_token,
-              }
-            : null,
-        );
-      }
+    // Conexões primeiro (normalmente uma só), depois o Chatwoot em lotes paralelos de 5: o app atrás
+    // do Firebase Hosting tem 60 s por pedido, e 100 conversas em fila podiam passar disso.
+    for (const id of new Set(lista.map((c) => c.conexao_id))) {
+      const [{ data: cx }, { data: sg }] = await Promise.all([
+        db.from("chatwoot_conexoes").select("base_url, account_id").eq("id", id).maybeSingle(),
+        db.from("chatwoot_conexao_segredos").select("api_token").eq("conexao_id", id).maybeSingle(),
+      ]);
+      conexoes.set(
+        id,
+        cx && sg?.api_token
+          ? {
+              conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
+              token: sg.api_token,
+            }
+          : null,
+      );
+    }
+    const encerrar = async (c: (typeof lista)[number]) => {
       const cx = conexoes.get(c.conexao_id);
       if (!cx) {
         falhas++;
-        continue;
+        return;
       }
       try {
         await mudarSituacao(cx.conta, cx.token, Number(c.chatwoot_conversation_id), "resolved");
@@ -118,7 +112,9 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
           erro: e instanceof Error ? e.message.slice(0, 200) : String(e),
         });
       }
-    }
+    };
+    for (let i = 0; i < lista.length; i += 5)
+      await Promise.all(lista.slice(i, i + 5).map(encerrar));
     log("INFO", "conversas.encerradas_em_lote", { empresa: context.empresaId, encerradas, falhas });
     return { encerradas, falhas };
   });

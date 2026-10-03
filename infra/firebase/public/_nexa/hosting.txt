@@ -1,0 +1,3 @@
+Firebase Hosting do Nexa OS: tudo é repassado ao Cloud Run "nexaos" (southamerica-east1).
+Esta pasta existe só porque o Firebase exige uma pasta pública; não coloque arquivos aqui
+(arquivos estáticos têm prioridade sobre o app).
