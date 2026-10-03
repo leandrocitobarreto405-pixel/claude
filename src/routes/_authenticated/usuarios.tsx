@@ -10,6 +10,7 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { dateBR } from "@/lib/format";
 import { convidarUsuario, useMinhaEmpresa, type Papel } from "@/lib/tenant";
+import { AcoesConvite } from "@/components/usuarios/acoes-convite";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -40,6 +41,7 @@ function Usuarios() {
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<Papel>("atendente");
   const [enviando, setEnviando] = useState(false);
+  const [convidado, setConvidado] = useState<{ email: string; papel: Papel } | null>(null);
 
   const empresaId = vinculo?.empresa.id ?? null;
 
@@ -91,7 +93,8 @@ function Usuarios() {
     setEnviando(true);
     try {
       await convidarUsuario(email.trim(), papel);
-      toast.success("Convite registrado. A pessoa entra criando a conta com este e-mail.");
+      toast.success("Convite registrado. Agora envie a mensagem para a pessoa.");
+      setConvidado({ email: email.trim().toLowerCase(), papel });
       setEmail("");
       void queryClient.invalidateQueries({ queryKey: ["convites_empresa"] });
       void queryClient.invalidateQueries({ queryKey: ["equipe_empresa"] });
@@ -162,6 +165,19 @@ function Usuarios() {
           <p className="text-xs text-muted-foreground">
             {PAPEIS.map((p) => `${p.label}: ${p.descricao}`).join(" · ")}
           </p>
+          {convidado && vinculo ? (
+            <div className="space-y-3 rounded-botao bg-marca-claro p-4">
+              <p className="text-sm">
+                <b>Convite registrado para {convidado.email}.</b> O Nexa não manda e-mail de
+                convite: envie a mensagem com o passo a passo para a pessoa criar a conta.
+              </p>
+              <AcoesConvite
+                empresa={vinculo.empresa.nome}
+                email={convidado.email}
+                papel={convidado.papel}
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -205,15 +221,25 @@ function Usuarios() {
           <h2 className="mb-3 text-lg font-semibold">Convites</h2>
           <div className="space-y-2 text-sm">
             {(convites.data ?? []).map((c) => (
-              <div key={c.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {c.email} · {c.papel}
-                </span>
-                <Badge
-                  className={c.aceito_em ? "bg-success text-success-foreground" : "bg-secondary"}
-                >
-                  {c.aceito_em ? "Ativo" : "Aguardando cadastro"}
-                </Badge>
+              <div key={c.id} className="space-y-2 border-b border-border pb-3 last:border-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {c.email} · {c.papel}
+                  </span>
+                  <Badge
+                    className={c.aceito_em ? "bg-success text-success-foreground" : "bg-secondary"}
+                  >
+                    {c.aceito_em ? "Ativo" : "Aguardando cadastro"}
+                  </Badge>
+                </div>
+                {!c.aceito_em && vinculo ? (
+                  <AcoesConvite
+                    empresa={vinculo.empresa.nome}
+                    email={c.email}
+                    papel={c.papel as Papel}
+                    reenviar
+                  />
+                ) : null}
               </div>
             ))}
           </div>
