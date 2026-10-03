@@ -11,6 +11,7 @@ import {
   avaliarEtapas,
   marcacaoPermitida,
   resumoEtapas,
+  validarDadosEmpresa,
   type Etapa,
   type Marcacao,
   type Resumo,
@@ -76,28 +77,18 @@ export const marcarEtapaFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Dados básicos da empresa (CNPJ e telefone; o nome só a Nexa muda). */
+/** Dados básicos da empresa (CNPJ, telefone, cidade e estado; o nome só a Nexa muda). */
 export const salvarDadosEmpresaFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
-  .inputValidator((i: { cnpj: string; telefone: string }) => {
-    const cnpj = String(i.cnpj ?? "").trim();
-    const telefone = String(i.telefone ?? "").trim();
-    if (cnpj && cnpj.replace(/\D/g, "").length !== 14)
-      throw new Error("CNPJ precisa ter 14 números.");
-    const digitos = telefone.replace(/\D/g, "");
-    if (telefone && (digitos.length < 10 || digitos.length > 13))
-      throw new Error("Telefone com DDD, por exemplo (11) 99999-0000.");
-    return { cnpj: cnpj.slice(0, 20), telefone: telefone.slice(0, 20) };
-  })
+  .inputValidator((i: { cnpj?: string; telefone?: string; cidade?: string; estado?: string }) =>
+    validarDadosEmpresa(i),
+  )
   .handler(async ({ data, context }) => {
     // Campo vazio fica como está.
-    const mudancas: { cnpj?: string; telefone?: string } = {};
-    if (data.cnpj) mudancas.cnpj = data.cnpj;
-    if (data.telefone) mudancas.telefone = data.telefone;
-    if (!Object.keys(mudancas).length) throw new Error("Preencha o CNPJ ou o telefone.");
+    if (!Object.keys(data).length) throw new Error("Preencha pelo menos um campo.");
     const { error } = await context.supabase
       .from("empresas")
-      .update(mudancas)
+      .update(data)
       .eq("id", context.empresaId);
     if (error) throw new Error(`Não foi possível salvar: ${error.message}`);
     return { ok: true };

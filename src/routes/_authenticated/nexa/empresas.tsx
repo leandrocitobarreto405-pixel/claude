@@ -24,6 +24,7 @@ import {
   ImplantacaoDaEmpresa,
 } from "@/components/implantacao/implantacao-nexa";
 import { implantacoesNexaFn } from "@/lib/implantacao.functions";
+import { ESTADOS } from "@/lib/implantacao";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
   head: () => ({
@@ -51,6 +52,8 @@ type LinhaEmpresa = {
   nome: string;
   cnpj: string | null;
   telefone: string | null;
+  cidade: string | null;
+  estado: string | null;
   ativo: boolean;
   vigente: Contrato | null;
   historico: Contrato[];
@@ -88,7 +91,10 @@ function EmpresasNexa() {
     queryKey: ["nexa_empresas"],
     queryFn: async (): Promise<LinhaEmpresa[]> => {
       const [lista, contratos] = await Promise.all([
-        supabase.from("empresas").select("id, nome, cnpj, telefone, ativo").order("nome"),
+        supabase
+          .from("empresas")
+          .select("id, nome, cnpj, telefone, cidade, estado, ativo")
+          .order("nome"),
         supabase
           .from("contratos_comissao")
           .select("id, empresa_id, percentual, vigencia_inicio, vigencia_fim")
@@ -113,6 +119,8 @@ function EmpresasNexa() {
   const [nome, setNome] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
   const [percentual, setPercentual] = useState("");
   const [criando, setCriando] = useState(false);
 
@@ -139,19 +147,29 @@ function EmpresasNexa() {
       return;
     }
     setCriando(true);
-    const { error } = await supabase.rpc("provisionar_empresa", {
+    const { data: novaId, error } = await supabase.rpc("provisionar_empresa", {
       _nome: nome.trim(),
       ...(cnpj.trim() ? { _cnpj: cnpj.trim() } : {}),
       ...(telefone.trim() ? { _telefone: telefone.trim() } : {}),
       ...(pctInformado !== null ? { _percentual_comissao: pctInformado } : {}),
     });
-    setCriando(false);
     if (error) {
+      setCriando(false);
       toast.error(`Não foi possível cadastrar: ${error.message}`);
       return;
     }
+    if (novaId && (cidade.trim() || estado)) {
+      const local = await supabase
+        .from("empresas")
+        .update({ cidade: cidade.trim() || null, estado: estado || null })
+        .eq("id", novaId as string);
+      if (local.error) toast.error(`Cidade e estado não foram salvos: ${local.error.message}`);
+    }
+    setCriando(false);
     toast.success("Empresa cadastrada.");
     setNome("");
+    setCidade("");
+    setEstado("");
     setCnpj("");
     setTelefone("");
     setPercentual("");
@@ -215,7 +233,7 @@ function EmpresasNexa() {
 
       <section className="card-surface mb-6 space-y-4 p-5">
         <h2 className="text-lg font-semibold">Cadastrar empresa</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_140px_auto] lg:items-end">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_120px_auto] lg:items-end">
           <div className="space-y-2">
             <Label htmlFor="empresa-nome">Nome</Label>
             <Input id="empresa-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
@@ -231,6 +249,26 @@ function EmpresasNexa() {
               value={telefone}
               onChange={(e) => setTelefone(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="empresa-cidade">Cidade</Label>
+            <Input id="empresa-cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="empresa-estado">Estado</Label>
+            <select
+              id="empresa-estado"
+              className="min-h-11 w-full rounded-botao border border-input bg-card px-3 text-sm text-foreground"
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+            >
+              <option value="">Escolha</option>
+              {ESTADOS.map((uf) => (
+                <option key={uf.sigla} value={uf.sigla}>
+                  {uf.nome} ({uf.sigla})
+                </option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="empresa-pct">Comissão (%)</Label>
@@ -284,7 +322,9 @@ function EmpresasNexa() {
                   {e.nome} {!e.ativo ? <Badge className="ml-1 bg-secondary">inativa</Badge> : null}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {[e.cnpj, e.telefone].filter(Boolean).join(" · ") || "sem CNPJ"}
+                  {[e.cnpj, e.telefone, e.cidade && e.estado ? `${e.cidade}/${e.estado}` : null]
+                    .filter(Boolean)
+                    .join(" · ") || "sem CNPJ"}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">

@@ -27,6 +27,8 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `implantacao_etapas`, a liberação em `empresas` (a Turbine entrou liberada), travas que impedem
   ligar a Alice e os envios de empresa não liberada, e a reserva do disparo passa a ignorar
   empresa não liberada. Voltar o app não precisa mexer no banco: o app anterior não usa nada disso.
+- "Cidade e estado" (`20261016120000`): só acrescenta `cidade` e `estado` em `empresas` (Turbine
+  São Paulo/SP). O rodízio não precisou de banco: só vale com veículo com dia de rodízio.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -88,3 +90,63 @@ gcloud run services update-traffic nexaos --region southamerica-east1 --to-lates
 Peça ao Claude "desfaz a publicação". Ele cria na principal um commit que desfaz a etapa (sem
 apagar histórico, sem problema com o Lovable) e o Cloud Run publica a versão antiga em ~5
 minutos. Depois disso, solte o tráfego com `--to-latest` se tiver usado o caminho rápido.
+
+## Pendências
+
+### Fuso horário por empresa (adiado em 03/10/2026)
+
+Fazer só quando entrar uma empresa de **AM, RR, RO, MT, MS ou AC**. Até lá todas as empresas usam o
+horário de São Paulo (os outros estados têm o mesmo horário).
+
+Plano aprovado em linhas gerais (Etapa 2 do plano de 03/10):
+
+- Coluna `fuso` em `empresas`, deduzida do estado sempre que ele muda, com São Paulo como padrão:
+  AM `America/Manaus`, RR `America/Boa_Vista`, RO `America/Porto_Velho`, MT `America/Cuiaba`,
+  MS `America/Campo_Grande`, AC `America/Rio_Branco`; demais estados `America/Sao_Paulo`.
+- Funções `private.fuso_empresa(_emp)` e `private.hoje_empresa(_emp)` no lugar do horário fixo.
+- Teste com uma empresa em Cuiabá: dispara às 10h de lá, a Alice respeita o horário local.
+- Turbine continua com São Paulo: nada muda para ela.
+
+Levantamento feito em 03/10/2026 (para não refazer):
+
+**15 funções do banco com `America/Sao_Paulo` fixo**
+
+| Função                            | Para que serve o horário                          |
+| --------------------------------- | ------------------------------------------------- |
+| `private.hoje_sp`                 | "hoje" usado por várias outras (contratos, datas) |
+| `private.aplicar_evento_chatwoot` | data das mensagens e esperas                      |
+| `private.atualizar_marcos_lead`   | datas do funil do lead                            |
+| `public.indicadores_funil`        | agrupamento por dia/mês                           |
+| `public.mkt_aprovar_campanha`     | véspera do disparo e horário agendado             |
+| `public.mkt_calcular_grupos`      | "hoje" dos grupos de marketing                    |
+| `public.mkt_confirmar_envio`      | janela de envio antes de mandar                   |
+| `public.mkt_criar_promocao`       | datas da promoção                                 |
+| `public.mkt_gerar_gatilhos`       | dia dos gatilhos (pós-venda, lembretes)           |
+| `public.mkt_importar_contatos`    | datas dos contatos importados                     |
+| `private.mkt_os_atualizada`       | data do serviço para os grupos                    |
+| `public.mkt_preparar_campanha`    | "hoje" da preparação                              |
+| `private.mkt_proximo_horario`     | próximo horário de disparo                        |
+| `public.mkt_reservar_envios`      | janela das 8h às 21h, dia e hora do disparo       |
+| `public.mkt_retomar`              | horário ao retomar campanha pausada               |
+
+**14 arquivos do app com `America/Sao_Paulo` fixo**
+
+| Arquivo                                                  | O que usa                                  |
+| -------------------------------------------------------- | ------------------------------------------ |
+| `src/lib/format.ts`                                      | `TZ` das datas mostradas nas telas         |
+| `src/lib/alice/regras.ts`                                | `FUSO` do horário de atendimento da Alice  |
+| `src/lib/alice/prompt.ts`                                | "hoje é…" no prompt da Alice               |
+| `src/lib/alice/marketing.server.ts`                      | "hoje" das campanhas na Alice              |
+| `src/lib/conversas.ts`                                   | horários na lista de conversas             |
+| `src/lib/inicio.ts`                                      | "hoje" da tela Início                      |
+| `src/lib/google-calendar.server.ts`                      | `TIMEZONE` dos eventos da Agenda do Google |
+| `src/lib/mkt/campanhas.server.ts`                        | "hoje" das campanhas                       |
+| `src/lib/push/notificacoes.server.ts`                    | resumo das 9h e "hoje" das notificações    |
+| `src/routes/_authenticated/nexa/chatwoot.tsx`            | horário dos eventos do Chatwoot            |
+| `src/routes/_authenticated/nexa/empresas.tsx`            | data inicial da comissão                   |
+| `src/routes/_authenticated/orcamentos/index.tsx`         | mês atual dos orçamentos                   |
+| `src/routes/api/public/hooks/monthly-mileage-closing.ts` | mês do fechamento de quilometragem         |
+| `src/routes/api/public/hooks/recurring-expenses.ts`      | mês das despesas recorrentes               |
+
+Conferir de novo antes de começar: `grep -rl "America/Sao_Paulo" src` e
+`SELECT proname FROM pg_proc WHERE prosrc LIKE '%America/Sao_Paulo%'`.

@@ -32,7 +32,8 @@ CFG
 PID=$!
 trap 'kill ${PID} 2>/dev/null; rm -f "${CONF}" "${CONF}.log"' EXIT
 for _ in $(seq 1 30); do
-  curl -s "http://localhost:${PORTA}/" >/dev/null 2>&1 && break
+  # Pronto = 200 (enquanto carrega o esquema ele responde 503).
+  curl -sf "http://localhost:${PORTA}/" >/dev/null 2>&1 && break
   sleep 0.3
 done
 

@@ -1652,9 +1652,11 @@ export type Database = {
       empresas: {
         Row: {
           ativo: boolean;
+          cidade: string | null;
           cnpj: string | null;
           controle_insumos_ativo: boolean;
           created_at: string;
+          estado: string | null;
           id: string;
           implantacao_liberada_em: string | null;
           implantacao_liberada_por: string | null;
@@ -1665,9 +1667,11 @@ export type Database = {
         };
         Insert: {
           ativo?: boolean;
+          cidade?: string | null;
           cnpj?: string | null;
           controle_insumos_ativo?: boolean;
           created_at?: string;
+          estado?: string | null;
           id?: string;
           implantacao_liberada_em?: string | null;
           implantacao_liberada_por?: string | null;
@@ -1678,9 +1682,11 @@ export type Database = {
         };
         Update: {
           ativo?: boolean;
+          cidade?: string | null;
           cnpj?: string | null;
           controle_insumos_ativo?: boolean;
           created_at?: string;
+          estado?: string | null;
           id?: string;
           implantacao_liberada_em?: string | null;
           implantacao_liberada_por?: string | null;

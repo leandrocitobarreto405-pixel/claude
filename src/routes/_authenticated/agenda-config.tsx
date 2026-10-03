@@ -64,7 +64,10 @@ function AgendaConfig() {
         <>
           <TecnicosVeiculos d={d} />
           <HorariosBase d={d} />
-          <Regras config={d.config} />
+          <Regras
+            config={d.config}
+            rodizioSeAplica={d.veiculos.some((v) => v.diaRodizio != null)}
+          />
           <ContatosInternos />
         </>
       )}
@@ -394,7 +397,14 @@ function ordenar(a: { diaSemana: number; hora: string }, b: { diaSemana: number;
 }
 
 // ---------------------------------------------------------------- rodízio e promoção
-function Regras({ config }: { config: ConfigAgenda }) {
+function Regras({
+  config,
+  rodizioSeAplica,
+}: {
+  config: ConfigAgenda;
+  /** Algum veículo tem dia de rodízio (senão o rodízio não se aplica à empresa). */
+  rodizioSeAplica: boolean;
+}) {
   const qc = useQueryClient();
   const salvarFn = useServerFn(salvarAgendaConfig);
   const [c, setC] = useState(config);
@@ -448,8 +458,18 @@ function Regras({ config }: { config: ConfigAgenda }) {
 
   return (
     <>
-      <Recolhido titulo="Rodízio" icone={<Car className="size-5 text-marca" aria-hidden />}>
+      <Recolhido
+        titulo="Rodízio"
+        icone={<Car className="size-5 text-marca" aria-hidden />}
+        extra={rodizioSeAplica ? null : <Chip>Não se aplica</Chip>}
+      >
         <div className="flex flex-col gap-4 p-4">
+          {rodizioSeAplica ? null : (
+            <p className="rounded-botao bg-background p-3 text-sm">
+              Nenhum veículo tem dia de rodízio, então a Agenda não dá avisos de rodízio. Para usar,
+              cadastre o dia de rodízio no veículo (em Técnicos e veículos).
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             No dia do rodízio do veículo, a Agenda avisa (sem bloquear) quando o atendimento começa
             cedo demais ou quando o fim, somando a volta, passa do início do rodízio da tarde.

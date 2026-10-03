@@ -51,7 +51,7 @@ export async function fatosDaEmpresa(
     caixas,
     { data: alice },
     { data: meta },
-    veiculos,
+    { data: veiculos },
     { data: google },
     contatos,
     campanhas,
@@ -60,7 +60,7 @@ export async function fatosDaEmpresa(
   ] = await Promise.all([
     db
       .from("empresas")
-      .select("nome, cnpj, telefone, created_at, implantacao_liberada_em")
+      .select("nome, cnpj, telefone, cidade, estado, created_at, implantacao_liberada_em")
       .eq("id", empresaId)
       .single(),
     db.from("usuarios_empresa").select("papel").eq("empresa_id", empresaId),
@@ -101,7 +101,7 @@ export async function fatosDaEmpresa(
       .eq("empresa_id", empresaId)
       .maybeSingle(),
     db.from("meta_conexoes").select("waba_id").eq("empresa_id", empresaId).maybeSingle(),
-    contar(db.from("veiculos").select("id", head).eq("empresa_id", empresaId)),
+    db.from("veiculos").select("dia_rodizio").eq("empresa_id", empresaId),
     db.from("google_conexoes").select("situacao").eq("empresa_id", empresaId).maybeSingle(),
     contar(db.from("mkt_contatos").select("id", head).eq("empresa_id", empresaId)),
     contar(
@@ -131,7 +131,13 @@ export async function fatosDaEmpresa(
   }
 
   const fatos: Fatos = {
-    empresa: { nome: empresa.nome, cnpj: empresa.cnpj, telefone: empresa.telefone },
+    empresa: {
+      nome: empresa.nome,
+      cnpj: empresa.cnpj,
+      telefone: empresa.telefone,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+    },
     usuarios: {
       admin: n("admin"),
       atendente: n("atendente"),
@@ -156,7 +162,10 @@ export async function fatosDaEmpresa(
         }
       : null,
     tokenMeta: Boolean(meta?.waba_id),
-    veiculos,
+    veiculos: {
+      total: (veiculos ?? []).length,
+      comRodizio: (veiculos ?? []).filter((v) => v.dia_rodizio != null).length,
+    },
     google: google?.situacao === "conectada",
     marketing: { contatos, campanhas },
     notificacoes: celulares,

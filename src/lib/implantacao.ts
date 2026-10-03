@@ -25,7 +25,13 @@ export type ChaveEtapa =
 
 /** O que o servidor levantou da empresa. */
 export type Fatos = {
-  empresa: { nome: string; cnpj: string | null; telefone: string | null };
+  empresa: {
+    nome: string;
+    cnpj: string | null;
+    telefone: string | null;
+    cidade: string | null;
+    estado: string | null;
+  };
   usuarios: { admin: number; atendente: number; tecnico: number; convitesPendentes: number };
   precos: number;
   taxas: number;
@@ -45,7 +51,8 @@ export type Fatos = {
     area: boolean;
   } | null;
   tokenMeta: boolean;
-  veiculos: number;
+  /** Veículos cadastrados e quantos têm dia de rodízio. */
+  veiculos: { total: number; comRodizio: number };
   google: boolean;
   marketing: { contatos: number; campanhas: number };
   notificacoes: number;
@@ -100,8 +107,12 @@ const DEFS: Def[] = [
         !cheio(e.nome) && "o nome",
         !cheio(e.cnpj) && "o CNPJ",
         !cheio(e.telefone) && "o telefone",
+        !cheio(e.cidade) && "a cidade",
+        !cheio(e.estado) && "o estado",
       ].filter((x): x is string => Boolean(x));
-      return sem.length ? falta(`Falta ${faltam(sem)}.`) : pronta("Nome, CNPJ e telefone.");
+      return sem.length
+        ? falta(`Falta ${faltam(sem)}.`)
+        : pronta(`Nome, CNPJ, telefone e endereço (${e.cidade}/${e.estado}).`);
     },
   },
   {
@@ -271,11 +282,17 @@ const DEFS: Def[] = [
     obrigatoria: false,
     resolver: { rotulo: "Abrir agenda", para: "/agenda-config" },
     podeRevisar: false,
-    podeNaoSeAplica: true,
-    avaliar: ({ veiculos }) =>
-      veiculos
-        ? pronta(plural(veiculos, "veículo cadastrado", "veículos cadastrados") + ".")
-        : falta('Nenhum veículo. Fora de São Paulo, toque em "Não se aplica".'),
+    // Sem veículo com dia de rodízio, o rodízio não se aplica (empresa nova começa assim).
+    podeNaoSeAplica: false,
+    avaliar: ({ veiculos: v }) =>
+      v.comRodizio
+        ? pronta(`${plural(v.total, "veículo", "veículos")}, ${v.comRodizio} com dia de rodízio.`)
+        : {
+            situacao: "nao_se_aplica",
+            detalhe: v.total
+              ? `Rodízio não se aplica: ${plural(v.total, "veículo", "veículos")} sem dia de rodízio.`
+              : "Rodízio não se aplica: nenhum veículo com dia de rodízio.",
+          },
   },
   {
     chave: "google",
@@ -322,7 +339,13 @@ export const CHAVES_ETAPAS = DEFS.map((d) => d.chave);
 
 export function avaliarEtapas(f: Fatos): Etapa[] {
   return DEFS.map(({ avaliar, ...def }) => {
-    const marcada = f.marcadas[def.chave] ?? null;
+    // Marcação que a etapa não aceita (mais) é ignorada.
+    const salva = f.marcadas[def.chave] ?? null;
+    const marcada =
+      (salva === "revisado" && def.podeRevisar) ||
+      (salva === "nao_se_aplica" && def.podeNaoSeAplica)
+        ? salva
+        : null;
     const r =
       def.podeNaoSeAplica && marcada === "nao_se_aplica"
         ? { situacao: "nao_se_aplica" as const, detalhe: "Marcada como não se aplica." }
@@ -365,4 +388,65 @@ export function marcacaoPermitida(chave: string, m: Marcacao | "pendente"): chav
   if (!def) return false;
   if (m === "pendente") return true;
   return m === "revisado" ? def.podeRevisar : def.podeNaoSeAplica;
+}
+
+/** Estados (sigla e nome), para os dados da empresa. */
+export const ESTADOS: { sigla: string; nome: string }[] = [
+  ["AC", "Acre"],
+  ["AL", "Alagoas"],
+  ["AP", "Amapá"],
+  ["AM", "Amazonas"],
+  ["BA", "Bahia"],
+  ["CE", "Ceará"],
+  ["DF", "Distrito Federal"],
+  ["ES", "Espírito Santo"],
+  ["GO", "Goiás"],
+  ["MA", "Maranhão"],
+  ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"],
+  ["MG", "Minas Gerais"],
+  ["PA", "Pará"],
+  ["PB", "Paraíba"],
+  ["PR", "Paraná"],
+  ["PE", "Pernambuco"],
+  ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"],
+  ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"],
+  ["RR", "Roraima"],
+  ["SC", "Santa Catarina"],
+  ["SP", "São Paulo"],
+  ["SE", "Sergipe"],
+  ["TO", "Tocantins"],
+].map(([sigla, nome]) => ({ sigla: sigla!, nome: nome! }));
+
+/** Valida os dados que a empresa preenche. Campo vazio fica como está. */
+export function validarDadosEmpresa(i: {
+  cnpj?: string;
+  telefone?: string;
+  cidade?: string;
+  estado?: string;
+}): { cnpj?: string; telefone?: string; cidade?: string; estado?: string } {
+  const cnpj = String(i.cnpj ?? "").trim();
+  const telefone = String(i.telefone ?? "").trim();
+  const cidade = String(i.cidade ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const estado = String(i.estado ?? "")
+    .trim()
+    .toUpperCase();
+  if (cnpj && cnpj.replace(/\D/g, "").length !== 14)
+    throw new Error("CNPJ precisa ter 14 números.");
+  const digitos = telefone.replace(/\D/g, "");
+  if (telefone && (digitos.length < 10 || digitos.length > 13))
+    throw new Error("Telefone com DDD, por exemplo (11) 99999-0000.");
+  if (cidade && (cidade.length < 2 || cidade.length > 80)) throw new Error("Cidade inválida.");
+  if (estado && !ESTADOS.some((e) => e.sigla === estado)) throw new Error("Escolha o estado.");
+  const r: { cnpj?: string; telefone?: string; cidade?: string; estado?: string } = {};
+  if (cnpj) r.cnpj = cnpj.slice(0, 20);
+  if (telefone) r.telefone = telefone.slice(0, 20);
+  if (cidade) r.cidade = cidade;
+  if (estado) r.estado = estado;
+  return r;
 }

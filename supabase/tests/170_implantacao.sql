@@ -104,4 +104,16 @@ SELECT pg_temp.ok(NOT (SELECT ativo FROM public.ia_configuracoes WHERE empresa_i
 SELECT pg_temp.ok(NOT (SELECT disparo_ligado OR gatilho_c1_ligado FROM public.mkt_configuracoes
                         WHERE empresa_id = '33333333-3333-3333-3333-333333333333'), 'bloquear desliga os envios');
 
+-- 5. Cidade e estado: a Turbine é São Paulo/SP; estado só sigla válida.
+SELECT pg_temp.ok((SELECT cidade || '/' || estado FROM public.empresas
+                    WHERE id = '11111111-1111-1111-1111-111111111111') = 'São Paulo/SP', 'Turbine em São Paulo/SP');
+SELECT pg_temp.deve_falhar($$UPDATE public.empresas SET estado = 'XX'
+  WHERE id = '33333333-3333-3333-3333-333333333333'$$, 'estado inválido');
+SELECT pg_temp.como('dono@lava.test', '33333333-3333-3333-3333-333333333333');
+SET ROLE authenticated;
+UPDATE public.empresas SET cidade = 'Cuiabá', estado = 'MT' WHERE id = '33333333-3333-3333-3333-333333333333';
+RESET ROLE;
+SELECT pg_temp.ok((SELECT estado FROM public.empresas WHERE id = '33333333-3333-3333-3333-333333333333') = 'MT',
+  'dono preenche cidade e estado');
+
 ROLLBACK;

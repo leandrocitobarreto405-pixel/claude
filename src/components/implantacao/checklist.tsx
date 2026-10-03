@@ -7,7 +7,13 @@ import { Check, CircleDashed, Clock, MinusCircle, ArrowRight } from "lucide-reac
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Botao, Card, Chip, type TomChip } from "@/components/nexa";
-import { ROTULO_RESPONSAVEL, textoProgresso, type Etapa, type Resumo } from "@/lib/implantacao";
+import {
+  ESTADOS,
+  ROTULO_RESPONSAVEL,
+  textoProgresso,
+  type Etapa,
+  type Resumo,
+} from "@/lib/implantacao";
 import { marcarEtapaFn, salvarDadosEmpresaFn } from "@/lib/implantacao.functions";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +64,8 @@ function DadosDaEmpresa({ etapa }: { etapa: Etapa }) {
   const [aberto, setAberto] = useState(false);
   const [cnpj, setCnpj] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
   const [salvando, setSalvando] = useState(false);
   if (!aberto)
     return (
@@ -71,7 +79,7 @@ function DadosDaEmpresa({ etapa }: { etapa: Etapa }) {
       onSubmit={(e) => {
         e.preventDefault();
         setSalvando(true);
-        salvarFn({ data: { cnpj, telefone } })
+        salvarFn({ data: { cnpj, telefone, cidade, estado } })
           .then(async () => {
             await qc.invalidateQueries({ queryKey: CHAVE_IMPLANTACAO });
             toast.success("Dados salvos.");
@@ -102,6 +110,32 @@ function DadosDaEmpresa({ etapa }: { etapa: Etapa }) {
           value={telefone}
           onChange={(e) => setTelefone(e.target.value)}
         />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`cidade-${etapa.chave}`}>Cidade</Label>
+        <Input
+          id={`cidade-${etapa.chave}`}
+          autoComplete="address-level2"
+          placeholder="Ex.: Campinas"
+          value={cidade}
+          onChange={(e) => setCidade(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`estado-${etapa.chave}`}>Estado</Label>
+        <select
+          id={`estado-${etapa.chave}`}
+          className="min-h-11 w-full rounded-botao border border-input bg-card px-3 text-sm text-foreground"
+          value={estado}
+          onChange={(e) => setEstado(e.target.value)}
+        >
+          <option value="">Escolha</option>
+          {ESTADOS.map((uf) => (
+            <option key={uf.sigla} value={uf.sigla}>
+              {uf.nome} ({uf.sigla})
+            </option>
+          ))}
+        </select>
       </div>
       <p className="text-xs text-muted-foreground">
         Campo vazio fica como está. O nome da empresa a Nexa muda, se precisar.
@@ -153,7 +187,7 @@ function CartaoEtapa({ etapa, editavel }: { etapa: Etapa; editavel: boolean }) {
   }
 
   const link =
-    etapa.resolver && (etapa.situacao === "falta" || etapa.situacao === "aguardando")
+    etapa.resolver && etapa.situacao !== "pronta" && etapa.marcada !== "nao_se_aplica"
       ? separar(etapa.resolver.para)
       : null;
   return (
@@ -218,7 +252,7 @@ function CartaoEtapa({ etapa, editavel }: { etapa: Etapa; editavel: boolean }) {
                 Não se aplica
               </Botao>
             ) : null}
-            {etapa.situacao === "nao_se_aplica" ? (
+            {etapa.marcada === "nao_se_aplica" ? (
               <Botao variante="neutro" disabled={marcando} onClick={() => void marcar("pendente")}>
                 Voltar a valer
               </Botao>
