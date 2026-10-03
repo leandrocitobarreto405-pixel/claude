@@ -48,6 +48,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 02/10/2026 19:15 | Conversas (espera)  | `716ea28`        | `3c40039`                |
 | 02/10/2026 22:19 | Config. por empresa | `0e7ab52`        | `716ea28`                |
 | 02/10/2026 22:44 | Checklist empresa   | `4a6ac5a`        | `30a7c79`                |
+| 03/10/2026 13:40 | Cidade e estado     | `78be8c4`        | `e4aa78c`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
