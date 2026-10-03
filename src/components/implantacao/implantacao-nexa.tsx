@@ -21,7 +21,7 @@ export function ImplantacaoDaEmpresa({ dados }: { dados: Implantacao }) {
   async function mudar(liberar: boolean) {
     const pergunta = liberar
       ? `Liberar ${dados.nome}? A empresa poderá ligar a Alice e os envios para clientes.`
-      : `Bloquear ${dados.nome} de novo? A Alice e os envios para clientes são desligados agora.`;
+      : "Tem certeza? A Alice e os envios dessa empresa serão desligados agora.";
     if (!window.confirm(pergunta)) return;
     setOcupado(true);
     try {
