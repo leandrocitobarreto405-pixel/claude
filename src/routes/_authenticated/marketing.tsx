@@ -39,6 +39,9 @@ export const Route = createFileRoute("/_authenticated/marketing")({
       },
     ],
   }),
+  // ?secao=base abre a Base de contatos (link do checklist da empresa).
+  validateSearch: (s: Record<string, unknown>): { secao?: "base" } =>
+    s["secao"] === "base" ? { secao: "base" } : {},
   component: Marketing,
 });
 
@@ -68,6 +71,7 @@ function Marketing() {
   const q = useQuery({ queryKey: CHAVE_MKT, queryFn: () => situacaoFn(), refetchInterval: 60_000 });
   const ind = useQuery({ queryKey: ["marketing", "indicacoes"], queryFn: () => indicacoesFn() });
   const [aberta, setAberta] = useState<Campanha | null>(null);
+  const { secao } = Route.useSearch();
   const d = q.data;
   const mes = currentMonth();
   const nomeDoMes = monthLabelPT(mes).split(" de ")[0] ?? "";
@@ -334,7 +338,7 @@ function Marketing() {
         </div>
       </Recolhido>
 
-      <Recolhido titulo="Base de contatos">
+      <Recolhido titulo="Base de contatos" abertoInicial={secao === "base"}>
         <div className="p-4">
           <BaseContatos dados={d} />
         </div>

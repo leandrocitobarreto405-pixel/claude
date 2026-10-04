@@ -19,41 +19,10 @@ import {
 import { CHAVE_MKT, type Situacao } from "./campanha-card";
 import { fetchDireto } from "@/lib/enderecos";
 import { simOuNao } from "@/lib/marketing-tela";
+import { CAMPOS, mapearColunas } from "@/lib/importacao-base";
+import { ModelosDePlanilha } from "./modelos-planilha";
 
 type Row = Record<string, unknown>;
-
-const sem = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
-/** Colunas reconhecidas pelo título (a primeira que casar). */
-const CAMPOS: Array<{ chave: keyof LinhaImportacao; nomes: string[]; label: string }> = [
-  {
-    chave: "telefone",
-    nomes: ["telefone", "celular", "whatsapp", "fone", "phone"],
-    label: "Telefone",
-  },
-  { chave: "nome", nomes: ["nome", "cliente", "name"], label: "Nome" },
-  {
-    chave: "servico_em",
-    nomes: ["data do servico", "data servico", "ultimo servico", "data da os", "data"],
-    label: "Data do último serviço",
-  },
-  { chave: "servico_tipo", nomes: ["tipo do servico", "servico", "tipo"], label: "Serviço feito" },
-  {
-    chave: "entrada_em",
-    nomes: ["data de entrada", "entrada", "primeiro contato", "data do orcamento"],
-    label: "Data de entrada (lead)",
-  },
-  {
-    chave: "interesse",
-    nomes: ["interesse", "servico de interesse"],
-    label: "Serviço de interesse",
-  },
-  {
-    chave: "pediu_orcamento",
-    nomes: ["pediu orcamento", "pediu o orcamento", "orcamento"],
-    label: "Pediu orçamento (Sim/Não)",
-  },
-];
 
 function dataPlanilha(v: unknown): string | null {
   if (typeof v === "number") {
@@ -89,13 +58,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
       const json = XLSX.utils.sheet_to_json<Row>(wb.Sheets[aba]!, { defval: "" });
       if (!json.length) throw new Error("Nenhuma linha encontrada");
       const cols = Object.keys(json[0]!);
-      const auto: Record<string, string> = {};
-      for (const c of CAMPOS) {
-        const achada = c.nomes
-          .map((n) => cols.find((col) => sem(col).trim() === n || sem(col).includes(n)))
-          .find(Boolean);
-        if (achada && !Object.values(auto).includes(achada)) auto[c.chave] = achada;
-      }
+      const auto: Record<string, string> = { ...mapearColunas(cols) };
       setColunas(cols);
       setLinhas(json);
       setMapa(auto);
@@ -200,6 +163,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
           description="CSV ou Excel, com o título das colunas na primeira linha. Mesmo telefone (com ou sem o 9) vira um contato só; comprador prevalece sobre não comprador. Clientes com OS paga e concluída e leads novos do CRM entram sozinhos."
         >
           <div className="grid gap-3">
+            <ModelosDePlanilha />
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-1">
                 <Label htmlFor="mkt-arquivo">Arquivo</Label>

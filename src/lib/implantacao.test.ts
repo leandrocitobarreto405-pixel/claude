@@ -65,7 +65,7 @@ const etapa = (f: Fatos, chave: string) => avaliarEtapas(f).find((e) => e.chave 
 
 test("empresa nova: nada pronto, WhatsApp aguardando conexão", () => {
   const r = resumoEtapas(avaliarEtapas(vazia));
-  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 1 de 5 opcionais");
+  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 1 de 6 opcionais");
   assert.equal(r.podeLiberar, false);
   assert.equal(etapa(vazia, "whatsapp").situacao, "aguardando");
   assert.equal(etapa(vazia, "whatsapp").detalhe, "Aguardando conexão.");
@@ -79,7 +79,7 @@ test("empresa nova: nada pronto, WhatsApp aguardando conexão", () => {
 
 test("tudo pronto: pode liberar", () => {
   const r = resumoEtapas(avaliarEtapas(pronta));
-  assert.equal(textoProgresso(r), "9 de 9 obrigatórias · 5 de 5 opcionais");
+  assert.equal(textoProgresso(r), "9 de 9 obrigatórias · 6 de 6 opcionais");
   assert.equal(r.podeLiberar, true);
 });
 
@@ -160,4 +160,12 @@ test("responsável de cada etapa", () => {
     .filter((e) => e.responsavel === "nexa")
     .map((e) => e.chave);
   assert.deepEqual(nexa, ["whatsapp", "modelos", "alice", "token_meta"]);
+});
+
+test("base de clientes: pronta quando há contatos; sem eles, aponta os modelos", () => {
+  assert.equal(etapa(vazia, "base").situacao, "falta");
+  assert.match(etapa(vazia, "base").detalhe, /modelo de compradores/);
+  assert.equal(etapa(vazia, "base").resolver?.para, "/marketing?secao=base");
+  assert.equal(etapa(pronta, "base").detalhe, "300 contatos na base.");
+  assert.equal(marcacaoPermitida("base", "nao_se_aplica"), true);
 });

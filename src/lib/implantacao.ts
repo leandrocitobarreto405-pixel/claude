@@ -20,6 +20,7 @@ export type ChaveEtapa =
   | "token_meta"
   | "veiculos"
   | "google"
+  | "base"
   | "marketing"
   | "notificacoes";
 
@@ -304,6 +305,21 @@ const DEFS: Def[] = [
     podeNaoSeAplica: true,
     avaliar: ({ google }) =>
       google ? pronta("Conta do Google conectada.") : falta("Conta do Google não conectada."),
+  },
+  {
+    chave: "base",
+    titulo: "Base de clientes (planilhas)",
+    responsavel: "empresa",
+    obrigatoria: false,
+    resolver: { rotulo: "Importar", para: "/marketing?secao=base" },
+    podeRevisar: false,
+    podeNaoSeAplica: true,
+    avaliar: ({ marketing: m }) =>
+      m.contatos
+        ? pronta(`${plural(m.contatos, "contato", "contatos")} na base.`)
+        : falta(
+            "Baixe o modelo de compradores e o de não compradores, preencha e importe em Marketing → Base de contatos.",
+          ),
   },
   {
     chave: "marketing",

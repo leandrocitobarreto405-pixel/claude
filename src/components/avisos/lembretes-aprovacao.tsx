@@ -63,6 +63,13 @@ export function LembretesParaAprovar() {
                 {l.quantidade} {l.quantidade === 1 ? "mensagem pronta" : "mensagens prontas"}. Nada
                 sai antes da sua aprovação.
               </p>
+              {l.adiados > 0 ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {l.adiados === 1
+                    ? "1 ficou para depois: recebeu campanha ou promoção há menos de 30 dias. Entra no lote do dia em que completar os 30 dias, se ainda estiver na época do lembrete."
+                    : `${l.adiados} ficaram para depois: receberam campanha ou promoção há menos de 30 dias. Entram no lote do dia em que completarem os 30 dias, se ainda estiverem na época do lembrete.`}
+                </p>
+              ) : null}
             </div>
             <Chip tom="atencao">{l.quantidade}</Chip>
           </div>

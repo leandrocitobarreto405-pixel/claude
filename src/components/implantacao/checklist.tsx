@@ -15,6 +15,7 @@ import {
   type Resumo,
 } from "@/lib/implantacao";
 import { marcarEtapaFn, salvarDadosEmpresaFn } from "@/lib/implantacao.functions";
+import { ModelosDePlanilha } from "@/components/marketing/modelos-planilha";
 import { cn } from "@/lib/utils";
 
 export const CHAVE_IMPLANTACAO = ["implantacao"] as const;
@@ -217,6 +218,7 @@ function CartaoEtapa({ etapa, editavel }: { etapa: Etapa; editavel: boolean }) {
           </div>
         </div>
         {etapa.chave === "whatsapp" && etapa.situacao !== "pronta" ? <FormasDoWhatsApp /> : null}
+        {etapa.chave === "base" ? <ModelosDePlanilha /> : null}
         {editavel && etapa.chave === "dados" && etapa.situacao !== "pronta" ? (
           <DadosDaEmpresa etapa={etapa} />
         ) : null}

@@ -59,6 +59,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   entende a coluna "Pediu orçamento" (Sim/Não). Com "Sim", a data de entrada do lead vira a data
   do orçamento (sem apagar uma data mais nova), e o contato vai para "Orçamento sem
   agendamento" em vez de "Conversou". Só troca a função `mkt_importar_contatos`.
+- "Lembretes adiados" (`20261022120000`, aplicada em 04/10): lembrete de 6 meses e do 13º mês
+  não sai para quem recebeu campanha ou promoção há menos de 30 dias; a pessoa fica para o dia em
+  que completar os 30 dias, se ainda estiver na época do lembrete. Acrescenta `mkt_lotes.adiados`
+  (quantos ficaram para depois, mostrado na aprovação em Avisos) e troca `mkt_gerar_gatilhos`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

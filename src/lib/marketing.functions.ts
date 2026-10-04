@@ -132,6 +132,8 @@ export type LembretesParaAprovar = {
     titulo: string;
     data: string;
     quantidade: number;
+    /** Ficaram para depois: receberam campanha ou promoção há menos de 30 dias. */
+    adiados: number;
     previa: Array<{ nome: string | null; texto: string | null; erro: string | null }>;
     problemas: string[];
   }>;
@@ -151,7 +153,7 @@ export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
       context.supabase.rpc("meu_papel" as never),
       context.supabase
         .from("mkt_lotes")
-        .select("id, campanha_id, data_prevista, mkt_campanhas!inner ( gatilho, tipo )")
+        .select("id, campanha_id, data_prevista, adiados, mkt_campanhas!inner ( gatilho, tipo )")
         .eq("empresa_id", context.empresaId)
         .eq("status", "aguardando_aprovacao")
         .order("data_prevista")
@@ -162,6 +164,7 @@ export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
       id: string;
       campanha_id: string;
       data_prevista: string;
+      adiados: number | null;
       mkt_campanhas: { gatilho: string | null; tipo: string };
     }>;
     if (!lista.length) return { admin: (papel as unknown as string) === "admin", lotes: [] };
@@ -186,6 +189,7 @@ export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
         titulo: TITULO_LEMBRETE[g ?? ""] ?? "Lembretes",
         data: l.data_prevista,
         quantidade: count ?? 0,
+        adiados: l.adiados ?? 0,
         previa: conf.previa.map((p) => ({ nome: p.nome, texto: p.texto, erro: p.erro })),
         problemas: conf.problemas,
       });
