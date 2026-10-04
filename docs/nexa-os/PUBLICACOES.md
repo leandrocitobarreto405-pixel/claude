@@ -57,27 +57,28 @@ Voltar a versão do app continua seguro: o app anterior não usa as tabelas nova
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 
-| Data (UTC)       | Etapa               | Commit publicado | Versão anterior (commit) |
-| ---------------- | ------------------- | ---------------- | ------------------------ |
-| 02/10/2026 00:56 | Base + Agenda       | `86d9d15`        | `4a942a7`                |
-| 02/10/2026 13:41 | Início + Conversas  | `a8568c6`        | `86d9d15`                |
-| 02/10/2026 13:59 | Avisos (tela)       | `133e6bc`        | `fab37c7`                |
-| 02/10/2026 14:21 | Avisos no WhatsApp  | `91771de`        | `61c19e2`                |
-| 02/10/2026 14:31 | Marketing           | `79ef000`        | `8d7cbd9`                |
-| 02/10/2026 16:56 | Agenda + promoção   | `f9e84ce`        | `4d9ef1f`                |
-| 02/10/2026 17:28 | Modelos de mensagem | `316b11e`        | `2f900e8`                |
-| 02/10/2026 18:27 | Notificações push   | `b84c49d`        | `50112f8`                |
-| 02/10/2026 18:38 | Tela do serviço     | `3c40039`        | `b84c49d`                |
-| 02/10/2026 19:15 | Conversas (espera)  | `716ea28`        | `3c40039`                |
-| 02/10/2026 22:19 | Config. por empresa | `0e7ab52`        | `716ea28`                |
-| 02/10/2026 22:44 | Checklist empresa   | `4a6ac5a`        | `30a7c79`                |
-| 03/10/2026 13:40 | Cidade e estado     | `78be8c4`        | `e4aa78c`                |
-| 03/10/2026 18:32 | Convite (WhatsApp)  | `4e03e42`        | `25a9ad6`                |
-| 03/10/2026 20:14 | Esqueci a senha     | `2703b3f`        | `f54d21b`                |
-| 04/10/2026 01:07 | Encerrar conversas  | `eeaaa67`        | `ff9f68e`                |
-| 04/10/2026 01:46 | Listas de leads     | `869d8bf`        | `0584c05`                |
-| 04/10/2026 02:20 | Promoção dia vago   | `523dc67`        | `869d8bf`                |
-| 04/10/2026 05:55 | Campanhas e listas  | `e74d8b3`        | `b0d51b4`                |
+| Data (UTC)       | Etapa                 | Commit publicado | Versão anterior (commit) |
+| ---------------- | --------------------- | ---------------- | ------------------------ |
+| 02/10/2026 00:56 | Base + Agenda         | `86d9d15`        | `4a942a7`                |
+| 02/10/2026 13:41 | Início + Conversas    | `a8568c6`        | `86d9d15`                |
+| 02/10/2026 13:59 | Avisos (tela)         | `133e6bc`        | `fab37c7`                |
+| 02/10/2026 14:21 | Avisos no WhatsApp    | `91771de`        | `61c19e2`                |
+| 02/10/2026 14:31 | Marketing             | `79ef000`        | `8d7cbd9`                |
+| 02/10/2026 16:56 | Agenda + promoção     | `f9e84ce`        | `4d9ef1f`                |
+| 02/10/2026 17:28 | Modelos de mensagem   | `316b11e`        | `2f900e8`                |
+| 02/10/2026 18:27 | Notificações push     | `b84c49d`        | `50112f8`                |
+| 02/10/2026 18:38 | Tela do serviço       | `3c40039`        | `b84c49d`                |
+| 02/10/2026 19:15 | Conversas (espera)    | `716ea28`        | `3c40039`                |
+| 02/10/2026 22:19 | Config. por empresa   | `0e7ab52`        | `716ea28`                |
+| 02/10/2026 22:44 | Checklist empresa     | `4a6ac5a`        | `30a7c79`                |
+| 03/10/2026 13:40 | Cidade e estado       | `78be8c4`        | `e4aa78c`                |
+| 03/10/2026 18:32 | Convite (WhatsApp)    | `4e03e42`        | `25a9ad6`                |
+| 03/10/2026 20:14 | Esqueci a senha       | `2703b3f`        | `f54d21b`                |
+| 04/10/2026 01:07 | Encerrar conversas    | `eeaaa67`        | `ff9f68e`                |
+| 04/10/2026 01:46 | Listas de leads       | `869d8bf`        | `0584c05`                |
+| 04/10/2026 02:20 | Promoção dia vago     | `523dc67`        | `869d8bf`                |
+| 04/10/2026 05:55 | Campanhas e listas    | `e74d8b3`        | `b0d51b4`                |
+| 04/10/2026 12:23 | Domínio e km guardado | `48e5b05`        | `624dbf1`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
