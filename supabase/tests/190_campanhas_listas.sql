@@ -74,7 +74,7 @@ UPDATE public.mkt_configuracoes SET disparo_ligado = true,
        dias_disparo = '{1,2,3,4,5,6,7}' WHERE empresa_id = '11111111-1111-1111-1111-111111111111';
 UPDATE public.mkt_campanhas SET status = 'aprovada' WHERE id = 'f9000000-0000-0000-0000-000000000002';
 UPDATE public.mkt_lotes SET status = 'aprovado' WHERE campanha_id = 'f9000000-0000-0000-0000-000000000002';
-UPDATE public.mkt_envios SET agendado_para = now() - interval '1 minute'
+UPDATE public.mkt_envios SET agendado_para = (date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') + interval '11 hours') AT TIME ZONE 'America/Sao_Paulo'
  WHERE campanha_id = 'f9000000-0000-0000-0000-000000000002';
 INSERT INTO public.mkt_envios (empresa_id, campanha_id, contato_id, normalized_phone, template_nome, status, enviado_em)
 SELECT empresa_id, 'f9000000-0000-0000-0000-000000000001', id, normalized_phone, 'tc_promocao_agenda', 'enviado',

@@ -18,6 +18,7 @@ import {
 } from "@/lib/marketing.functions";
 import { CHAVE_MKT, type Situacao } from "./campanha-card";
 import { fetchDireto } from "@/lib/enderecos";
+import { simOuNao } from "@/lib/marketing-tela";
 
 type Row = Record<string, unknown>;
 
@@ -46,6 +47,11 @@ const CAMPOS: Array<{ chave: keyof LinhaImportacao; nomes: string[]; label: stri
     chave: "interesse",
     nomes: ["interesse", "servico de interesse"],
     label: "Serviço de interesse",
+  },
+  {
+    chave: "pediu_orcamento",
+    nomes: ["pediu orcamento", "pediu o orcamento", "orcamento"],
+    label: "Pediu orçamento (Sim/Não)",
   },
 ];
 
@@ -107,7 +113,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
       return;
     }
     setOcupado(true);
-    const total = { lidas: 0, novos: 0, atualizados: 0, invalidas: 0 };
+    const total = { lidas: 0, novos: 0, atualizados: 0, invalidas: 0, comOrcamento: 0 };
     try {
       const pega = (r: Row, k: string) => (mapa[k] ? r[mapa[k]!] : undefined);
       const convertidas: LinhaImportacao[] = linhas.map((r) => ({
@@ -118,6 +124,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
         servico_tipo: String(pega(r, "servico_tipo") ?? "").trim() || null,
         entrada_em: dataPlanilha(pega(r, "entrada_em")),
         interesse: String(pega(r, "interesse") ?? "").trim() || null,
+        pediu_orcamento: tipo === "nao_comprador" && simOuNao(pega(r, "pediu_orcamento")),
       }));
       for (let i = 0; i < convertidas.length; i += 500) {
         const r = await importarFn({
@@ -128,8 +135,11 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
         total.novos += r.novos;
         total.atualizados += r.atualizados;
         total.invalidas += r.invalidas;
+        total.comOrcamento += r.com_orcamento ?? 0;
       }
-      const texto = `${total.lidas} lidas: ${total.novos} novos, ${total.atualizados} atualizados, ${total.invalidas} telefones inválidos.`;
+      const texto = `${total.lidas} lidas: ${total.novos} novos, ${total.atualizados} atualizados, ${total.invalidas} telefones inválidos${
+        total.comOrcamento ? `, ${total.comOrcamento} com orçamento pedido` : ""
+      }.`;
       setResultado(texto);
       toast.success(
         `Importação concluída. ${texto} Toque em "Recalcular agora" para ver os grupos.`,
@@ -207,7 +217,10 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
                   onChange={(v) => setTipo(v as typeof tipo)}
                   options={[
                     { value: "comprador", label: "Compradores (já fizeram serviço)" },
-                    { value: "nao_comprador", label: "Não compradores (só orçamento)" },
+                    {
+                      value: "nao_comprador",
+                      label: "Não compradores (conversaram ou pediram orçamento)",
+                    },
                   ]}
                 />
               </div>

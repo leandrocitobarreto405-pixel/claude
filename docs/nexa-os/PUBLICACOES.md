@@ -55,6 +55,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Planilha das listas" (`20261020120000`, aplicada em 04/10): `planilha_listas_id` e
   `planilha_listas_atualizada_em` em `mkt_configuracoes` e a leitura das listas pela rotina das
   9h (só o servidor). A planilha "Nexa OS — Listas" fica no Drive da conta Google da empresa.
+- "Pediu orçamento na importação" (`20261021120000`, aplicada em 04/10): a importação da base
+  entende a coluna "Pediu orçamento" (Sim/Não). Com "Sim", a data de entrada do lead vira a data
+  do orçamento (sem apagar uma data mais nova), e o contato vai para "Orçamento sem
+  agendamento" em vez de "Conversou". Só troca a função `mkt_importar_contatos`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

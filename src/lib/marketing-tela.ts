@@ -108,3 +108,13 @@ export function diaMesCurto(iso: string): string {
   ];
   return `${Number(iso.slice(8, 10))} ${meses[Number(iso.slice(5, 7)) - 1] ?? ""}`;
 }
+
+/** Coluna "Pediu orçamento" da planilha: "Sim", "S", "X", "1" ou "true" → pediu. */
+export function simOuNao(v: unknown): boolean {
+  const t = String(v ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  return ["sim", "s", "x", "1", "true", "yes"].includes(t);
+}

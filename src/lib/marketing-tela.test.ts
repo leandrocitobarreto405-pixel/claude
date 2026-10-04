@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chipDaCampanha, diaMesCurto, proximasCampanhas, resultadosDoMes } from "./marketing-tela";
+import {
+  chipDaCampanha,
+  diaMesCurto,
+  proximasCampanhas,
+  resultadosDoMes,
+  simOuNao,
+} from "./marketing-tela";
 
 test("resultadosDoMes soma só o mês pedido", () => {
   const r = resultadosDoMes(
@@ -89,4 +95,11 @@ test("chips e datas curtas", () => {
   assert.deepEqual(chipDaCampanha("pausada"), { rotulo: "Pausada", tom: "problema" });
   assert.deepEqual(chipDaCampanha("x"), { rotulo: "x", tom: "neutro" });
   assert.equal(diaMesCurto("2026-10-17"), "17 out");
+});
+
+test("coluna Pediu orçamento: Sim/Não/vazio", () => {
+  for (const v of ["Sim", "sim", " SIM ", "S", "x", "1", true])
+    assert.equal(simOuNao(v), true, String(v));
+  for (const v of ["Não", "nao", "", null, undefined, "N", 0])
+    assert.equal(simOuNao(v), false, String(v));
 });

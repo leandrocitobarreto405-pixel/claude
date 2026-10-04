@@ -356,6 +356,8 @@ export type LinhaImportacao = {
   servico_tipo?: string | null;
   entrada_em?: string | null;
   interesse?: string | null;
+  /** Não comprador que pediu orçamento: a data de entrada vira a data do orçamento. */
+  pediu_orcamento?: boolean | null;
 };
 
 export const importarContatosFn = createServerFn({ method: "POST" })
@@ -369,17 +371,24 @@ export const importarContatosFn = createServerFn({ method: "POST" })
       servico_tipo: l.servico_tipo ? String(l.servico_tipo).slice(0, 60) : null,
       entrada_em: l.entrada_em && DATA.test(String(l.entrada_em)) ? String(l.entrada_em) : null,
       interesse: l.interesse ? String(l.interesse).slice(0, 60) : null,
+      pediu_orcamento: l.pediu_orcamento === true,
     }));
     return { linhas, origem: String(input.origem ?? "planilha").slice(0, 120) };
   })
   .handler(async ({ data, context }) => {
     const db = await servico();
     const { rpc } = await import("@/lib/mkt/contexto.server");
-    return rpc<{ lidas: number; novos: number; atualizados: number; invalidas: number }>(
-      db,
-      "mkt_importar_contatos",
-      { _emp: context.empresaId, _linhas: data.linhas, _origem: data.origem },
-    );
+    return rpc<{
+      lidas: number;
+      novos: number;
+      atualizados: number;
+      invalidas: number;
+      com_orcamento?: number;
+    }>(db, "mkt_importar_contatos", {
+      _emp: context.empresaId,
+      _linhas: data.linhas,
+      _origem: data.origem,
+    });
   });
 
 export const recalcularGruposFn = createServerFn({ method: "POST" })
