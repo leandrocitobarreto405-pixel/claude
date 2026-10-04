@@ -36,6 +36,13 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   e produto R$ 6 (higienização) e R$ 80 (impermeabilização). A promoção de dia vago (04/10) não
   mexeu no banco: só guarda coordenadas encontradas (contatos e base do técnico) para não
   procurar de novo.
+- "Campanhas pelas listas" (`20261018120000`, aplicada em 04/10): campo `listas` nas campanhas (os
+  12 rascunhos receberam as listas equivalentes aos grupos), contagem das listas da campanha,
+  aprovação dos lembretes do dia e a reserva do disparo passa a cancelar campanha/promoção para
+  quem recebeu outra mensagem de marketing nos últimos 30 dias (editável). `20261018120001`
+  (preparar campanha pelas listas e segurar os lembretes de 6 meses e 13º mês até a aprovação)
+  vai pelo SQL Editor; até lá a preparação continua pelos grupos e os lembretes saem sozinhos,
+  como antes. Voltar o app não precisa mexer no banco.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -61,6 +68,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 04/10/2026 01:07 | Encerrar conversas  | `eeaaa67`        | `ff9f68e`                |
 | 04/10/2026 01:46 | Listas de leads     | `869d8bf`        | `0584c05`                |
 | 04/10/2026 02:20 | Promoção dia vago   | `523dc67`        | `869d8bf`                |
+| 04/10/2026 05:55 | Campanhas e listas  | `e74d8b3`        | `b0d51b4`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
