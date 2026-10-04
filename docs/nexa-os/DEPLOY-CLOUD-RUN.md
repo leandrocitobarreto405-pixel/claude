@@ -1,5 +1,9 @@
 # Publicação no Google Cloud Run
 
+> Endereço oficial do app: https://app.nexaperformanceos.com.br (Firebase Hosting, ver
+> `infra/firebase/README.md`). O endereço `run.app` abaixo continua sendo o dos webhooks, das
+> rotinas agendadas e das chamadas pesadas.
+
 O app roda no **Cloud Run** (região São Paulo, `southamerica-east1`) a partir do `Dockerfile` do
 repositório. O Cloud Build refaz a imagem e publica sozinho a cada push no branch configurado.
 O Lovable não é afetado: ele continua com o próprio build.
@@ -103,6 +107,7 @@ As variáveis `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (secrets `google-clien
 ## Alice (vendedora de IA)
 
 Variáveis:
+
 - `ANTHROPIC_API_KEY`: secret `anthropic-api-key`;
 - `ALICE_FILA`: fila `alice` do Cloud Tasks;
 - `ALICE_URL_BASE`: endereço público do app.

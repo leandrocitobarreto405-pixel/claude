@@ -73,7 +73,9 @@ sql(`SELECT mkt_importar_contatos('${EMP}', '[
   {"telefone": "11955550003", "nome": "Nina", "tipo": "nao_comprador", "entrada_em": "${meses(H, -1)}"}
 ]', 'teste e2e')`);
 // Nina pediu orçamento há 20 dias: entra em "Orçamento sem agendamento · até 90 dias" (N1).
-sql(`UPDATE mkt_contatos SET orcamento_em = '${somarDias(H, -20)} 12:00-03' WHERE normalized_phone = '5511955550003'`);
+sql(
+  `UPDATE mkt_contatos SET orcamento_em = '${somarDias(H, -20)} 12:00-03' WHERE normalized_phone = '5511955550003'`,
+);
 sql(`INSERT INTO mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, templates, datas_disparo, condicao_texto,
        condicao_pct, limites)
      VALUES ('${C1}', '${EMP}', 'Primavera E2E', 'calendario', date_trunc('month', '${D}'::date), '{C4}',

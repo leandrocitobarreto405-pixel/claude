@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { ORIGENS_DO_APP } from "./lib/enderecos";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -44,12 +45,49 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+/**
+ * CORS das chamadas pesadas que o app (aberto pelo domínio do Firebase) faz direto ao Cloud Run:
+ * só para as funções do servidor e só para as origens do app.
+ */
+function origemCors(request: Request): string | null {
+  const origem = request.headers.get("Origin");
+  if (!origem || !ORIGENS_DO_APP.includes(origem)) return null;
+  if (!new URL(request.url).pathname.startsWith("/_serverFn/")) return null;
+  return origem === new URL(request.url).origin ? null : origem;
+}
+
+function comCors(response: Response, origem: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origem);
+  headers.append("Vary", "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const cors = origemCors(request);
+    if (cors && request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": cors,
+          "Access-Control-Allow-Methods": "GET, POST",
+          "Access-Control-Allow-Headers":
+            request.headers.get("Access-Control-Request-Headers") ?? "authorization, content-type",
+          "Access-Control-Max-Age": "600",
+          Vary: "Origin",
+        },
+      });
+    }
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normal = await normalizeCatastrophicSsrResponse(response);
+      return cors ? comCors(normal, cors) : normal;
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

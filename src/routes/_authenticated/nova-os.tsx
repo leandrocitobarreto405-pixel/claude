@@ -27,6 +27,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { linkBudgetVisitToWorkOrder } from "@/lib/budget-visits";
 import { linkQuoteToWorkOrder } from "@/lib/quotes";
 import { useSession } from "@/lib/session";
+import { fetchDireto } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/_authenticated/nova-os")({
   validateSearch: (
@@ -920,6 +921,7 @@ function NovaOS() {
         const settings = await lerConfigDoc();
         if (settings.enabled && settings.autoGenerate && settings.configured && workOrderId) {
           const r = await gerarDoc({
+            fetch: fetchDireto,
             data: { workOrderId, mode: editar ? "atualizar" : "novo" },
           });
           toast.success(`Documento ${r.name} gerado no Google Docs.`);

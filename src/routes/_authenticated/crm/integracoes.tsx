@@ -29,6 +29,7 @@ import {
   updateSourceIntegration,
 } from "@/lib/crm-source.functions";
 import { cn } from "@/lib/utils";
+import { enderecoDosWebhooks } from "@/lib/enderecos";
 
 const SOURCE_OPTIONS = [
   { value: "meta_lead_ads", label: "Meta Lead Ads" },
@@ -124,7 +125,8 @@ function LeadIntegrations() {
   });
 
   const items = (integrations.data ?? []) as IntegrationItem[];
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  // Webhooks sempre no Cloud Run direto (o domínio do app passa pelo Firebase, que corta em 60 s).
+  const baseUrl = enderecoDosWebhooks();
 
   async function copiar(texto: string) {
     try {

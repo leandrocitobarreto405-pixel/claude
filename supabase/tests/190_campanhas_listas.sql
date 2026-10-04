@@ -116,4 +116,31 @@ EXCEPTION WHEN OTHERS THEN IF SQLERRM LIKE 'FALHOU%' THEN RAISE; END IF; END $$;
 -- 6. Só a chave de serviço decide lembretes; a contagem da campanha é de admin/atendente.
 SELECT pg_temp.ok(NOT has_function_privilege('authenticated', 'public.mkt_decidir_lembretes(uuid, boolean, uuid)', 'EXECUTE'),
   'decidir lembretes: só servidor');
+
+-- 7. Janela dos lembretes: cliente de higienização há 170 dias (lembrete de 6 meses) fica fora da
+-- campanha; há 120 dias, entra. Quem recebeu lembrete nos últimos 30 dias também fica fora.
+INSERT INTO public.mkt_contatos (empresa_id, nome, primeiro_nome, normalized_phone, tipo, ultimo_servico_em,
+  ultimo_servico_tipo) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Mia Janela', 'Mia', '5511920000030', 'comprador', now() - interval '170 days', 'higienizacao'),
+  ('11111111-1111-1111-1111-111111111111', 'Nei Fora', 'Nei', '5511920000031', 'comprador', now() - interval '120 days', 'higienizacao'),
+  ('11111111-1111-1111-1111-111111111111', 'Olga Imper', 'Olga', '5511920000032', 'comprador', now() - interval '380 days', 'impermeabilizacao');
+SELECT pg_temp.ok(private.mkt_na_janela_lembrete((SELECT id FROM public.mkt_contatos WHERE nome = 'Mia Janela'), current_date)
+               AND NOT private.mkt_na_janela_lembrete((SELECT id FROM public.mkt_contatos WHERE nome = 'Nei Fora'), current_date)
+               AND private.mkt_na_janela_lembrete((SELECT id FROM public.mkt_contatos WHERE nome = 'Olga Imper'), current_date),
+  'janela dos lembretes');
+INSERT INTO public.mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, datas_disparo, listas)
+VALUES ('f9000000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Clientes', 'calendario',
+        date_trunc('month', current_date), '{}', ARRAY[current_date + 30],
+        '[{"grupo": "C4", "familia": "clientes", "de": 90, "ate": 365}, {"grupo": "C5", "familia": "clientes", "de": 365}]');
+SELECT public.mkt_preparar_campanha('f9000000-0000-0000-0000-000000000004');
+SELECT pg_temp.ok(pg_temp.envios('f9000000-0000-0000-0000-000000000004') LIKE '%Nei Fora:C4%'
+               AND pg_temp.envios('f9000000-0000-0000-0000-000000000004') NOT LIKE '%Mia Janela%'
+               AND pg_temp.envios('f9000000-0000-0000-0000-000000000004') NOT LIKE '%Olga Imper%'
+               AND pg_temp.envios('f9000000-0000-0000-0000-000000000004') NOT LIKE '%Lia Hig%',
+  'campanha sem quem está na janela dos lembretes: ' || pg_temp.envios('f9000000-0000-0000-0000-000000000004'));
+
+-- 8. rotas_distancias: só o servidor lê e grava.
+SELECT pg_temp.ok(NOT has_table_privilege('authenticated', 'public.rotas_distancias', 'SELECT')
+               AND NOT has_table_privilege('anon', 'public.rotas_distancias', 'SELECT'),
+  'rotas_distancias fechada para usuários');
 ROLLBACK;

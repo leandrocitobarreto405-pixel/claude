@@ -17,6 +17,7 @@ import {
   type LinhaImportacao,
 } from "@/lib/marketing.functions";
 import { CHAVE_MKT, type Situacao } from "./campanha-card";
+import { fetchDireto } from "@/lib/enderecos";
 
 type Row = Record<string, unknown>;
 
@@ -120,6 +121,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
       }));
       for (let i = 0; i < convertidas.length; i += 500) {
         const r = await importarFn({
+          fetch: fetchDireto,
           data: { linhas: convertidas.slice(i, i + 500), origem: `planilha ${arquivo}` },
         });
         total.lidas += r.lidas;

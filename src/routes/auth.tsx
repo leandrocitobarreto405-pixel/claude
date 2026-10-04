@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { enderecoDoApp } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -83,7 +84,7 @@ function AuthPage() {
     }
     setCarregando(true);
     const { error } = await supabase.auth.resetPasswordForEmail(alvo, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
+      redirectTo: `${enderecoDoApp()}/redefinir-senha`,
     });
     setCarregando(false);
     if (error) {
@@ -102,7 +103,7 @@ function AuthPage() {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: naoConfirmado,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: enderecoDoApp() },
     });
     setCarregando(false);
     if (error) {
@@ -127,7 +128,7 @@ function AuthPage() {
       email: email.trim(),
       password: senha,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: enderecoDoApp(),
         data: { full_name: nome.trim() },
       },
     });

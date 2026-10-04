@@ -8,19 +8,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Papel } from "@/lib/tenant";
+import { enderecoDoApp } from "@/lib/enderecos";
 
 const PAPEIS: Record<Papel, string> = {
   admin: "Administrador",
   atendente: "Atendente",
   tecnico: "Técnico",
 };
-
-/** Endereço do app nos links (run.app por enquanto; troca quando o domínio estiver no ar). */
-export function enderecoDoApp(): string {
-  return (
-    process.env["APP_URL_PUBLICA"] || "https://nexaos-980094719320.southamerica-east1.run.app"
-  ).replace(/\/+$/, "");
-}
 
 export type ResultadoConvite = {
   /** e-mail do convite saiu; aviso de acesso saiu; já tem conta e não deu para avisar por e-mail. */

@@ -137,6 +137,55 @@ async function tiposDosOrcamentos(db: Db, empresaId: string) {
   return tipos;
 }
 
+/** Km pelas ruas já consultados (rotas_distancias), válidos por 90 dias. Só o servidor lê e grava. */
+async function cacheDeRotas(empresaId: string, origens: Coordenada[]) {
+  const { dbServico } = await import("@/lib/mkt/contexto.server");
+  const db = await dbServico();
+  const c5 = (n: number) => Math.round(n * 1e5) / 1e5;
+  const chave = (o: Coordenada, d: Coordenada) =>
+    `${o.lat.toFixed(5)},${o.lon.toFixed(5)}>${d.lat.toFixed(5)},${d.lon.toFixed(5)}`;
+  const guardados = new Map<string, number>();
+  const { data } = await db
+    .from("rotas_distancias" as never)
+    .select("origem_lat, origem_lon, destino_lat, destino_lon, km")
+    .eq("empresa_id", empresaId)
+    .in("origem_lat", [...new Set(origens.map((o) => c5(o.lat)))])
+    .gte("calculado_em", new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .limit(10_000);
+  for (const r of (data ?? []) as unknown as Array<{
+    origem_lat: number;
+    origem_lon: number;
+    destino_lat: number;
+    destino_lon: number;
+    km: number;
+  }>) {
+    guardados.set(
+      chave(
+        { lat: Number(r.origem_lat), lon: Number(r.origem_lon) },
+        { lat: Number(r.destino_lat), lon: Number(r.destino_lon) },
+      ),
+      Number(r.km),
+    );
+  }
+  return {
+    guardados,
+    guardar: async (novos: Array<{ origem: Coordenada; destino: Coordenada; km: number }>) => {
+      await db.from("rotas_distancias" as never).upsert(
+        novos.map((n) => ({
+          empresa_id: empresaId,
+          origem_lat: c5(n.origem.lat),
+          origem_lon: c5(n.origem.lon),
+          destino_lat: c5(n.destino.lat),
+          destino_lon: c5(n.destino.lon),
+          km: n.km,
+          calculado_em: new Date().toISOString(),
+        })) as never,
+        { onConflict: "empresa_id,origem_lat,origem_lon,destino_lat,destino_lon" },
+      );
+    },
+  };
+}
+
 /** Custo por km usado nos orçamentos quando a empresa não configurou. */
 const CUSTO_KM_PADRAO = 0.57;
 
@@ -301,7 +350,9 @@ async function montarLista(
   });
   const { distanciasPelasRuas } = await import("@/lib/geo.server");
   const matriz =
-    origens.length && destinos.length ? await distanciasPelasRuas(origens, destinos) : [];
+    origens.length && destinos.length
+      ? await distanciasPelasRuas(origens, destinos, await cacheDeRotas(empresaId, origens))
+      : [];
   const custos: CustosEmpresa = {
     impostoPct: imposto ?? 6,
     // Mesmo padrão dos orçamentos quando a empresa não configurou.

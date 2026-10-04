@@ -2,6 +2,7 @@ import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/r
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { ORIGENS_DO_APP } from "@/lib/enderecos";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -21,8 +22,15 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // Start installs this automatically when src/start.ts is absent; defining the
 // file opts out, so re-add it explicitly to keep server functions protected
 // from cross-site requests.
+// Chamadas pesadas abertas pelo domínio do app vão direto ao Cloud Run (fetchDireto): aceita
+// esse pedido de outra origem só quando vem das origens do app (a sessão vai no cabeçalho
+// Authorization, não em cookie).
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
+  secFetchSite: (valor, ctx) =>
+    valor === "same-origin" ||
+    ((valor === "cross-site" || valor === "same-site") &&
+      ORIGENS_DO_APP.includes(ctx.request.headers.get("Origin") ?? "")),
 });
 
 export const startInstance = createStart(() => ({

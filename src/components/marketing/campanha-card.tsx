@@ -26,6 +26,7 @@ import {
 } from "@/lib/marketing.functions";
 import { brl, dateBR, monthLabelPT, weekdayPT } from "@/lib/format";
 import { nomeDoGrupo, nomeDoSegmento, segmentosDaCampanha, type Segmento } from "@/lib/listas";
+import { fetchDireto } from "@/lib/enderecos";
 
 export type Situacao = Awaited<ReturnType<typeof situacaoMarketing>>;
 export type Campanha = Situacao["campanhas"][number];
@@ -199,7 +200,7 @@ export function CampanhaCard({
             onClick={() =>
               acao(
                 "preparar",
-                () => prepararFn({ data: { campanhaId: campanha.id } }),
+                () => prepararFn({ fetch: fetchDireto, data: { campanhaId: campanha.id } }),
                 "Campanha preparada. Confira e aprove.",
               )
             }
@@ -536,6 +537,7 @@ function EditarCampanha({ campanha, fechar }: { campanha: Campanha; fechar: () =
     setSalvando(true);
     try {
       await editarFn({
+        fetch: fetchDireto,
         data: {
           campanhaId: campanha.id,
           datas: datas.filter(Boolean),

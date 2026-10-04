@@ -11,6 +11,7 @@ import {
   situacaoGoogle,
   testarPlanilhasGoogle,
 } from "@/lib/google.functions";
+import { fetchDireto } from "@/lib/enderecos";
 
 const AVISOS_RETORNO: Record<string, string> = {
   expirado: "O pedido de conexão expirou. Clique em “Conectar conta Google” de novo.",
@@ -88,7 +89,7 @@ export function ContaGoogle() {
     setTestando(true);
     setTeste(null);
     try {
-      setTeste(await testarFn({}));
+      setTeste(await testarFn({ fetch: fetchDireto }));
       await qc.invalidateQueries({ queryKey: GOOGLE_QUERY_KEY });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível testar.");

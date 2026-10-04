@@ -24,6 +24,7 @@ import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { getOsMedia, uploadOsMedia } from "@/lib/os-media.functions";
 import { extrasDoServicoFn } from "@/lib/servico.functions";
 import { useContextoTenant } from "@/lib/tenant";
+import { fetchDireto } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/_authenticated/servico/$visitId")({
   head: () => ({ meta: [{ title: "Serviço — Nexa OS" }] }),
@@ -102,7 +103,7 @@ function TelaServico() {
         fd.append("workOrderId", wo.id);
         fd.append("destination", destino);
         fd.append("file", f);
-        await enviarFn({ data: fd });
+        await enviarFn({ fetch: fetchDireto, data: fd });
         ok++;
       }
       toast.success(`${ok} ${ok === 1 ? "foto enviada" : "fotos enviadas"} para a pasta da OS.`);

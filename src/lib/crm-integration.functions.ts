@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import { processWhatsappPayload } from "./crm-webhook.server";
+import { ENDERECO_SERVIDOR } from "@/lib/enderecos";
 
 async function assertStaff(
   supabase: {
@@ -66,7 +67,8 @@ export const getWhatsappStatus = createServerFn({ method: "GET" })
     if (essentialOk && processed.length > 0) state = "Recebendo mensagens";
     if (essentialOk && errorCount > 0 && processed.length === 0) state = "Erro na integração";
 
-    const origin = process.env["LOVABLE_PUBLIC_URL"] ?? "";
+    // Webhook sempre no Cloud Run direto (o domínio do app passa pelo Firebase, que corta em 60 s).
+    const origin = ENDERECO_SERVIDOR;
 
     return {
       state,

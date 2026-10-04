@@ -3,6 +3,7 @@ import { Copy, MessageCircle } from "lucide-react";
 import { Botao } from "@/components/nexa";
 import { linkWhatsAppConvite, mensagemConvite } from "@/lib/convite";
 import type { Papel } from "@/lib/tenant";
+import { enderecoDoApp } from "@/lib/enderecos";
 
 async function copiar(texto: string) {
   try {
@@ -27,7 +28,7 @@ export function AcoesConvite({
   /** Na lista de convites pendentes, os rótulos falam em reenviar. */
   reenviar?: boolean;
 }) {
-  const texto = () => mensagemConvite({ empresa, email, papel, endereco: window.location.origin });
+  const texto = () => mensagemConvite({ empresa, email, papel, endereco: enderecoDoApp() });
   return (
     <div className="flex flex-wrap gap-2">
       <Botao asChild>

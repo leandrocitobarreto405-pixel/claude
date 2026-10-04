@@ -60,6 +60,7 @@ import {
 } from "@/lib/produtos";
 import { TECHNICIAN_EXPENSE_CATEGORIES, saveTechnicianExpense } from "@/lib/technician-expenses";
 import { finishOsSharing, getOsMediaOptions, uploadOsMedia } from "@/lib/os-media.functions";
+import { fetchDireto } from "@/lib/enderecos";
 
 type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
@@ -885,7 +886,7 @@ export function CompletionDialog({
           form.set("workOrderId", workOrderId);
           form.set("destination", destinoMidia);
           form.set("file", file);
-          await enviarMidia({ data: form });
+          await enviarMidia({ fetch: fetchDireto, data: form });
           enviados += 1;
         } catch {
           falhas.push(file.name);

@@ -6,6 +6,10 @@ publicada assim que passa nos testes. A equipe ainda usa no dia a dia o app anti
 que tem banco próprio no Lovable Cloud (`aainaxrwirzrqmesoidz`), separado deste
 (`avvxapeplhuiruijyyed`).
 
+Endereço oficial do app: **https://app.nexaperformanceos.com.br** (Firebase Hosting → Cloud Run).
+Webhooks, rotinas agendadas e chamadas pesadas continuam no `run.app`
+(https://nexaos-980094719320.southamerica-east1.run.app). Detalhes em `infra/firebase/README.md`.
+
 Mudanças no banco (todas aprovadas em 02/10/2026):
 
 - "Avisos no WhatsApp" (`20261010120000`): só acrescenta campos desligados.
@@ -42,7 +46,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   quem recebeu outra mensagem de marketing nos últimos 30 dias (editável). `20261018120001`
   (preparar campanha pelas listas e segurar os lembretes de 6 meses e 13º mês até a aprovação)
   vai pelo SQL Editor; até lá a preparação continua pelos grupos e os lembretes saem sozinhos,
-  como antes. Voltar o app não precisa mexer no banco.
+  como antes. Voltar o app não precisa mexer no banco. A parte 2 foi rodada no SQL Editor em
+  04/10 e conferida (funções iguais às testadas).
+- "Km guardado e janela dos lembretes" (`20261019120000`, aplicada em 04/10): tabela
+  `rotas_distancias` (km pelas ruas já consultados; só o servidor usa) e campanha sem quem está na
+  janela do lembrete de 6 meses ou do 13º mês (já vale na contagem). `20261019120001` (a mesma
+  regra na preparação da campanha) vai pelo SQL Editor.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

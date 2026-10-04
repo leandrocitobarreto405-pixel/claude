@@ -6,6 +6,7 @@ import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { criarRoboAlice } from "@/lib/alice.functions";
+import { enderecoDosWebhooks } from "@/lib/enderecos";
 
 /** Nexa → Chatwoot: cria o robô "Alice" (agent bot) na conta, usado pelas empresas que ligarem a IA. */
 export function RoboAliceNexa({
@@ -34,7 +35,7 @@ export function RoboAliceNexa({
   async function criar() {
     setOcupado(true);
     try {
-      await criarFn({ data: { conexaoId, origem: window.location.origin } });
+      await criarFn({ data: { conexaoId, origem: enderecoDosWebhooks() } });
       toast.success("Robô da Alice criado no Chatwoot.");
       await qc.invalidateQueries({ queryKey: ["alice_robo", conexaoId] });
     } catch (e) {

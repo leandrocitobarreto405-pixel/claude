@@ -48,6 +48,7 @@ import { COLLECTION_RULES, collectionRuleLabel, defaultCollectionRule } from "@/
 
 import { useSession } from "@/lib/session";
 import { useConsumoDaOs, useControleInsumos } from "@/lib/produtos";
+import { fetchDireto } from "@/lib/enderecos";
 
 type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
@@ -298,7 +299,7 @@ function OsDetalhe() {
         form.set("workOrderId", workOrderId);
         form.set("destination", destinoMidia);
         form.set("file", file);
-        await enviarMidia({ data: form });
+        await enviarMidia({ fetch: fetchDireto, data: form });
         enviados += 1;
       }
       toast.success(`${enviados} arquivo(s) enviado(s) para ${destinoMidia}.`);
@@ -338,7 +339,7 @@ function OsDetalhe() {
     if (!workOrderId) return;
     setGerandoTermo(true);
     try {
-      await gerarTermoFn({ data: { workOrderId } });
+      await gerarTermoFn({ fetch: fetchDireto, data: { workOrderId } });
       toast.success("Termo de garantia gerado.");
       await garantiaQuery.refetch();
     } catch (e) {
@@ -455,7 +456,7 @@ function OsDetalhe() {
     }
     setGerando(true);
     try {
-      const r = await gerar({ data: { workOrderId, mode } });
+      const r = await gerar({ fetch: fetchDireto, data: { workOrderId, mode } });
       toast.success(`Documento ${r.name} gerado no Google Docs.`);
       await docQuery.refetch();
     } catch (e) {

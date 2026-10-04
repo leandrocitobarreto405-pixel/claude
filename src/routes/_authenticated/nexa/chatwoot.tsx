@@ -12,6 +12,7 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { RoboAliceNexa } from "@/components/alice-robo-nexa";
 import { useContextoTenant } from "@/lib/tenant";
+import { enderecoDosWebhooks } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/_authenticated/nexa/chatwoot")({
   head: () => ({
@@ -257,7 +258,7 @@ function ChatwootNexa() {
   if (ctx && !ctx.souNexa) return <EmptyState title="Acesso restrito à Nexa" />;
 
   const urlWebhook = conexao
-    ? `${window.location.origin}/api/public/hooks/chatwoot/${conexao.webhook_token}`
+    ? `${enderecoDosWebhooks()}/api/public/hooks/chatwoot/${conexao.webhook_token}`
     : "";
 
   return (
