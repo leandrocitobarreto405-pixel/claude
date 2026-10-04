@@ -92,6 +92,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 04/10/2026 12:23 | Domínio e km guardado | `48e5b05`        | `624dbf1`                |
 | 04/10/2026 13:18 | Planilha das listas   | `2120cf0`        | `76bf5e9`                |
 | 04/10/2026 17:23 | Pediu orçamento       | `9d2ff92`        | `cd89379`                |
+| 04/10/2026 22:43 | Modelos e lembretes   | `2a0e0a6`        | `f7b9952`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
