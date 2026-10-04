@@ -27,6 +27,7 @@ import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenti
 import { Route as AuthenticatedImplantacaoRouteImport } from './routes/_authenticated/implantacao'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedListasRouteImport } from './routes/_authenticated/listas'
 import { Route as AuthenticatedMarketingRouteImport } from './routes/_authenticated/marketing'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedModelosMensagemRouteImport } from './routes/_authenticated/modelos-mensagem'
@@ -163,6 +164,11 @@ const AuthenticatedIndicadoresRoute =
 const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedListasRoute = AuthenticatedListasRouteImport.update({
+  id: '/listas',
+  path: '/listas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMarketingRoute = AuthenticatedMarketingRouteImport.update({
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/listas': typeof AuthenticatedListasRoute
   '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
@@ -486,6 +493,7 @@ export interface FileRoutesByTo {
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/listas': typeof AuthenticatedListasRoute
   '/marketing': typeof AuthenticatedMarketingRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
@@ -550,6 +558,7 @@ export interface FileRoutesById {
   '/_authenticated/implantacao': typeof AuthenticatedImplantacaoRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/listas': typeof AuthenticatedListasRoute
   '/_authenticated/marketing': typeof AuthenticatedMarketingRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
@@ -614,6 +623,7 @@ export interface FileRouteTypes {
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
+    | '/listas'
     | '/marketing'
     | '/mensagens'
     | '/modelos-mensagem'
@@ -676,6 +686,7 @@ export interface FileRouteTypes {
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
+    | '/listas'
     | '/marketing'
     | '/mensagens'
     | '/modelos-mensagem'
@@ -739,6 +750,7 @@ export interface FileRouteTypes {
     | '/_authenticated/implantacao'
     | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
+    | '/_authenticated/listas'
     | '/_authenticated/marketing'
     | '/_authenticated/mensagens'
     | '/_authenticated/modelos-mensagem'
@@ -933,6 +945,13 @@ declare module '@tanstack/react-router' {
       path: '/inicio'
       fullPath: '/inicio'
       preLoaderRoute: typeof AuthenticatedInicioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/listas': {
+      id: '/_authenticated/listas'
+      path: '/listas'
+      fullPath: '/listas'
+      preLoaderRoute: typeof AuthenticatedListasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/marketing': {
@@ -1252,6 +1271,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedImplantacaoRoute: typeof AuthenticatedImplantacaoRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedListasRoute: typeof AuthenticatedListasRoute
   AuthenticatedMarketingRoute: typeof AuthenticatedMarketingRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedModelosMensagemRoute: typeof AuthenticatedModelosMensagemRoute
@@ -1296,6 +1316,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImplantacaoRoute: AuthenticatedImplantacaoRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedListasRoute: AuthenticatedListasRoute,
   AuthenticatedMarketingRoute: AuthenticatedMarketingRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedModelosMensagemRoute: AuthenticatedModelosMensagemRoute,

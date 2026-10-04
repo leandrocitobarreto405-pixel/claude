@@ -128,6 +128,7 @@ const ROTAS_ATENDENTE = [
   "/crm",
   "/conversas",
   "/marketing",
+  "/listas",
   "/avisos",
   "/promocao",
   "/servico",

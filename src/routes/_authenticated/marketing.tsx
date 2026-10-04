@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, ChevronRight, Gift } from "lucide-react";
+import { Bell, ChevronRight, Gift, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   BlocoEscuro,
@@ -144,6 +144,20 @@ function Marketing() {
           </BlocoEscuro>
         </div>
       </CardEscuro>
+
+      <Link
+        to="/listas"
+        className="flex min-h-12 items-center gap-3 rounded-card border border-border bg-card px-4 py-3 text-sm hover:border-marca/40"
+      >
+        <Users className="size-5 text-marca" aria-hidden />
+        <span className="flex-1">
+          <span className="block font-semibold">Listas</span>
+          <span className="block text-xs text-muted-foreground">
+            Quem está em cada lista hoje, o modelo usado e exportar para planilha
+          </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+      </Link>
 
       {naoLidos > 0 ? (
         <Link

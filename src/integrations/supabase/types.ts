@@ -218,6 +218,12 @@ export type Database = {
       };
       agenda_configuracoes: {
         Row: {
+          promo_ligada: boolean;
+          promo_listas: Json;
+          promo_margem_min: number | null;
+          promo_km_max: number | null;
+          custo_produto_higienizacao: number;
+          custo_produto_impermeabilizacao: number;
           deslocamento_volta_min: number;
           duracao_atendimento_min: number;
           empresa_id: string;
@@ -235,6 +241,12 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          promo_ligada?: boolean;
+          promo_listas?: Json;
+          promo_margem_min?: number | null;
+          promo_km_max?: number | null;
+          custo_produto_higienizacao?: number;
+          custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
           duracao_atendimento_min?: number;
           empresa_id: string;
@@ -252,6 +264,12 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          promo_ligada?: boolean;
+          promo_listas?: Json;
+          promo_margem_min?: number | null;
+          promo_km_max?: number | null;
+          custo_produto_higienizacao?: number;
+          custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
           duracao_atendimento_min?: number;
           empresa_id?: string;
@@ -2812,6 +2830,7 @@ export type Database = {
       };
       mkt_configuracoes: {
         Row: {
+          limite_marketing_dias: number;
           modelos: Json;
           dias_disparo: number[];
           amostra_minima: number;
@@ -2842,6 +2861,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          limite_marketing_dias?: number;
           modelos?: Json;
           dias_disparo?: number[];
           amostra_minima?: number;
@@ -2872,6 +2892,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          limite_marketing_dias?: number;
           modelos?: Json;
           dias_disparo?: number[];
           amostra_minima?: number;
@@ -2912,6 +2933,12 @@ export type Database = {
       };
       mkt_contatos: {
         Row: {
+          orcamento_em: string | null;
+          perdido_preco_em: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          geo_endereco: string | null;
+          geo_em: string | null;
           created_at: string;
           credito_indicacao_pct: number;
           crm_lead_id: string | null;
@@ -2939,6 +2966,12 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          orcamento_em?: string | null;
+          perdido_preco_em?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          geo_endereco?: string | null;
+          geo_em?: string | null;
           created_at?: string;
           credito_indicacao_pct?: number;
           crm_lead_id?: string | null;
@@ -2966,6 +2999,12 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          orcamento_em?: string | null;
+          perdido_preco_em?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          geo_endereco?: string | null;
+          geo_em?: string | null;
           created_at?: string;
           credito_indicacao_pct?: number;
           crm_lead_id?: string | null;

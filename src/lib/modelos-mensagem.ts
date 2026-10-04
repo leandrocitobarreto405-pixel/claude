@@ -358,6 +358,12 @@ export const FINALIDADES: { chave: string; rotulo: string; padrao: string }[] = 
     rotulo: "Campanha sazonal (começo do nome + mês)",
     padrao: "sazonal_",
   },
+  {
+    chave: "conversa",
+    rotulo: "Listas: conversou e não pediu orçamento",
+    padrao: "conversa_retomada",
+  },
+  { chave: "preco", rotulo: "Listas: perdido por preço", padrao: "preco_retomada" },
 ];
 
 /** Nome do modelo de cada finalidade, com os padrões preenchidos. */
@@ -397,9 +403,16 @@ export function ondeEUsado(nome: string, ctx: ContextoUso): string | null {
 /** Modelos que o Nexa usa e que precisam existir na Meta. */
 export function modelosEsperados(ctx: ContextoUso): string[] {
   return [
-    ...["posvenda", "oferta", "reativacao", "orcamento", "higienizacao_6m", "imper_13m"].map(
-      (k) => ctx.modelos[k],
-    ),
+    ...[
+      "posvenda",
+      "oferta",
+      "reativacao",
+      "orcamento",
+      "higienizacao_6m",
+      "imper_13m",
+      "conversa",
+      "preco",
+    ].map((k) => ctx.modelos[k]),
     ctx.modeloPromocao,
     ctx.modeloAviso,
   ].filter((n, i, a): n is string => Boolean(n) && a.indexOf(n) === i);
@@ -408,8 +421,37 @@ export function modelosEsperados(ctx: ContextoUso): string[] {
 /** Texto inicial para criar um modelo que falta (quando o Nexa sabe qual é). */
 export function sugestaoDeModelo(
   nome: string,
-  ctx: { modeloPromocao: string | null; modeloAviso: string | null; empresa: string },
+  ctx: {
+    modeloPromocao: string | null;
+    modeloAviso: string | null;
+    empresa: string;
+    modelos?: Record<string, string>;
+  },
 ): FormModelo | null {
+  const base = nome.replace(/_sn$/, "");
+  const semNome = nome.endsWith("_sn");
+  // Listas novas: {{1}} = primeiro nome e {{2}} = condição da campanha; na versão _sn, {{1}} = condição.
+  const oferta = (comNome: string, semNomeTexto: string): FormModelo => ({
+    ...FORM_VAZIO,
+    nome,
+    categoria: "MARKETING",
+    corpo: semNome ? semNomeTexto : comNome,
+    exemplos: semNome ? ["10% de desconto"] : ["Carla", "10% de desconto"],
+    botoes: [
+      { tipo: "QUICK_REPLY", texto: "Quero um orçamento" },
+      { tipo: "QUICK_REPLY", texto: "Não quero mais ofertas" },
+    ],
+  });
+  if (ctx.modelos && base === ctx.modelos["conversa"])
+    return oferta(
+      `Oi, {{1}}! Aqui é da ${ctx.empresa}. Você falou com a gente sobre limpeza de estofado e ficou sem orçamento. Este mês estamos com {{2}}. Quer que eu faça o seu orçamento agora? É só mandar uma foto do estofado.`,
+      `Olá! Aqui é da ${ctx.empresa}. Você falou com a gente sobre limpeza de estofado e ficou sem orçamento. Este mês estamos com {{1}}. Quer que eu faça o seu orçamento agora? É só mandar uma foto do estofado.`,
+    );
+  if (ctx.modelos && base === ctx.modelos["preco"])
+    return oferta(
+      `Oi, {{1}}! Aqui é da ${ctx.empresa}. Sei que o valor pesou da última vez. Agora consigo fazer o seu serviço com {{2}}, com a mesma garantia. Quer que eu refaça o orçamento com esse valor?`,
+      `Olá! Aqui é da ${ctx.empresa}. Sei que o valor pesou da última vez. Agora consigo fazer o seu serviço com {{1}}, com a mesma garantia. Quer que eu refaça o orçamento com esse valor?`,
+    );
   if (nome === ctx.modeloPromocao)
     return {
       ...FORM_VAZIO,
