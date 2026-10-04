@@ -73,6 +73,8 @@ export async function conferirCampanha(
   db: Db,
   campanhaId: string,
   modelosProntos?: ModeloMeta[],
+  /** Só os envios deste lote (lembretes do dia). */
+  loteId?: string,
 ): Promise<Conferencia> {
   const { data: k, error } = await db
     .from("mkt_campanhas")
@@ -100,6 +102,7 @@ export async function conferirCampanha(
     )
     .eq("campanha_id", campanhaId)
     .neq("status", "cancelado")
+    .match(loteId ? { lote_id: loteId } : {})
     .order("ordem")
     .limit(5000);
   if (e2) throw e2;

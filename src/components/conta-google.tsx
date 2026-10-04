@@ -5,7 +5,12 @@ import { toast } from "sonner";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { dateTimeBR } from "@/lib/format";
-import { desconectarGoogle, iniciarConexaoGoogle, situacaoGoogle } from "@/lib/google.functions";
+import {
+  desconectarGoogle,
+  iniciarConexaoGoogle,
+  situacaoGoogle,
+  testarPlanilhasGoogle,
+} from "@/lib/google.functions";
 
 const AVISOS_RETORNO: Record<string, string> = {
   expirado: "O pedido de conexão expirou. Clique em “Conectar conta Google” de novo.",
@@ -24,6 +29,11 @@ export function ContaGoogle() {
   const situacaoFn = useServerFn(situacaoGoogle);
   const iniciarFn = useServerFn(iniciarConexaoGoogle);
   const desconectarFn = useServerFn(desconectarGoogle);
+  const testarFn = useServerFn(testarPlanilhasGoogle);
+  const [teste, setTeste] = useState<Awaited<ReturnType<typeof testarPlanilhasGoogle>> | null>(
+    null,
+  );
+  const [testando, setTestando] = useState(false);
   const query = useQuery({ queryKey: GOOGLE_QUERY_KEY, queryFn: () => situacaoFn({}) });
   const [ocupado, setOcupado] = useState(false);
 
@@ -74,6 +84,19 @@ export function ContaGoogle() {
     }
   }
 
+  async function testar() {
+    setTestando(true);
+    setTeste(null);
+    try {
+      setTeste(await testarFn({}));
+      await qc.invalidateQueries({ queryKey: GOOGLE_QUERY_KEY });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível testar.");
+    } finally {
+      setTestando(false);
+    }
+  }
+
   const s = query.data;
   const comErro = s?.situacao === "erro" || (s?.permissoesFaltando.length ?? 0) > 0;
 
@@ -89,16 +112,16 @@ export function ContaGoogle() {
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : !s?.disponivel ? (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-md bg-atencao px-3 py-2 text-sm text-atencao-foreground">
           O acesso ao Google ainda não foi liberado no servidor pela Nexa.
         </p>
       ) : s.conectado ? (
         <div className="grid gap-3">
           <div className="flex items-start gap-2 text-sm">
             {comErro ? (
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-atencao-foreground" />
             ) : (
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-marca" />
             )}
             <div className="min-w-0">
               <p>
@@ -108,10 +131,10 @@ export function ContaGoogle() {
                 <p className="text-xs text-muted-foreground">desde {dateTimeBR(s.conectadoEm)}</p>
               ) : null}
               {s.situacao === "erro" && s.erro ? (
-                <p className="mt-1 text-amber-900">{s.erro}</p>
+                <p className="mt-1 text-atencao-foreground">{s.erro}</p>
               ) : null}
               {s.permissoesFaltando.length ? (
-                <p className="mt-1 text-amber-900">
+                <p className="mt-1 text-atencao-foreground">
                   Falta permissão para: {s.permissoesFaltando.join(", ")}. Conecte de novo e marque
                   todas as caixas na tela do Google.
                 </p>
@@ -125,7 +148,41 @@ export function ContaGoogle() {
             <Button variant="outline" onClick={() => void desconectar()} disabled={ocupado}>
               Desconectar
             </Button>
+            <Button variant="outline" onClick={() => void testar()} disabled={testando}>
+              {testando ? "Testando…" : "Testar acesso às planilhas"}
+            </Button>
           </div>
+          {teste ? (
+            <div className="grid gap-1 rounded-md border p-3 text-sm">
+              <p className="font-medium">
+                {teste.ok
+                  ? "Google Planilhas funcionando: o Nexa consegue criar e atualizar planilhas."
+                  : "O acesso às planilhas não está funcionando."}
+              </p>
+              <ul className="grid gap-0.5">
+                {teste.passos.map((p) => (
+                  <li key={p.nome} className="flex items-start gap-2">
+                    {p.ok ? (
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-marca" />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-atencao-foreground" />
+                    )}
+                    <span>
+                      {p.nome}
+                      {p.detalhe ? (
+                        <span className="block text-muted-foreground">{p.detalhe}</span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {teste.acao ? (
+                <p className="mt-1 rounded-md bg-atencao px-3 py-2 text-atencao-foreground">
+                  O que fazer: {teste.acao}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-2">

@@ -170,9 +170,7 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {GRUPOS.map((g) => (
             <div key={g} className="rounded-lg border p-2">
-              <p className="text-xs text-muted-foreground">
-                {g} · {NOMES_GRUPOS[g]}
-              </p>
+              <p className="text-xs text-muted-foreground">{NOMES_GRUPOS[g]}</p>
               <p className="text-lg font-semibold">{dados.base.grupos[g] ?? 0}</p>
             </div>
           ))}

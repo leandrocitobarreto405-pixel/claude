@@ -79,3 +79,11 @@ export const desconectarGoogle = createServerFn({ method: "POST" })
     esquecerTokenGoogle(context.empresaId);
     return { ok: true };
   });
+
+/** Testa se a conta Google da empresa cria, grava e lê planilhas no Drive (e apaga o teste). */
+export const testarPlanilhasGoogle = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }) => {
+    const { testarPlanilhas } = await import("@/lib/google-planilhas.server");
+    return testarPlanilhas(context.empresaId);
+  });

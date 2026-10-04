@@ -7,6 +7,9 @@ import {
   descreverFiltros,
   filtrosValidos,
   nomeDoFiltro,
+  nomeDoGrupo,
+  nomeDoSegmento,
+  segmentosDaCampanha,
 } from "./listas";
 
 test("famílias e opções acumuladas", () => {
@@ -78,4 +81,26 @@ test("CSV para Excel: BOM, ponto e vírgula e aspas", () => {
     csv,
     /"Ana ""Lu""; Souza";5511910000001;Orçamento sem agendamento, Clientes;5;;100;Higienização;450,5;sim;$/,
   );
+});
+
+test("listas das campanhas: grupos antigos viram listas, sem códigos na tela", () => {
+  const segs = segmentosDaCampanha(null, ["N1", "C4", "N3", "C2"]);
+  assert.deepEqual(
+    segs.map((s) => s.grupo),
+    ["C4", "N1", "N3"],
+  );
+  assert.equal(nomeDoSegmento(segs[0]!), "Clientes · de 90 dias a 1 ano");
+  assert.equal(nomeDoSegmento(segs[1]!), "Orçamento sem agendamento · até 90 dias");
+  assert.equal(nomeDoSegmento(segs[2]!), "Orçamento sem agendamento · mais de 1 ano");
+  const gravadas = segmentosDaCampanha(
+    [
+      { grupo: "CV", familia: "conversa", ate: 30 },
+      { grupo: "X", familia: "nada" },
+    ],
+    ["N1"],
+  );
+  assert.deepEqual(gravadas, [{ grupo: "CV", familia: "conversa", ate: 30 }]);
+  assert.equal(nomeDoGrupo("CV", gravadas), "Conversou e não pediu orçamento · até 30 dias");
+  assert.equal(nomeDoGrupo("PP", []), "Perdido por preço");
+  assert.doesNotMatch(nomeDoGrupo("N2", []), /\b[CN]\d\b/);
 });

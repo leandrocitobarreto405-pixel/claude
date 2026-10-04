@@ -13,12 +13,18 @@ export const Route = createFileRoute("/redefinir-senha")({
   component: RedefinirSenha,
 });
 
+/** O link é de convite (a pessoa ainda não tem senha)? O Supabase põe "type=invite" no endereço. */
+const ehConvite = () =>
+  typeof window !== "undefined" &&
+  /type=invite/.test(window.location.hash + window.location.search);
+
 /**
- * Destino do link de "Esqueci minha senha": o Supabase abre esta página já com a sessão de
- * recuperação; a pessoa escolhe a nova senha e entra.
+ * Destino do link de "Esqueci minha senha" e do convite por e-mail: o Supabase abre esta página já
+ * com a sessão; a pessoa escolhe a senha e entra (no convite, a empresa é liberada ao entrar).
  */
 function RedefinirSenha() {
   const navigate = useNavigate();
+  const [convite] = useState(ehConvite);
   const [pronto, setPronto] = useState<"esperando" | "ok" | "invalido">("esperando");
   const [senha, setSenha] = useState("");
   const [repetir, setRepetir] = useState("");
@@ -64,21 +70,30 @@ function RedefinirSenha() {
     } catch {
       /* segue mesmo assim */
     }
-    toast.success("Senha nova salva.");
+    toast.success(convite ? "Senha criada. Bem-vindo ao Nexa OS!" : "Senha nova salva.");
     navigate({ to: "/inicio", replace: true });
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="card-surface w-full max-w-md p-6">
-        <h1 className="text-xl font-semibold text-navy">Criar nova senha</h1>
+        <h1 className="text-xl font-semibold text-navy">
+          {convite ? "Criar sua senha" : "Criar nova senha"}
+        </h1>
+        {convite ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Você recebeu um convite para o Nexa OS. Escolha uma senha para entrar.
+          </p>
+        ) : null}
         {pronto === "esperando" ? (
           <p className="mt-3 text-sm text-muted-foreground">Conferindo o link…</p>
         ) : pronto === "invalido" ? (
           <div className="mt-3 space-y-3 text-sm">
             <p>
-              Este link é inválido ou já expirou. Peça um novo em “Esqueci minha senha”, na tela de
-              entrada.
+              Este link é inválido ou já expirou.{" "}
+              {convite
+                ? "Peça ao administrador da empresa para reenviar o convite."
+                : "Peça um novo em “Esqueci minha senha”, na tela de entrada."}
             </p>
             <Link to="/auth" className="font-semibold text-marca hover:underline">
               Ir para a tela de entrada
@@ -87,7 +102,7 @@ function RedefinirSenha() {
         ) : (
           <form onSubmit={salvar} className="mt-4 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nova-senha">Nova senha</Label>
+              <Label htmlFor="nova-senha">{convite ? "Senha" : "Nova senha"}</Label>
               <Input
                 id="nova-senha"
                 type="password"
@@ -97,7 +112,9 @@ function RedefinirSenha() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="repetir-senha">Repita a nova senha</Label>
+              <Label htmlFor="repetir-senha">
+                {convite ? "Repita a senha" : "Repita a nova senha"}
+              </Label>
               <Input
                 id="repetir-senha"
                 type="password"

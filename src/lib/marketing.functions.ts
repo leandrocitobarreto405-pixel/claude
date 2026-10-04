@@ -53,7 +53,7 @@ export const situacaoMarketing = createServerFn({ method: "GET" })
       sb
         .from("mkt_campanhas")
         .select(
-          "id, nome, tipo, gatilho, mes_ref, tema, grupos, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em",
+          "id, nome, tipo, gatilho, mes_ref, tema, grupos, listas, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em",
         )
         .eq("empresa_id", emp)
         .order("mes_ref")
@@ -106,6 +106,115 @@ export const conferirCampanhaFn = createServerFn({ method: "GET" })
     const { db } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
     const { conferirCampanha } = await import("@/lib/mkt/campanhas.server");
     return conferirCampanha(db, data.campanhaId);
+  });
+
+/** Quantos estão em cada lista da campanha e quantos podem receber agora. */
+export const contagemCampanhaFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
+  .handler(async ({ data, context }) => {
+    if (!ID.test(data.campanhaId)) throw new Error("Campanha inválida.");
+    const { data: r, error } = await context.supabase.rpc(
+      "mkt_campanha_contagem" as never,
+      { _campanha: data.campanhaId } as never,
+    );
+    if (error) throw new Error(`Não foi possível contar as listas: ${error.message}`);
+    return (r ?? []) as unknown as Array<{ grupo: string; total: number; podem: number }>;
+  });
+
+// ---------------------------------------------------------------- lembretes com aprovação
+export type LembretesParaAprovar = {
+  admin: boolean;
+  lotes: Array<{
+    id: string;
+    campanhaId: string;
+    gatilho: string | null;
+    titulo: string;
+    data: string;
+    quantidade: number;
+    previa: Array<{ nome: string | null; texto: string | null; erro: string | null }>;
+    problemas: string[];
+  }>;
+};
+
+const TITULO_LEMBRETE: Record<string, string> = {
+  C2: "Higienização (6 meses)",
+  C3: "Impermeabilização (13º mês)",
+  C3L: "Segundo lembrete da impermeabilização",
+};
+
+/** Lotes de lembretes do dia esperando aprovação, com a quantidade e uma prévia real. */
+export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<LembretesParaAprovar> => {
+    const [{ data: papel }, { data: lotes, error }] = await Promise.all([
+      context.supabase.rpc("meu_papel" as never),
+      context.supabase
+        .from("mkt_lotes")
+        .select("id, campanha_id, data_prevista, mkt_campanhas!inner ( gatilho, tipo )")
+        .eq("empresa_id", context.empresaId)
+        .eq("status", "aguardando_aprovacao")
+        .order("data_prevista")
+        .limit(10),
+    ]);
+    if (error) throw new Error(`Não foi possível ler os lembretes: ${error.message}`);
+    const lista = (lotes ?? []) as unknown as Array<{
+      id: string;
+      campanha_id: string;
+      data_prevista: string;
+      mkt_campanhas: { gatilho: string | null; tipo: string };
+    }>;
+    if (!lista.length) return { admin: (papel as unknown as string) === "admin", lotes: [] };
+    const db = await servico();
+    const { conferirCampanha } = await import("@/lib/mkt/campanhas.server");
+    const resultado: LembretesParaAprovar["lotes"] = [];
+    for (const l of lista) {
+      const { count } = await db
+        .from("mkt_envios")
+        .select("id", { count: "exact", head: true })
+        .eq("lote_id", l.id)
+        .eq("status", "pendente");
+      const conf = await conferirCampanha(db, l.campanha_id, undefined, l.id).catch((e) => ({
+        previa: [],
+        problemas: [e instanceof Error ? e.message : String(e)],
+      }));
+      const g = l.mkt_campanhas.gatilho;
+      resultado.push({
+        id: l.id,
+        campanhaId: l.campanha_id,
+        gatilho: g,
+        titulo: TITULO_LEMBRETE[g ?? ""] ?? "Lembretes",
+        data: l.data_prevista,
+        quantidade: count ?? 0,
+        previa: conf.previa.map((p) => ({ nome: p.nome, texto: p.texto, erro: p.erro })),
+        problemas: conf.problemas,
+      });
+    }
+    return { admin: (papel as unknown as string) === "admin", lotes: resultado };
+  });
+
+/** Aprovar ou não enviar o lote de lembretes (só admin). */
+export const decidirLembretesFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((input: { loteId: string; aprovar: boolean }) => {
+    if (!ID.test(String(input.loteId))) throw new Error("Lote inválido.");
+    return { loteId: String(input.loteId), aprovar: Boolean(input.aprovar) };
+  })
+  .handler(async ({ data, context }) => {
+    const db = await servico();
+    const { data: lote } = await db
+      .from("mkt_lotes")
+      .select("id")
+      .eq("id", data.loteId)
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    if (!lote) throw new Error("Lote não encontrado.");
+    const { data: r, error } = await db.rpc(
+      "mkt_decidir_lembretes" as never,
+      { _lote: data.loteId, _aprovar: data.aprovar, _usuario: context.userId } as never,
+    );
+    if (error) throw new Error(error.message);
+    return r as unknown as { envios: number; aprovado: boolean };
   });
 
 // ---------------------------------------------------------------- aprovação
@@ -352,6 +461,8 @@ export type ConfigMktEditavel = {
   aviso_telefone: string | null;
   aviso_template_nome: string | null;
   link_avaliacao_google: string | null;
+  /** Dias mínimos entre duas mensagens de marketing (campanha ou promoção) para a mesma pessoa. */
+  limite_marketing_dias?: number;
 };
 
 export const salvarConfigMktFn = createServerFn({ method: "POST" })
@@ -364,7 +475,11 @@ export const salvarConfigMktFn = createServerFn({ method: "POST" })
     const fone = texto(input.aviso_telefone, 20)?.replace(/\D/g, "") || null;
     if (fone && (fone.length < 10 || fone.length > 13))
       throw new Error("Telefone do aviso inválido.");
+    const limite = Number(input.limite_marketing_dias ?? 30);
+    if (!Number.isInteger(limite) || limite < 7 || limite > 365)
+      throw new Error("Limite entre mensagens de marketing: de 7 a 365 dias.");
     return {
+      limite_marketing_dias: limite,
       disparo_ligado: Boolean(input.disparo_ligado),
       gatilho_c1_ligado: Boolean(input.gatilho_c1_ligado),
       gatilho_c2_ligado: Boolean(input.gatilho_c2_ligado),

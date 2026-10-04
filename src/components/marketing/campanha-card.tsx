@@ -17,14 +17,15 @@ import {
 import {
   aprovarCampanhaFn,
   conferirCampanhaFn,
+  contagemCampanhaFn,
   editarCampanhaFn,
-  NOMES_GRUPOS,
   pausarFn,
   prepararCampanhaFn,
   recusarCampanhaFn,
   type situacaoMarketing,
 } from "@/lib/marketing.functions";
 import { brl, dateBR, monthLabelPT, weekdayPT } from "@/lib/format";
+import { nomeDoGrupo, nomeDoSegmento, segmentosDaCampanha, type Segmento } from "@/lib/listas";
 
 export type Situacao = Awaited<ReturnType<typeof situacaoMarketing>>;
 export type Campanha = Situacao["campanhas"][number];
@@ -74,6 +75,37 @@ export function condicaoTexto(c: Pick<Campanha, "condicao_texto" | "condicao_pct
   return partes.length ? partes.join(" — ") : "Sem condição";
 }
 
+/** Listas da campanha, com "X na lista, Y podem receber agora" de cada uma. */
+function ListasDaCampanha({ campanha, segmentos }: { campanha: Campanha; segmentos: Segmento[] }) {
+  const contagemFn = useServerFn(contagemCampanhaFn);
+  const q = useQuery({
+    queryKey: [...CHAVE_MKT, "contagem", campanha.id],
+    queryFn: () => contagemFn({ data: { campanhaId: campanha.id } }),
+    enabled: campanha.tipo === "calendario" && segmentos.length > 0,
+    staleTime: 300_000,
+  });
+  if (!segmentos.length) return null;
+  return (
+    <ul className="mt-1 flex flex-col gap-0.5 text-sm">
+      {segmentos.map((s) => {
+        const c = q.data?.find((x) => x.grupo === s.grupo);
+        return (
+          <li key={s.grupo}>
+            {nomeDoSegmento(s)}
+            <span className="text-muted-foreground">
+              {c
+                ? ` · ${c.total} na lista, ${c.podem} ${c.podem === 1 ? "pode" : "podem"} receber agora`
+                : q.isLoading
+                  ? " · contando…"
+                  : ""}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function CampanhaCard({
   campanha,
   lotes,
@@ -94,6 +126,7 @@ export function CampanhaCard({
   const recusarFn = useServerFn(recusarCampanhaFn);
   const pausarServ = useServerFn(pausarFn);
   const est = campanha.estimativa as Estimativa;
+  const segmentos = segmentosDaCampanha(campanha.listas, campanha.grupos);
   const alertaLote = lotes.find((l) => Number(l.optout_bloqueio_pct ?? 0) > 3);
   const podeEditar = ["rascunho", "aguardando_aprovacao", "bloqueada"].includes(campanha.status);
 
@@ -119,9 +152,8 @@ export function CampanhaCard({
             {monthLabelPT(campanha.mes_ref)}
           </p>
           <h3 className="text-base font-semibold text-navy">{campanha.nome}</h3>
-          <p className="text-sm text-muted-foreground">
-            {datasTexto(campanha.datas_disparo)} · grupos {campanha.grupos.join(", ")}
-          </p>
+          <p className="text-sm text-muted-foreground">{datasTexto(campanha.datas_disparo)}</p>
+          <ListasDaCampanha campanha={campanha} segmentos={segmentos} />
         </div>
         <SituacaoBadge status={campanha.status} />
       </div>
@@ -137,7 +169,7 @@ export function CampanhaCard({
             </span>{" "}
             {est.total} contatos · {brl(est.custo ?? 0)}
             {est.lotes ? ` · ${est.lotes} lote(s)` : ""}
-            {est.sem_nome ? ` · ${est.sem_nome} sem nome (_sn)` : ""}
+            {est.sem_nome ? ` · ${est.sem_nome} sem nome` : ""}
           </p>
         )}
         {campanha.motivo_status && (
@@ -290,14 +322,15 @@ function Aprovacao({
       <h4 className="font-semibold text-navy">Aprovação</h4>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border p-3 text-sm">
-          <p className="mb-1 font-medium">Contatos por grupo</p>
+          <p className="mb-1 font-medium">Contatos por lista</p>
           {Object.entries(est?.por_grupo ?? {}).map(([g, n]) => (
             <p key={g}>
-              {g} · {NOMES_GRUPOS[g] ?? g}: <strong>{n}</strong>
+              {nomeDoGrupo(g, segmentosDaCampanha(campanha.listas, campanha.grupos))}:{" "}
+              <strong>{n}</strong>
             </p>
           ))}
           <p className="mt-2">
-            Total: <strong>{est?.total ?? 0}</strong> · sem nome confiável (_sn):{" "}
+            Total: <strong>{est?.total ?? 0}</strong> · sem nome confiável:{" "}
             <strong>{est?.sem_nome ?? 0}</strong>
           </p>
           <p>

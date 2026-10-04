@@ -146,19 +146,18 @@ export type Margem = {
 
 /**
  * Margem de contribuição estimada já com o desconto: valor − imposto − deslocamento − produto.
- * Sem mão de obra. Deslocamento = km de ida e volta × custo por km (null se faltar um dos dois).
+ * Sem mão de obra. Deslocamento = km da ida (do ponto de partida até o cliente, sem volta) ×
+ * custo por km (null se faltar um dos dois).
  */
 export function margemEstimada(
   valorPromo: number,
-  kmIdaVolta: number | null,
+  kmIda: number | null,
   tipo: TipoOrcamento,
   c: CustosEmpresa,
 ): Margem {
   const imposto = Math.round(valorPromo * (c.impostoPct / 100) * 100) / 100;
   const deslocamento =
-    kmIdaVolta !== null && c.custoKm !== null
-      ? Math.round(kmIdaVolta * c.custoKm * 100) / 100
-      : null;
+    kmIda !== null && c.custoKm !== null ? Math.round(kmIda * c.custoKm * 100) / 100 : null;
   const produto = custoProduto(tipo, c);
   return {
     valor: Math.round((valorPromo - imposto - (deslocamento ?? 0) - produto) * 100) / 100,
@@ -185,13 +184,56 @@ export function avaliarLimites(
   return { marcado: motivos.length === 0, motivo: motivos.length ? motivos.join(" e ") : null };
 }
 
-export type PontoTecnico = {
+/** De onde o técnico sairia para o horário livre: o serviço anterior dele no dia ou a base. */
+export type Partida = {
   tecnicoId: string;
   tecnico: string;
-  /** Base do técnico (null = sem endereço localizado). */
-  base: Coordenada | null;
-  /** Serviços que o técnico já tem no dia da promoção. */
-  servicos: Coordenada[];
+  /** Horário livre ("14:00"). */
+  hora: string;
+  tipo: "base" | "servico";
+  coord: Coordenada;
+};
+
+/** Ponto de partida de cada horário livre: o último serviço do técnico antes dele, senão a base. */
+export function partidasDosHorarios(
+  livres: HorarioLivre[],
+  bases: Map<string, Coordenada | null>,
+  servicos: Array<{ tecnicoId: string; hora: string; coord: Coordenada }>,
+): Partida[] {
+  const lista: Partida[] = [];
+  for (const l of livres) {
+    const antes = servicos
+      .filter((s) => s.tecnicoId === l.tecnicoId && s.hora.slice(0, 5) < l.hora)
+      .sort((a, b) => b.hora.localeCompare(a.hora))[0];
+    if (antes) {
+      lista.push({
+        tecnicoId: l.tecnicoId,
+        tecnico: l.tecnico,
+        hora: l.hora,
+        tipo: "servico",
+        coord: antes.coord,
+      });
+      continue;
+    }
+    const base = bases.get(l.tecnicoId);
+    if (base)
+      lista.push({
+        tecnicoId: l.tecnicoId,
+        tecnico: l.tecnico,
+        hora: l.hora,
+        tipo: "base",
+        coord: base,
+      });
+  }
+  return lista;
+}
+
+export type DistanciaPartida = {
+  partida: Omit<Partida, "coord">;
+  /** Km pelas ruas, só a ida. */
+  km: number;
+  /** O roteador não respondeu: linha reta × 1,3. */
+  aproximado: boolean;
 };
 
 export type EntradaPromocao = {
@@ -206,7 +248,10 @@ export type EntradaPromocao = {
   /** Km de ida e volta calculado no orçamento (da base da empresa), se houver. */
   kmOrcamento: number | null;
   tipo: TipoOrcamento;
-  coord: Coordenada | null;
+  /** O endereço do cliente foi localizado no mapa. */
+  localizado: boolean;
+  /** Distância até o cliente a partir de cada ponto de partida dos horários livres. */
+  distancias: DistanciaPartida[];
 };
 
 export type DestinatarioPromocao = {
@@ -219,14 +264,14 @@ export type DestinatarioPromocao = {
   valor: number | null;
   valorPromo: number | null;
   valorPix: number | null;
-  /** Técnico do horário livre mais perto (null = não deu para calcular). */
+  /** Técnico e horário livre mais perto, e de onde ele sairia. */
   tecnico: string | null;
-  /** Km em linha reta até a base do técnico e até o serviço mais perto dele no dia. */
-  kmBase: number | null;
-  kmServico: number | null;
-  /** Km que conta para o limite e o deslocamento (o menor dos dois; ou o do orçamento). */
+  hora: string | null;
+  partida: "base" | "servico" | "orcamento" | null;
+  /** Km da ida (sem volta): conta para o limite e para o deslocamento. */
   km: number | null;
-  kmDoOrcamento: boolean;
+  /** Linha reta × 1,3 porque o roteador não respondeu. */
+  kmAproximado: boolean;
   margem: Margem | null;
   marcado: boolean;
   motivo: string | null;
@@ -237,13 +282,13 @@ export type DestinatarioPromocao = {
 };
 
 /**
- * Monta cada pessoa da promoção: valor com desconto (e no Pix), técnico com horário livre mais
- * perto, km e margem estimada (no Pix, o pior caso). Fora da margem mínima ou da distância máxima
- * começa desmarcado, com o motivo; sem orçamento ou sem endereço começa marcado.
+ * Monta cada pessoa da promoção: valor com desconto (e no Pix), horário livre mais perto (pela
+ * ida a partir do serviço anterior do técnico ou da base), km e margem estimada no Pix (o pior
+ * caso). Fora da margem mínima ou da distância máxima começa desmarcado, com o motivo; sem
+ * orçamento ou sem endereço começa marcado.
  */
 export function prepararDestinatario(
   e: EntradaPromocao,
-  pontos: PontoTecnico[],
   cfg: { descontoPct: number; pixPct: number; margemMin: number | null; kmMax: number | null },
   custos: CustosEmpresa,
 ): DestinatarioPromocao {
@@ -252,38 +297,17 @@ export function prepararDestinatario(
   const valorPix = e.valor === null ? null : valorComDesconto(e.valor, cfg.descontoPct, cfg.pixPct);
   if (e.valor === null) avisos.push("sem orçamento");
 
-  let tecnico: string | null = null;
-  let kmBase: number | null = null;
-  let kmServico: number | null = null;
-  let km: number | null = null;
-  let kmDoOrcamento = false;
-  if (e.coord) {
-    for (const p of pontos) {
-      const b = p.base ? distanciaKm(e.coord, p.base) : null;
-      const s = p.servicos.length
-        ? Math.min(...p.servicos.map((x) => distanciaKm(e.coord!, x)))
-        : null;
-      const efetivo = [b, s].filter((x): x is number => x !== null);
-      if (!efetivo.length) continue;
-      const menor = Math.min(...efetivo);
-      if (km === null || menor < km) {
-        km = menor;
-        kmBase = b;
-        kmServico = s;
-        tecnico = p.tecnico;
-      }
-    }
-  }
+  const melhor = [...e.distancias].sort((a, b) => a.km - b.km)[0] ?? null;
+  let km: number | null = melhor?.km ?? null;
+  let partida: DestinatarioPromocao["partida"] = melhor?.partida.tipo ?? null;
   if (km === null && e.kmOrcamento !== null && e.kmOrcamento > 0) {
+    // Sem endereço localizado: metade do km de ida e volta do orçamento (da base da empresa).
     km = Math.round((e.kmOrcamento / 2) * 10) / 10;
-    kmDoOrcamento = true;
+    partida = "orcamento";
   }
-  if (!e.coord && km === null) avisos.push("sem endereço");
+  if (!e.localizado && km === null) avisos.push("sem endereço");
 
-  const margem =
-    valorPix === null
-      ? null
-      : margemEstimada(valorPix, km === null ? null : km * 2, e.tipo, custos);
+  const margem = valorPix === null ? null : margemEstimada(valorPix, km, e.tipo, custos);
   const podeEnviar = e.nome.trim().length > 0;
   const limites = avaliarLimites(
     { margem: margem?.valor ?? null, km },
@@ -299,11 +323,11 @@ export function prepararDestinatario(
     valor: e.valor,
     valorPromo,
     valorPix,
-    tecnico,
-    kmBase,
-    kmServico,
+    tecnico: melhor?.partida.tecnico ?? null,
+    hora: melhor?.partida.hora ?? null,
+    partida,
     km,
-    kmDoOrcamento,
+    kmAproximado: Boolean(melhor?.aproximado) && partida !== "orcamento",
     margem,
     marcado: podeEnviar && limites.marcado,
     motivo: podeEnviar ? limites.motivo : "sem nome no cadastro: não dá para enviar",

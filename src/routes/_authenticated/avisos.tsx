@@ -6,6 +6,7 @@ import { AlertTriangle, Bell, CheckCheck, ChevronRight, Clock } from "lucide-rea
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card } from "@/components/nexa";
 // Avisos pelo WhatsApp ficaram guardados e desligados (cada mensagem é cobrada pela Meta).
 import { NotificacoesCelular } from "@/components/avisos/notificacoes-celular";
+import { LembretesParaAprovar } from "@/components/avisos/lembretes-aprovacao";
 import type { Aviso } from "@/lib/avisos";
 import { listarAvisos } from "@/lib/avisos.functions";
 import { haQuanto } from "@/lib/conversas";
@@ -68,6 +69,8 @@ function Avisos() {
           ) : null
         }
       />
+
+      {papel && papel !== "tecnico" ? <LembretesParaAprovar /> : null}
 
       {q.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>

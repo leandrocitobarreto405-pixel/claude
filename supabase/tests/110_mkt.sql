@@ -150,10 +150,13 @@ SELECT pg_temp.ok((SELECT motivo_fora FROM public.mkt_grupos_historico h JOIN pu
 SELECT pg_temp.ok((SELECT (r->'grupos'->>'C4')::int FROM grp) = 2, 'contagem por grupo: ' || (SELECT r::text FROM grp));
 
 -- 4. Campanha: preparo (compradores primeiro, lotes de 2, variante sem nome, datas terça a quinta).
-INSERT INTO public.mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, tema, grupos, datas_disparo, templates)
+-- Listas: clientes de 200 dias a 1 ano + orçamento até 90 dias (Fábio pediu orçamento em 15/09).
+UPDATE public.mkt_contatos SET orcamento_em = '2026-09-15 12:00-03' WHERE normalized_phone = '5511910000006';
+INSERT INTO public.mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, tema, grupos, datas_disparo, templates, listas)
 VALUES ('d4000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Primavera', 'calendario',
         '2026-10-01', 'Primavera: ácaros e alergia', '{C4,N1}', '{2026-10-20,2026-10-21,2026-10-22}',
-        '{"C4": "tc_oferta_trimestral", "N1": "tc_orcamento_retomada"}');
+        '{"C4": "tc_oferta_trimestral", "N1": "tc_orcamento_retomada"}',
+        '[{"grupo": "C4", "familia": "clientes", "de": 200, "ate": 365}, {"grupo": "N1", "familia": "orcamento", "ate": 90}]');
 CREATE TEMP TABLE prep AS SELECT public.mkt_preparar_campanha('d4000000-0000-0000-0000-000000000001', '2026-10-10') AS r;
 SELECT pg_temp.ok((SELECT (r->>'total')::int = 3 AND (r->>'lotes')::int = 2 AND (r->>'sem_nome')::int = 1
                      AND (r->>'custo')::numeric = 0.96 FROM prep), 'estimativa: ' || (SELECT r::text FROM prep));
@@ -172,6 +175,7 @@ SELECT pg_temp.ok((SELECT etiqueta_chatwoot FROM public.mkt_lotes WHERE numero =
 UPDATE public.mkt_configuracoes SET lote_tamanho = 1;
 SELECT public.mkt_importar_contatos('11111111-1111-1111-1111-111111111111',
   '[{"telefone": "11910000031", "nome": "Nina", "tipo": "nao_comprador", "entrada_em": "2026-09-15"}]', 'x');
+UPDATE public.mkt_contatos SET orcamento_em = '2026-10-01 12:00-03' WHERE normalized_phone = '5511910000031';
 SELECT public.mkt_preparar_campanha('d4000000-0000-0000-0000-000000000001', '2026-10-10');
 SELECT pg_temp.ok((SELECT array_agg(data_prevista ORDER BY numero)::text FROM public.mkt_lotes
                     WHERE campanha_id = 'd4000000-0000-0000-0000-000000000001')
@@ -181,7 +185,7 @@ UPDATE public.mkt_configuracoes SET lote_tamanho = 2;
 SELECT public.mkt_preparar_campanha('d4000000-0000-0000-0000-000000000001', '2026-10-10');
 SELECT pg_temp.ok((SELECT string_agg(c.nome, ',') FROM public.mkt_envios e JOIN public.mkt_contatos c ON c.id = e.contato_id
                     WHERE e.campanha_id = 'd4000000-0000-0000-0000-000000000001' AND e.grupo = 'N1') = 'Nina',
-  'limite por grupo (a entrada mais recente primeiro)');
+  'limite por grupo (o orçamento mais recente primeiro)');
 
 -- 5. Aprovação: só até a véspera; agenda às 10h, espaçado.
 DO $$ BEGIN

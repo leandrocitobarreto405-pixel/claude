@@ -2745,6 +2745,7 @@ export type Database = {
           grupos: string[];
           id: string;
           limites: NonNullable<Json>;
+          listas: Json | null;
           mes_ref: string;
           motivo_status: string | null;
           nome: string;
@@ -2773,6 +2774,7 @@ export type Database = {
           grupos?: string[];
           id?: string;
           limites?: NonNullable<Json>;
+          listas?: Json | null;
           mes_ref: string;
           motivo_status?: string | null;
           nome: string;
@@ -2801,6 +2803,7 @@ export type Database = {
           grupos?: string[];
           id?: string;
           limites?: NonNullable<Json>;
+          listas?: Json | null;
           mes_ref?: string;
           motivo_status?: string | null;
           nome?: string;

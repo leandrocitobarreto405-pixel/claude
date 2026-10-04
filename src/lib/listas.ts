@@ -150,6 +150,62 @@ export function filtrosValidos(v: unknown): Filtros {
 /** Opções da promoção: só "até X dias" e sem "Agendado" (agendado nunca recebe promoção). */
 export const FAMILIAS_PROMOCAO = FAMILIAS.filter((f) => f.familia !== "agendado");
 
+// ---------------------------------------------------------------- listas das campanhas
+/**
+ * Faixa de uma lista usada numa campanha. O código (grupo) é interno: escolhe o modelo da
+ * mensagem e nunca aparece na tela.
+ */
+export type Segmento = { grupo: string; familia: Familia; de?: number; ate?: number };
+
+/** Faixa equivalente a cada grupo antigo (mesma tabela de private.mkt_segmento_do_grupo). */
+export const SEGMENTO_DO_GRUPO: Record<string, Segmento> = {
+  N1: { grupo: "N1", familia: "orcamento", ate: 90 },
+  N2: { grupo: "N2", familia: "orcamento", de: 90, ate: 365 },
+  N3: { grupo: "N3", familia: "orcamento", de: 365 },
+  C4: { grupo: "C4", familia: "clientes", de: 90, ate: 365 },
+  C5: { grupo: "C5", familia: "clientes", de: 365 },
+  CV: { grupo: "CV", familia: "conversa" },
+  PP: { grupo: "PP", familia: "perdido_preco" },
+};
+const ORDEM_GRUPOS = ["C4", "C5", "N1", "N2", "N3", "CV", "PP"];
+
+/** Listas da campanha: as gravadas ou, sem elas, as dos grupos antigos (clientes primeiro). */
+export function segmentosDaCampanha(listas: unknown, grupos: string[] | null): Segmento[] {
+  if (Array.isArray(listas) && listas.length) {
+    return listas.flatMap((x): Segmento[] => {
+      const s = x as Partial<Segmento>;
+      if (!s || typeof s.grupo !== "string" || !FAMILIAS.some((f) => f.familia === s.familia))
+        return [];
+      return [
+        {
+          grupo: s.grupo,
+          familia: s.familia as Familia,
+          ...(typeof s.de === "number" ? { de: s.de } : {}),
+          ...(typeof s.ate === "number" ? { ate: s.ate } : {}),
+        },
+      ];
+    });
+  }
+  return (grupos ?? [])
+    .filter((g) => SEGMENTO_DO_GRUPO[g])
+    .sort((a, b) => ORDEM_GRUPOS.indexOf(a) - ORDEM_GRUPOS.indexOf(b))
+    .map((g) => SEGMENTO_DO_GRUPO[g]!);
+}
+
+/** "Clientes · de 90 dias a 1 ano". */
+export function nomeDoSegmento(s: Segmento): string {
+  return nomeDoFiltro(s.familia, {
+    ...(s.de !== undefined ? { de: s.de } : {}),
+    ...(s.ate !== undefined ? { ate: s.ate } : {}),
+  });
+}
+
+/** Nome da lista de um código de grupo, pelas listas da campanha (ou pelo padrão do grupo). */
+export function nomeDoGrupo(grupo: string, segmentos: Segmento[]): string {
+  const s = segmentos.find((x) => x.grupo === grupo) ?? SEGMENTO_DO_GRUPO[grupo];
+  return s ? nomeDoSegmento(s) : "Outros";
+}
+
 // ---------------------------------------------------------------- exportação
 export type PessoaLista = {
   nome: string | null;

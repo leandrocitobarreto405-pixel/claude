@@ -45,7 +45,7 @@ const ORDEM_TOM: Record<TomChip, number> = { problema: 0, atencao: 1, sucesso: 2
 
 function tomDoMarketing(tipo: string): TomChip {
   if (tipo === "problema_pos_venda" || tipo === "prioridade_urgente") return "problema";
-  if (tipo === "pausa_automatica") return "atencao";
+  if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";
   return "neutro";
 }
 

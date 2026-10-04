@@ -271,3 +271,83 @@ export function buildAddress(parts: {
     .join(", ");
   return composed.length > 8 ? composed : (parts.full_address ?? "").trim();
 }
+
+// ---------------------------------------------------------------- distâncias pelas ruas (várias)
+export type DistanciaRua = { km: number; aproximado: boolean };
+
+/** Fator usado quando o roteador não responde: linha reta × 1,3 (aproximado). */
+export const FATOR_LINHA_RETA = 1.3;
+
+const cacheRotas = new Map<string, number>();
+const chaveCoord = (c: Coords) => `${c.lat.toFixed(5)},${c.lon.toFixed(5)}`;
+
+function linhaReta(a: Coords, b: Coords): number {
+  const rad = (g: number) => (g * Math.PI) / 180;
+  const h =
+    Math.sin(rad(b.lat - a.lat) / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Km pelas ruas (só a ida) de cada origem até cada destino, pelo OSRM (serviço "table": uma
+ * consulta para várias origens e destinos). O resultado fica guardado para não repetir a
+ * consulta. Se o roteador não responder, usa linha reta × 1,3 marcado como aproximado.
+ * `guardados`/`guardar` permitem guardar fora da memória (ex.: no banco).
+ */
+export async function distanciasPelasRuas(
+  origens: Coords[],
+  destinos: Coords[],
+  opcoes: {
+    guardados?: Map<string, number>;
+    guardar?: (novos: Array<{ origem: Coords; destino: Coords; km: number }>) => Promise<void>;
+    prazoMs?: number;
+  } = {},
+): Promise<DistanciaRua[][]> {
+  const chave = (o: Coords, d: Coords) => `${chaveCoord(o)}>${chaveCoord(d)}`;
+  const conhecido = (o: Coords, d: Coords) =>
+    cacheRotas.get(chave(o, d)) ?? opcoes.guardados?.get(chave(o, d));
+  const faltam = destinos.filter((d) => origens.some((o) => conhecido(o, d) === undefined));
+  const novos: Array<{ origem: Coords; destino: Coords; km: number }> = [];
+  const limite = Date.now() + (opcoes.prazoMs ?? 12_000);
+  // O servidor público do OSRM aceita até ~100 coordenadas por consulta.
+  const porVez = Math.max(1, 90 - origens.length);
+  for (let i = 0; i < faltam.length && origens.length && Date.now() < limite; i += porVez) {
+    const lote = faltam.slice(i, i + porVez);
+    const pontos = [...origens, ...lote];
+    const path = pontos.map((p) => `${p.lon},${p.lat}`).join(";");
+    const src = origens.map((_, k) => k).join(";");
+    const dst = lote.map((_, k) => origens.length + k).join(";");
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/table/v1/driving/${path}?sources=${src}&destinations=${dst}&annotations=distance`,
+        { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(10_000) },
+      );
+      if (!res.ok) break;
+      const json = (await res.json()) as { code?: string; distances?: Array<Array<number | null>> };
+      if (json.code !== "Ok" || !json.distances) break;
+      origens.forEach((o, a) =>
+        lote.forEach((d, b) => {
+          const m = json.distances?.[a]?.[b];
+          if (typeof m !== "number") return;
+          const km = Math.round((m / 1000) * 10) / 10;
+          cacheRotas.set(chave(o, d), km);
+          novos.push({ origem: o, destino: d, km });
+        }),
+      );
+    } catch {
+      break;
+    }
+  }
+  if (novos.length && opcoes.guardar) await opcoes.guardar(novos).catch(() => undefined);
+  return origens.map((o) =>
+    destinos.map((d) => {
+      const km = conhecido(o, d);
+      if (km !== undefined) return { km, aproximado: false };
+      return {
+        km: Math.round(linhaReta(o, d) * FATOR_LINHA_RETA * 10) / 10,
+        aproximado: true,
+      };
+    }),
+  );
+}

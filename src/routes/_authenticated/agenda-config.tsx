@@ -557,12 +557,13 @@ function Regras({
           </div>
           <div className="grid grid-cols-2 gap-3">
             {campoOpcional("margemMin", "Margem mínima", "R$")}
-            {campoOpcional("kmMax", "Distância máxima", "km")}
+            {campoOpcional("kmMax", "Distância máxima (só a ida)", "km")}
           </div>
           <div className="flex flex-col gap-1">
             <h3 className="text-[15px] font-bold">Custo médio de produto por serviço</h3>
             <p className="text-sm text-muted-foreground">
-              Entra na margem estimada junto com o imposto e o deslocamento (sem mão de obra).
+              Entra na margem estimada junto com o imposto e o deslocamento da ida (sem mão de
+              obra).
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">

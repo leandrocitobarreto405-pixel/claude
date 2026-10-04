@@ -42,7 +42,7 @@ export function GatilhosHoje({ admin, ligados }: { admin: boolean; ligados: stri
     <SectionCard
       icon={Zap}
       title="Gatilhos de hoje"
-      description={`Pós-venda (C1), 6 meses da higienização (C2) e 13º mês da impermeabilização (C3), gerados todo dia às 9h. ${
+      description={`Pós-venda, 6 meses da higienização e 13º mês da impermeabilização, gerados todo dia às 9h (os de 6 meses e 13º mês esperam aprovação em Avisos). ${
         ligados.length
           ? `Automáticos: ${ligados.join(", ")}. Os demais ficam aqui para enviar pelo celular.`
           : "Os envios automáticos estão desligados: mande pelo celular e marque aqui."
@@ -77,7 +77,7 @@ export function GatilhosHoje({ admin, ligados }: { admin: boolean; ligados: stri
                     </a>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {e.grupo} · {NOMES_GRUPOS[e.grupo ?? ""] ?? ""} ·{" "}
+                    {NOMES_GRUPOS[e.grupo ?? ""] ?? ""} ·{" "}
                     {GATILHO_TEXTO[
                       (e.mkt_campanhas as { gatilho?: string | null } | null)?.gatilho ?? ""
                     ] ?? e.template_nome}

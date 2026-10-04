@@ -59,14 +59,16 @@ function detalhes(d: DestinatarioPromocao): string[] {
       `${brl(d.valor)} → ${brl(d.valorPromo)} com a promoção · ${brl(d.valorPix)} no Pix`,
     );
   if (d.km !== null) {
-    const partes: string[] = [];
-    if (d.kmDoOrcamento) partes.push(`${km(d.km)} da base (pelo orçamento)`);
-    else {
-      if (d.kmBase !== null)
-        partes.push(`${km(d.kmBase)} da base${d.tecnico ? ` do ${d.tecnico}` : ""}`);
-      if (d.kmServico !== null) partes.push(`${km(d.kmServico)} de outro serviço no dia`);
-    }
-    linhas.push(partes.join(" · "));
+    const dist = d.kmAproximado ? `~${km(d.km)} (aproximado)` : km(d.km);
+    const quem = d.tecnico ? ` do ${d.tecnico}` : "";
+    const horario = d.hora ? ` · horário das ${d.hora}` : "";
+    linhas.push(
+      d.partida === "orcamento"
+        ? `${dist} da base (pelo orçamento)`
+        : d.partida === "servico"
+          ? `${dist} do serviço anterior${quem}${horario}`
+          : `${dist} da base${quem}${horario}`,
+    );
   }
   if (d.margem)
     linhas.push(
@@ -296,9 +298,9 @@ function Promocao() {
               </p>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              Km em linha reta, a partir do ponto mais perto (base do técnico do horário livre ou
-              outro serviço dele no dia). Margem no Pix: valor − imposto − deslocamento de ida e
-              volta − produto, sem mão de obra.
+              Km pelas ruas, só a ida: do serviço anterior do técnico no dia ou, se não houver, da
+              base dele. Se o mapa não responder, linha reta × 1,3 (aproximado). Margem no Pix:
+              valor − imposto − deslocamento da ida − produto, sem mão de obra.
             </p>
             {s.destinatarios.length === 0 ? (
               <p className="text-sm">Ninguém para receber agora.</p>

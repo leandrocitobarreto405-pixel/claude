@@ -72,6 +72,8 @@ sql(`SELECT mkt_importar_contatos('${EMP}', '[
   {"telefone": "11955550002", "nome": "Dora", "tipo": "comprador", "servico_em": "${meses(H, -6)}"},
   {"telefone": "11955550003", "nome": "Nina", "tipo": "nao_comprador", "entrada_em": "${meses(H, -1)}"}
 ]', 'teste e2e')`);
+// Nina pediu orçamento há 20 dias: entra em "Orçamento sem agendamento · até 90 dias" (N1).
+sql(`UPDATE mkt_contatos SET orcamento_em = '${somarDias(H, -20)} 12:00-03' WHERE normalized_phone = '5511955550003'`);
 sql(`INSERT INTO mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, templates, datas_disparo, condicao_texto,
        condicao_pct, limites)
      VALUES ('${C1}', '${EMP}', 'Primavera E2E', 'calendario', date_trunc('month', '${D}'::date), '{C4}',
@@ -228,7 +230,7 @@ sql(`INSERT INTO mkt_lotes (id, empresa_id, campanha_id, numero, etiqueta_chatwo
 sql(`INSERT INTO mkt_envios (empresa_id, campanha_id, lote_id, contato_id, normalized_phone, grupo, template_nome,
        status, agendado_para)
      SELECT '${EMP}', '${C3}', 'e6000000-0000-0000-0000-000000000003', id, normalized_phone, 'C4', 'tc_sumiu',
-            'pendente', '${D} 10:00-03' FROM mkt_contatos WHERE normalized_phone = '5511955550002'`);
+            'pendente', '${D} 10:00-03' FROM mkt_contatos WHERE normalized_phone = '5511955550003'`);
 const antes2 = (await logFake()).length;
 r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
 check(
@@ -572,10 +574,17 @@ const promo = JSON.parse(
   sql(`SELECT mkt_criar_promocao('${EMP}', NULL, '[
     {"telefone": "11955550001", "nome": "Caio Souza"},
     {"telefone": "11955550444", "nome": "Eva Lima"},
-    {"telefone": "11955550445", "nome": "Fabio Reis"}
+    {"telefone": "11955550445", "nome": "Fabio Reis"},
+    {"telefone": "11955550446", "nome": "Gil Rocha"}
   ]'::jsonb, 20, 5, 'tc_promocao_agenda')`),
 );
-check("promoção criada para 3", promo.envios === 3, promo);
+check("promoção criada para 4", promo.envios === 4, promo);
+// Limite de marketing: a campanha do Caio foi há mais de 30 dias; o Gil recebeu outra há 5 dias.
+sql(`UPDATE mkt_envios SET enviado_em = now() - interval '40 days'
+      WHERE campanha_id = '${C1}' AND normalized_phone = '5511955550001'`);
+sql(`INSERT INTO mkt_envios (empresa_id, campanha_id, contato_id, normalized_phone, template_nome, status, enviado_em)
+     SELECT '${EMP}', '${C1}', id, normalized_phone, 'tc_oferta_trimestral', 'enviado', now() - interval '5 days'
+       FROM mkt_contatos WHERE empresa_id = '${EMP}' AND normalized_phone = '5511955550446'`);
 sql(
   `UPDATE mkt_envios SET agendado_para = '${hojeSP} 09:00-03' WHERE campanha_id = '${promo.campanha}'`,
 );
@@ -606,6 +615,14 @@ check(
       processed_params: { body: { 1: "Fabio", 2: "20%", 3: "5%" } },
     }),
   promoFabio?.body,
+);
+check(
+  "promoção: quem recebeu marketing há menos de 30 dias fica fora",
+  sql(`SELECT e.status || '|' || e.erro FROM mkt_envios e
+        WHERE e.campanha_id = '${promo.campanha}' AND e.normalized_phone = '5511955550446'`) ===
+    "cancelado|limite de marketing: recebeu outra mensagem há menos de 30 dias",
+  sql(`SELECT e.status || '|' || coalesce(e.erro, '') FROM mkt_envios e
+        WHERE e.campanha_id = '${promo.campanha}' AND e.normalized_phone = '5511955550446'`),
 );
 check(
   "promoção: contato interno cancelado, nada enviado para ele",

@@ -14,6 +14,7 @@ import {
   margemEstimada,
   tipoDoOrcamento,
   valorComDesconto,
+  partidasDosHorarios,
   prepararDestinatario,
   type EntradaPromocao,
 } from "./promocao";
@@ -193,7 +194,26 @@ test("distância e limites (margem mínima e km máximo)", () => {
   );
 });
 
-test("destinatário da promoção: técnico mais perto, margem no Pix, limites e avisos", () => {
+test("partida: serviço anterior do técnico no dia, senão a base", () => {
+  const base = { lat: -23.55, lon: -46.63 };
+  const casaCliente = { lat: -23.6, lon: -46.6 };
+  const livres = [
+    { tecnicoId: "j", tecnico: "Josué", hora: "10:00" },
+    { tecnicoId: "j", tecnico: "Josué", hora: "14:00" },
+  ];
+  const p = partidasDosHorarios(livres, new Map([["j", base]]), [
+    { tecnicoId: "j", hora: "11:00:00", coord: casaCliente },
+  ]);
+  assert.deepEqual(
+    p.map((x) => `${x.hora}:${x.tipo}`),
+    ["10:00:base", "14:00:servico"],
+  );
+  assert.deepEqual(p[1]!.coord, casaCliente);
+  // Sem base localizada e sem serviço antes: o horário fica sem ponto de partida.
+  assert.equal(partidasDosHorarios(livres.slice(0, 1), new Map(), []).length, 0);
+});
+
+test("destinatário da promoção: só a ida, margem no Pix, limites e avisos", () => {
   const custos = {
     impostoPct: 6,
     custoKm: 1,
@@ -201,10 +221,11 @@ test("destinatário da promoção: técnico mais perto, margem no Pix, limites e
     produtoImpermeabilizacao: 80,
   };
   const cfg = { descontoPct: 20, pixPct: 5, margemMin: 100, kmMax: 20 };
-  const base = { lat: -23.55, lon: -46.63 };
-  const pontos = [
-    { tecnicoId: "j", tecnico: "Josué", base, servicos: [{ lat: -23.6, lon: -46.63 }] },
-  ];
+  const de = (hora: string, tipo: "base" | "servico", km: number, aproximado = false) => ({
+    partida: { tecnicoId: "j", tecnico: "Josué", hora, tipo },
+    km,
+    aproximado,
+  });
   const e: EntradaPromocao = {
     chave: "11999990000",
     telefone: "5511999990000",
@@ -215,42 +236,52 @@ test("destinatário da promoção: técnico mais perto, margem no Pix, limites e
     valor: 400,
     kmOrcamento: null,
     tipo: "higienizacao",
-    coord: { lat: -23.61, lon: -46.63 },
+    localizado: true,
+    distancias: [de("10:00", "base", 12.4), de("14:00", "servico", 3.2)],
   };
-  const d = prepararDestinatario(e, pontos, cfg, custos);
-  assert.equal(d.tecnico, "Josué");
+  const d = prepararDestinatario(e, cfg, custos);
   assert.equal(d.valorPromo, 320);
   assert.equal(d.valorPix, 300);
-  // perto do serviço do dia (~1,1 km), mais que da base (~6,7 km)
-  assert.ok(d.km !== null && d.km < 2 && d.kmBase !== null && d.kmBase > 6);
-  // 300 − 18 de imposto − 2×km×1 − 6 de produto
-  assert.equal(d.margem?.produto, 6);
-  assert.ok(d.margem!.valor > 270 && d.margem!.valor < 276);
+  // O horário das 14h sai do serviço anterior, mais perto.
+  assert.equal(d.hora, "14:00");
+  assert.equal(d.partida, "servico");
+  assert.equal(d.km, 3.2);
+  // 300 − 18 de imposto − 3,2 km (só a ida) × R$ 1 − 6 de produto
+  assert.equal(d.margem?.deslocamento, 3.2);
+  assert.equal(d.margem?.valor, 272.8);
   assert.equal(d.marcado, true);
-  assert.deepEqual(d.avisos, []);
+  assert.equal(d.kmAproximado, false);
 
-  // longe demais: desmarcado com o motivo
+  // Longe demais (pela ida): desmarcado com o motivo; aproximado quando o roteador não respondeu.
   const longe = prepararDestinatario(
-    { ...e, coord: { lat: -23.95, lon: -46.63 } },
-    pontos,
+    { ...e, distancias: [de("10:00", "base", 25, true)] },
     cfg,
     custos,
   );
   assert.equal(longe.marcado, false);
-  assert.match(longe.motivo ?? "", /km/);
+  assert.match(longe.motivo ?? "", /25 km/);
+  assert.equal(longe.kmAproximado, true);
 
-  // sem orçamento e sem endereço: marcado, só com avisos
-  const sem = prepararDestinatario({ ...e, valor: null, coord: null }, pontos, cfg, custos);
+  // Sem orçamento e sem endereço: marcado, só com avisos.
+  const sem = prepararDestinatario(
+    { ...e, valor: null, localizado: false, distancias: [] },
+    cfg,
+    custos,
+  );
   assert.equal(sem.marcado, true);
   assert.deepEqual(sem.avisos, ["sem orçamento", "sem endereço"]);
 
-  // sem endereço, mas com km do orçamento (ida e volta)
-  const peloOrc = prepararDestinatario({ ...e, coord: null, kmOrcamento: 30 }, pontos, cfg, custos);
+  // Sem endereço, mas com km do orçamento (ida e volta): conta a metade.
+  const peloOrc = prepararDestinatario(
+    { ...e, localizado: false, distancias: [], kmOrcamento: 30 },
+    cfg,
+    custos,
+  );
   assert.equal(peloOrc.km, 15);
-  assert.equal(peloOrc.kmDoOrcamento, true);
+  assert.equal(peloOrc.partida, "orcamento");
 
-  // sem nome: não dá para enviar
-  const semNome = prepararDestinatario({ ...e, nome: " " }, pontos, cfg, custos);
+  // Sem nome: não dá para enviar.
+  const semNome = prepararDestinatario({ ...e, nome: " " }, cfg, custos);
   assert.equal(semNome.podeEnviar, false);
   assert.equal(semNome.marcado, false);
 });

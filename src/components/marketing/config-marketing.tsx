@@ -22,18 +22,20 @@ const FLAGS: Array<{ chave: keyof ConfigMktEditavel; titulo: string; texto: stri
   },
   {
     chave: "gatilho_c1_ligado",
-    titulo: "Gatilho C1 — pós-venda",
+    titulo: "Pós-venda",
     texto: "Dia seguinte ao serviço concluído e pago, das 9h às 19h.",
   },
   {
     chave: "gatilho_c2_ligado",
-    titulo: "Gatilho C2 — 6 meses da higienização",
-    texto: "Uma vez, entre 5 e 7 meses depois da higienização.",
+    titulo: "6 meses da higienização",
+    texto:
+      "Uma vez, entre 5 e 7 meses depois da higienização. O lote do dia espera sua aprovação em Avisos.",
   },
   {
     chave: "gatilho_c3_ligado",
-    titulo: "Gatilho C3 — 13º mês da impermeabilização",
-    texto: "Entre 1 ano e 15 dias e 1 ano e 1 mês; lembrete uma vez se não responder em 24 h.",
+    titulo: "13º mês da impermeabilização",
+    texto:
+      "Entre 1 ano e 15 dias e 1 ano e 1 mês; lembrete uma vez se não responder em 24 h. O lote do dia espera sua aprovação em Avisos.",
   },
   {
     chave: "preparo_automatico",
@@ -63,6 +65,7 @@ export function ConfigMarketing({ dados }: { dados: Situacao }) {
     aviso_telefone: c?.aviso_telefone ?? "",
     aviso_template_nome: c?.aviso_template_nome ?? "",
     link_avaliacao_google: c?.link_avaliacao_google ?? "",
+    limite_marketing_dias: c?.limite_marketing_dias ?? 30,
   });
   const [salvando, setSalvando] = useState(false);
 
@@ -113,6 +116,27 @@ export function ConfigMarketing({ dados }: { dados: Situacao }) {
             />
           </label>
         ))}
+        <div className="grid gap-1">
+          <Label htmlFor="limite-mkt">Intervalo mínimo entre mensagens de marketing</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="limite-mkt"
+              type="number"
+              inputMode="numeric"
+              min={7}
+              max={365}
+              className="min-h-11 w-28"
+              value={String(form.limite_marketing_dias ?? 30)}
+              disabled={!dados.admin}
+              onChange={(e) => setForm({ ...form, limite_marketing_dias: Number(e.target.value) })}
+            />
+            <span className="text-sm text-muted-foreground">dias</span>
+          </div>
+          <span className="text-sm text-muted-foreground">
+            Cada pessoa recebe no máximo 1 campanha ou promoção nesse intervalo. Pós-venda, 6 meses
+            e 13º mês ficam fora dessa conta.
+          </span>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1">
             <Label htmlFor="aviso-fone">Meu WhatsApp (avisos)</Label>

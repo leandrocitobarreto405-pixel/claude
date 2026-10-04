@@ -11,14 +11,16 @@ import { chaveTelefone } from "@/lib/avisos";
 import { lerPublico, type PessoaPublico } from "@/lib/listas.functions";
 import {
   horariosLivres,
+  partidasDosHorarios,
   prepararDestinatario,
   previaMensagem,
   tipoDoOrcamento,
   type Coordenada,
   type CustosEmpresa,
   type DestinatarioPromocao,
+  type DistanciaPartida,
   type HorarioLivre,
-  type PontoTecnico,
+  type Partida,
   type TipoOrcamento,
 } from "@/lib/promocao";
 import type { Database } from "@/integrations/supabase/types";
@@ -142,15 +144,15 @@ const CUSTO_KM_PADRAO = 0.57;
 const ORCAMENTO_GEO_MS = 8_000;
 
 /**
- * Base de cada técnico com horário livre e os serviços dele no dia. Base sem coordenada é
- * localizada uma vez pelo endereço e guardada.
+ * Ponto de partida de cada horário livre: o serviço anterior do técnico no dia ou, sem serviço
+ * antes, a base dele. Base sem coordenada é localizada uma vez pelo endereço e guardada.
  */
-async function pontosDosTecnicos(
+async function partidasDosTecnicos(
   db: Db,
   empresaId: string,
   horarios: ResumoHorariosLivres,
   prazo: number,
-): Promise<PontoTecnico[]> {
+): Promise<Partida[]> {
   const ids = [...new Set(horarios.livres.map((l) => l.tecnicoId))];
   if (!ids.length) return [];
   const [tecs, visitas] = await Promise.all([
@@ -162,27 +164,30 @@ async function pontosDosTecnicos(
     db
       .from("visits")
       .select(
-        "technician_id, status, work_order:work_order_id ( customer:customer_id ( latitude, longitude ) )",
+        "technician_id, scheduled_time, status, work_order:work_order_id ( customer:customer_id ( latitude, longitude ) )",
       )
       .eq("empresa_id", empresaId)
       .eq("scheduled_date", horarios.data)
       .in("technician_id", ids),
   ]);
-  const servicos = new Map<string, Coordenada[]>();
+  const servicos: Array<{ tecnicoId: string; hora: string; coord: Coordenada }> = [];
   for (const v of (visitas.data ?? []) as unknown as Array<{
     technician_id: string | null;
+    scheduled_time: string | null;
     status: string;
     work_order: { customer: { latitude: number | null; longitude: number | null } | null } | null;
   }>) {
     const c = v.work_order?.customer;
-    if (!v.technician_id || !c || c.latitude === null || c.longitude === null) continue;
+    if (!v.technician_id || !v.scheduled_time || !c || c.latitude === null || c.longitude === null)
+      continue;
     if (!VISITA_FUTURA.includes(v.status) && v.status !== "Concluído") continue;
-    servicos.set(v.technician_id, [
-      ...(servicos.get(v.technician_id) ?? []),
-      { lat: Number(c.latitude), lon: Number(c.longitude) },
-    ]);
+    servicos.push({
+      tecnicoId: v.technician_id,
+      hora: v.scheduled_time,
+      coord: { lat: Number(c.latitude), lon: Number(c.longitude) },
+    });
   }
-  const pontos: PontoTecnico[] = [];
+  const bases = new Map<string, Coordenada | null>();
   for (const t of tecs.data ?? []) {
     let base: Coordenada | null =
       t.base_latitude !== null && t.base_longitude !== null
@@ -203,9 +208,9 @@ async function pontosDosTecnicos(
           .eq("id", t.id);
       }
     }
-    pontos.push({ tecnicoId: t.id, tecnico: t.name, base, servicos: servicos.get(t.id) ?? [] });
+    bases.set(t.id, base);
   }
-  return pontos;
+  return partidasDosHorarios(horarios.livres, bases, servicos);
 }
 
 /**
@@ -271,8 +276,32 @@ async function montarLista(
     numeroDaConfig(db, empresaId, "tax_percent"),
     numeroDaConfig(db, empresaId, "cost_per_km"),
   ]);
-  const pontos = await pontosDosTecnicos(db, empresaId, horarios, prazo);
+  const partidas = await partidasDosTecnicos(db, empresaId, horarios, prazo);
   const achados = await localizarContatos(db, empresaId, podem, prazo);
+  const coordDe = (p: PessoaPublico): Coordenada | null =>
+    p.latitude !== null && p.longitude !== null
+      ? { lat: Number(p.latitude), lon: Number(p.longitude) }
+      : (achados.get(p.contato_id) ?? null);
+  // Km pelas ruas (só a ida) de cada ponto de partida até cada cliente localizado.
+  const destinos: Coordenada[] = [];
+  const indiceDe = new Map<string, number>();
+  for (const p of podem) {
+    const c = coordDe(p);
+    if (!c) continue;
+    indiceDe.set(p.contato_id, destinos.length);
+    destinos.push(c);
+  }
+  // Vários horários saem do mesmo lugar (a base): cada ponto de partida é consultado uma vez.
+  const origens: Coordenada[] = [];
+  const origemDe = partidas.map((pt) => {
+    const i = origens.findIndex((o) => o.lat === pt.coord.lat && o.lon === pt.coord.lon);
+    if (i >= 0) return i;
+    origens.push(pt.coord);
+    return origens.length - 1;
+  });
+  const { distanciasPelasRuas } = await import("@/lib/geo.server");
+  const matriz =
+    origens.length && destinos.length ? await distanciasPelasRuas(origens, destinos) : [];
   const custos: CustosEmpresa = {
     impostoPct: imposto ?? 6,
     // Mesmo padrão dos orçamentos quando a empresa não configurou.
@@ -286,10 +315,16 @@ async function montarLista(
     const chave = chaveTelefone(p.telefone);
     if (!chave || vistos.has(chave)) continue;
     vistos.add(chave);
-    const coord =
-      p.latitude !== null && p.longitude !== null
-        ? { lat: Number(p.latitude), lon: Number(p.longitude) }
-        : (achados.get(p.contato_id) ?? null);
+    const iDestino = indiceDe.get(p.contato_id) ?? -1;
+    const distancias: DistanciaPartida[] =
+      iDestino < 0
+        ? []
+        : partidas.flatMap((pt, k) => {
+            const r = matriz[origemDe[k]!]?.[iDestino];
+            if (!r) return [];
+            const { coord: _c, ...partida } = pt;
+            return [{ partida, km: r.km, aproximado: r.aproximado }];
+          });
     destinatarios.push(
       prepararDestinatario(
         {
@@ -302,9 +337,9 @@ async function montarLista(
           valor: p.orcamento_valor && p.orcamento_valor > 0 ? p.orcamento_valor : null,
           kmOrcamento: p.orcamento_km,
           tipo: tipos.get(chave) ?? null,
-          coord,
+          localizado: iDestino >= 0,
+          distancias,
         },
-        pontos,
         cfg,
         custos,
       ),

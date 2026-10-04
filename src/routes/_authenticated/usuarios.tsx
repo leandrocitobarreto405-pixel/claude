@@ -9,8 +9,19 @@ import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { dateBR } from "@/lib/format";
-import { convidarUsuario, useMinhaEmpresa, type Papel } from "@/lib/tenant";
+import { useMinhaEmpresa, type Papel } from "@/lib/tenant";
+import { convidarPorEmailFn, type ResultadoConvite } from "@/lib/convite.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { AcoesConvite } from "@/components/usuarios/acoes-convite";
+
+const TEXTO_ENVIO: Record<ResultadoConvite["envio"], string> = {
+  convite_enviado: "Convite enviado por e-mail. A pessoa toca no link, cria a senha e entra.",
+  aviso_enviado:
+    "Essa pessoa já tem conta no Nexa: mandamos um e-mail avisando do acesso. A empresa aparece no próximo login.",
+  ja_tem_conta: "Essa pessoa já tem conta no Nexa. A empresa aparece para ela no próximo login.",
+  falhou:
+    "Convite registrado, mas o e-mail não saiu agora. Mande pelo WhatsApp ou copie a mensagem.",
+};
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -41,7 +52,13 @@ function Usuarios() {
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<Papel>("atendente");
   const [enviando, setEnviando] = useState(false);
-  const [convidado, setConvidado] = useState<{ email: string; papel: Papel } | null>(null);
+  const [convidado, setConvidado] = useState<{
+    email: string;
+    papel: Papel;
+    envio: ResultadoConvite["envio"];
+  } | null>(null);
+  const convidarFn = useServerFn(convidarPorEmailFn);
+  const [reenviando, setReenviando] = useState<string | null>(null);
 
   const empresaId = vinculo?.empresa.id ?? null;
 
@@ -92,16 +109,30 @@ function Usuarios() {
     }
     setEnviando(true);
     try {
-      await convidarUsuario(email.trim(), papel);
-      toast.success("Convite registrado. Agora envie a mensagem para a pessoa.");
-      setConvidado({ email: email.trim().toLowerCase(), papel });
+      const r = await convidarFn({ data: { email: email.trim(), papel } });
+      toast[r.envio === "falhou" ? "warning" : "success"](TEXTO_ENVIO[r.envio]);
+      setConvidado({ email: email.trim().toLowerCase(), papel, envio: r.envio });
       setEmail("");
       void queryClient.invalidateQueries({ queryKey: ["convites_empresa"] });
       void queryClient.invalidateQueries({ queryKey: ["equipe_empresa"] });
-    } catch {
-      toast.error("Não foi possível registrar o convite.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível registrar o convite.");
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function reenviar(emailConvite: string, papelConvite: Papel) {
+    setReenviando(emailConvite);
+    try {
+      const r = await convidarFn({
+        data: { email: emailConvite, papel: papelConvite, reenviar: true },
+      });
+      toast[r.envio === "falhou" ? "warning" : "success"](TEXTO_ENVIO[r.envio]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível reenviar.");
+    } finally {
+      setReenviando(null);
     }
   }
 
@@ -168,8 +199,8 @@ function Usuarios() {
           {convidado && vinculo ? (
             <div className="space-y-3 rounded-botao bg-marca-claro p-4">
               <p className="text-sm">
-                <b>Convite registrado para {convidado.email}.</b> O Nexa não manda e-mail de
-                convite: envie a mensagem com o passo a passo para a pessoa criar a conta.
+                <b>{convidado.email}:</b> {TEXTO_ENVIO[convidado.envio]} Se preferir, mande também
+                pelo WhatsApp ou copie a mensagem.
               </p>
               <AcoesConvite
                 empresa={vinculo.empresa.nome}
@@ -233,12 +264,22 @@ function Usuarios() {
                   </Badge>
                 </div>
                 {!c.aceito_em && vinculo ? (
-                  <AcoesConvite
-                    empresa={vinculo.empresa.nome}
-                    email={c.email}
-                    papel={c.papel as Papel}
-                    reenviar
-                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={reenviando !== null}
+                      onClick={() => void reenviar(c.email, c.papel as Papel)}
+                    >
+                      {reenviando === c.email ? "Enviando…" : "Reenviar e-mail"}
+                    </Button>
+                    <AcoesConvite
+                      empresa={vinculo.empresa.nome}
+                      email={c.email}
+                      papel={c.papel as Papel}
+                      reenviar
+                    />
+                  </div>
                 ) : null}
               </div>
             ))}
