@@ -116,6 +116,34 @@ export const enviarModeloFn = createServerFn({ method: "POST" })
     return enviarParaAprovacao(await dbServico(), context.empresaId, context.userId, data);
   });
 
+/** Guarda o texto para revisar depois. Não envia nada para a Meta. */
+export const salvarRascunhoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: { form: FormModelo }) => ({ form: limparFormulario(i.form) }))
+  .handler(async ({ data, context }) => {
+    const { dbServico } = await import("@/lib/mkt/contexto.server");
+    const { salvarRascunho } = await import("@/lib/meta/modelos.server");
+    await salvarRascunho(await dbServico(), context.empresaId, context.userId, data.form, null);
+    return { ok: true };
+  });
+
+/** Descarta o texto novo (o modelo na Meta continua como está). */
+export const descartarRascunhoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: { nome: string; idioma: string }) => {
+    const nome = String(i.nome ?? "").trim();
+    const idioma = String(i.idioma ?? "").trim();
+    if (!/^[a-z0-9_]{1,512}$/.test(nome) || !/^[a-z]{2}(_[A-Z]{2})?$/.test(idioma))
+      throw new Error("Modelo inválido.");
+    return { nome, idioma };
+  })
+  .handler(async ({ data, context }) => {
+    const { dbServico } = await import("@/lib/mkt/contexto.server");
+    const { descartarRascunho } = await import("@/lib/meta/modelos.server");
+    await descartarRascunho(await dbServico(), context.empresaId, data.nome, data.idioma);
+    return { ok: true };
+  });
+
 // ---------------------------------------------------------------- textos sem aprovação
 export const textosDaEmpresaFn = createServerFn({ method: "GET" })
   .middleware([requireAdminEmpresa])

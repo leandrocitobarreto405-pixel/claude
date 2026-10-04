@@ -19,6 +19,7 @@ import { EditorModelo, type ModeloEmEdicao } from "@/components/modelos/editor-m
 import { Finalidades } from "@/components/modelos/finalidades";
 import {
   conexaoMetaFn,
+  descartarRascunhoFn,
   listarModelosFn,
   salvarConexaoMetaFn,
   salvarTextoFn,
@@ -31,9 +32,11 @@ import {
   previaDoFormulario,
   validarTexto,
   type DefTexto,
+  type FormModelo,
 } from "@/lib/modelos-mensagem";
 import type { LinhaModelo } from "@/lib/meta/modelos.server";
 import { usePapel } from "@/lib/tenant";
+import { cn } from "@/lib/utils";
 
 const CHAVE_CONEXAO = ["modelos", "conexao"] as const;
 const CHAVE_LISTA = ["modelos", "lista"] as const;
@@ -140,29 +143,51 @@ function ModelosMensagem() {
               </p>
             ) : null}
             {l.faltando.map((m) => (
-              <Card key={m.nome} className="gap-2 border-problema">
+              <Card
+                key={m.nome}
+                className={cn(
+                  "gap-2",
+                  m.rascunho ? "border-atencao-foreground/30" : "border-problema",
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate font-semibold">{m.nome}</p>
-                  <Chip tom="problema">Não existe</Chip>
+                  {m.rascunho ? (
+                    <Chip tom="atencao">Texto pronto</Chip>
+                  ) : (
+                    <Chip tom="problema">Não existe</Chip>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  O Nexa usa este modelo, mas ele não está na conta do WhatsApp.
+                  {m.rascunho
+                    ? "Modelo novo, ainda não existe na Meta. Revise o texto e toque em enviar."
+                    : "O Nexa usa este modelo, mas ele não está na conta do WhatsApp."}
                 </p>
+                {m.rascunho && m.sugestao ? <PreviaComBotoes form={m.sugestao} /> : null}
                 {podeEditar ? (
-                  <Botao
-                    className="self-start"
-                    onClick={() =>
-                      setEditando({
-                        id: null,
-                        status: null,
-                        form: m.sugestao ?? { ...FORM_VAZIO, nome: m.nome },
-                        regra: null,
-                        naoEditavel: null,
-                      })
-                    }
-                  >
-                    <Plus /> Criar agora
-                  </Botao>
+                  <div className="flex flex-wrap gap-2">
+                    <Botao
+                      onClick={() =>
+                        setEditando({
+                          id: null,
+                          status: null,
+                          form: m.sugestao ?? { ...FORM_VAZIO, nome: m.nome },
+                          regra: null,
+                          naoEditavel: null,
+                          deRascunho: Boolean(m.rascunho),
+                        })
+                      }
+                    >
+                      <Plus /> {m.rascunho ? "Revisar e criar" : "Criar agora"}
+                    </Botao>
+                    {m.rascunho && m.sugestao ? (
+                      <DescartarRascunho
+                        nome={m.nome}
+                        idioma={m.sugestao.idioma}
+                        aoDescartar={() => void qc.invalidateQueries({ queryKey: CHAVE_LISTA })}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </Card>
             ))}
@@ -172,15 +197,17 @@ function ModelosMensagem() {
                   <LinhaDoModelo
                     m={m}
                     podeEditar={podeEditar}
-                    aoEditar={() =>
+                    aoEditar={(rascunho) =>
                       setEditando({
                         id: m.id,
                         status: m.status,
-                        form: m.form,
+                        form: rascunho && m.rascunho ? m.rascunho.form : m.form,
                         regra: m.regra,
                         naoEditavel: m.form.naoEditavel,
+                        deRascunho: rascunho,
                       })
                     }
+                    aoDescartar={() => void qc.invalidateQueries({ queryKey: CHAVE_LISTA })}
                   />
                 </li>
               ))}
@@ -235,15 +262,75 @@ function ModelosMensagem() {
   );
 }
 
+/** Texto como o cliente vê e os botões (quando houver). */
+function PreviaComBotoes({ form, titulo }: { form: FormModelo; titulo?: string }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-card bg-marca-claro p-3">
+      {titulo ? <p className="text-xs font-semibold text-muted-foreground">{titulo}</p> : null}
+      <p className="whitespace-pre-wrap text-sm leading-relaxed">{previaDoFormulario(form)}</p>
+      {form.botoes.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {form.botoes.map((b, i) => (
+            <span
+              key={i}
+              className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-marca"
+            >
+              {b.texto}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DescartarRascunho({
+  nome,
+  idioma,
+  aoDescartar,
+}: {
+  nome: string;
+  idioma: string;
+  aoDescartar: () => void;
+}) {
+  const descartarFn = useServerFn(descartarRascunhoFn);
+  const [ocupado, setOcupado] = useState(false);
+  return (
+    <Botao
+      variante="contorno"
+      disabled={ocupado}
+      onClick={async () => {
+        if (!window.confirm(`Descartar o texto novo de ${nome}? O modelo na Meta não muda.`))
+          return;
+        setOcupado(true);
+        try {
+          await descartarFn({ data: { nome, idioma } });
+          toast.success("Texto novo descartado.");
+          aoDescartar();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Não foi possível descartar.");
+        } finally {
+          setOcupado(false);
+        }
+      }}
+    >
+      Descartar texto novo
+    </Botao>
+  );
+}
+
 function LinhaDoModelo({
   m,
   podeEditar,
   aoEditar,
+  aoDescartar,
 }: {
   m: LinhaModelo;
   podeEditar: boolean;
-  aoEditar: () => void;
+  aoEditar: (rascunho: boolean) => void;
+  aoDescartar: () => void;
 }) {
+  const travado = !m.regra.pode || Boolean(m.form.naoEditavel);
   return (
     <Card className="gap-2">
       <div className="flex items-start gap-2">
@@ -270,9 +357,15 @@ function LinhaDoModelo({
           novo.
         </p>
       ) : null}
+      {m.rascunho ? (
+        <p className="text-xs font-semibold text-muted-foreground">Texto atual na Meta</p>
+      ) : null}
       <p className="whitespace-pre-wrap rounded-card bg-muted p-3 text-sm leading-relaxed">
         {previaDoFormulario(m.form)}
       </p>
+      {m.rascunho ? (
+        <PreviaComBotoes form={m.rascunho.form} titulo="Texto novo pronto para revisar" />
+      ) : null}
       {m.regra.resumo ? <p className="text-xs text-muted-foreground">{m.regra.resumo}</p> : null}
       {!m.regra.pode && m.regra.motivo ? (
         <p className="text-xs text-muted-foreground">
@@ -283,14 +376,20 @@ function LinhaDoModelo({
         </p>
       ) : null}
       {podeEditar ? (
-        <Botao
-          variante="contorno"
-          className="self-start"
-          disabled={!m.regra.pode || Boolean(m.form.naoEditavel)}
-          onClick={aoEditar}
-        >
-          Editar
-        </Botao>
+        <div className="flex flex-wrap gap-2">
+          {m.rascunho ? (
+            <>
+              <Botao disabled={travado} onClick={() => aoEditar(true)}>
+                Revisar e enviar
+              </Botao>
+              <DescartarRascunho nome={m.nome} idioma={m.idioma} aoDescartar={aoDescartar} />
+            </>
+          ) : (
+            <Botao variante="contorno" disabled={travado} onClick={() => aoEditar(false)}>
+              Editar
+            </Botao>
+          )}
+        </div>
       ) : null}
       {m.form.naoEditavel ? (
         <p className="text-xs text-muted-foreground">

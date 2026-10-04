@@ -205,6 +205,65 @@ export function previaDoFormulario(f: FormModelo): string {
   return [f.cabecalho.trim(), corpo.trim(), f.rodape.trim()].filter(Boolean).join("\n\n");
 }
 
+// ---------------------------------------------------------------- rascunhos
+/**
+ * Versão "_sn" (sem o nome do cliente) de um modelo com nome: tira o ", {{1}}" da saudação
+ * ("Oi, {{1}}! Maria aqui" → "Oi! Maria aqui"; "Oi, {{1}}, tudo bem?" → "Oi, tudo bem?") e renumera
+ * as outras variáveis ({{2}} → {{1}}). null quando o nome não está na saudação.
+ */
+export function versaoSemNome(f: FormModelo): FormModelo | null {
+  if (f.nome.endsWith("_sn")) return null;
+  const corpo = f.corpo.replace(/,\s*\{\{\s*1\s*\}\}/, "");
+  if (corpo === f.corpo || /\{\{\s*1\s*\}\}/.test(corpo)) return null;
+  const novo = corpo.replace(VAR, (inteiro, v: string) =>
+    /^\d+$/.test(v) ? `{{${Number(v) - 1}}}` : inteiro,
+  );
+  return {
+    ...f,
+    nome: `${f.nome}_sn`,
+    corpo: novo,
+    exemplos: f.exemplos.slice(1, 1 + quantasVariaveis(novo)),
+    botoes: f.botoes.map((b) => ({ ...b })),
+  };
+}
+
+/** Os dois formulários (com nome e _sn) de um modelo. */
+export function comVersaoSemNome(f: FormModelo): FormModelo[] {
+  const sn = versaoSemNome(f);
+  return sn ? [f, sn] : [f];
+}
+
+/**
+ * Rascunho pronto para editar um modelo que já existe na Meta: mesmo nome e idioma, e a categoria
+ * atual (a Meta não deixa mudar a categoria de um modelo aprovado).
+ */
+export function rascunhoParaEdicao(
+  rascunho: FormModelo,
+  atual: { nome: string; idioma: string; categoria: string },
+): FormModelo {
+  const cat = atual.categoria.toUpperCase();
+  return {
+    ...rascunho,
+    nome: atual.nome,
+    idioma: atual.idioma,
+    categoria: (["MARKETING", "UTILITY", "AUTHENTICATION"].includes(cat)
+      ? cat
+      : rascunho.categoria) as CategoriaModelo,
+  };
+}
+
+/** O rascunho é igual ao que já está na Meta? (corpo, exemplos e botões). */
+export function mesmoTexto(a: FormModelo, b: FormModelo): boolean {
+  const norm = (f: FormModelo) =>
+    JSON.stringify([
+      f.cabecalho.trim(),
+      f.corpo.trim(),
+      f.rodape.trim(),
+      f.botoes.map((x) => [x.tipo, x.texto.trim()]),
+    ]);
+  return norm(a) === norm(b);
+}
+
 // ---------------------------------------------------------------- situação e limites
 export type Tom = "neutro" | "sucesso" | "atencao" | "problema";
 

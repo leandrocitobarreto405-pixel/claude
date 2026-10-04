@@ -66,6 +66,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Faixas sem sobrepor" (`20261023120000`, aplicada em 04/10): "até Y" inclui o dia Y e "de X"
   começa no dia X + 1 (90 dias fica só em "até 90"; 365 só em "até 1 ano"). Só troca
   `private.mkt_no_intervalo`.
+- "Rascunhos dos modelos" (`20261024120000`, aplicada em 04/10): tabela `modelos_rascunhos`
+  (texto novo de um modelo, com empresa e RLS: só o admin lê; só o servidor grava) e os botões
+  "Quero aproveitar!", "Me mostre as datas", "Quero renovar" e "Quero um orçamento" contando como
+  interesse. Nada vai para a Meta sem o admin tocar em enviar. Dados (não código): 16 rascunhos da
+  Turbine e a "Regra do 13º mês" no fim das instruções da Alice da Turbine.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

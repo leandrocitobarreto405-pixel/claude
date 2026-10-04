@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Botao } from "@/components/nexa";
-import { enviarModeloFn } from "@/lib/modelos-mensagem.functions";
+import { enviarModeloFn, salvarRascunhoFn } from "@/lib/modelos-mensagem.functions";
 import {
   LIMITES,
   previaDoFormulario,
@@ -34,6 +34,8 @@ export type ModeloEmEdicao = {
   form: FormModelo;
   regra: RegraEdicao | null;
   naoEditavel: string | null;
+  /** O formulário veio de um texto novo guardado (rascunho), ainda não enviado. */
+  deRascunho?: boolean;
 };
 
 /** Criar ou editar um modelo e enviar para a análise da Meta. */
@@ -49,6 +51,7 @@ export function EditorModelo({
   aoEnviar: () => void;
 }) {
   const enviarFn = useServerFn(enviarModeloFn);
+  const salvarFn = useServerFn(salvarRascunhoFn);
   const [f, setF] = useState<FormModelo | null>(modelo?.form ?? null);
   const [enviando, setEnviando] = useState(false);
   useEffect(() => setF(modelo?.form ?? null), [modelo]);
@@ -95,6 +98,20 @@ export function EditorModelo({
     }
   }
 
+  async function guardar() {
+    if (!f) return;
+    setEnviando(true);
+    try {
+      await salvarFn({ data: { form: f } });
+      toast.success("Texto guardado. Nada foi enviado para a Meta.");
+      aoEnviar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível guardar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
     <Sheet open={aberto} onOpenChange={(v) => !v && aoFechar()}>
       <SheetContent
@@ -107,6 +124,12 @@ export function EditorModelo({
         <SheetDescription>
           Precisa de aprovação da Meta. O texto novo só passa a valer depois de aprovado.
         </SheetDescription>
+        {modelo.deRascunho ? (
+          <p className="mt-2 rounded-botao bg-atencao px-3 py-2 text-sm text-atencao-foreground">
+            Texto novo guardado, ainda não enviado. Revise e toque em "Enviar para aprovação". Nada
+            vai para a Meta antes disso.
+          </p>
+        ) : null}
 
         <div className="mt-4 flex flex-col gap-4">
           {bloqueio ? (
@@ -341,6 +364,14 @@ export function EditorModelo({
             onClick={() => void enviar()}
           >
             {enviando ? "Enviando…" : "Enviar para aprovação"}
+          </Botao>
+          <Botao
+            variante="contorno"
+            larguraTotal
+            disabled={enviando || problemas.length > 0}
+            onClick={() => void guardar()}
+          >
+            Guardar sem enviar
           </Botao>
         </div>
       </SheetContent>

@@ -3508,6 +3508,43 @@ export type Database = {
           },
         ];
       };
+      modelos_rascunhos: {
+        Row: {
+          atualizado_por: string | null;
+          empresa_id: string;
+          form: Json;
+          idioma: string;
+          origem: string | null;
+          template_nome: string;
+          updated_at: string;
+        };
+        Insert: {
+          atualizado_por?: string | null;
+          empresa_id: string;
+          form: Json;
+          idioma?: string;
+          origem?: string | null;
+          template_nome: string;
+          updated_at?: string;
+        };
+        Update: {
+          atualizado_por?: string | null;
+          empresa_id?: string;
+          form?: Json;
+          idioma?: string;
+          origem?: string | null;
+          template_nome?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "modelos_rascunhos_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       monthly_goals: {
         Row: {
           created_at: string;

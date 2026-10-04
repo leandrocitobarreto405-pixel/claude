@@ -2,19 +2,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FORM_VAZIO,
+  comVersaoSemNome,
   componentesDoFormulario,
   formularioDoModelo,
   motivoDaRecusa,
   modelosDaEmpresa,
   modelosEsperados,
+  mesmoTexto,
   ondeEUsado,
   preencherTexto,
   previaDoFormulario,
+  rascunhoParaEdicao,
   regraDeEdicao,
   sugestaoDeModelo,
   textoOuPadrao,
   validarFormulario,
   validarTexto,
+  versaoSemNome,
   defDoTexto,
 } from "./modelos-mensagem";
 
@@ -156,4 +160,36 @@ test("textos sem aprovação: variáveis, validação e padrão", () => {
   );
   assert.equal(textoOuPadrao("aviso_espera", { aviso_espera: "x" }), "x");
   assert.equal(textoOuPadrao("livre_posvenda", {}), null);
+});
+
+test("versão _sn: tira o nome da saudação e renumera as variáveis", () => {
+  const base = {
+    ...FORM_VAZIO,
+    nome: "conversa_retomada",
+    corpo: "Oi, {{1}}, tudo bem? Aqui é da loja. Este mês estamos com {{2}}.",
+    exemplos: ["Ana", "10% de desconto"],
+    botoes: [{ tipo: "QUICK_REPLY" as const, texto: "Quero um orçamento" }],
+  };
+  const sn = versaoSemNome(base)!;
+  assert.equal(sn.nome, "conversa_retomada_sn");
+  assert.equal(sn.corpo, "Oi, tudo bem? Aqui é da loja. Este mês estamos com {{1}}.");
+  assert.deepEqual(sn.exemplos, ["10% de desconto"]);
+  assert.deepEqual(validarFormulario(sn), []);
+  const oi = versaoSemNome({ ...base, corpo: "Oi, {{1}}! Maria aqui 💙 Quer aproveitar?" })!;
+  assert.equal(oi.corpo, "Oi! Maria aqui 💙 Quer aproveitar?");
+  assert.deepEqual(oi.exemplos, []);
+  assert.equal(versaoSemNome({ ...base, corpo: "Olá {{1}}" }), null);
+  assert.equal(versaoSemNome({ ...base, nome: "x_sn" }), null);
+  assert.equal(comVersaoSemNome(base).length, 2);
+});
+
+test("rascunho para editar mantém nome, idioma e categoria do modelo na Meta", () => {
+  const r = rascunhoParaEdicao(
+    { ...FORM_VAZIO, nome: "outro", categoria: "MARKETING", corpo: "Oi" },
+    { nome: "posvenda_resultado", idioma: "pt_BR", categoria: "UTILITY" },
+  );
+  assert.equal(r.nome, "posvenda_resultado");
+  assert.equal(r.categoria, "UTILITY");
+  assert.ok(mesmoTexto(r, { ...r, nome: "x", exemplos: ["a"] }));
+  assert.ok(!mesmoTexto(r, { ...r, corpo: "Oi!" }));
 });

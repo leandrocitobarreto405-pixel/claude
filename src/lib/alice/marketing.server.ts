@@ -169,6 +169,13 @@ export async function lerMarketing(ctx: Ctx): Promise<Marketing> {
   return m;
 }
 
+/** O que é cada mensagem automática, para a Alice entender a resposta. */
+const DESCRICAO_GATILHO: Record<string, string> = {
+  C2: "do lembrete de 6 meses da higienização",
+  C3: "do lembrete do 13º mês da impermeabilização (renovação; siga a regra do 13º mês das instruções, se houver)",
+  C3L: "do segundo lembrete do 13º mês da impermeabilização (renovação; siga a regra do 13º mês das instruções, se houver)",
+};
+
 /** Linhas para o consultar_cliente. */
 export function textoMarketing(m: Marketing): string[] {
   const l: string[] = [];
@@ -187,7 +194,9 @@ export function textoMarketing(m: Marketing): string[] {
     const k = m.envio.campanha;
     l.push(
       `Veio de disparo de marketing: ${
-        k?.tipo === "gatilho" ? `mensagem automática ${k.gatilho}` : `campanha "${k?.nome ?? "-"}"`
+        k?.tipo === "gatilho"
+          ? `mensagem automática ${DESCRICAO_GATILHO[k.gatilho ?? ""] ?? k.gatilho}`
+          : `campanha "${k?.nome ?? "-"}"`
       }${k?.tema ? ` (tema: ${k.tema})` : ""}, grupo ${m.envio.grupo ?? "-"}, modelo ${m.envio.template_nome}, enviada em ${dia(
         m.envio.enviado_em,
       )}${m.envio.botao_clicado ? `; botão clicado: "${m.envio.botao_clicado}"` : ""}.`,
@@ -200,6 +209,10 @@ export function textoMarketing(m: Marketing): string[] {
         m.condicaoValidaAte
           ? `Condição da campanha: ${cond} (vale até ${dia(m.condicaoValidaAte)}; no orçamento use desconto "campanha").`
           : `Condição da campanha: ${cond} (já venceu; não ofereça).`,
+      );
+    } else if (k?.tipo === "gatilho") {
+      l.push(
+        "Mensagem automática sem condição cadastrada: siga as suas instruções para esta mensagem (ex.: regra do 13º mês); sem regra nas instruções, só o desconto do Pix.",
       );
     } else if (k) {
       l.push("Campanha sem condição especial (só o desconto do Pix).");

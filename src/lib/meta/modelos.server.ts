@@ -7,10 +7,12 @@ import { log, type Db } from "@/lib/mkt/contexto.server";
 import {
   componentesDoFormulario,
   formularioDoModelo,
+  mesmoTexto,
   modelosDaEmpresa,
   modelosEsperados,
   motivoDaRecusa,
   ondeEUsado,
+  rascunhoParaEdicao,
   regraDeEdicao,
   situacaoDoModelo,
   sugestaoDeModelo,
@@ -129,6 +131,8 @@ export type LinhaModelo = {
   usadoEm: string | null;
   form: FormModelo & { naoEditavel: string | null };
   regra: RegraEdicao;
+  /** Texto novo pronto para revisar (ainda não foi para a Meta). */
+  rascunho: { form: FormModelo; origem: string | null; em: string } | null;
 };
 
 export type ListaModelos = {
@@ -136,7 +140,12 @@ export type ListaModelos = {
   fonte: "meta" | "chatwoot" | "nenhuma";
   erro: string | null;
   modelos: LinhaModelo[];
-  faltando: Array<{ nome: string; sugestao: FormModelo | null }>;
+  faltando: Array<{
+    nome: string;
+    sugestao: FormModelo | null;
+    /** A sugestão é um rascunho salvo (texto novo pronto para revisar). */
+    rascunho: { origem: string | null; em: string } | null;
+  }>;
   /** Modelo de cada finalidade e o da promoção (para os textos sem aprovação). */
   nomes: Record<string, string>;
 };
@@ -146,11 +155,26 @@ function qualidade(q: ModeloDaMeta["quality_score"]): string | null {
   return s && s !== "UNKNOWN" ? s : null;
 }
 
+/** Rascunhos da empresa, por "nome|idioma". */
+async function rascunhosDaEmpresa(db: Db, empresaId: string) {
+  const { data } = await db
+    .from("modelos_rascunhos")
+    .select("template_nome, idioma, form, origem, updated_at")
+    .eq("empresa_id", empresaId);
+  const mapa = new Map<string, { form: FormModelo; origem: string | null; em: string }>();
+  for (const r of data ?? []) {
+    const form = { ...(r.form as unknown as FormModelo), nome: r.template_nome, idioma: r.idioma };
+    mapa.set(`${r.template_nome}|${r.idioma}`, { form, origem: r.origem, em: r.updated_at });
+  }
+  return mapa;
+}
+
 export async function listarParaTela(db: Db, empresaId: string): Promise<ListaModelos> {
-  const [cx, uso, edicoes] = await Promise.all([
+  const [cx, uso, edicoes, rascunhos] = await Promise.all([
     conexaoDaEmpresa(db, empresaId),
     contextoDeUso(db, empresaId),
     edicoesAprovadas(db, empresaId),
+    rascunhosDaEmpresa(db, empresaId),
   ]);
   let brutos: ModeloDaMeta[] = [];
   let fonte: ListaModelos["fonte"] = "nenhuma";
@@ -192,18 +216,47 @@ export async function listarParaTela(db: Db, empresaId: string): Promise<ListaMo
       usadoEm: ondeEUsado(m.name, uso),
       form: formularioDoModelo(m),
       regra: regraDeEdicao(m.status, edicoes.get(`${m.name}|${m.language}`) ?? [], agora),
+      rascunho: null,
     }))
+    .map((linha): LinhaModelo => {
+      const r = rascunhos.get(`${linha.nome}|${linha.idioma}`);
+      if (!r) return linha;
+      const form = rascunhoParaEdicao(r.form, linha);
+      // Rascunho igual ao que já está na Meta não precisa de revisão.
+      return mesmoTexto(form, linha.form) ? linha : { ...linha, rascunho: { ...r, form } };
+    })
     .sort(
       (a, b) =>
-        Number(Boolean(b.usadoEm)) - Number(Boolean(a.usadoEm)) || a.nome.localeCompare(b.nome),
+        Number(Boolean(b.rascunho)) - Number(Boolean(a.rascunho)) ||
+        Number(Boolean(b.usadoEm)) - Number(Boolean(a.usadoEm)) ||
+        a.nome.localeCompare(b.nome),
     );
   const nomes = new Set(modelos.map((m) => m.nome.replace(/_sn$/, "")));
+  const existentes = new Set(modelos.map((m) => `${m.nome}|${m.idioma}`));
+  // Rascunho de um modelo que ainda não existe na Meta (ex.: a versão _sn ou um modelo novo).
+  const novos: ListaModelos["faltando"] = [...rascunhos.entries()]
+    .filter(([k]) => !existentes.has(k))
+    .map(([, r]) => {
+      // A versão _sn segue a categoria do modelo com nome que já está na Meta.
+      const irmao = modelos.find(
+        (m) => m.nome === r.form.nome.replace(/_sn$/, "") && m.idioma === r.form.idioma,
+      );
+      return {
+        nome: r.form.nome,
+        sugestao: irmao ? rascunhoParaEdicao(r.form, { ...irmao, nome: r.form.nome }) : r.form,
+        rascunho: { origem: r.origem, em: r.em },
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome));
   const faltando =
     fonte === "nenhuma"
       ? []
-      : modelosEsperados(uso)
-          .filter((n) => !nomes.has(n))
-          .map((nome) => ({ nome, sugestao: sugestaoDeModelo(nome, uso) }));
+      : [
+          ...novos,
+          ...modelosEsperados(uso)
+            .filter((n) => !nomes.has(n) && !novos.some((x) => x.nome === n))
+            .map((nome) => ({ nome, sugestao: sugestaoDeModelo(nome, uso), rascunho: null })),
+        ];
   return {
     fonte,
     erro,
@@ -332,6 +385,13 @@ export async function enviarParaAprovacao(
       throw new Error(msg);
     }
   }
+  // O texto foi para a Meta: o rascunho dele não é mais necessário.
+  await db
+    .from("modelos_rascunhos")
+    .delete()
+    .eq("empresa_id", empresaId)
+    .eq("template_nome", f.nome)
+    .eq("idioma", f.idioma);
   log("INFO", "meta.modelo_enviado", {
     empresa: empresaId,
     modelo: f.nome,
@@ -351,4 +411,36 @@ export async function enviarParaAprovacao(
     chatwootAtualizado = false;
   }
   return { status, chatwootAtualizado };
+}
+
+/** Guarda o texto para revisar depois (não envia nada para a Meta). */
+export async function salvarRascunho(
+  db: Db,
+  empresaId: string,
+  userId: string,
+  form: FormModelo,
+  origem: string | null,
+) {
+  const problemas = validarFormulario(form);
+  if (problemas.length) throw new Error(problemas.join(" "));
+  const { error } = await db.from("modelos_rascunhos").upsert({
+    empresa_id: empresaId,
+    template_nome: form.nome,
+    idioma: form.idioma,
+    form,
+    origem,
+    atualizado_por: userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error("Não foi possível guardar o rascunho.");
+}
+
+export async function descartarRascunho(db: Db, empresaId: string, nome: string, idioma: string) {
+  const { error } = await db
+    .from("modelos_rascunhos")
+    .delete()
+    .eq("empresa_id", empresaId)
+    .eq("template_nome", nome)
+    .eq("idioma", idioma);
+  if (error) throw new Error("Não foi possível descartar o rascunho.");
 }
