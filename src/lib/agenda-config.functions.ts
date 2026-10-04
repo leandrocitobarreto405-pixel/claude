@@ -4,6 +4,7 @@
  * rodízio para o alerta); alteração só pelo admin (middleware + RLS).
  */
 import { createServerFn } from "@tanstack/react-start";
+import { filtrosValidos, type Filtros } from "@/lib/listas";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export const CHAVE_AGENDA_CONFIG = ["agenda-config"] as const;
@@ -25,6 +26,16 @@ export type ConfigAgenda = {
   orcamentoDias: number;
   conversasNovas: boolean;
   template: string;
+  /** A promoção de dia vago está liberada (cada envio ainda depende de "Ativar"). */
+  promoLigada: boolean;
+  /** Listas de quem recebe a promoção (uma opção "até X dias" por família). */
+  promoListas: Filtros;
+  /** Margem mínima (R$) e distância máxima (km): quem fica fora aparece desmarcado. */
+  margemMin: number | null;
+  kmMax: number | null;
+  /** Custo médio de produto por tipo de serviço (R$). */
+  produtoHigienizacao: number;
+  produtoImpermeabilizacao: number;
 };
 
 export const CONFIG_AGENDA_PADRAO: ConfigAgenda = {
@@ -41,6 +52,12 @@ export const CONFIG_AGENDA_PADRAO: ConfigAgenda = {
   orcamentoDias: 15,
   conversasNovas: true,
   template: "promocao_agenda",
+  promoLigada: false,
+  promoListas: { orcamento: { ate: 10 }, conversa: { ate: 30 } },
+  margemMin: null,
+  kmMax: null,
+  produtoHigienizacao: 0,
+  produtoImpermeabilizacao: 0,
 };
 
 export type TecnicoAgenda = { id: string; nome: string; ativo: boolean };
@@ -75,6 +92,12 @@ type LinhaConfig = {
   promo_orcamento_dias: number;
   promo_conversas_novas: boolean;
   promo_template_nome: string;
+  promo_ligada?: boolean;
+  promo_listas?: unknown;
+  promo_margem_min?: number | string | null;
+  promo_km_max?: number | string | null;
+  custo_produto_higienizacao?: number | string;
+  custo_produto_impermeabilizacao?: number | string;
 };
 
 const h5 = (h: string) => h.slice(0, 5);
@@ -95,8 +118,32 @@ export function configDaLinha(l: LinhaConfig | null): ConfigAgenda {
     orcamentoDias: l.promo_orcamento_dias,
     conversasNovas: l.promo_conversas_novas,
     template: l.promo_template_nome,
+    promoLigada: Boolean(l.promo_ligada),
+    promoListas: filtrosValidos(l.promo_listas ?? CONFIG_AGENDA_PADRAO.promoListas),
+    margemMin:
+      l.promo_margem_min === null || l.promo_margem_min === undefined
+        ? null
+        : Number(l.promo_margem_min),
+    kmMax: l.promo_km_max === null || l.promo_km_max === undefined ? null : Number(l.promo_km_max),
+    produtoHigienizacao: Number(l.custo_produto_higienizacao ?? 0),
+    produtoImpermeabilizacao: Number(l.custo_produto_impermeabilizacao ?? 0),
   };
 }
+
+/** Listas da promoção: só "até X dias" e nunca "Agendado". */
+export function listasDaPromocao(v: unknown): Filtros {
+  const f = filtrosValidos(v);
+  delete f.agendado;
+  for (const k of Object.keys(f) as Array<keyof Filtros>) delete f[k]!.de;
+  return f;
+}
+
+const valorOuNulo = (v: unknown, nome: string, max: number) => {
+  if (v === null || v === undefined || String(v).trim() === "") return null;
+  const n = Number(String(v).replace(",", "."));
+  if (!Number.isFinite(n) || n < 0 || n > max) throw new Error(`${nome}: valor inválido.`);
+  return Math.round(n * 100) / 100;
+};
 
 export const lerAgendaConfig = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
@@ -176,7 +223,16 @@ export const salvarAgendaConfig = createServerFn({ method: "POST" })
       orcamentoDias: inteiro(c.orcamentoDias, 1, 90, "Orçamentos dos últimos"),
       conversasNovas: Boolean(c.conversasNovas),
       template: String(c.template ?? "").trim(),
+      promoLigada: Boolean(c.promoLigada),
+      promoListas: listasDaPromocao(c.promoListas),
+      margemMin: valorOuNulo(c.margemMin, "Margem mínima", 100000),
+      kmMax: valorOuNulo(c.kmMax, "Distância máxima", 1000),
+      produtoHigienizacao:
+        valorOuNulo(c.produtoHigienizacao, "Produto da higienização", 10000) ?? 0,
+      produtoImpermeabilizacao:
+        valorOuNulo(c.produtoImpermeabilizacao, "Produto da impermeabilização", 10000) ?? 0,
     };
+    if (cfg.kmMax === 0) throw new Error("Distância máxima: use mais que 0 km ou deixe em branco.");
     if (cfg.descontoPct < 1) throw new Error("Desconto da promoção: use de 1 a 25%.");
     if (cfg.descontoPct + cfg.pixPct > 25)
       throw new Error("Promoção + Pix passam de 25%. Diminua um dos dois.");
@@ -205,8 +261,32 @@ export const salvarAgendaConfig = createServerFn({ method: "POST" })
       promo_orcamento_dias: c.orcamentoDias,
       promo_conversas_novas: c.conversasNovas,
       promo_template_nome: c.template,
+      promo_ligada: c.promoLigada,
+      promo_listas: c.promoListas,
+      promo_margem_min: c.margemMin,
+      promo_km_max: c.kmMax,
+      custo_produto_higienizacao: c.produtoHigienizacao,
+      custo_produto_impermeabilizacao: c.produtoImpermeabilizacao,
       updated_at: new Date().toISOString(),
     });
+    if (error) throw new Error(`Não foi possível salvar: ${error.message}`);
+    return { ok: true };
+  });
+
+/** Chave e listas da promoção de dia vago (cartões do Marketing e do Início). */
+export const salvarPromocaoRapidaFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: { ligada?: boolean; listas?: Filtros }) => ({
+    ligada: typeof i.ligada === "boolean" ? i.ligada : undefined,
+    listas: i.listas === undefined ? undefined : listasDaPromocao(i.listas),
+  }))
+  .handler(async ({ data, context }) => {
+    const mudancas: { promo_ligada?: boolean; promo_listas?: Filtros } = {};
+    if (data.ligada !== undefined) mudancas.promo_ligada = data.ligada;
+    if (data.listas !== undefined) mudancas.promo_listas = data.listas;
+    const { error } = await context.supabase
+      .from("agenda_configuracoes")
+      .upsert({ empresa_id: context.empresaId, ...mudancas }, { onConflict: "empresa_id" });
     if (error) throw new Error(`Não foi possível salvar: ${error.message}`);
     return { ok: true };
   });

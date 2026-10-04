@@ -92,6 +92,226 @@ export function previaMensagem(
   )} de desconto, e mais ${pct(pix)} se pagar no Pix. Quer que eu reserve para você?`;
 }
 
+// ---------------------------------------------------------------- valores, distância e margem
+export type Coordenada = { lat: number; lon: number };
+
+/** Distância em linha reta (km), pela fórmula de haversine. */
+export function distanciaKm(a: Coordenada, b: Coordenada): number {
+  const rad = (g: number) => (g * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLon = rad(b.lon - a.lon);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 10) / 10;
+}
+
+/** Valor com o desconto da promoção somado ao do Pix (ex.: 20% + 5% = 25% a menos). */
+export function valorComDesconto(valor: number, descontoPct: number, pixPct: number): number {
+  return Math.round(valor * (1 - (descontoPct + pixPct) / 100) * 100) / 100;
+}
+
+export type TipoOrcamento = "higienizacao" | "impermeabilizacao" | "ambos" | null;
+
+/** Tipo do orçamento pelos itens (higienização, impermeabilização ou os dois). */
+export function tipoDoOrcamento(tipos: Array<string | null | undefined>): TipoOrcamento {
+  const hig = tipos.some((t) => /higien/i.test(t ?? ""));
+  const imp = tipos.some((t) => /imperm/i.test(t ?? ""));
+  if (hig && imp) return "ambos";
+  if (imp) return "impermeabilizacao";
+  if (hig) return "higienizacao";
+  return null;
+}
+
+export type CustosEmpresa = {
+  impostoPct: number;
+  /** R$ por km rodado (null = não configurado). */
+  custoKm: number | null;
+  produtoHigienizacao: number;
+  produtoImpermeabilizacao: number;
+};
+
+export function custoProduto(tipo: TipoOrcamento, c: CustosEmpresa): number {
+  if (tipo === "ambos") return c.produtoHigienizacao + c.produtoImpermeabilizacao;
+  if (tipo === "impermeabilizacao") return c.produtoImpermeabilizacao;
+  if (tipo === "higienizacao") return c.produtoHigienizacao;
+  return 0;
+}
+
+export type Margem = {
+  valor: number;
+  imposto: number;
+  deslocamento: number | null;
+  produto: number;
+};
+
+/**
+ * Margem de contribuição estimada já com o desconto: valor − imposto − deslocamento − produto.
+ * Sem mão de obra. Deslocamento = km de ida e volta × custo por km (null se faltar um dos dois).
+ */
+export function margemEstimada(
+  valorPromo: number,
+  kmIdaVolta: number | null,
+  tipo: TipoOrcamento,
+  c: CustosEmpresa,
+): Margem {
+  const imposto = Math.round(valorPromo * (c.impostoPct / 100) * 100) / 100;
+  const deslocamento =
+    kmIdaVolta !== null && c.custoKm !== null
+      ? Math.round(kmIdaVolta * c.custoKm * 100) / 100
+      : null;
+  const produto = custoProduto(tipo, c);
+  return {
+    valor: Math.round((valorPromo - imposto - (deslocamento ?? 0) - produto) * 100) / 100,
+    imposto,
+    deslocamento,
+    produto,
+  };
+}
+
+/** Quem começa marcado: fora da margem mínima ou da distância máxima fica desmarcado, com o motivo. */
+export function avaliarLimites(
+  p: { margem: number | null; km: number | null },
+  limites: { margemMin: number | null; kmMax: number | null },
+): { marcado: boolean; motivo: string | null } {
+  const motivos: string[] = [];
+  if (limites.margemMin !== null && p.margem !== null && p.margem < limites.margemMin)
+    motivos.push(
+      `margem abaixo de ${limites.margemMin.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+    );
+  if (limites.kmMax !== null && p.km !== null && p.km > limites.kmMax)
+    motivos.push(
+      `a ${String(p.km).replace(".", ",")} km (máximo ${String(limites.kmMax).replace(".", ",")} km)`,
+    );
+  return { marcado: motivos.length === 0, motivo: motivos.length ? motivos.join(" e ") : null };
+}
+
+export type PontoTecnico = {
+  tecnicoId: string;
+  tecnico: string;
+  /** Base do técnico (null = sem endereço localizado). */
+  base: Coordenada | null;
+  /** Serviços que o técnico já tem no dia da promoção. */
+  servicos: Coordenada[];
+};
+
+export type EntradaPromocao = {
+  chave: string;
+  telefone: string;
+  nome: string;
+  familias: string[];
+  diasOrcamento: number | null;
+  diasConversa: number | null;
+  /** Valor total do orçamento em aberto (null = sem orçamento). */
+  valor: number | null;
+  /** Km de ida e volta calculado no orçamento (da base da empresa), se houver. */
+  kmOrcamento: number | null;
+  tipo: TipoOrcamento;
+  coord: Coordenada | null;
+};
+
+export type DestinatarioPromocao = {
+  chave: string;
+  telefone: string;
+  nome: string;
+  familias: string[];
+  diasOrcamento: number | null;
+  diasConversa: number | null;
+  valor: number | null;
+  valorPromo: number | null;
+  valorPix: number | null;
+  /** Técnico do horário livre mais perto (null = não deu para calcular). */
+  tecnico: string | null;
+  /** Km em linha reta até a base do técnico e até o serviço mais perto dele no dia. */
+  kmBase: number | null;
+  kmServico: number | null;
+  /** Km que conta para o limite e o deslocamento (o menor dos dois; ou o do orçamento). */
+  km: number | null;
+  kmDoOrcamento: boolean;
+  margem: Margem | null;
+  marcado: boolean;
+  motivo: string | null;
+  /** "sem orçamento", "sem endereço"…: só informam, não desmarcam. */
+  avisos: string[];
+  /** Sem nome não dá para enviar (o modelo usa o primeiro nome). */
+  podeEnviar: boolean;
+};
+
+/**
+ * Monta cada pessoa da promoção: valor com desconto (e no Pix), técnico com horário livre mais
+ * perto, km e margem estimada (no Pix, o pior caso). Fora da margem mínima ou da distância máxima
+ * começa desmarcado, com o motivo; sem orçamento ou sem endereço começa marcado.
+ */
+export function prepararDestinatario(
+  e: EntradaPromocao,
+  pontos: PontoTecnico[],
+  cfg: { descontoPct: number; pixPct: number; margemMin: number | null; kmMax: number | null },
+  custos: CustosEmpresa,
+): DestinatarioPromocao {
+  const avisos: string[] = [];
+  const valorPromo = e.valor === null ? null : valorComDesconto(e.valor, cfg.descontoPct, 0);
+  const valorPix = e.valor === null ? null : valorComDesconto(e.valor, cfg.descontoPct, cfg.pixPct);
+  if (e.valor === null) avisos.push("sem orçamento");
+
+  let tecnico: string | null = null;
+  let kmBase: number | null = null;
+  let kmServico: number | null = null;
+  let km: number | null = null;
+  let kmDoOrcamento = false;
+  if (e.coord) {
+    for (const p of pontos) {
+      const b = p.base ? distanciaKm(e.coord, p.base) : null;
+      const s = p.servicos.length
+        ? Math.min(...p.servicos.map((x) => distanciaKm(e.coord!, x)))
+        : null;
+      const efetivo = [b, s].filter((x): x is number => x !== null);
+      if (!efetivo.length) continue;
+      const menor = Math.min(...efetivo);
+      if (km === null || menor < km) {
+        km = menor;
+        kmBase = b;
+        kmServico = s;
+        tecnico = p.tecnico;
+      }
+    }
+  }
+  if (km === null && e.kmOrcamento !== null && e.kmOrcamento > 0) {
+    km = Math.round((e.kmOrcamento / 2) * 10) / 10;
+    kmDoOrcamento = true;
+  }
+  if (!e.coord && km === null) avisos.push("sem endereço");
+
+  const margem =
+    valorPix === null
+      ? null
+      : margemEstimada(valorPix, km === null ? null : km * 2, e.tipo, custos);
+  const podeEnviar = e.nome.trim().length > 0;
+  const limites = avaliarLimites(
+    { margem: margem?.valor ?? null, km },
+    { margemMin: cfg.margemMin, kmMax: cfg.kmMax },
+  );
+  return {
+    chave: e.chave,
+    telefone: e.telefone,
+    nome: e.nome.trim(),
+    familias: e.familias,
+    diasOrcamento: e.diasOrcamento,
+    diasConversa: e.diasConversa,
+    valor: e.valor,
+    valorPromo,
+    valorPix,
+    tecnico,
+    kmBase,
+    kmServico,
+    km,
+    kmDoOrcamento,
+    margem,
+    marcado: podeEnviar && limites.marcado,
+    motivo: podeEnviar ? limites.motivo : "sem nome no cadastro: não dá para enviar",
+    avisos,
+    podeEnviar,
+  };
+}
+
 // ---------------------------------------------------------------- rodízio
 export type ConfigRodizio = {
   comecarAPartir: string; // "11:00"
@@ -135,3 +355,7 @@ export function alertaRodizio(
   if (!problemas.length) return null;
   return `Dia de rodízio do ${v.nome} (${NOMES_DIA[dia]}): ${problemas.join(" e ")}.`;
 }
+
+/** Chaves do React Query da promoção (cartões e tela). */
+export const CHAVE_RESUMO_PROMOCAO = ["promocao", "resumo"] as const;
+export const CHAVE_SITUACAO_PROMOCAO = ["promocao", "situacao"] as const;

@@ -23,6 +23,7 @@ import {
   type DadosAgendaConfig,
   type VeiculoAgenda,
 } from "@/lib/agenda-config.functions";
+import { descreverFiltros } from "@/lib/listas";
 import { cn } from "@/lib/utils";
 
 const CHAVE_INTERNOS = ["contatos-internos"] as const;
@@ -454,6 +455,25 @@ function Regras({
       </div>
     </div>
   );
+  /** Campo que pode ficar em branco (sem limite). */
+  const campoOpcional = (k: "margemMin" | "kmMax", rotulo: string, sufixo: string) => (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={`cfg-${k}`}>{rotulo}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          id={`cfg-${k}`}
+          type="number"
+          inputMode="decimal"
+          min={0}
+          placeholder="sem limite"
+          className="min-h-11"
+          value={c[k] === null ? "" : String(c[k])}
+          onChange={(e) => muda(k, e.target.value === "" ? null : Number(e.target.value))}
+        />
+        <span className="text-sm text-muted-foreground">{sufixo}</span>
+      </div>
+    </div>
+  );
   const total = Number(c.descontoPct) + Number(c.pixPct);
 
   return (
@@ -492,17 +512,30 @@ function Regras({
       </Recolhido>
 
       <Recolhido
-        titulo="Promoção para agenda vazia"
+        titulo="Promoção de dia vago"
         icone={<Percent className="size-5 text-marca" aria-hidden />}
       >
         <div className="flex flex-col gap-4 p-4">
           <p className="text-sm text-muted-foreground">
-            Nada é enviado sozinho: a promoção só sai quando o admin toca em "Ativar", depois de ver
-            a lista, e com o "Envio ligado" do Marketing.
+            Nada é enviado sozinho: a chave só libera a promoção. Cada envio sai quando o admin toca
+            em "Ativar", depois de conferir a lista, e com o "Envio ligado" do Marketing.
+          </p>
+          <LinhaSwitch
+            id="cfg-promo-ligada"
+            titulo="Promoção liberada"
+            descricao="Desligada, ninguém consegue ativar a promoção."
+            checked={c.promoLigada}
+            onCheckedChange={(v) => muda("promoLigada", v)}
+          />
+          <p className="rounded-botao bg-background p-3 text-sm">
+            <span className="block font-semibold">Quem recebe</span>
+            {descreverFiltros(c.promoListas)}
+            <span className="block text-xs text-muted-foreground">
+              Para mudar as listas, toque em “Mudar” no cartão da promoção (Marketing ou Início).
+            </span>
           </p>
           <div className="grid grid-cols-2 gap-3">
             {campoNumero("diasAFrente", "Olhar a agenda de", "dia(s) à frente")}
-            {campoNumero("orcamentoDias", "Orçamentos dos últimos", "dias")}
             {campoNumero("descontoPct", "Desconto da promoção", "%", 0.5)}
             {campoNumero("pixPct", "Desconto a mais no Pix", "%", 0.5)}
           </div>
@@ -515,13 +548,27 @@ function Regras({
               Total com Pix: {String(total).replace(".", ",")}% (máximo 25%).
             </p>
           )}
-          <LinhaSwitch
-            id="cfg-conversas"
-            titulo="Oferecer para as conversas novas de hoje"
-            descricao="Além dos orçamentos em aberto sem agendamento."
-            checked={c.conversasNovas}
-            onCheckedChange={(v) => muda("conversasNovas", v)}
-          />
+          <div className="flex flex-col gap-1">
+            <h3 className="text-[15px] font-bold">Margem e distância</h3>
+            <p className="text-sm text-muted-foreground">
+              Quem fica abaixo da margem mínima ou passa da distância máxima aparece desmarcado na
+              lista, com o motivo (dá para marcar de novo). Em branco = sem limite.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {campoOpcional("margemMin", "Margem mínima", "R$")}
+            {campoOpcional("kmMax", "Distância máxima", "km")}
+          </div>
+          <div className="flex flex-col gap-1">
+            <h3 className="text-[15px] font-bold">Custo médio de produto por serviço</h3>
+            <p className="text-sm text-muted-foreground">
+              Entra na margem estimada junto com o imposto e o deslocamento (sem mão de obra).
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {campoNumero("produtoHigienizacao", "Higienização", "R$", 0.5)}
+            {campoNumero("produtoImpermeabilizacao", "Impermeabilização", "R$", 0.5)}
+          </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="cfg-template">Modelo aprovado na Meta</Label>
             <Input

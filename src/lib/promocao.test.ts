@@ -8,6 +8,14 @@ import {
   pct,
   previaMensagem,
   type HorarioBase,
+  avaliarLimites,
+  custoProduto,
+  distanciaKm,
+  margemEstimada,
+  tipoDoOrcamento,
+  valorComDesconto,
+  prepararDestinatario,
+  type EntradaPromocao,
 } from "./promocao";
 
 const josue = (diaSemana: number, hora: string): HorarioBase => ({
@@ -139,4 +147,110 @@ test("alerta do rodízio (terça, Carro do Josué)", () => {
     alertaRodizio({ data: "2026-10-06", hora: "08:00", tecnicoId: "x" }, veiculos, cfg),
     null,
   );
+});
+
+test("valor com desconto, tipo do orçamento e custo de produto", () => {
+  assert.equal(valorComDesconto(400, 20, 5), 300);
+  assert.equal(tipoDoOrcamento(["higienizacao", "higienizacao"]), "higienizacao");
+  assert.equal(tipoDoOrcamento(["Higienização", "impermeabilizacao"]), "ambos");
+  assert.equal(tipoDoOrcamento([null]), null);
+  const c = { impostoPct: 6, custoKm: 1.2, produtoHigienizacao: 6, produtoImpermeabilizacao: 80 };
+  assert.equal(custoProduto("ambos", c), 86);
+});
+
+test("margem: valor − imposto − deslocamento − produto (sem mão de obra)", () => {
+  const c = { impostoPct: 6, custoKm: 1.2, produtoHigienizacao: 6, produtoImpermeabilizacao: 80 };
+  assert.deepEqual(margemEstimada(300, 20, "higienizacao", c), {
+    valor: 252,
+    imposto: 18,
+    deslocamento: 24,
+    produto: 6,
+  });
+  // Sem custo por km configurado: deslocamento fica de fora (null).
+  assert.equal(
+    margemEstimada(300, 20, "impermeabilizacao", { ...c, custoKm: null }).deslocamento,
+    null,
+  );
+  assert.equal(margemEstimada(300, 20, "impermeabilizacao", { ...c, custoKm: null }).valor, 202);
+});
+
+test("distância e limites (margem mínima e km máximo)", () => {
+  const paulista = { lat: -23.5614, lon: -46.6559 };
+  const se = { lat: -23.5503, lon: -46.6339 };
+  const d = distanciaKm(paulista, se);
+  assert.ok(d > 2 && d < 3, `≈2,6 km (${d})`);
+  assert.deepEqual(avaliarLimites({ margem: 250, km: 5 }, { margemMin: 200, kmMax: 15 }), {
+    marcado: true,
+    motivo: null,
+  });
+  const fora = avaliarLimites({ margem: 150, km: 22.5 }, { margemMin: 200, kmMax: 15 });
+  assert.equal(fora.marcado, false);
+  assert.match(fora.motivo ?? "", /margem abaixo de R\$\s?200,00 e a 22,5 km \(máximo 15 km\)/);
+  // Sem orçamento ou sem endereço: não dá para avaliar, fica marcado.
+  assert.equal(
+    avaliarLimites({ margem: null, km: null }, { margemMin: 200, kmMax: 15 }).marcado,
+    true,
+  );
+});
+
+test("destinatário da promoção: técnico mais perto, margem no Pix, limites e avisos", () => {
+  const custos = {
+    impostoPct: 6,
+    custoKm: 1,
+    produtoHigienizacao: 6,
+    produtoImpermeabilizacao: 80,
+  };
+  const cfg = { descontoPct: 20, pixPct: 5, margemMin: 100, kmMax: 20 };
+  const base = { lat: -23.55, lon: -46.63 };
+  const pontos = [
+    { tecnicoId: "j", tecnico: "Josué", base, servicos: [{ lat: -23.6, lon: -46.63 }] },
+  ];
+  const e: EntradaPromocao = {
+    chave: "11999990000",
+    telefone: "5511999990000",
+    nome: "Carla Souza",
+    familias: ["orcamento"],
+    diasOrcamento: 3,
+    diasConversa: null,
+    valor: 400,
+    kmOrcamento: null,
+    tipo: "higienizacao",
+    coord: { lat: -23.61, lon: -46.63 },
+  };
+  const d = prepararDestinatario(e, pontos, cfg, custos);
+  assert.equal(d.tecnico, "Josué");
+  assert.equal(d.valorPromo, 320);
+  assert.equal(d.valorPix, 300);
+  // perto do serviço do dia (~1,1 km), mais que da base (~6,7 km)
+  assert.ok(d.km !== null && d.km < 2 && d.kmBase !== null && d.kmBase > 6);
+  // 300 − 18 de imposto − 2×km×1 − 6 de produto
+  assert.equal(d.margem?.produto, 6);
+  assert.ok(d.margem!.valor > 270 && d.margem!.valor < 276);
+  assert.equal(d.marcado, true);
+  assert.deepEqual(d.avisos, []);
+
+  // longe demais: desmarcado com o motivo
+  const longe = prepararDestinatario(
+    { ...e, coord: { lat: -23.95, lon: -46.63 } },
+    pontos,
+    cfg,
+    custos,
+  );
+  assert.equal(longe.marcado, false);
+  assert.match(longe.motivo ?? "", /km/);
+
+  // sem orçamento e sem endereço: marcado, só com avisos
+  const sem = prepararDestinatario({ ...e, valor: null, coord: null }, pontos, cfg, custos);
+  assert.equal(sem.marcado, true);
+  assert.deepEqual(sem.avisos, ["sem orçamento", "sem endereço"]);
+
+  // sem endereço, mas com km do orçamento (ida e volta)
+  const peloOrc = prepararDestinatario({ ...e, coord: null, kmOrcamento: 30 }, pontos, cfg, custos);
+  assert.equal(peloOrc.km, 15);
+  assert.equal(peloOrc.kmDoOrcamento, true);
+
+  // sem nome: não dá para enviar
+  const semNome = prepararDestinatario({ ...e, nome: " " }, pontos, cfg, custos);
+  assert.equal(semNome.podeEnviar, false);
+  assert.equal(semNome.marcado, false);
 });

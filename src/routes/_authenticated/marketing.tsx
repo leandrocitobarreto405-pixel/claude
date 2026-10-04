@@ -22,6 +22,7 @@ import {
 import { BaseContatos } from "@/components/marketing/base-contatos";
 import { GatilhosHoje } from "@/components/marketing/gatilhos-hoje";
 import { ConfigMarketing } from "@/components/marketing/config-marketing";
+import { CartaoPromocao } from "@/components/promocao/cartao-promocao";
 import { resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
 import { diaMesCurto, proximasCampanhas, resultadosDoMes } from "@/lib/marketing-tela";
 import { haQuanto } from "@/lib/conversas";
@@ -144,6 +145,8 @@ function Marketing() {
           </BlocoEscuro>
         </div>
       </CardEscuro>
+
+      <CartaoPromocao />
 
       <Link
         to="/listas"
