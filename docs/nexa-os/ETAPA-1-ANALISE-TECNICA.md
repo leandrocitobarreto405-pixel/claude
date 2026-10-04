@@ -523,7 +523,7 @@ Chatwoot e Meta (conversas de WhatsApp) são custos à parte.
 | OAuth Client do Google (tela de consentimento, domínio verificado) | Nexa | Drive/Docs/Agenda por empresa |
 | Chatwoot: URL, `account_id`(s), access token do usuário técnico, segredo do webhook, lista de inboxes | Nexa | Integração |
 | Meta/WhatsApp Business Platform por cliente (configurado **no Chatwoot**) | Clientes / Nexa | Canal de WhatsApp |
-| Domínio (ex.: `app.nexaperformance.com.br`) e DNS | Nexa | URL pública e do webhook |
+| Domínio (ex.: `app.nexaperformanceos.com.br`) e DNS | Nexa | URL pública e do webhook |
 | Chave de API do Google Maps (se trocarmos Nominatim/OSRM) | Nexa | km e sugestões por CEP |
 
 ## 19. Plano de implementação em etapas

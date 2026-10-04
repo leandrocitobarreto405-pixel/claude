@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { User } from "lucide-react";
+import { Check, User } from "lucide-react";
+import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
 import { Chip } from "@/components/nexa";
 import { haQuanto, iniciais } from "@/lib/conversas";
 import type { ConversaResumo } from "@/lib/conversas.functions";
@@ -44,42 +45,94 @@ export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
   );
 }
 
-/** Linha da lista de conversas; o cartão inteiro abre a conversa. */
-export function CartaoConversa({ c, agora }: { c: ConversaResumo; agora: Date }) {
+/**
+ * Linha da lista de conversas; o cartão abre a conversa. Com `selecao`, tocar marca e desmarca
+ * (para encerrar várias). Com `encerravel`, mostra "Encerrar" embaixo.
+ */
+export function CartaoConversa({
+  c,
+  agora,
+  encerravel = false,
+  selecao,
+}: {
+  c: ConversaResumo;
+  agora: Date;
+  encerravel?: boolean;
+  selecao?: { marcada: boolean; alternar: () => void } | undefined;
+}) {
   const espera = c.grupo === "precisam" && c.esperandoDesde;
-  return (
-    <li>
-      <Link
-        to="/conversas/$conversaId"
-        params={{ conversaId: c.id }}
-        className="flex min-h-11 gap-3 rounded-card border border-border bg-card p-4 hover:border-marca/40"
-      >
-        <Avatar nome={c.nome} />
-        <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[15px] font-bold">{c.nome}</span>
-            <span
-              className={cn(
-                "shrink-0 text-xs",
-                espera ? "font-bold text-atencao-foreground" : "text-muted-foreground",
-              )}
-            >
-              {espera
-                ? `esperando ${haQuanto(c.esperandoDesde, agora)}`
-                : haQuanto(c.ultimaEm, agora)}
-            </span>
-          </span>
-          {c.ultimaMensagem ? (
-            <span className="line-clamp-2 text-sm text-muted-foreground">
-              {c.ultimaDoCliente ? "" : "Enviada: "}
-              {c.ultimaMensagem}
-            </span>
-          ) : null}
-          <span className="flex flex-wrap gap-1.5 pt-0.5">
-            <EtiquetasConversa c={c} />
+  const conteudo = (
+    <>
+      {selecao ? (
+        <span
+          aria-hidden
+          className={cn(
+            "mt-2.5 grid size-6 shrink-0 place-items-center rounded-md border",
+            selecao.marcada
+              ? "border-marca bg-marca text-marca-foreground"
+              : "border-border bg-card",
+          )}
+        >
+          {selecao.marcada ? <Check className="size-4" /> : null}
+        </span>
+      ) : null}
+      <Avatar nome={c.nome} />
+      <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[15px] font-bold">{c.nome}</span>
+          <span
+            className={cn(
+              "shrink-0 text-xs",
+              espera ? "font-bold text-atencao-foreground" : "text-muted-foreground",
+            )}
+          >
+            {espera
+              ? `esperando ${haQuanto(c.esperandoDesde, agora)}`
+              : haQuanto(c.ultimaEm, agora)}
           </span>
         </span>
-      </Link>
+        {c.ultimaMensagem ? (
+          <span className="line-clamp-2 text-sm text-muted-foreground">
+            {c.ultimaDoCliente ? "" : "Enviada: "}
+            {c.ultimaMensagem}
+          </span>
+        ) : null}
+        <span className="flex flex-wrap gap-1.5 pt-0.5">
+          <EtiquetasConversa c={c} />
+        </span>
+      </span>
+    </>
+  );
+  return (
+    <li
+      className={cn(
+        "rounded-card border bg-card",
+        selecao?.marcada ? "border-marca" : "border-border hover:border-marca/40",
+      )}
+    >
+      {selecao ? (
+        <button
+          type="button"
+          aria-pressed={selecao.marcada}
+          onClick={selecao.alternar}
+          className="flex min-h-11 w-full gap-3 p-4"
+        >
+          {conteudo}
+        </button>
+      ) : (
+        <Link
+          to="/conversas/$conversaId"
+          params={{ conversaId: c.id }}
+          className="flex min-h-11 gap-3 p-4"
+        >
+          {conteudo}
+        </Link>
+      )}
+      {encerravel && !selecao && c.grupo !== "finalizadas" ? (
+        <div className="flex justify-end border-t border-border px-2 py-1">
+          <BotaoEncerrar id={c.id} nome={c.nome} />
+        </div>
+      ) : null}
     </li>
   );
 }

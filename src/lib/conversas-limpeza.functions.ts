@@ -1,9 +1,9 @@
 /**
- * Encerrar em lote as conversas paradas com a equipe (só admin). Sempre em dois passos: a tela
- * mostra a lista e só encerra as que o admin confirmou; o servidor confere de novo cada uma.
+ * Encerrar conversas no Chatwoot: em lote as paradas com a equipe (só admin, sempre mostrando a
+ * lista antes) ou as escolhidas uma a uma. O servidor confere de novo cada uma.
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdminEmpresa } from "@/lib/empresa.middleware";
+import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export const DIAS_PARADA = [3, 7, 15, 30];
 
@@ -63,58 +63,86 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
       .eq("status", "open")
       .lt("ultima_atividade_em", limite(data.dias))
       .in("id", data.ids);
-    const lista = conversas ?? [];
-    if (!lista.length) return { encerradas: 0, falhas: 0 };
-    const { dbServico, log } = await import("@/lib/mkt/contexto.server");
-    const { mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
-    const db = await dbServico();
-    const conexoes = new Map<
-      string,
-      { conta: { baseUrl: string; accountId: number }; token: string } | null
-    >();
-    let encerradas = 0;
-    let falhas = 0;
-    // Conexões primeiro (normalmente uma só), depois o Chatwoot em lotes paralelos de 5: o app atrás
-    // do Firebase Hosting tem 60 s por pedido, e 100 conversas em fila podiam passar disso.
-    for (const id of new Set(lista.map((c) => c.conexao_id))) {
-      const [{ data: cx }, { data: sg }] = await Promise.all([
-        db.from("chatwoot_conexoes").select("base_url, account_id").eq("id", id).maybeSingle(),
-        db.from("chatwoot_conexao_segredos").select("api_token").eq("conexao_id", id).maybeSingle(),
-      ]);
-      conexoes.set(
-        id,
-        cx && sg?.api_token
-          ? {
-              conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
-              token: sg.api_token,
-            }
-          : null,
-      );
+    return encerrarNoChatwoot(conversas ?? [], context.empresaId, "lote");
+  });
+
+type ParaEncerrar = { id: string; chatwoot_conversation_id: number | string; conexao_id: string };
+
+/** Encerra no Chatwoot e marca como resolvida (lotes paralelos de 5). */
+async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: string, origem: string) {
+  if (!lista.length) return { encerradas: 0, falhas: 0 };
+  const { dbServico, log } = await import("@/lib/mkt/contexto.server");
+  const { mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
+  const db = await dbServico();
+  const conexoes = new Map<
+    string,
+    { conta: { baseUrl: string; accountId: number }; token: string } | null
+  >();
+  let encerradas = 0;
+  let falhas = 0;
+  // Conexões primeiro (normalmente uma só), depois o Chatwoot em lotes paralelos de 5: o app atrás
+  // do Firebase Hosting tem 60 s por pedido, e 100 conversas em fila podiam passar disso.
+  for (const id of new Set(lista.map((c) => c.conexao_id))) {
+    const [{ data: cx }, { data: sg }] = await Promise.all([
+      db.from("chatwoot_conexoes").select("base_url, account_id").eq("id", id).maybeSingle(),
+      db.from("chatwoot_conexao_segredos").select("api_token").eq("conexao_id", id).maybeSingle(),
+    ]);
+    conexoes.set(
+      id,
+      cx && sg?.api_token
+        ? {
+            conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
+            token: sg.api_token,
+          }
+        : null,
+    );
+  }
+  const encerrar = async (c: (typeof lista)[number]) => {
+    const cx = conexoes.get(c.conexao_id);
+    if (!cx) {
+      falhas++;
+      return;
     }
-    const encerrar = async (c: (typeof lista)[number]) => {
-      const cx = conexoes.get(c.conexao_id);
-      if (!cx) {
-        falhas++;
-        return;
-      }
-      try {
-        await mudarSituacao(cx.conta, cx.token, Number(c.chatwoot_conversation_id), "resolved");
-        await db
-          .from("conversas")
-          .update({ status: "resolved", aguardando_desde: null })
-          .eq("id", c.id)
-          .eq("empresa_id", context.empresaId);
-        encerradas++;
-      } catch (e) {
-        falhas++;
-        log("WARNING", "conversa.encerrar_falhou", {
-          conversa: c.id,
-          erro: e instanceof Error ? e.message.slice(0, 200) : String(e),
-        });
-      }
-    };
-    for (let i = 0; i < lista.length; i += 5)
-      await Promise.all(lista.slice(i, i + 5).map(encerrar));
-    log("INFO", "conversas.encerradas_em_lote", { empresa: context.empresaId, encerradas, falhas });
-    return { encerradas, falhas };
+    try {
+      await mudarSituacao(cx.conta, cx.token, Number(c.chatwoot_conversation_id), "resolved");
+      await db
+        .from("conversas")
+        .update({ status: "resolved", aguardando_desde: null })
+        .eq("id", c.id)
+        .eq("empresa_id", empresaId);
+      encerradas++;
+    } catch (e) {
+      falhas++;
+      log("WARNING", "conversa.encerrar_falhou", {
+        conversa: c.id,
+        erro: e instanceof Error ? e.message.slice(0, 200) : String(e),
+      });
+    }
+  };
+  for (let i = 0; i < lista.length; i += 5) await Promise.all(lista.slice(i, i + 5).map(encerrar));
+  log("INFO", "conversas.encerradas", { empresa: empresaId, origem, encerradas, falhas });
+  return { encerradas, falhas };
+}
+
+/**
+ * Encerrar as conversas escolhidas (uma, na conversa ou na lista, ou várias marcadas em
+ * "Precisam de você"). Admin e atendente; o técnico não vê conversas.
+ */
+export const encerrarEscolhidasFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((i: { ids: string[] }) => ({
+    ids: (i.ids ?? []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 100),
+  }))
+  .handler(async ({ data, context }) => {
+    const { data: papel } = await context.supabase.rpc("meu_papel" as never);
+    if (papel !== "admin" && papel !== "atendente")
+      throw new Error("Só o administrador e o atendente encerram conversas.");
+    if (!data.ids.length) throw new Error("Escolha pelo menos uma conversa.");
+    const { data: conversas } = await context.supabase
+      .from("conversas")
+      .select("id, chatwoot_conversation_id, conexao_id")
+      .eq("empresa_id", context.empresaId)
+      .neq("status", "resolved")
+      .in("id", data.ids);
+    return encerrarNoChatwoot(conversas ?? [], context.empresaId, "escolhidas");
   });

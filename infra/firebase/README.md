@@ -1,6 +1,6 @@
 # Domínio do app (Firebase Hosting → Cloud Run)
 
-`app.nexaperformance.com.br` aponta para o Firebase Hosting, que repassa tudo ao Cloud Run
+`app.nexaperformanceos.com.br` aponta para o Firebase Hosting, que repassa tudo ao Cloud Run
 `nexaos` (southamerica-east1). O domínio direto do Cloud Run não existe nessa região.
 
 - Publicar de novo esta configuração (raramente necessário; o app em si continua sendo publicado

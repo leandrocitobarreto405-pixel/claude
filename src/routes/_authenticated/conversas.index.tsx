@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { MessageCircle } from "lucide-react";
-import { BadgeAlerta, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
+import { BadgeAlerta, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { CartaoConversa } from "@/components/conversas/cartao-conversa";
 import { EncerrarParadas } from "@/components/conversas/encerrar-paradas";
+import { useEncerrarConversas } from "@/lib/conversas-encerrar";
 import { usePapel } from "@/lib/tenant";
 import { resumoAliceHoje } from "@/lib/alice.functions";
 import type { GrupoConversa } from "@/lib/conversas";
@@ -76,6 +77,17 @@ function Conversas() {
   const agora = new Date();
   const { papel } = usePapel();
   const a = alice.data;
+  const podeEncerrar = papel === "admin" || papel === "atendente";
+  // Modo de seleção (só em "Precisam"): marcar várias e encerrar só as marcadas.
+  const [selecionando, setSelecionando] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const { encerrar, encerrando } = useEncerrarConversas();
+  const emSelecao = selecionando && aba === "precisam";
+  const marcadasVisiveis = itens.filter((c) => marcadas.has(c.id)).map((c) => c.id);
+  function sairDaSelecao() {
+    setSelecionando(false);
+    setMarcadas(new Set());
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
@@ -118,7 +130,10 @@ function Conversas() {
               type="button"
               role="tab"
               aria-selected={sel}
-              onClick={() => setAba(t.id)}
+              onClick={() => {
+                setAba(t.id);
+                sairDaSelecao();
+              }}
               className={cn(
                 "relative flex min-h-11 items-center justify-center gap-1 rounded-[0.625rem] px-1 text-[13px] leading-tight",
                 sel
@@ -149,11 +164,55 @@ function Conversas() {
           <p className="max-w-xs text-sm text-muted-foreground">{atual.vazio}</p>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-2.5" aria-label={atual.rotulo}>
-          {itens.map((c) => (
-            <CartaoConversa key={c.id} c={c} agora={agora} />
-          ))}
-        </ul>
+        <>
+          {podeEncerrar && aba === "precisam" ? (
+            emSelecao ? (
+              <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-card border border-marca bg-card p-2 shadow-sm">
+                <span className="flex-1 px-2 text-sm font-semibold">
+                  {marcadasVisiveis.length} {marcadasVisiveis.length === 1 ? "marcada" : "marcadas"}
+                </span>
+                <Botao
+                  disabled={!marcadasVisiveis.length || encerrando}
+                  onClick={() =>
+                    void encerrar(marcadasVisiveis, "o cliente").then((ok) => ok && sairDaSelecao())
+                  }
+                >
+                  {encerrando ? "Encerrando…" : `Encerrar ${marcadasVisiveis.length || ""}`.trim()}
+                </Botao>
+                <Botao variante="neutro" onClick={sairDaSelecao}>
+                  Cancelar
+                </Botao>
+              </div>
+            ) : (
+              <Botao variante="neutro" className="self-start" onClick={() => setSelecionando(true)}>
+                Selecionar para encerrar
+              </Botao>
+            )
+          ) : null}
+          <ul className="flex flex-col gap-2.5" aria-label={atual.rotulo}>
+            {itens.map((c) => (
+              <CartaoConversa
+                key={c.id}
+                c={c}
+                agora={agora}
+                encerravel={podeEncerrar}
+                selecao={
+                  emSelecao
+                    ? {
+                        marcada: marcadas.has(c.id),
+                        alternar: () => {
+                          const n = new Set(marcadas);
+                          if (n.has(c.id)) n.delete(c.id);
+                          else n.add(c.id);
+                          setMarcadas(n);
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

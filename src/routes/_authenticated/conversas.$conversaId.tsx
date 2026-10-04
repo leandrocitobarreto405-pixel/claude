@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CabecalhoDeTela, Card } from "@/components/nexa";
 import { AcoesConversa } from "@/components/conversas/acoes-conversa";
+import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
+import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
 import { dateTimeBR } from "@/lib/format";
@@ -30,6 +32,9 @@ function Conversa() {
     refetchInterval: 20_000,
   });
   const c = q.data;
+  const navigate = useNavigate();
+  const { papel } = usePapel();
+  const podeEncerrar = papel === "admin" || papel === "atendente";
 
   function mudou() {
     void q.refetch();
@@ -71,6 +76,14 @@ function Conversa() {
           </div>
         ) : null}
         <AcoesConversa c={c} onMudou={mudou} />
+        {podeEncerrar && c.grupo !== "finalizadas" ? (
+          <BotaoEncerrar
+            id={c.id}
+            nome={c.nome}
+            className="self-start"
+            aoEncerrar={() => void navigate({ to: "/conversas", search: { aba: undefined } })}
+          />
+        ) : null}
       </Card>
 
       <section aria-label="Mensagens" className="flex flex-col gap-2">

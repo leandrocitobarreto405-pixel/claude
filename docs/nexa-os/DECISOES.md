@@ -160,4 +160,4 @@ Etapa 4 (funil e indicadores) em `ETAPA-4-FUNIL.md`. Publicação no Google Clou
 3. **Google Cloud**: criar projeto "nexa-os" com faturamento ativo (você me passa acesso ou executa
    os comandos que eu preparar).
 4. **Supabase**: criar conta/organização da Nexa (projeto novo, região São Paulo).
-5. **Domínio** para o app (ex.: `app.nexaperformance.com.br`).
+5. **Domínio** para o app (ex.: `app.nexaperformanceos.com.br`).
