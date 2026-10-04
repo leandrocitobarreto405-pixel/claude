@@ -115,7 +115,8 @@ export function nomeDoFiltro(familia: Familia, filtro: FiltroFamilia | undefined
   if (opcao) return `${def.nome} · ${opcao.rotulo}`;
   const dias = (n: number) =>
     n % 365 === 0 ? `${n / 365} ano${n === 365 ? "" : "s"}` : `${n} dias`;
-  if (f.de && f.ate) return `${def.nome} · de ${dias(f.de)} a ${dias(f.ate)}`;
+  // "de X" começa no dia X + 1 (o dia X fica na faixa "até X"): as faixas não se sobrepõem.
+  if (f.de && f.ate) return `${def.nome} · de ${dias(f.de + 1)} a ${dias(f.ate)}`;
   if (f.de) return `${def.nome} · mais de ${dias(f.de)}`;
   if (f.ate) return `${def.nome} · até ${dias(f.ate)}`;
   return `${def.nome} · todos`;
@@ -141,7 +142,7 @@ export function filtrosValidos(v: unknown): Filtros {
     const limpo: FiltroFamilia = {};
     if (Number.isInteger(ateN) && ateN > 0 && ateN <= 3650) limpo.ate = ateN;
     if (Number.isInteger(deN) && deN > 0 && deN <= 3650) limpo.de = deN;
-    if (limpo.de !== undefined && limpo.ate !== undefined && limpo.de > limpo.ate) continue;
+    if (limpo.de !== undefined && limpo.ate !== undefined && limpo.de >= limpo.ate) continue;
     r[def.familia] = limpo;
   }
   return r;
@@ -192,7 +193,7 @@ export function segmentosDaCampanha(listas: unknown, grupos: string[] | null): S
     .map((g) => SEGMENTO_DO_GRUPO[g]!);
 }
 
-/** "Clientes · de 90 dias a 1 ano". */
+/** "Clientes · de 91 dias a 1 ano". */
 export function nomeDoSegmento(s: Segmento): string {
   return nomeDoFiltro(s.familia, {
     ...(s.de !== undefined ? { de: s.de } : {}),

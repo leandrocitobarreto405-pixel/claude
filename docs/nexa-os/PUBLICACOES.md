@@ -63,6 +63,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   não sai para quem recebeu campanha ou promoção há menos de 30 dias; a pessoa fica para o dia em
   que completar os 30 dias, se ainda estiver na época do lembrete. Acrescenta `mkt_lotes.adiados`
   (quantos ficaram para depois, mostrado na aprovação em Avisos) e troca `mkt_gerar_gatilhos`.
+- "Faixas sem sobrepor" (`20261023120000`, aplicada em 04/10): "até Y" inclui o dia Y e "de X"
+  começa no dia X + 1 (90 dias fica só em "até 90"; 365 só em "até 1 ano"). Só troca
+  `private.mkt_no_intervalo`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

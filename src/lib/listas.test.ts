@@ -40,10 +40,10 @@ test("nomes claros, sem códigos", () => {
   assert.equal(nomeDoFiltro("orcamento", { ate: 10 }), "Orçamento sem agendamento · até 10 dias");
   assert.equal(
     nomeDoFiltro("orcamento", { de: 90, ate: 365 }),
-    "Orçamento sem agendamento · de 90 dias a 1 ano",
+    "Orçamento sem agendamento · de 91 dias a 1 ano",
   );
   assert.equal(nomeDoFiltro("orcamento", { de: 365 }), "Orçamento sem agendamento · mais de 1 ano");
-  assert.equal(nomeDoFiltro("clientes", { de: 90, ate: 365 }), "Clientes · de 90 dias a 1 ano");
+  assert.equal(nomeDoFiltro("clientes", { de: 90, ate: 365 }), "Clientes · de 91 dias a 1 ano");
   assert.equal(nomeDoFiltro("clientes", {}), "Clientes · todos");
   assert.equal(
     descreverFiltros({ orcamento: { ate: 10 }, conversa: { ate: 30 } }),
@@ -92,7 +92,7 @@ test("listas das campanhas: grupos antigos viram listas, sem códigos na tela", 
     segs.map((s) => s.grupo),
     ["C4", "N1", "N3"],
   );
-  assert.equal(nomeDoSegmento(segs[0]!), "Clientes · de 90 dias a 1 ano");
+  assert.equal(nomeDoSegmento(segs[0]!), "Clientes · de 91 dias a 1 ano");
   assert.equal(nomeDoSegmento(segs[1]!), "Orçamento sem agendamento · até 90 dias");
   assert.equal(nomeDoSegmento(segs[2]!), "Orçamento sem agendamento · mais de 1 ano");
   const gravadas = segmentosDaCampanha(
