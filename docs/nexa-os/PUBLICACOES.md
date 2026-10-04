@@ -30,6 +30,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   empresa não liberada. Voltar o app não precisa mexer no banco: o app anterior não usa nada disso.
 - "Cidade e estado" (`20261016120000`): só acrescenta `cidade` e `estado` em `empresas` (Turbine
   São Paulo/SP). O rodízio não precisou de banco: só vale com veículo com dia de rodízio.
+- "Listas de leads" (`20261017120000`, aplicada em 04/10): acrescenta campos (datas do orçamento
+  e da perda por preço, coordenadas do contato, limite de marketing, chave/listas/margem/km/custo
+  de produto da promoção) e funções de leitura das listas. A Turbine ficou com a promoção liberada
+  e produto R$ 6 (higienização) e R$ 80 (impermeabilização). A promoção de dia vago (04/10) não
+  mexeu no banco: só guarda coordenadas encontradas (contatos e base do técnico) para não
+  procurar de novo.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -53,6 +59,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 03/10/2026 18:32 | Convite (WhatsApp)  | `4e03e42`        | `25a9ad6`                |
 | 03/10/2026 20:14 | Esqueci a senha     | `2703b3f`        | `f54d21b`                |
 | 04/10/2026 01:07 | Encerrar conversas  | `eeaaa67`        | `ff9f68e`                |
+| 04/10/2026 01:46 | Listas de leads     | `869d8bf`        | `0584c05`                |
+| 04/10/2026 02:20 | Promoção dia vago   | `523dc67`        | `869d8bf`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
