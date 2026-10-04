@@ -51,7 +51,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Km guardado e janela dos lembretes" (`20261019120000`, aplicada em 04/10): tabela
   `rotas_distancias` (km pelas ruas já consultados; só o servidor usa) e campanha sem quem está na
   janela do lembrete de 6 meses ou do 13º mês (já vale na contagem). `20261019120001` (a mesma
-  regra na preparação da campanha) vai pelo SQL Editor.
+  regra na preparação da campanha) foi rodada no SQL Editor em 04/10 e conferida.
+- "Planilha das listas" (`20261020120000`, aplicada em 04/10): `planilha_listas_id` e
+  `planilha_listas_atualizada_em` em `mkt_configuracoes` e a leitura das listas pela rotina das
+  9h (só o servidor). A planilha "Nexa OS — Listas" fica no Drive da conta Google da empresa.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

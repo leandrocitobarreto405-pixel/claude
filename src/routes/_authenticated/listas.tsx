@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Download, Users } from "lucide-react";
+import { Download, ExternalLink, RefreshCw, Sheet as IconePlanilha, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import {
+  atualizarPlanilhaListasFn,
   contagemListasFn,
   modelosDasListasFn,
+  planilhaListasFn,
   pessoasDaListaFn,
   type ModelosDasListas,
   type PessoaPublico,
 } from "@/lib/listas.functions";
 import { FAMILIAS, csvDaLista, nomeDoFiltro, type DefFamilia, type OpcaoLista } from "@/lib/listas";
-import { brl } from "@/lib/format";
+import { brl, dateTimeBR } from "@/lib/format";
+import { fetchDireto } from "@/lib/enderecos";
 import { usePapel } from "@/lib/tenant";
 
 export const Route = createFileRoute("/_authenticated/listas")({
@@ -165,6 +168,73 @@ function QuemEsta({
   );
 }
 
+const CHAVE_PLANILHA = ["listas", "planilha"] as const;
+
+/** Planilha "Nexa OS — Listas" no Google Drive: abrir e atualizar agora (o admin). */
+function PlanilhaDoGoogle({ admin }: { admin: boolean }) {
+  const qc = useQueryClient();
+  const lerFn = useServerFn(planilhaListasFn);
+  const atualizarFn = useServerFn(atualizarPlanilhaListasFn);
+  const q = useQuery({ queryKey: CHAVE_PLANILHA, queryFn: () => lerFn() });
+  const [atualizando, setAtualizando] = useState(false);
+  const p = q.data;
+  if (!p) return null;
+
+  async function atualizar() {
+    setAtualizando(true);
+    try {
+      const r = await atualizarFn({ fetch: fetchDireto });
+      toast.success(
+        r.criada
+          ? `Planilha criada no Google Drive com ${plural(r.pessoas, "pessoa", "pessoas")}.`
+          : `Planilha atualizada (${plural(r.pessoas, "pessoa", "pessoas")}).`,
+      );
+      await qc.invalidateQueries({ queryKey: CHAVE_PLANILHA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível atualizar a planilha.");
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <IconePlanilha className="mt-0.5 size-5 shrink-0 text-marca" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-bold">Planilha do Google</h2>
+          <p className="text-sm text-muted-foreground">
+            {!p.googleConectado
+              ? "Conecte a conta Google da empresa em Configurações → Modelos de ordem de serviço para ter a planilha."
+              : p.url
+                ? `“Nexa OS — Listas”, no Drive da empresa. Atualiza sozinha todo dia às 9h${
+                    p.atualizadaEm ? ` · última: ${dateTimeBR(p.atualizadaEm)}` : ""
+                  }.`
+                : "Ainda não foi criada. Ela é criada no Drive da empresa na primeira atualização e depois se atualiza sozinha todo dia às 9h."}
+          </p>
+        </div>
+      </div>
+      {p.googleConectado ? (
+        <div className="flex flex-wrap gap-2">
+          {p.url ? (
+            <Botao asChild variante="contorno">
+              <a href={p.url} target="_blank" rel="noreferrer">
+                <ExternalLink /> Abrir planilha
+              </a>
+            </Botao>
+          ) : null}
+          {admin ? (
+            <Botao variante="neutro" disabled={atualizando} onClick={() => void atualizar()}>
+              <RefreshCw className={atualizando ? "animate-spin" : undefined} />
+              {atualizando ? "Atualizando…" : p.url ? "Atualizar agora" : "Criar planilha"}
+            </Botao>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 function Listas() {
   const { papel } = usePapel();
   const contagemFn = useServerFn(contagemListasFn);
@@ -185,6 +255,7 @@ function Listas() {
         titulo="Listas"
         descricao="Quem está em cada lista hoje. As listas se atualizam sozinhas pelas datas do CRM: ninguém precisa mexer."
       />
+      <PlanilhaDoGoogle admin={papel === "admin"} />
       {q.error ? (
         <Card className="text-sm">
           {q.error instanceof Error ? q.error.message : "Erro ao carregar."}

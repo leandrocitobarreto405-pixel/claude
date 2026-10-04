@@ -88,3 +88,53 @@ export const modelosDasListasFn = createServerFn({ method: "GET" })
     if (lista.fonte === "nenhuma") for (const k of Object.keys(situacao)) delete situacao[k];
     return { nomes: lista.nomes, situacao };
   });
+
+// ---------------------------------------------------------------- planilha diária
+export type SituacaoPlanilha = {
+  url: string | null;
+  atualizadaEm: string | null;
+  googleConectado: boolean;
+};
+
+/** Endereço e última atualização da planilha "Nexa OS — Listas". */
+export const planilhaListasFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<SituacaoPlanilha> => {
+    const [{ data: cfg }, { data: google }] = await Promise.all([
+      context.supabase
+        .from("mkt_configuracoes")
+        .select("planilha_listas_id, planilha_listas_atualizada_em")
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle(),
+      context.supabase
+        .from("google_conexoes")
+        .select("situacao")
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle(),
+    ]);
+    const c = cfg as {
+      planilha_listas_id?: string | null;
+      planilha_listas_atualizada_em?: string | null;
+    } | null;
+    const { urlDaPlanilha } = await import("@/lib/planilha-listas.server");
+    return {
+      url: c?.planilha_listas_id ? urlDaPlanilha(c.planilha_listas_id) : null,
+      atualizadaEm: c?.planilha_listas_atualizada_em ?? null,
+      googleConectado: google?.situacao === "conectada",
+    };
+  });
+
+/** Cria (na primeira vez) e atualiza agora a planilha das listas (só admin). */
+export const atualizarPlanilhaListasFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }) => {
+    const { dbServico } = await import("@/lib/mkt/contexto.server");
+    const { atualizarPlanilhaListas } = await import("@/lib/planilha-listas.server");
+    const { ErroGoogle } = await import("@/lib/google-planilhas.server");
+    try {
+      return await atualizarPlanilhaListas(await dbServico(), context.empresaId);
+    } catch (e) {
+      if (e instanceof ErroGoogle && e.acao) throw new Error(`${e.message} O que fazer: ${e.acao}`);
+      throw e;
+    }
+  });

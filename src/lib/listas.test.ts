@@ -4,6 +4,9 @@ import {
   FAMILIAS,
   FAMILIAS_PROMOCAO,
   csvDaLista,
+  linhasDaLista,
+  pessoasDaFamilia,
+  resumoDasListas,
   descreverFiltros,
   filtrosValidos,
   nomeDoFiltro,
@@ -103,4 +106,51 @@ test("listas das campanhas: grupos antigos viram listas, sem códigos na tela", 
   assert.equal(nomeDoGrupo("CV", gravadas), "Conversou e não pediu orçamento · até 30 dias");
   assert.equal(nomeDoGrupo("PP", []), "Perdido por preço");
   assert.doesNotMatch(nomeDoGrupo("N2", []), /\b[CN]\d\b/);
+});
+
+test("planilha: resumo por opção e linhas com números de verdade", () => {
+  const p = (familias: string[], dias: Partial<Record<"o" | "c" | "k", number>>, pode = true) => ({
+    nome: "X",
+    telefone: "55119",
+    familias,
+    dias_orcamento: dias.o ?? null,
+    dias_conversa: dias.c ?? null,
+    dias_cliente: dias.k ?? null,
+    servico_tipo: null,
+    orcamento_valor: 300.5,
+    pode_receber: pode,
+    motivo: null,
+  });
+  const pessoas = [
+    p(["orcamento"], { o: 5 }),
+    p(["orcamento"], { o: 25 }, false),
+    p(["orcamento", "clientes"], { o: 3, k: 120 }),
+    p(["conversa"], { c: 15 }),
+  ];
+  const r = resumoDasListas(pessoas, "05/10/2026 09:00");
+  const linha = (lista: string, opcao: string) => r.find((l) => l[0] === lista && l[1] === opcao);
+  assert.deepEqual(linha("Orçamento sem agendamento", "até 10 dias"), [
+    "Orçamento sem agendamento",
+    "até 10 dias",
+    2,
+    2,
+  ]);
+  assert.deepEqual(linha("Orçamento sem agendamento", "até 30 dias"), [
+    "Orçamento sem agendamento",
+    "até 30 dias",
+    3,
+    2,
+  ]);
+  assert.deepEqual(linha("Clientes", "até 3 meses"), ["Clientes", "até 3 meses", 0, 0]);
+  assert.deepEqual(linha("Clientes", "até 6 meses"), ["Clientes", "até 6 meses", 1, 1]);
+  assert.deepEqual(linha("Conversou e não pediu orçamento", "todos"), [
+    "Conversou e não pediu orçamento",
+    "todos",
+    1,
+    1,
+  ]);
+  assert.deepEqual(pessoasDaFamilia(pessoas, "clientes").length, 1);
+  const [cab, primeira] = linhasDaLista(pessoas);
+  assert.equal(cab![7], "Valor do orçamento");
+  assert.equal(primeira![7], 300.5);
 });

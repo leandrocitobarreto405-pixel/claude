@@ -837,6 +837,63 @@ check(
   doAdm,
 );
 
+// ---------------------------------------------------------------- 15. planilha diária das listas
+// Com a conta Google conectada, a rotina das 9h cria "Nexa OS — Listas" (Resumo + uma aba por
+// lista) e nas próximas reescreve a mesma; se a planilha some, cria outra.
+sql(`INSERT INTO google_conexoes (empresa_id, email, escopos, situacao) VALUES ('${EMP}', 'turbine@teste.dev', '{}', 'conectada')
+     ON CONFLICT (empresa_id) DO UPDATE SET situacao = 'conectada', erro = NULL`);
+sql(`INSERT INTO google_conexao_segredos (empresa_id, refresh_token) VALUES ('${EMP}', 'refresh-teste')
+     ON CONFLICT (empresa_id) DO UPDATE SET refresh_token = 'refresh-teste'`);
+sql(`UPDATE mkt_configuracoes SET planilha_listas_id = NULL WHERE empresa_id = '${EMP}'`);
+const planilhasFake = async () => (await fetch(`${FAKE}/__planilhas`)).json();
+r = await rota("mkt-diaria", `?empresa=${EMP}&hoje=${hojeResumo}`);
+const idPlanilha = sql(
+  `SELECT planilha_listas_id FROM mkt_configuracoes WHERE empresa_id = '${EMP}'`,
+);
+let pf = await planilhasFake();
+check(
+  "planilha das listas criada pela rotina, com Resumo e uma aba por lista",
+  idPlanilha.startsWith("planilha-nova-") &&
+    pf.criadas[idPlanilha]?.titulo === "Nexa OS — Listas" &&
+    JSON.stringify(pf.criadas[idPlanilha]?.abas) ===
+      JSON.stringify([
+        "Resumo",
+        "Orçamento sem agendamento",
+        "Conversou e não pediu orçamento",
+        "Clientes",
+        "Perdido por preço",
+        "Agendado",
+      ]) &&
+    JSON.stringify(pf.valores[`${idPlanilha}|Resumo`]?.[0]) ===
+      JSON.stringify(["Lista", "Opção", "Pessoas", "Podem receber agora"]) &&
+    pf.valores[`${idPlanilha}|Clientes`]?.[0]?.[0] === "Nome" &&
+    sql(
+      `SELECT planilha_listas_atualizada_em IS NOT NULL FROM mkt_configuracoes WHERE empresa_id = '${EMP}'`,
+    ) === "t",
+  {
+    feito: r.corpo?.resultados?.[0]?.feito,
+    erros: r.corpo?.resultados?.[0]?.erros,
+    id: idPlanilha,
+  },
+);
+r = await rota("mkt-diaria", `?empresa=${EMP}&hoje=${hojeResumo}`);
+check(
+  "no dia seguinte reescreve a mesma planilha",
+  sql(`SELECT planilha_listas_id FROM mkt_configuracoes WHERE empresa_id = '${EMP}'`) ===
+    idPlanilha,
+  r.corpo?.resultados?.[0],
+);
+sql(
+  `UPDATE mkt_configuracoes SET planilha_listas_id = 'planilha-apagada-0000000000' WHERE empresa_id = '${EMP}'`,
+);
+r = await rota("mkt-diaria", `?empresa=${EMP}&hoje=${hojeResumo}`);
+const idNova = sql(`SELECT planilha_listas_id FROM mkt_configuracoes WHERE empresa_id = '${EMP}'`);
+check(
+  "planilha apagada no Drive: cria outra",
+  idNova.startsWith("planilha-nova-") && idNova !== idPlanilha,
+  { id: idNova, erros: r.corpo?.resultados?.[0]?.erros },
+);
+
 if (falhas) {
   console.error(`\n${falhas} verificação(ões) falharam`);
   process.exit(1);

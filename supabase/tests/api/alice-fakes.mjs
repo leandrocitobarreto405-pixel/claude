@@ -205,6 +205,7 @@ const JPEG = Buffer.from(
 let idMensagem = 7000;
 // Google Sheets falso (exportação das conversões): uma planilha em memória por ID.
 const planilhas = new Map();
+const planilhasCriadas = new Map();
 // Marketing: contatos, conversas, modelos da caixa 4242 e etiquetas (em memória).
 // POST /__modelos troca a lista de modelos. Telefone terminado em 0999: o envio falha (131026).
 const mktModelos = {
@@ -386,24 +387,62 @@ servidor(PORTA_CHATWOOT, (req, body) => {
   if (req.url.startsWith("/push/")) return { status: req.url === "/push/velho" ? 410 : 201 };
   if (req.url === "/oauth/token")
     return { corpo: { access_token: "token-oauth-empresa", expires_in: 3600 } };
-  const sh = /^\/v4\/spreadsheets\/([^/?]+)(\/values\/([^?:]+))?(:clear)?/.exec(req.url);
+  // Google Sheets falso: criar planilha, abas, gravar, limpar e ler (por aba).
+  if (
+    req.url.startsWith("/v4/spreadsheets") &&
+    req.headers.authorization !== "Bearer token-oauth-empresa"
+  )
+    return { status: 401, corpo: { error: "sem token" } };
+  if (req.method === "POST" && req.url === "/v4/spreadsheets") {
+    const id = `planilha-nova-${planilhasCriadas.size + 1}`;
+    planilhasCriadas.set(id, {
+      titulo: body.properties?.title ?? "",
+      abas: (body.sheets ?? []).map((x) => x.properties.title),
+    });
+    return { corpo: { spreadsheetId: id } };
+  }
+  const lote = /^\/v4\/spreadsheets\/([^/?:]+):batchUpdate/.exec(req.url);
+  if (lote) {
+    const info = planilhasCriadas.get(decodeURIComponent(lote[1]));
+    for (const r of body.requests ?? [])
+      if (r.addSheet && info) info.abas.push(r.addSheet.properties.title);
+    return { corpo: {} };
+  }
+  const sh = /^\/v4\/spreadsheets\/([^/?:]+)(\/values\/([^?:]+))?(:clear)?/.exec(req.url);
   if (sh) {
-    if (req.headers.authorization !== "Bearer token-oauth-empresa")
-      return { status: 401, corpo: { error: "sem token" } };
     const id = decodeURIComponent(sh[1]);
     if (id === "planilha-sem-acesso-0000000000")
       return { status: 403, corpo: { error: "forbidden" } };
-    if (!sh[2]) return { corpo: { sheets: [{ properties: { title: "Página1" } }] } };
+    if (id === "planilha-apagada-0000000000")
+      return { status: 404, corpo: { error: { message: "not found" } } };
+    if (!sh[2]) {
+      const info = planilhasCriadas.get(id);
+      return {
+        corpo: { sheets: (info?.abas ?? ["Página1"]).map((title) => ({ properties: { title } })) },
+      };
+    }
+    const faixa = decodeURIComponent(sh[3]);
+    const aba = faixa.includes("!")
+      ? faixa.split("!")[0].replace(/^'|'$/g, "").replace(/''/g, "'")
+      : "Página1";
+    const chave = aba === "Página1" ? id : `${id}|${aba}`;
     if (sh[4]) {
-      planilhas.set(id, []);
+      planilhas.set(chave, []);
       return { corpo: {} };
     }
     if (req.method === "PUT") {
-      planilhas.set(id, body.values);
+      planilhas.set(chave, body.values);
       return { corpo: { updatedRows: body.values.length } };
     }
-    return { corpo: { values: planilhas.get(id) ?? [] } };
+    return { corpo: { values: planilhas.get(chave) ?? [] } };
   }
+  if (req.method === "GET" && req.url === "/__planilhas")
+    return {
+      corpo: {
+        criadas: Object.fromEntries(planilhasCriadas),
+        valores: Object.fromEntries(planilhas),
+      },
+    };
   if (req.method === "GET" && req.url === "/foto-sofa.jpg")
     return { tipo: "image/jpeg", bruto: JPEG };
   if (req.method === "GET" && req.url === "/audio-cliente.ogg")

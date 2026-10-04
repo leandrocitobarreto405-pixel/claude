@@ -231,10 +231,8 @@ const TIPO_SERVICO: Record<string, string> = {
   desconhecido: "",
 };
 
-/**
- * CSV para Excel e Google Planilhas (separador ";" e BOM, como o Excel em português espera).
- */
-export function csvDaLista(pessoas: PessoaLista[]): string {
+/** Cabeçalho e linhas de uma lista (mesmas colunas no CSV e na planilha do Google). */
+export function linhasDaLista(pessoas: PessoaLista[]): Array<Array<string | number>> {
   const cab = [
     "Nome",
     "Telefone",
@@ -248,8 +246,9 @@ export function csvDaLista(pessoas: PessoaLista[]): string {
     "Motivo",
   ];
   const nomesFamilia = Object.fromEntries(FAMILIAS.map((f) => [f.familia, f.nome]));
-  const linhas = pessoas.map((p) =>
-    [
+  return [
+    cab,
+    ...pessoas.map((p) => [
       p.nome ?? "",
       p.telefone,
       p.familias.map((f) => nomesFamilia[f] ?? f).join(", "),
@@ -257,12 +256,60 @@ export function csvDaLista(pessoas: PessoaLista[]): string {
       p.dias_conversa ?? "",
       p.dias_cliente ?? "",
       TIPO_SERVICO[p.servico_tipo ?? ""] ?? p.servico_tipo ?? "",
-      p.orcamento_valor === null ? "" : String(p.orcamento_valor).replace(".", ","),
+      p.orcamento_valor === null ? "" : Number(p.orcamento_valor),
       p.pode_receber ? "sim" : "não",
       p.motivo ?? "",
-    ]
-      .map(celula)
-      .join(";"),
+    ]),
+  ];
+}
+
+/**
+ * CSV para Excel e Google Planilhas (separador ";" e BOM, como o Excel em português espera).
+ */
+export function csvDaLista(pessoas: PessoaLista[]): string {
+  const [cab, ...linhas] = linhasDaLista(pessoas);
+  const texto = (v: string | number) => (typeof v === "number" ? String(v).replace(".", ",") : v);
+  return (
+    "\ufeff" +
+    [cab!.join(";"), ...linhas.map((l) => l.map((v) => celula(texto(v))).join(";"))].join("\r\n")
   );
-  return "﻿" + [cab.join(";"), ...linhas].join("\r\n");
+}
+
+/** Dias da pessoa na família (o que as opções "até X dias" contam). */
+function diasNaFamilia(p: PessoaLista, f: Familia): number | null {
+  if (f === "orcamento") return p.dias_orcamento;
+  if (f === "conversa") return p.dias_conversa;
+  if (f === "clientes") return p.dias_cliente;
+  return 0;
+}
+
+/** Quem está em cada família (uma pessoa pode estar em mais de uma). */
+export function pessoasDaFamilia<T extends PessoaLista>(pessoas: T[], f: Familia): T[] {
+  return pessoas.filter((p) => p.familias.includes(f));
+}
+
+/** Aba Resumo: cada opção de cada lista com quantas pessoas e quantas podem receber agora. */
+export function resumoDasListas(
+  pessoas: PessoaLista[],
+  atualizadaEm: string,
+): Array<Array<string | number>> {
+  const linhas: Array<Array<string | number>> = [
+    ["Lista", "Opção", "Pessoas", "Podem receber agora"],
+  ];
+  for (const def of FAMILIAS) {
+    const daFamilia = pessoasDaFamilia(pessoas, def.familia);
+    for (const o of def.opcoes) {
+      const dentro = daFamilia.filter((p) => {
+        if (o.filtro.ate === undefined) return true;
+        const d = diasNaFamilia(p, def.familia);
+        return d !== null && d <= o.filtro.ate;
+      });
+      linhas.push([def.nome, o.rotulo, dentro.length, dentro.filter((p) => p.pode_receber).length]);
+    }
+  }
+  linhas.push(
+    [],
+    [`Atualizada em ${atualizadaEm}. As listas se atualizam sozinhas todo dia às 9h.`],
+  );
+  return linhas;
 }

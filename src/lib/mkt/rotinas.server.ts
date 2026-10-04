@@ -179,6 +179,19 @@ async function rotinaEmpresa(db: Db, empresaId: string, hoje: string): Promise<R
     return JSON.stringify(g);
   });
 
+  // Planilha "Nexa OS — Listas" no Google Drive (só com a conta Google conectada).
+  await passo("planilha_listas", async () => {
+    const { data: google } = await db
+      .from("google_conexoes")
+      .select("situacao")
+      .eq("empresa_id", empresaId)
+      .maybeSingle();
+    if (google?.situacao !== "conectada") return undefined;
+    const { atualizarPlanilhaListas } = await import("@/lib/planilha-listas.server");
+    const p = await atualizarPlanilhaListas(db, empresaId);
+    return `${p.criada ? "criada" : "atualizada"} (${p.pessoas} pessoas)`;
+  });
+
   // Resumo do dia para a equipe (opção da tela Avisos).
   if (cfg.aviso_resumo_diario) {
     await passo("resumo_dia", async () => {
