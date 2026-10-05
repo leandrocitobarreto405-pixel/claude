@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,17 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Botao, Chip } from "@/components/nexa";
-import { criarCampanhaFn, modelosAprovadosFn } from "@/lib/marketing.functions";
+import {
+  contagemListasNovaFn,
+  criarCampanhaFn,
+  modelosAprovadosFn,
+} from "@/lib/marketing.functions";
 import {
   diasTexto,
-  FAIXAS_CONVERSA,
   listaFria,
   modeloSugerido,
   previaDoModelo,
   OPCOES_LISTAS,
   ordemDosLotes,
   proximasDatas,
+  quantidadeDaFracao,
   validarNovaCampanha,
+  type InicialNovaCampanha,
   type ModeloAprovado,
   type QuemResponde,
 } from "@/lib/campanha-nova";
@@ -27,7 +32,18 @@ import { fetchDireto } from "@/lib/enderecos";
 import { cn } from "@/lib/utils";
 import { CHAVE_MKT } from "./campanha-card";
 
-type Escolha = { modelo: string; faixaConversa: string };
+type Quanto = "todas" | "1/3" | "2/3" | "numero";
+type Escolha = { modelo: string; faixa: string; quanto: Quanto; numero: string };
+
+/** Para "Mandar para quem ficou de fora": a campanha nova já vem preenchida. */
+export type { InicialNovaCampanha };
+
+const QUANTOS: Array<{ valor: Quanto; rotulo: string }> = [
+  { valor: "todas", rotulo: "Todas" },
+  { valor: "1/3", rotulo: "1/3" },
+  { valor: "2/3", rotulo: "2/3" },
+  { valor: "numero", rotulo: "Número" },
+];
 
 /** "Nova campanha" (só admin): listas com o modelo de cada uma, condição, datas e quem responde. */
 export function NovaCampanha({
@@ -36,6 +52,7 @@ export function NovaCampanha({
   aoCriar,
   hoje,
   config,
+  inicial,
 }: {
   aberto: boolean;
   aoFechar: () => void;
@@ -46,18 +63,52 @@ export function NovaCampanha({
     hora_disparo?: number | null;
     modelos?: unknown;
   } | null;
+  inicial?: InicialNovaCampanha | null;
 }) {
   const qc = useQueryClient();
   const criarFn = useServerFn(criarCampanhaFn);
+  const contarFn = useServerFn(contagemListasNovaFn);
   const dias = (config?.dias_disparo ?? [2, 3, 4]).map(Number);
+  const horaConfig = `${String(config?.hora_disparo ?? 10).padStart(2, "0")}:00`;
   const [nome, setNome] = useState("");
   const [escolhidas, setEscolhidas] = useState<Record<string, Escolha>>({});
   const [semCondicao, setSemCondicao] = useState(false);
   const [texto, setTexto] = useState("");
   const [pct, setPct] = useState("");
+  const [proprio, setProprio] = useState(false);
+  const [hora, setHora] = useState(horaConfig);
   const [datas, setDatas] = useState<string[]>([]);
   const [quem, setQuem] = useState<QuemResponde>("alice");
   const [enviando, setEnviando] = useState(false);
+
+  // Abrindo com uma campanha de base ("quem ficou de fora"), o formulário vem preenchido.
+  useEffect(() => {
+    if (!aberto) return;
+    if (!inicial) return;
+    setNome(inicial.nome);
+    setEscolhidas(
+      Object.fromEntries(
+        inicial.listas.map((l) => {
+          const op = OPCOES_LISTAS.find((o) => o.grupo === l.grupo);
+          return [
+            l.grupo,
+            {
+              modelo: l.modelo,
+              faixa: l.faixa ?? op?.faixaPadrao ?? "",
+              quanto: "todas" as Quanto,
+              numero: "",
+            },
+          ];
+        }),
+      ),
+    );
+    setSemCondicao(!inicial.condicaoTexto && !inicial.condicaoPct);
+    setTexto(inicial.condicaoTexto ?? "");
+    setPct(inicial.condicaoPct ? String(inicial.condicaoPct) : "");
+    setQuem(inicial.quemResponde);
+    setDatas([]);
+  }, [aberto, inicial]);
+
   // Só os modelos aprovados na Meta aparecem para escolher (lidos quando o formulário abre).
   const aprovadosFn = useServerFn(modelosAprovadosFn);
   const aprovados = useQuery({
@@ -67,26 +118,72 @@ export function NovaCampanha({
     staleTime: 120_000,
   });
   const modelos = aprovados.data?.modelos ?? [];
+
+  // Listas escolhidas com a faixa, para contar quem está nelas e quem pode receber agora.
+  const segmentos = OPCOES_LISTAS.filter((o) => escolhidas[o.grupo]).map((o) => {
+    const f = o.faixas?.find((x) => x.valor === escolhidas[o.grupo]!.faixa);
+    const ateFaixa = o.faixas ? f?.ate : o.ate;
+    return {
+      grupo: o.grupo,
+      familia: o.familia,
+      ...(o.de !== undefined ? { de: o.de } : {}),
+      ...(ateFaixa !== undefined ? { ate: ateFaixa } : {}),
+    };
+  });
+  const contagem = useQuery({
+    queryKey: [...CHAVE_MKT, "contagem-nova", JSON.stringify(segmentos)],
+    queryFn: () => contarFn({ data: { listas: segmentos } }),
+    enabled: aberto && segmentos.length > 0,
+    staleTime: 120_000,
+  });
+
   const condicaoAtual = semCondicao
     ? null
     : [texto.trim(), pct.trim() ? `${pct.trim()}%` : ""].filter(Boolean).join(" — ") || null;
-  const opcoesDeData = useMemo(() => proximasDatas(hoje, dias, 12), [hoje, dias]);
+  const opcoesDeData = useMemo(
+    () =>
+      proprio
+        ? proximasDatas(hoje, [1, 2, 3, 4, 5, 6, 7], 14, true)
+        : proximasDatas(hoje, dias, 12),
+    [hoje, dias, proprio],
+  );
+
+  /** Quantas pessoas desta lista (null = todas). */
+  function quantidade(grupo: string): number | null {
+    const e = escolhidas[grupo];
+    if (!e || e.quanto === "todas") return null;
+    if (e.quanto === "numero") return e.numero.trim() ? Number(e.numero) : NaN;
+    const podem = contagem.data?.[grupo]?.podem;
+    return podem ? quantidadeDaFracao(podem, e.quanto) : null;
+  }
 
   const entrada = {
     nome,
     listas: OPCOES_LISTAS.filter((o) => escolhidas[o.grupo]).map((o) => ({
       grupo: o.grupo,
       modelo: escolhidas[o.grupo]!.modelo,
-      faixaConversa: escolhidas[o.grupo]!.faixaConversa,
+      faixa: escolhidas[o.grupo]!.faixa || undefined,
+      quantidade: quantidade(o.grupo),
     })),
     semCondicao,
     condicaoTexto: texto,
     condicaoPct: pct.trim() ? Number(pct.replace(",", ".")) : null,
     datas,
+    horaInicio: proprio ? hora : null,
     quemResponde: quem,
   };
-  const r = validarNovaCampanha(entrada, { hoje, dias });
+  const agora = new Date().toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const r = validarNovaCampanha(entrada, { hoje, dias, agora });
   const ordem = ordemDosLotes(OPCOES_LISTAS.filter((o) => escolhidas[o.grupo]));
+
+  function muda(grupo: string, p: Partial<Escolha>) {
+    setEscolhidas((e) => (e[grupo] ? { ...e, [grupo]: { ...e[grupo]!, ...p } } : e));
+  }
 
   function alternarLista(grupo: string) {
     setEscolhidas((e) => {
@@ -96,11 +193,14 @@ export function NovaCampanha({
       }
       // Sugestão pelos nomes da empresa, só se estiver aprovada na Meta.
       const sugerido = modeloSugerido(grupo, config?.modelos);
+      const op = OPCOES_LISTAS.find((o) => o.grupo === grupo);
       return {
         ...e,
         [grupo]: {
           modelo: modelos.some((m) => m.nome === sugerido) ? sugerido : "",
-          faixaConversa: "todos",
+          faixa: op?.faixaPadrao ?? "",
+          quanto: "todas",
+          numero: "",
         },
       };
     });
@@ -127,10 +227,13 @@ export function NovaCampanha({
         side="bottom"
         className="max-h-[92vh] overflow-y-auto rounded-t-card-lg p-4 pb-[max(env(safe-area-inset-bottom),1rem)]"
       >
-        <SheetTitle className="pr-12 font-titulo text-xl">Nova campanha</SheetTitle>
+        <SheetTitle className="pr-12 font-titulo text-xl">
+          {inicial ? "Mandar para quem ficou de fora" : "Nova campanha"}
+        </SheetTitle>
         <SheetDescription>
-          Nasce em rascunho. Depois: Preparar, conferir a prévia e Aprovar até a véspera. Nada é
-          enviado antes disso.
+          {inicial
+            ? "Mesmas listas, modelos e condição. Quem já recebeu fica fora sozinho (limite de 30 dias)."
+            : "Nasce em rascunho. Depois: Preparar, conferir a prévia e Aprovar. Nada é enviado antes disso."}
         </SheetDescription>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
           <div className="grid gap-1.5">
@@ -146,9 +249,11 @@ export function NovaCampanha({
           </div>
 
           <fieldset className="grid gap-2">
-            <legend className="mb-1 text-sm font-semibold">Listas e modelo de cada uma</legend>
+            <legend className="mb-1 text-sm font-semibold">Listas, modelo e quantas pessoas</legend>
             {OPCOES_LISTAS.map((o) => {
               const e = escolhidas[o.grupo];
+              const c = contagem.data?.[o.grupo];
+              const q = quantidade(o.grupo);
               return (
                 <div
                   key={o.grupo}
@@ -172,22 +277,17 @@ export function NovaCampanha({
                     ) : null}
                   </label>
                   {e ? (
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {o.familia === "conversa" ? (
+                    <div className="mt-2 grid gap-3">
+                      {o.faixas ? (
                         <div className="grid gap-1">
                           <Label htmlFor={`nc-faixa-${o.grupo}`}>Faixa</Label>
                           <select
                             id={`nc-faixa-${o.grupo}`}
                             className="min-h-11 rounded-botao border border-input bg-card px-3 text-sm"
-                            value={e.faixaConversa}
-                            onChange={(ev) =>
-                              setEscolhidas({
-                                ...escolhidas,
-                                [o.grupo]: { ...e, faixaConversa: ev.target.value },
-                              })
-                            }
+                            value={e.faixa}
+                            onChange={(ev) => muda(o.grupo, { faixa: ev.target.value })}
                           >
-                            {FAIXAS_CONVERSA.map((f) => (
+                            {o.faixas.map((f) => (
                               <option key={f.valor} value={f.valor}>
                                 {f.rotulo}
                               </option>
@@ -195,19 +295,61 @@ export function NovaCampanha({
                           </select>
                         </div>
                       ) : null}
-                      <div className="grid gap-1 sm:col-span-2">
+
+                      <div className="grid gap-1">
+                        <span className="text-sm font-medium">Quantas pessoas</span>
+                        <div
+                          className="grid grid-cols-4 gap-1.5"
+                          role="group"
+                          aria-label="Quantas pessoas"
+                        >
+                          {QUANTOS.map((x) => (
+                            <button
+                              key={x.valor}
+                              type="button"
+                              aria-pressed={e.quanto === x.valor}
+                              onClick={() => muda(o.grupo, { quanto: x.valor })}
+                              className={cn(
+                                "min-h-11 rounded-botao border text-sm font-semibold",
+                                e.quanto === x.valor
+                                  ? "border-marca bg-marca text-marca-foreground"
+                                  : "border-border bg-card text-foreground",
+                              )}
+                            >
+                              {x.rotulo}
+                            </button>
+                          ))}
+                        </div>
+                        {e.quanto === "numero" ? (
+                          <Input
+                            className="min-h-11"
+                            inputMode="numeric"
+                            aria-label="Número de pessoas"
+                            placeholder="Ex.: 100"
+                            value={e.numero}
+                            onChange={(ev) =>
+                              muda(o.grupo, { numero: ev.target.value.replace(/\D/g, "") })
+                            }
+                          />
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {contagem.isLoading
+                            ? "Contando…"
+                            : c
+                              ? `${c.total} na lista, cerca de ${c.podem} podem receber agora`
+                              : ""}
+                          {q && Number.isFinite(q) ? ` · vão ${q} (as mais recentes primeiro)` : ""}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-1">
                         <Label htmlFor={`nc-modelo-${o.grupo}`}>Modelo (aprovados na Meta)</Label>
                         <select
                           id={`nc-modelo-${o.grupo}`}
                           className="min-h-11 rounded-botao border border-input bg-card px-3 text-sm"
                           value={e.modelo}
                           disabled={aprovados.isLoading}
-                          onChange={(ev) =>
-                            setEscolhidas({
-                              ...escolhidas,
-                              [o.grupo]: { ...e, modelo: ev.target.value },
-                            })
-                          }
+                          onChange={(ev) => muda(o.grupo, { modelo: ev.target.value })}
                         >
                           <option value="">
                             {aprovados.isLoading ? "Lendo os modelos na Meta…" : "Escolha o modelo"}
@@ -218,13 +360,14 @@ export function NovaCampanha({
                             </option>
                           ))}
                         </select>
-                        {!e.modelo && !aprovados.isLoading ? (
+                        {!e.modelo &&
+                        !aprovados.isLoading &&
+                        !modelos.some(
+                          (m) => m.nome === modeloSugerido(o.grupo, config?.modelos),
+                        ) ? (
                           <p className="text-xs text-muted-foreground">
-                            {modelos.some(
-                              (m) => m.nome === modeloSugerido(o.grupo, config?.modelos),
-                            )
-                              ? null
-                              : `O modelo sugerido (${modeloSugerido(o.grupo, config?.modelos)}) ainda não está aprovado na Meta.`}
+                            O modelo sugerido ({modeloSugerido(o.grupo, config?.modelos)}) ainda não
+                            está aprovado na Meta.
                           </p>
                         ) : null}
                       </div>
@@ -253,6 +396,10 @@ export function NovaCampanha({
                 último: se der problema, a trava de bloqueio pausa antes de chegar nelas.
               </p>
             ) : null}
+            <p className="text-xs text-muted-foreground">
+              Quem recebe agora fica registrado e não recebe outra campanha por 30 dias. Para mandar
+              para o resto depois, use "Mandar para quem ficou de fora" no cartão da campanha.
+            </p>
           </fieldset>
 
           <fieldset className="grid gap-2">
@@ -293,11 +440,48 @@ export function NovaCampanha({
           </fieldset>
 
           <fieldset className="grid gap-2">
-            <legend className="mb-1 text-sm font-semibold">Datas de disparo</legend>
-            <p className="text-xs text-muted-foreground">
-              Dias da configuração: {diasTexto(dias)}, a partir das {config?.hora_disparo ?? 10}h.
-              Se não couber todo mundo, o preparo usa os próximos dias permitidos.
-            </p>
+            <legend className="mb-1 text-sm font-semibold">Quando</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[false, true].map((v) => (
+                <Botao
+                  key={String(v)}
+                  type="button"
+                  variante={proprio === v ? "primario" : "contorno"}
+                  aria-pressed={proprio === v}
+                  onClick={() => {
+                    setProprio(v);
+                    setDatas([]);
+                  }}
+                >
+                  {v ? "Escolher dia e horário" : "Dias da configuração"}
+                </Botao>
+              ))}
+            </div>
+            {proprio ? (
+              <div className="grid gap-1">
+                <Label htmlFor="nc-hora">Horário de início</Label>
+                <Input
+                  id="nc-hora"
+                  type="time"
+                  min="08:00"
+                  max="20:00"
+                  step={900}
+                  className="min-h-11"
+                  value={hora}
+                  onChange={(ev) => setHora(ev.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Qualquer dia, inclusive hoje (com pelo menos 30 minutos para preparar e aprovar),
+                  das 08:00 às 20:00. Cada dia leva até 350 mensagens, uma a cada 8 segundos; nada
+                  sai depois das 21h.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Dias da configuração: {diasTexto(dias)}, a partir das {config?.hora_disparo ?? 10}h.
+                Se não couber todo mundo, o preparo usa os próximos dias permitidos.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               {opcoesDeData.map((d) => {
                 const marcada = datas.includes(d);
@@ -317,7 +501,7 @@ export function NovaCampanha({
                     )}
                   >
                     {marcada ? <Check className="size-4" aria-hidden /> : null}
-                    {weekdayPT(d)} {dateBR(d).slice(0, 5)}
+                    {d === hoje ? "Hoje" : `${weekdayPT(d)} ${dateBR(d).slice(0, 5)}`}
                   </button>
                 );
               })}

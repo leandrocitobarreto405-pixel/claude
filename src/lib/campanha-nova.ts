@@ -3,7 +3,7 @@
  * modelo sugerido de cada uma, a ordem dos lotes (quentes primeiro) e a validação do formulário.
  * Sem banco nem rede, para poder testar. O servidor valida de novo com a mesma função.
  */
-import type { Familia } from "@/lib/listas";
+import { segmentosDaCampanha, type Familia } from "@/lib/listas";
 import type { FormModelo } from "@/lib/modelos-mensagem";
 
 export type QuemResponde = "alice" | "equipe";
@@ -17,13 +17,25 @@ export type OpcaoLista = {
   rotulo: string;
   /** Finalidade do modelo sugerido (mkt_configuracoes.modelos). */
   finalidade: string;
+  /** Faixas à escolha ("até 10 dias", "até 20 dias"...), quando a lista tem. */
+  faixas?: Faixa[];
+  faixaPadrao?: string;
 };
 
-/** Faixas da lista "Conversou e não pediu orçamento" (uma só por campanha). */
-export const FAIXAS_CONVERSA: Array<{ valor: string; rotulo: string; ate?: number }> = [
+export type Faixa = { valor: string; rotulo: string; ate?: number };
+
+const ate = (n: number): Faixa => ({ valor: String(n), rotulo: `até ${n} dias`, ate: n });
+
+/** Faixas dos orçamentos recentes (até 90 dias). */
+export const FAIXAS_ORCAMENTO: Faixa[] = [ate(10), ate(20), ate(30), ate(60), ate(90)];
+
+/** Faixas da lista "Conversou e não pediu orçamento". */
+export const FAIXAS_CONVERSA: Faixa[] = [
+  ate(10),
+  ate(20),
+  ate(30),
+  ate(90),
   { valor: "todos", rotulo: "todos" },
-  { valor: "30", rotulo: "até 30 dias", ate: 30 },
-  { valor: "90", rotulo: "até 90 dias", ate: 90 },
 ];
 
 export const OPCOES_LISTAS: OpcaoLista[] = [
@@ -46,8 +58,10 @@ export const OPCOES_LISTAS: OpcaoLista[] = [
     grupo: "N1",
     familia: "orcamento",
     ate: 90,
-    rotulo: "Orçamento sem agendamento · até 90 dias",
+    rotulo: "Orçamento sem agendamento · recentes",
     finalidade: "orcamento",
+    faixas: FAIXAS_ORCAMENTO,
+    faixaPadrao: "90",
   },
   {
     grupo: "N2",
@@ -69,6 +83,8 @@ export const OPCOES_LISTAS: OpcaoLista[] = [
     familia: "conversa",
     rotulo: "Conversou e não pediu orçamento",
     finalidade: "conversa",
+    faixas: FAIXAS_CONVERSA,
+    faixaPadrao: "todos",
   },
   { grupo: "PP", familia: "perdido_preco", rotulo: "Perdido por preço", finalidade: "preco" },
 ];
@@ -116,11 +132,19 @@ export function ordemDosLotes<T extends { familia: string; de?: number | null }>
     .map((x) => x.s);
 }
 
-/** Próximas datas permitidas (dias de disparo da empresa, 1 = segunda ... 7 = domingo). */
-export function proximasDatas(hoje: string, dias: number[], quantas = 12): string[] {
+/**
+ * Próximas datas permitidas (dias de disparo da empresa, 1 = segunda ... 7 = domingo).
+ * `incluirHoje`: com dia e horário próprios, hoje também pode.
+ */
+export function proximasDatas(
+  hoje: string,
+  dias: number[],
+  quantas = 12,
+  incluirHoje = false,
+): string[] {
   const r: string[] = [];
   const d = new Date(`${hoje}T12:00:00Z`);
-  for (let i = 1; r.length < quantas && i <= 120; i++) {
+  for (let i = incluirHoje ? 0 : 1; r.length < quantas && i <= 120; i++) {
     const x = new Date(d.getTime() + i * 86_400_000);
     const isodow = x.getUTCDay() === 0 ? 7 : x.getUTCDay();
     if (dias.includes(isodow)) r.push(x.toISOString().slice(0, 10));
@@ -128,13 +152,27 @@ export function proximasDatas(hoje: string, dias: number[], quantas = 12): strin
   return r;
 }
 
+/** Quantas pessoas de uma lista entram: um terço ou dois terços de quem pode receber agora. */
+export function quantidadeDaFracao(podem: number, fracao: "1/3" | "2/3"): number {
+  const n = fracao === "1/3" ? podem / 3 : (podem * 2) / 3;
+  return Math.max(1, Math.ceil(n));
+}
+
 export type EntradaNovaCampanha = {
   nome: string;
-  listas: Array<{ grupo: string; modelo: string; faixaConversa?: string | undefined }>;
+  listas: Array<{
+    grupo: string;
+    modelo: string;
+    faixa?: string | undefined;
+    /** Quantas pessoas desta lista (as mais recentes); vazio = todas. */
+    quantidade?: number | null | undefined;
+  }>;
   semCondicao: boolean;
   condicaoTexto: string | null;
   condicaoPct: number | null;
   datas: string[];
+  /** "14:30": dia e horário próprios (qualquer dia, inclusive hoje). Vazio = configuração. */
+  horaInicio?: string | null | undefined;
   quemResponde: QuemResponde;
 };
 
@@ -146,16 +184,21 @@ export type NovaCampanha = {
   condicaoPct: number | null;
   datas: string[];
   mesRef: string;
+  /** Quantas pessoas de cada lista (código da lista → número). */
+  limites: Record<string, number>;
+  horaInicio: string | null;
   quemResponde: QuemResponde;
 };
 
+const HORA = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const minutos = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
 const NOME_MODELO = /^[a-z0-9_]{1,200}$/;
 const DIA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Confere e normaliza. Problemas em português, para mostrar na tela. */
 export function validarNovaCampanha(
   e: EntradaNovaCampanha,
-  ctx: { hoje: string; dias: number[] },
+  ctx: { hoje: string; dias: number[]; agora?: string },
 ): { ok: true; campanha: NovaCampanha } | { ok: false; problemas: string[] } {
   const p: string[] = [];
   const nome = String(e.nome ?? "")
@@ -167,6 +210,7 @@ export function validarNovaCampanha(
   const vistos = new Set<string>();
   const listas: NovaCampanha["listas"] = [];
   const templates: Record<string, string> = {};
+  const limites: Record<string, number> = {};
   for (const l of e.listas ?? []) {
     const op = OPCOES_LISTAS.find((o) => o.grupo === l.grupo);
     if (!op || vistos.has(op.grupo)) continue;
@@ -174,14 +218,24 @@ export function validarNovaCampanha(
     const modelo = String(l.modelo ?? "").trim();
     if (!NOME_MODELO.test(modelo))
       p.push(`${op.rotulo}: escolha o modelo (só letras minúsculas, números e _).`);
-    const faixa =
-      op.familia === "conversa" ? FAIXAS_CONVERSA.find((f) => f.valor === l.faixaConversa) : null;
+    const faixa = op.faixas
+      ? (op.faixas.find((f) => f.valor === (l.faixa ?? op.faixaPadrao)) ?? null)
+      : null;
+    if (op.faixas && !faixa) p.push(`${op.rotulo}: escolha a faixa.`);
+    if (l.quantidade !== null && l.quantidade !== undefined) {
+      const q = Number(l.quantidade);
+      if (!Number.isInteger(q) || q < 1 || q > 100_000)
+        p.push(`${op.rotulo}: a quantidade de pessoas precisa ser um número a partir de 1.`);
+      else limites[op.grupo] = q;
+    }
     listas.push({
       grupo: op.grupo,
       familia: op.familia,
       ...(op.de !== undefined ? { de: op.de } : {}),
-      ...(faixa?.ate !== undefined
-        ? { ate: faixa.ate }
+      ...(faixa
+        ? faixa.ate !== undefined
+          ? { ate: faixa.ate }
+          : {}
         : op.ate !== undefined
           ? { ate: op.ate }
           : {}),
@@ -210,15 +264,32 @@ export function validarNovaCampanha(
       p.push('Escreva a condição (texto ou %) ou marque "Sem condição".');
   }
 
+  const horaInicio = e.horaInicio ? String(e.horaInicio).trim().slice(0, 5) : null;
+  if (horaInicio !== null) {
+    if (!HORA.test(horaInicio) || minutos(horaInicio) < 8 * 60 || minutos(horaInicio) > 20 * 60)
+      p.push("O horário de início vai das 08:00 às 20:00.");
+  }
   const datas = [...new Set((e.datas ?? []).map(String))].filter((d) => DIA_ISO.test(d)).sort();
   if (!datas.length) p.push("Escolha pelo menos uma data de disparo.");
   for (const d of datas) {
     const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
     const isodow = dia === 0 ? 7 : dia;
-    if (d <= ctx.hoje)
-      p.push(`${d.split("-").reverse().join("/")} já passou (a primeira é amanhã).`);
+    const br = d.split("-").reverse().join("/");
+    if (horaInicio !== null) {
+      // Dia e horário próprios: qualquer dia; hoje só se ainda faltar meia hora.
+      if (d < ctx.hoje) p.push(`${br} já passou.`);
+      else if (
+        d === ctx.hoje &&
+        ctx.agora &&
+        HORA.test(horaInicio) &&
+        minutos(horaInicio) < minutos(ctx.agora) + 30
+      )
+        p.push(
+          `Hoje às ${horaInicio} não dá tempo de preparar e aprovar: escolha um horário pelo menos 30 minutos depois de agora (${ctx.agora}).`,
+        );
+    } else if (d <= ctx.hoje) p.push(`${br} já passou (a primeira é amanhã).`);
     else if (!ctx.dias.includes(isodow))
-      p.push(`${d.split("-").reverse().join("/")} não é um dos dias de disparo da configuração.`);
+      p.push(`${br} não é um dos dias de disparo da configuração.`);
   }
 
   const quem: QuemResponde = e.quemResponde === "equipe" ? "equipe" : "alice";
@@ -233,6 +304,8 @@ export function validarNovaCampanha(
       condicaoPct,
       datas,
       mesRef: `${datas[0]!.slice(0, 7)}-01`,
+      limites,
+      horaInicio,
       quemResponde: quem,
     },
   };
@@ -303,5 +376,45 @@ export function previaDoModelo(
     texto: [form.cabecalho.trim(), texto.trim(), form.rodape.trim()].filter(Boolean).join("\n\n"),
     botoes: form.botoes.map((b) => b.texto).filter(Boolean),
     usaCondicao,
+  };
+}
+
+/** Formulário de "Nova campanha" já preenchido (ex.: "Mandar para quem ficou de fora"). */
+export type InicialNovaCampanha = {
+  nome: string;
+  listas: Array<{ grupo: string; modelo: string; faixa?: string }>;
+  condicaoTexto: string | null;
+  condicaoPct: number | null;
+  quemResponde: QuemResponde;
+};
+
+/**
+ * Mesma campanha de novo, para quem ficou de fora: mesmas listas (e faixas), modelos, condição
+ * e quem responde. Quem já recebeu fica de fora sozinho pelo limite de marketing (30 dias).
+ */
+export function repetirCampanha(c: {
+  nome: string;
+  listas: unknown;
+  grupos: string[] | null;
+  templates: unknown;
+  condicao_texto: string | null;
+  condicao_pct: number | null;
+  quem_responde?: string | null;
+}): InicialNovaCampanha {
+  const templates =
+    c.templates && typeof c.templates === "object" ? (c.templates as Record<string, unknown>) : {};
+  const listas = segmentosDaCampanha(c.listas, c.grupos).flatMap((s) => {
+    const op = OPCOES_LISTAS.find((o) => o.grupo === s.grupo);
+    if (!op) return [];
+    const faixa = op.faixas?.find((f) => f.ate === s.ate)?.valor;
+    const modelo = typeof templates[s.grupo] === "string" ? (templates[s.grupo] as string) : "";
+    return [{ grupo: s.grupo, modelo, ...(faixa ? { faixa } : {}) }];
+  });
+  return {
+    nome: `${c.nome} (resto)`.slice(0, 80),
+    listas,
+    condicaoTexto: c.condicao_texto,
+    condicaoPct: c.condicao_pct === null ? null : Number(c.condicao_pct),
+    quemResponde: c.quem_responde === "equipe" ? "equipe" : "alice",
   };
 }

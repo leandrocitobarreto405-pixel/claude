@@ -41,12 +41,22 @@ async function campanhaDaEmpresa(empresaId: string, campanhaId: string) {
   const db = await servico();
   const { data } = await db
     .from("mkt_campanhas")
-    .select("id, tipo, status, datas_disparo, nome")
+    .select("id, tipo, status, datas_disparo, nome, hora_inicio")
     .eq("id", campanhaId)
     .eq("empresa_id", empresaId)
     .maybeSingle();
   if (!data) throw new Error("Campanha não encontrada.");
   return { db, campanha: data };
+}
+
+/** "14:05": hora de agora em São Paulo. */
+function horaSP() {
+  return new Date().toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 async function diasDeDisparo(db: Awaited<ReturnType<typeof servico>>, empresaId: string) {
@@ -69,7 +79,7 @@ export const situacaoMarketing = createServerFn({ method: "GET" })
       sb
         .from("mkt_campanhas")
         .select(
-          "id, nome, tipo, gatilho, mes_ref, tema, grupos, listas, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em, quem_responde, criada_por",
+          "id, nome, tipo, gatilho, mes_ref, tema, grupos, listas, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em, quem_responde, criada_por, hora_inicio",
         )
         .eq("empresa_id", emp)
         .order("mes_ref")
@@ -256,7 +266,9 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
     listas: (Array.isArray(input.listas) ? input.listas : []).slice(0, 10).map((l) => ({
       grupo: String(l?.grupo ?? "").slice(0, 10),
       modelo: String(l?.modelo ?? "").slice(0, 200),
-      faixaConversa: l?.faixaConversa ? String(l.faixaConversa).slice(0, 10) : undefined,
+      faixa: l?.faixa ? String(l.faixa).slice(0, 10) : undefined,
+      quantidade:
+        l?.quantidade === null || l?.quantidade === undefined ? null : Number(l.quantidade),
     })),
     semCondicao: Boolean(input.semCondicao),
     condicaoTexto: input.condicaoTexto ? String(input.condicaoTexto).slice(0, 300) : null,
@@ -265,6 +277,7 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
         ? null
         : Number(input.condicaoPct),
     datas: (Array.isArray(input.datas) ? input.datas : []).slice(0, 30).map(String),
+    horaInicio: input.horaInicio ? String(input.horaInicio).slice(0, 5) : null,
     quemResponde: (input.quemResponde === "equipe" ? "equipe" : "alice") as QuemResponde,
   }))
   .handler(async ({ data, context }) => {
@@ -278,6 +291,7 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
     const r = validarNovaCampanha(data, {
       hoje: hojeSP(),
       dias: (cfg?.dias_disparo ?? [2, 3, 4]).map(Number),
+      agora: horaSP(),
     });
     if (!r.ok) throw new Error(r.problemas.join(" "));
     const c = r.campanha;
@@ -296,6 +310,8 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
         condicao_pct: c.condicaoPct,
         custo_msg_estimado: cfg?.custo_msg_estimado ?? 0.32,
         quem_responde: c.quemResponde,
+        limites: c.limites,
+        hora_inicio: c.horaInicio,
         criada_por: context.userId,
         status: "rascunho",
       })
@@ -329,6 +345,40 @@ export const modelosAprovadosFn = createServerFn({ method: "GET" })
       };
     },
   );
+
+/** Quantas pessoas estão em cada lista escolhida e quantas podem receber agora (para a Nova campanha). */
+export const contagemListasNovaFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator(
+    (input: { listas: Array<{ grupo: string; familia: string; de?: number; ate?: number }> }) => ({
+      listas: (Array.isArray(input.listas) ? input.listas : []).slice(0, 10).map((l) => ({
+        grupo: String(l.grupo).slice(0, 10),
+        familia: String(l.familia).slice(0, 20),
+        ...(Number.isInteger(l.de) ? { de: Number(l.de) } : {}),
+        ...(Number.isInteger(l.ate) ? { ate: Number(l.ate) } : {}),
+      })),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const opcoes = Object.fromEntries(
+      data.listas.map((l) => [
+        l.grupo,
+        {
+          [l.familia]: {
+            ...(l.de !== undefined ? { de: l.de } : {}),
+            ...(l.ate !== undefined ? { ate: l.ate } : {}),
+          },
+        },
+      ]),
+    );
+    if (!Object.keys(opcoes).length) return {} as Record<string, { total: number; podem: number }>;
+    const { data: r, error } = await context.supabase.rpc(
+      "mkt_listas_contagem" as never,
+      { _opcoes: opcoes } as never,
+    );
+    if (error) throw new Error(`Não foi possível contar as listas: ${error.message}`);
+    return (r ?? {}) as unknown as Record<string, { total: number; podem: number }>;
+  });
 
 /** Quem atende as respostas (Alice ou equipe). Vale para as próximas respostas, a qualquer momento. */
 export const quemRespondeFn = createServerFn({ method: "POST" })
@@ -403,6 +453,8 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
       datas: string[];
       condicaoTexto: string | null;
       condicaoPct: number | null;
+      /** "14:30" = dia e horário próprios; null = configuração; ausente = não muda. */
+      horaInicio?: string | null;
     }) => {
       const datas = [...new Set((input.datas ?? []).map(String))]
         .filter((d) => DATA.test(d))
@@ -415,11 +467,20 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
       if (pct !== null && (!Number.isFinite(pct) || pct < 0 || pct > 25))
         throw new Error("A condição vai de 0% a 25%.");
       const texto = (input.condicaoTexto ?? "").trim().slice(0, 200) || null;
+      const hora =
+        input.horaInicio === undefined
+          ? undefined
+          : input.horaInicio
+            ? String(input.horaInicio).slice(0, 5)
+            : null;
+      if (hora && (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora) || hora < "08:00" || hora > "20:00"))
+        throw new Error("O horário de início vai das 08:00 às 20:00.");
       return {
         campanhaId: String(input.campanhaId),
         datas,
         condicaoTexto: texto,
         condicaoPct: pct,
+        horaInicio: hora,
       };
     },
   )
@@ -428,15 +489,34 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
     if (!["rascunho", "aguardando_aprovacao", "bloqueada"].includes(campanha.status))
       throw new Error("Só dá para editar antes da aprovação.");
     const { hojeSP, prepararCampanha } = await import("@/lib/mkt/campanhas.server");
-    if (data.datas[0]! <= hojeSP()) throw new Error("A primeira data precisa ser depois de hoje.");
-    // Dias de disparo da configuração da empresa (não mais terça a quinta fixo).
-    const dias = await diasDeDisparo(db, context.empresaId);
-    for (const d of data.datas) {
-      const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
-      if (!dias.includes(dia === 0 ? 7 : dia))
-        throw new Error(
-          `${d.split("-").reverse().join("/")} não é um dos dias de disparo da configuração.`,
-        );
+    const hora =
+      data.horaInicio === undefined
+        ? ((campanha as { hora_inicio?: string | null }).hora_inicio?.slice(0, 5) ?? null)
+        : data.horaInicio;
+    if (hora) {
+      // Dia e horário próprios: qualquer dia; hoje só se ainda faltar meia hora.
+      const hoje = hojeSP();
+      if (data.datas[0]! < hoje) throw new Error("A primeira data já passou.");
+      if (data.datas[0] === hoje) {
+        const [h, m] = horaSP().split(":").map(Number);
+        const [hh, mm] = hora.split(":").map(Number);
+        if (hh! * 60 + mm! < h! * 60 + m! + 30)
+          throw new Error(
+            "Hoje nesse horário não dá tempo: escolha pelo menos 30 minutos depois de agora.",
+          );
+      }
+    } else {
+      if (data.datas[0]! <= hojeSP())
+        throw new Error("A primeira data precisa ser depois de hoje.");
+      // Dias de disparo da configuração da empresa (não mais terça a quinta fixo).
+      const dias = await diasDeDisparo(db, context.empresaId);
+      for (const d of data.datas) {
+        const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
+        if (!dias.includes(dia === 0 ? 7 : dia))
+          throw new Error(
+            `${d.split("-").reverse().join("/")} não é um dos dias de disparo da configuração.`,
+          );
+      }
     }
     const { error } = await db
       .from("mkt_campanhas")
@@ -444,6 +524,7 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
         datas_disparo: data.datas,
         condicao_texto: data.condicaoTexto,
         condicao_pct: data.condicaoPct,
+        ...(data.horaInicio !== undefined ? { hora_inicio: data.horaInicio } : {}),
       })
       .eq("id", data.campanhaId);
     if (error) throw error;

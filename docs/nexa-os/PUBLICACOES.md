@@ -73,8 +73,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Turbine e a "Regra do 13º mês" no fim das instruções da Alice da Turbine.
 - "Campanhas novas" (`20261025120000`, aplicada em 05/10): `mkt_campanhas.quem_responde`
   ('alice' ou 'equipe', padrão 'alice') e `criada_por`; resposta de campanha "equipe" tira a Alice
-  da conversa com nota interna. `20261025120001` (preparo com etiqueta própria da campanha e lotes
-  com as listas quentes primeiro) vai pelo SQL Editor; até lá o preparo continua o anterior.
+  da conversa com nota interna. O preparo novo (etiqueta própria da campanha e lotes com as listas
+  quentes primeiro) agora vem em `20261026120001`, que substitui o `20261025120001`.
+- "Dia e horário próprios" (`20261026120000`, aplicada em 05/10): `mkt_campanhas.hora_inicio`
+  (vazio = dias e horário da configuração; preenchido 08:00–20:00 = qualquer dia, inclusive hoje).
+  Aprovação até 10 minutos antes do primeiro disparo; envio no horário escolhido, até as 21h.
+  `20261026120001_preparar_horario.sql` (preparo com hoje/qualquer dia, etiqueta por campanha,
+  listas quentes primeiro e limite de pessoas por lista) vai pelo SQL Editor; até lá o preparo
+  continua o anterior e campanha com horário próprio não prepara para hoje.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

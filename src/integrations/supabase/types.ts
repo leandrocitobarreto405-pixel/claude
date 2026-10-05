@@ -2744,6 +2744,7 @@ export type Database = {
           empresa_id: string;
           estimativa: Json | null;
           gatilho: string | null;
+          hora_inicio: string | null;
           grupos: string[];
           id: string;
           limites: NonNullable<Json>;
@@ -2775,6 +2776,7 @@ export type Database = {
           empresa_id: string;
           estimativa?: Json | null;
           gatilho?: string | null;
+          hora_inicio?: string | null;
           grupos?: string[];
           id?: string;
           limites?: NonNullable<Json>;
@@ -2806,6 +2808,7 @@ export type Database = {
           empresa_id?: string;
           estimativa?: Json | null;
           gatilho?: string | null;
+          hora_inicio?: string | null;
           grupos?: string[];
           id?: string;
           limites?: NonNullable<Json>;

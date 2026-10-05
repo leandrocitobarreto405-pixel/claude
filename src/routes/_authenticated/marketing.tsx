@@ -24,6 +24,7 @@ import { BaseContatos } from "@/components/marketing/base-contatos";
 import { GatilhosHoje } from "@/components/marketing/gatilhos-hoje";
 import { ConfigMarketing } from "@/components/marketing/config-marketing";
 import { NovaCampanha } from "@/components/marketing/nova-campanha";
+import { repetirCampanha, type InicialNovaCampanha } from "@/lib/campanha-nova";
 import { CartaoPromocao } from "@/components/promocao/cartao-promocao";
 import { resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
 import { diaMesCurto, proximasCampanhas, resultadosDoMes } from "@/lib/marketing-tela";
@@ -74,6 +75,8 @@ function Marketing() {
   const ind = useQuery({ queryKey: ["marketing", "indicacoes"], queryFn: () => indicacoesFn() });
   const [aberta, setAberta] = useState<Campanha | null>(null);
   const [criando, setCriando] = useState(false);
+  // "Mandar para quem ficou de fora": abre a Nova campanha já preenchida.
+  const [inicial, setInicial] = useState<InicialNovaCampanha | null>(null);
   // Campanha recém-criada: abre o cartão dela assim que a lista atualizar.
   const [abrirId, setAbrirId] = useState<string | null>(null);
   useEffect(() => {
@@ -114,6 +117,11 @@ function Marketing() {
   const abertaAtual = aberta ? (d.campanhas.find((c) => c.id === aberta.id) ?? aberta) : null;
   const lotesDe = (c: Campanha) => d.lotes.filter((l) => l.campanha_id === c.id);
   const relatorioDe = (c: Campanha) => d.relatorio.find((x) => x.campanha_id === c.id);
+  const repetir = (c: Campanha) => {
+    setAberta(null);
+    setInicial(repetirCampanha(c));
+    setCriando(true);
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -207,6 +215,7 @@ function Marketing() {
               admin={d.admin}
               lotes={lotesDe(c)}
               relatorio={relatorioDe(c)}
+              aoRepetir={repetir}
             />
           ))}
           {!d.admin ? (
@@ -349,6 +358,7 @@ function Marketing() {
                 admin={d.admin}
                 lotes={lotesDe(c)}
                 relatorio={relatorioDe(c)}
+                aoRepetir={repetir}
               />
             ))
           ) : (
@@ -375,11 +385,16 @@ function Marketing() {
       {d.admin ? (
         <NovaCampanha
           aberto={criando}
-          aoFechar={() => setCriando(false)}
+          aoFechar={() => {
+            setCriando(false);
+            setInicial(null);
+          }}
           aoCriar={(id) => {
             setCriando(false);
+            setInicial(null);
             setAbrirId(id);
           }}
+          inicial={inicial}
           hoje={todayISO()}
           config={d.config}
         />
@@ -398,6 +413,7 @@ function Marketing() {
                 admin={d.admin}
                 lotes={lotesDe(abertaAtual)}
                 relatorio={relatorioDe(abertaAtual)}
+                aoRepetir={repetir}
               />
             ) : null}
           </div>

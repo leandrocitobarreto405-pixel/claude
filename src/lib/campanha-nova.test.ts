@@ -8,6 +8,8 @@ import {
   ordemDosLotes,
   previaDoModelo,
   proximasDatas,
+  quantidadeDaFracao,
+  repetirCampanha,
   validarNovaCampanha,
   type EntradaNovaCampanha,
 } from "./campanha-nova";
@@ -23,7 +25,7 @@ const ctx = { hoje: "2026-10-05", dias: [2, 3, 4] };
 const base: EntradaNovaCampanha = {
   nome: "  Outubro   geral ",
   listas: [
-    { grupo: "CV", modelo: "tc_conversa_retomada", faixaConversa: "todos" },
+    { grupo: "CV", modelo: "tc_conversa_retomada", faixa: "todos" },
     { grupo: "N3", modelo: "tc_orcamento_retomada" },
     { grupo: "C5", modelo: "tc_reativacao_cliente" },
     { grupo: "N2", modelo: "tc_orcamento_retomada" },
@@ -72,7 +74,7 @@ test("campanha válida: nome limpo, listas, modelos, datas em ordem e mês", () 
   assert.deepEqual(r.campanha.listas[1], { grupo: "N3", familia: "orcamento", de: 365 });
   assert.equal(r.campanha.templates["N2"], "tc_orcamento_retomada");
   const conv = validarNovaCampanha(
-    { ...base, listas: [{ grupo: "CV", modelo: "x", faixaConversa: "30" }] },
+    { ...base, listas: [{ grupo: "CV", modelo: "x", faixa: "30" }] },
     ctx,
   );
   assert.ok(conv.ok && conv.campanha.listas[0]!.ate === 30);
@@ -175,4 +177,77 @@ test("só modelos aprovados no idioma da empresa, com aviso da versão _sn", () 
   assert.deepEqual(p.botoes, ["Quero aproveitar!"]);
   assert.match(previaDoModelo(lista[0]!.form, null).texto, /\[condição da campanha\]/);
   assert.ok(!previaDoModelo(lista[1]!.form, null).usaCondicao);
+});
+
+test("quantas pessoas por lista: um terço, dois terços ou um número", () => {
+  assert.equal(quantidadeDaFracao(264, "1/3"), 88);
+  assert.equal(quantidadeDaFracao(264, "2/3"), 176);
+  assert.equal(quantidadeDaFracao(1, "1/3"), 1);
+  const r = validarNovaCampanha(
+    {
+      ...base,
+      listas: [
+        { grupo: "C5", modelo: "tc_reativacao_cliente", quantidade: 88 },
+        { grupo: "N1", modelo: "tc_orcamento_retomada", faixa: "20" },
+        { grupo: "N3", modelo: "tc_orcamento_retomada", quantidade: null },
+      ],
+    },
+    ctx,
+  );
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.deepEqual(r.campanha.limites, { C5: 88 });
+  assert.deepEqual(r.campanha.listas[1], { grupo: "N1", familia: "orcamento", ate: 20 });
+  const ruim = validarNovaCampanha(
+    { ...base, listas: [{ grupo: "C5", modelo: "x", quantidade: 0 }] },
+    ctx,
+  );
+  assert.ok(!ruim.ok && ruim.problemas.some((p) => /quantidade/.test(p)));
+});
+
+test("dia e horário próprios: qualquer dia e hoje se ainda der tempo", () => {
+  const agora = { ...ctx, agora: "13:00" };
+  // Segunda (hoje) às 14:00 e sábado: valem com horário próprio.
+  const ok = validarNovaCampanha(
+    { ...base, horaInicio: "14:00", datas: ["2026-10-05", "2026-10-10"] },
+    agora,
+  );
+  assert.ok(ok.ok && ok.campanha.horaInicio === "14:00");
+  // Hoje às 13:20 (menos de 30 min): não dá.
+  const cedo = validarNovaCampanha({ ...base, horaInicio: "13:20", datas: ["2026-10-05"] }, agora);
+  assert.ok(!cedo.ok && cedo.problemas.some((p) => /30 minutos/.test(p)));
+  // Fora de 8h–20h.
+  const noite = validarNovaCampanha({ ...base, horaInicio: "21:00", datas: ["2026-10-06"] }, agora);
+  assert.ok(!noite.ok && noite.problemas.some((p) => /08:00 às 20:00/.test(p)));
+  // Sem horário próprio, sábado continua fora.
+  const sab = validarNovaCampanha({ ...base, datas: ["2026-10-10"] }, agora);
+  assert.ok(!sab.ok);
+  assert.deepEqual(proximasDatas("2026-10-05", [1, 2, 3, 4, 5, 6, 7], 2, true), [
+    "2026-10-05",
+    "2026-10-06",
+  ]);
+});
+
+test("mandar para quem ficou de fora: mesmas listas, faixas, modelos e condição", () => {
+  const r = repetirCampanha({
+    nome: "Outubro",
+    listas: [
+      { grupo: "C5", familia: "clientes", de: 365 },
+      { grupo: "N1", familia: "orcamento", ate: 20 },
+      { grupo: "CV", familia: "conversa" },
+    ],
+    grupos: null,
+    templates: { C5: "tc_reativacao_cliente", N1: "tc_orcamento_retomada" },
+    condicao_texto: "10% na higienização",
+    condicao_pct: 10,
+    quem_responde: "equipe",
+  });
+  assert.equal(r.nome, "Outubro (resto)");
+  assert.deepEqual(r.listas, [
+    { grupo: "C5", modelo: "tc_reativacao_cliente" },
+    { grupo: "N1", modelo: "tc_orcamento_retomada", faixa: "20" },
+    { grupo: "CV", modelo: "", faixa: "todos" },
+  ]);
+  assert.equal(r.condicaoPct, 10);
+  assert.equal(r.quemResponde, "equipe");
 });

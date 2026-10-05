@@ -2,7 +2,16 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Pause, Play, Pencil, RefreshCw, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Pause,
+  Play,
+  Pencil,
+  RefreshCw,
+  Users,
+  XCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +94,13 @@ export function condicaoTexto(c: Pick<Campanha, "condicao_texto" | "condicao_pct
   return partes.length ? partes.join(" — ") : "Sem condição";
 }
 
+/** Quantas pessoas da lista entram nesta campanha (vazio = todas). */
+function limiteDe(c: Campanha, grupo: string): number | null {
+  const l = (c.limites ?? {}) as Record<string, unknown>;
+  const n = Number(l[grupo]);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 /** Listas da campanha, com "X na lista, Y podem receber agora" de cada uma. */
 function ListasDaCampanha({ campanha, segmentos }: { campanha: Campanha; segmentos: Segmento[] }) {
   const contagemFn = useServerFn(contagemCampanhaFn);
@@ -102,6 +118,9 @@ function ListasDaCampanha({ campanha, segmentos }: { campanha: Campanha; segment
         return (
           <li key={s.grupo}>
             {nomeDoSegmento(s)}
+            {limiteDe(campanha, s.grupo) ? (
+              <span className="font-semibold"> · até {limiteDe(campanha, s.grupo)} pessoas</span>
+            ) : null}
             <span className="text-muted-foreground">
               {c
                 ? ` · ${c.total} na lista, ${c.podem} ${c.podem === 1 ? "pode" : "podem"} receber agora`
@@ -121,11 +140,14 @@ export function CampanhaCard({
   lotes,
   relatorio,
   admin,
+  aoRepetir,
 }: {
   campanha: Campanha;
   lotes: Lote[];
   relatorio: Relatorio | undefined;
   admin: boolean;
+  /** "Mandar para quem ficou de fora": abre a Nova campanha preenchida com esta. */
+  aoRepetir?: (c: Campanha) => void;
 }) {
   const qc = useQueryClient();
   const [aberta, setAberta] = useState(campanha.status === "aguardando_aprovacao");
@@ -162,7 +184,10 @@ export function CampanhaCard({
             {monthLabelPT(campanha.mes_ref)}
           </p>
           <h3 className="text-base font-semibold text-navy">{campanha.nome}</h3>
-          <p className="text-sm text-muted-foreground">{datasTexto(campanha.datas_disparo)}</p>
+          <p className="text-sm text-muted-foreground">
+            {datasTexto(campanha.datas_disparo)}
+            {campanha.hora_inicio ? ` · começa às ${campanha.hora_inicio.slice(0, 5)}` : ""}
+          </p>
           <ListasDaCampanha campanha={campanha} segmentos={segmentos} />
         </div>
         <SituacaoBadge status={campanha.status} />
@@ -254,6 +279,14 @@ export function CampanhaCard({
             <Pause className="mr-1 h-4 w-4" /> Pausar
           </Button>
         )}
+        {admin &&
+          aoRepetir &&
+          campanha.tipo === "calendario" &&
+          ["aprovada", "enviando", "pausada", "concluida"].includes(campanha.status) && (
+            <Button size="sm" variant="outline" onClick={() => aoRepetir(campanha)}>
+              <Users className="mr-1 h-4 w-4" /> Mandar para quem ficou de fora
+            </Button>
+          )}
         {admin && campanha.status === "pausada" && (
           <Button
             size="sm"
@@ -639,6 +672,7 @@ function EditarCampanha({ campanha, fechar }: { campanha: Campanha; fechar: () =
   );
   const [texto, setTexto] = useState(campanha.condicao_texto ?? "");
   const [pct, setPct] = useState(campanha.condicao_pct ? String(campanha.condicao_pct) : "");
+  const [hora, setHora] = useState(campanha.hora_inicio ? campanha.hora_inicio.slice(0, 5) : "");
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
@@ -651,6 +685,7 @@ function EditarCampanha({ campanha, fechar }: { campanha: Campanha; fechar: () =
           datas: datas.filter(Boolean),
           condicaoTexto: semCondicao ? null : texto,
           condicaoPct: semCondicao || !pct ? null : Number(pct.replace(",", ".")),
+          horaInicio: hora || null,
         },
       });
       toast.success(
@@ -673,8 +708,8 @@ function EditarCampanha({ campanha, fechar }: { campanha: Campanha; fechar: () =
         <DialogHeader>
           <DialogTitle>Editar {campanha.nome}</DialogTitle>
           <DialogDescription>
-            Datas de disparo (terça a quinta) e a condição da campanha. Se a campanha já estava
-            preparada, ela é montada de novo.
+            Datas, horário e condição da campanha. Sem horário, valem os dias e o horário da
+            configuração. Se a campanha já estava preparada, ela é montada de novo.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -695,6 +730,25 @@ function EditarCampanha({ campanha, fechar }: { campanha: Campanha; fechar: () =
             <Button variant="outline" size="sm" onClick={() => setDatas([...datas, ""])}>
               Adicionar data
             </Button>
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="edit-hora">Começa às (vazio = horário da configuração)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="edit-hora"
+                type="time"
+                min="08:00"
+                max="20:00"
+                step={900}
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+              />
+              {hora && (
+                <Button variant="ghost" onClick={() => setHora("")}>
+                  Limpar
+                </Button>
+              )}
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input
