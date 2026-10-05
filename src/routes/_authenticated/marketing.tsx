@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, ChevronRight, Gift, Users } from "lucide-react";
+import { Bell, ChevronRight, Gift, Plus, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   BlocoEscuro,
+  Botao,
   CabecalhoDeTela,
   Card,
   CardEscuro,
@@ -22,6 +23,7 @@ import {
 import { BaseContatos } from "@/components/marketing/base-contatos";
 import { GatilhosHoje } from "@/components/marketing/gatilhos-hoje";
 import { ConfigMarketing } from "@/components/marketing/config-marketing";
+import { NovaCampanha } from "@/components/marketing/nova-campanha";
 import { CartaoPromocao } from "@/components/promocao/cartao-promocao";
 import { resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
 import { diaMesCurto, proximasCampanhas, resultadosDoMes } from "@/lib/marketing-tela";
@@ -71,6 +73,17 @@ function Marketing() {
   const q = useQuery({ queryKey: CHAVE_MKT, queryFn: () => situacaoFn(), refetchInterval: 60_000 });
   const ind = useQuery({ queryKey: ["marketing", "indicacoes"], queryFn: () => indicacoesFn() });
   const [aberta, setAberta] = useState<Campanha | null>(null);
+  const [criando, setCriando] = useState(false);
+  // Campanha recém-criada: abre o cartão dela assim que a lista atualizar.
+  const [abrirId, setAbrirId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!abrirId || !q.data) return;
+    const c = q.data.campanhas.find((x) => x.id === abrirId);
+    if (c) {
+      setAberta(c);
+      setAbrirId(null);
+    }
+  }, [abrirId, q.data]);
   const { secao } = Route.useSearch();
   const d = q.data;
   const mes = currentMonth();
@@ -97,6 +110,8 @@ function Marketing() {
   const ligados = GATILHOS.filter((g) => cfg?.[g.campo]).map((g) =>
     g.campo.slice(8, 10).toUpperCase(),
   );
+  // O painel mostra sempre a versão atual da campanha (depois de preparar, trocar quem responde…).
+  const abertaAtual = aberta ? (d.campanhas.find((c) => c.id === aberta.id) ?? aberta) : null;
   const lotesDe = (c: Campanha) => d.lotes.filter((l) => l.campanha_id === c.id);
   const relatorioDe = (c: Campanha) => d.relatorio.find((x) => x.campanha_id === c.id);
 
@@ -204,9 +219,16 @@ function Marketing() {
 
       {/* Calendário: gatilhos de todo dia e as próximas campanhas. */}
       <section className="flex flex-col gap-2.5" aria-labelledby="mkt-calendario">
-        <h2 id="mkt-calendario" className="font-titulo text-xl">
-          Calendário
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 id="mkt-calendario" className="flex-1 font-titulo text-xl">
+            Calendário
+          </h2>
+          {d.admin ? (
+            <Botao variante="contorno" onClick={() => setCriando(true)}>
+              <Plus /> Nova campanha
+            </Botao>
+          ) : null}
+        </div>
         <Card espaco="nenhum">
           <ul className="flex flex-col divide-y divide-border">
             {GATILHOS.map((g) => {
@@ -350,19 +372,32 @@ function Marketing() {
         </div>
       </Recolhido>
 
+      {d.admin ? (
+        <NovaCampanha
+          aberto={criando}
+          aoFechar={() => setCriando(false)}
+          aoCriar={(id) => {
+            setCriando(false);
+            setAbrirId(id);
+          }}
+          hoje={todayISO()}
+          config={d.config}
+        />
+      ) : null}
+
       <Sheet open={!!aberta} onOpenChange={(v) => !v && setAberta(null)}>
         <SheetContent
           side="bottom"
           className="max-h-[90vh] overflow-y-auto rounded-t-card-lg p-4 pb-[max(env(safe-area-inset-bottom),1rem)]"
         >
-          <SheetTitle className="pr-12 font-titulo text-xl">{aberta?.nome}</SheetTitle>
+          <SheetTitle className="pr-12 font-titulo text-xl">{abertaAtual?.nome}</SheetTitle>
           <div className="mx-auto w-full max-w-3xl pt-3">
-            {aberta ? (
+            {abertaAtual ? (
               <CampanhaCard
-                campanha={aberta}
+                campanha={abertaAtual}
                 admin={d.admin}
-                lotes={lotesDe(aberta)}
-                relatorio={relatorioDe(aberta)}
+                lotes={lotesDe(abertaAtual)}
+                relatorio={relatorioDe(abertaAtual)}
               />
             ) : null}
           </div>

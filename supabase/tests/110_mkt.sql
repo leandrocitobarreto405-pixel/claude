@@ -170,7 +170,7 @@ SELECT pg_temp.ok((SELECT string_agg(l.numero || ':' || l.data_prevista || ':' |
 SELECT pg_temp.ok((SELECT status FROM public.mkt_campanhas WHERE id = 'd4000000-0000-0000-0000-000000000001')
   = 'aguardando_aprovacao', 'aguardando aprovação');
 SELECT pg_temp.ok((SELECT etiqueta_chatwoot FROM public.mkt_lotes WHERE numero = 1
-                    AND campanha_id = 'd4000000-0000-0000-0000-000000000001') = 'camp-2026-10-l1', 'etiqueta do lote');
+                    AND campanha_id = 'd4000000-0000-0000-0000-000000000001') = 'camp-2026-10-d40000-l1', 'etiqueta do lote');
 -- Limite por grupo e datas extras (lote de 1: 3 lotes nas 3 datas; com 4 contatos, a 4ª é a próxima terça).
 UPDATE public.mkt_configuracoes SET lote_tamanho = 1;
 SELECT public.mkt_importar_contatos('11111111-1111-1111-1111-111111111111',

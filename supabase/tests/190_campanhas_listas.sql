@@ -52,15 +52,15 @@ SELECT pg_temp.ok((SELECT (r->>'limite_dias')::int = 30 FROM p1), 'estimativa tr
 SELECT pg_temp.ok((SELECT jsonb_array_length(listas) FROM public.mkt_campanhas
                     WHERE id = 'f9000000-0000-0000-0000-000000000002') = 4, 'preparo grava as listas usadas');
 
--- 2. Lista "conversou" e entre X e Y.
+-- 2. Lista "conversou" e entre X e Y (clientes saem antes: lista quente primeiro).
 INSERT INTO public.mkt_campanhas (id, empresa_id, nome, tipo, mes_ref, grupos, datas_disparo, listas)
 VALUES ('f9000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Conversa', 'calendario',
         date_trunc('month', current_date), '{}', ARRAY[current_date + 30],
         '[{"grupo": "CV", "familia": "conversa", "ate": 30}, {"grupo": "C5", "familia": "clientes", "de": 365}]');
 SELECT public.mkt_preparar_campanha('f9000000-0000-0000-0000-000000000003');
 SELECT pg_temp.ok(pg_temp.envios('f9000000-0000-0000-0000-000000000003')
-  = 'Eva Reis:CV:' || private.mkt_modelo('11111111-1111-1111-1111-111111111111', 'conversa')
-    || ' Dani Alves:C5:' || private.mkt_template_padrao('11111111-1111-1111-1111-111111111111', 'C5', date_trunc('month', current_date)::date),
+  = 'Dani Alves:C5:' || private.mkt_template_padrao('11111111-1111-1111-1111-111111111111', 'C5', date_trunc('month', current_date)::date)
+    || ' Eva Reis:CV:' || private.mkt_modelo('11111111-1111-1111-1111-111111111111', 'conversa'),
   'conversa + clientes há mais de 1 ano: ' || pg_temp.envios('f9000000-0000-0000-0000-000000000003'));
 
 -- 3. Limite editável: com 7 dias, Hugo (promoção há 10 dias) volta a poder receber.

@@ -21,6 +21,7 @@ import {
   editarCampanhaFn,
   pausarFn,
   prepararCampanhaFn,
+  quemRespondeFn,
   recusarCampanhaFn,
   type situacaoMarketing,
 } from "@/lib/marketing.functions";
@@ -41,6 +42,14 @@ type Estimativa = {
   lotes?: number;
   datas?: string[];
   previa_dia1?: boolean;
+  /** Ordem dos lotes por lista (quentes primeiro), do preparo. */
+  ordem?: Array<{
+    grupo: string;
+    pessoas: number;
+    primeiro_lote: number;
+    ultimo_lote: number;
+    fria: boolean;
+  }>;
 } | null;
 
 export const CHAVE_MKT = ["marketing"] as const;
@@ -163,6 +172,7 @@ export function CampanhaCard({
         <p>
           <span className="text-muted-foreground">Condição:</span> {condicaoTexto(campanha)}
         </p>
+        {campanha.tipo === "calendario" ? <QuemResponde campanha={campanha} admin={admin} /> : null}
         {est?.total !== undefined && (
           <p>
             <span className="text-muted-foreground">
@@ -173,6 +183,21 @@ export function CampanhaCard({
             {est.sem_nome ? ` · ${est.sem_nome} sem nome` : ""}
           </p>
         )}
+        {est?.ordem && est.ordem.length > 1 ? (
+          <p>
+            <span className="text-muted-foreground">Ordem dos lotes:</span>{" "}
+            {est.ordem
+              .map(
+                (o) =>
+                  `${nomeDoGrupo(o.grupo, segmentos)} (${
+                    o.primeiro_lote === o.ultimo_lote
+                      ? `lote ${o.primeiro_lote}`
+                      : `lotes ${o.primeiro_lote}–${o.ultimo_lote}`
+                  }${o.fria ? ", fria" : ""})`,
+              )
+              .join(" → ")}
+          </p>
+        ) : null}
         {campanha.motivo_status && (
           <p className="text-destructive">
             <AlertTriangle className="mr-1 inline h-4 w-4" />
@@ -296,6 +321,65 @@ export function CampanhaCard({
   );
 }
 
+/** Quem atende as respostas desta campanha. O admin troca a qualquer momento. */
+function QuemResponde({ campanha, admin }: { campanha: Campanha; admin: boolean }) {
+  const qc = useQueryClient();
+  const trocarFn = useServerFn(quemRespondeFn);
+  const [ocupado, setOcupado] = useState(false);
+  const atual = campanha.quem_responde === "equipe" ? "equipe" : "alice";
+  async function trocar(quem: "alice" | "equipe") {
+    if (quem === atual) return;
+    setOcupado(true);
+    try {
+      await trocarFn({ data: { campanhaId: campanha.id, quem } });
+      toast.success(
+        quem === "equipe"
+          ? "As próximas respostas desta campanha vão para a equipe."
+          : "As próximas respostas desta campanha ficam com a Alice.",
+      );
+      await qc.invalidateQueries({ queryKey: CHAVE_MKT });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível trocar.");
+    } finally {
+      setOcupado(false);
+    }
+  }
+  if (!admin)
+    return (
+      <p>
+        <span className="text-muted-foreground">Quem responde:</span>{" "}
+        {atual === "equipe" ? "Equipe" : "Alice"}
+      </p>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-muted-foreground">Quem responde:</span>
+      <div
+        className="inline-flex rounded-botao border p-0.5"
+        role="group"
+        aria-label="Quem responde"
+      >
+        {(["alice", "equipe"] as const).map((q) => (
+          <button
+            key={q}
+            type="button"
+            aria-pressed={atual === q}
+            disabled={ocupado}
+            onClick={() => void trocar(q)}
+            className={
+              atual === q
+                ? "min-h-11 rounded-botao bg-marca px-4 text-sm font-semibold text-marca-foreground"
+                : "min-h-11 rounded-botao px-4 text-sm font-semibold text-foreground"
+            }
+          >
+            {q === "alice" ? "Alice" : "Equipe"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Aprovacao({
   campanha,
   est,
@@ -323,13 +407,34 @@ function Aprovacao({
       <h4 className="font-semibold text-navy">Aprovação</h4>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border p-3 text-sm">
-          <p className="mb-1 font-medium">Contatos por lista</p>
-          {Object.entries(est?.por_grupo ?? {}).map(([g, n]) => (
-            <p key={g}>
-              {nomeDoGrupo(g, segmentosDaCampanha(campanha.listas, campanha.grupos))}:{" "}
-              <strong>{n}</strong>
+          <p className="mb-1 font-medium">
+            {est?.ordem?.length ? "Contatos por lista, na ordem dos lotes" : "Contatos por lista"}
+          </p>
+          {est?.ordem?.length
+            ? est.ordem.map((o) => (
+                <p key={o.grupo}>
+                  {nomeDoGrupo(o.grupo, segmentosDaCampanha(campanha.listas, campanha.grupos))}:{" "}
+                  <strong>{o.pessoas}</strong>{" "}
+                  <span className="text-muted-foreground">
+                    ·{" "}
+                    {o.primeiro_lote === o.ultimo_lote
+                      ? `lote ${o.primeiro_lote}`
+                      : `lotes ${o.primeiro_lote} a ${o.ultimo_lote}`}
+                    {o.fria ? " · fria" : ""}
+                  </span>
+                </p>
+              ))
+            : Object.entries(est?.por_grupo ?? {}).map(([g, n]) => (
+                <p key={g}>
+                  {nomeDoGrupo(g, segmentosDaCampanha(campanha.listas, campanha.grupos))}:{" "}
+                  <strong>{n}</strong>
+                </p>
+              ))}
+          {est?.ordem?.some((o) => o.fria) ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Listas frias por último: se der problema, a trava pausa antes de chegar nelas.
             </p>
-          ))}
+          ) : null}
           <p className="mt-2">
             Total: <strong>{est?.total ?? 0}</strong> · sem nome confiável:{" "}
             <strong>{est?.sem_nome ?? 0}</strong>
@@ -338,7 +443,10 @@ function Aprovacao({
             Custo estimado: <strong>{brl(est?.custo ?? 0)}</strong> (
             {brl(campanha.custo_msg_estimado)} por mensagem)
           </p>
-          <p>Datas: {datasTexto(est?.datas ?? campanha.datas_disparo)} (terça a quinta, 10h)</p>
+          <p>
+            Datas: {datasTexto(est?.datas ?? campanha.datas_disparo)} (dias e horário da
+            configuração)
+          </p>
           <p>Condição: {condicaoTexto(campanha)}</p>
         </div>
         <div className="rounded-lg border p-3 text-sm">

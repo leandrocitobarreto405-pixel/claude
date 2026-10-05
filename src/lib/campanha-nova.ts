@@ -1,0 +1,248 @@
+/**
+ * Campanha nova criada pelo app (Marketing → Nova campanha): as listas que dá para escolher, o
+ * modelo sugerido de cada uma, a ordem dos lotes (quentes primeiro) e a validação do formulário.
+ * Sem banco nem rede, para poder testar. O servidor valida de novo com a mesma função.
+ */
+import type { Familia } from "@/lib/listas";
+
+export type QuemResponde = "alice" | "equipe";
+
+/** Lista que dá para escolher. O código (grupo) é interno e nunca aparece na tela. */
+export type OpcaoLista = {
+  grupo: string;
+  familia: Familia;
+  de?: number;
+  ate?: number;
+  rotulo: string;
+  /** Finalidade do modelo sugerido (mkt_configuracoes.modelos). */
+  finalidade: string;
+};
+
+/** Faixas da lista "Conversou e não pediu orçamento" (uma só por campanha). */
+export const FAIXAS_CONVERSA: Array<{ valor: string; rotulo: string; ate?: number }> = [
+  { valor: "todos", rotulo: "todos" },
+  { valor: "30", rotulo: "até 30 dias", ate: 30 },
+  { valor: "90", rotulo: "até 90 dias", ate: 90 },
+];
+
+export const OPCOES_LISTAS: OpcaoLista[] = [
+  {
+    grupo: "C4",
+    familia: "clientes",
+    de: 90,
+    ate: 365,
+    rotulo: "Clientes · 91 dias a 1 ano",
+    finalidade: "oferta",
+  },
+  {
+    grupo: "C5",
+    familia: "clientes",
+    de: 365,
+    rotulo: "Clientes · mais de 1 ano",
+    finalidade: "reativacao",
+  },
+  {
+    grupo: "N1",
+    familia: "orcamento",
+    ate: 90,
+    rotulo: "Orçamento sem agendamento · até 90 dias",
+    finalidade: "orcamento",
+  },
+  {
+    grupo: "N2",
+    familia: "orcamento",
+    de: 90,
+    ate: 365,
+    rotulo: "Orçamento sem agendamento · 91 dias a 1 ano",
+    finalidade: "orcamento",
+  },
+  {
+    grupo: "N3",
+    familia: "orcamento",
+    de: 365,
+    rotulo: "Orçamento sem agendamento · mais de 1 ano",
+    finalidade: "orcamento",
+  },
+  {
+    grupo: "CV",
+    familia: "conversa",
+    rotulo: "Conversou e não pediu orçamento",
+    finalidade: "conversa",
+  },
+  { grupo: "PP", familia: "perdido_preco", rotulo: "Perdido por preço", finalidade: "preco" },
+];
+
+const PADRAO_FINALIDADE: Record<string, string> = {
+  oferta: "oferta_trimestral",
+  reativacao: "reativacao_cliente",
+  orcamento: "orcamento_retomada",
+  conversa: "conversa_retomada",
+  preco: "preco_retomada",
+};
+
+/** Modelo sugerido para a lista, pelos nomes da empresa (ex.: tc_oferta_trimestral). */
+export function modeloSugerido(grupo: string, modelosDaEmpresa: unknown): string {
+  const op = OPCOES_LISTAS.find((o) => o.grupo === grupo);
+  if (!op) return "";
+  const m = (
+    modelosDaEmpresa && typeof modelosDaEmpresa === "object" ? modelosDaEmpresa : {}
+  ) as Record<string, unknown>;
+  const v = typeof m[op.finalidade] === "string" ? String(m[op.finalidade]).trim() : "";
+  return v || PADRAO_FINALIDADE[op.finalidade] || "";
+}
+
+/**
+ * Temperatura da lista (a mesma regra do preparo no banco): 1 clientes, 2 orçamentos até 1 ano,
+ * 3 perdido por preço, 4 orçamentos de mais de 1 ano, 5 conversou e não pediu orçamento.
+ * 4 e 5 são frias: vão nos últimos lotes.
+ */
+export function temperatura(s: { familia: string; de?: number | null }): number {
+  if (s.familia === "clientes") return 1;
+  if (s.familia === "orcamento") return (s.de ?? 0) >= 365 ? 4 : 2;
+  if (s.familia === "conversa") return 5;
+  return 3;
+}
+
+export const listaFria = (s: { familia: string; de?: number | null }) => temperatura(s) >= 4;
+
+/** Listas na ordem em que os lotes saem (quentes primeiro, recentes antes). */
+export function ordemDosLotes<T extends { familia: string; de?: number | null }>(listas: T[]): T[] {
+  return listas
+    .map((s, i) => ({ s, i }))
+    .sort(
+      (a, b) => temperatura(a.s) - temperatura(b.s) || (a.s.de ?? 0) - (b.s.de ?? 0) || a.i - b.i,
+    )
+    .map((x) => x.s);
+}
+
+/** Próximas datas permitidas (dias de disparo da empresa, 1 = segunda ... 7 = domingo). */
+export function proximasDatas(hoje: string, dias: number[], quantas = 12): string[] {
+  const r: string[] = [];
+  const d = new Date(`${hoje}T12:00:00Z`);
+  for (let i = 1; r.length < quantas && i <= 120; i++) {
+    const x = new Date(d.getTime() + i * 86_400_000);
+    const isodow = x.getUTCDay() === 0 ? 7 : x.getUTCDay();
+    if (dias.includes(isodow)) r.push(x.toISOString().slice(0, 10));
+  }
+  return r;
+}
+
+export type EntradaNovaCampanha = {
+  nome: string;
+  listas: Array<{ grupo: string; modelo: string; faixaConversa?: string | undefined }>;
+  semCondicao: boolean;
+  condicaoTexto: string | null;
+  condicaoPct: number | null;
+  datas: string[];
+  quemResponde: QuemResponde;
+};
+
+export type NovaCampanha = {
+  nome: string;
+  listas: Array<{ grupo: string; familia: Familia; de?: number; ate?: number }>;
+  templates: Record<string, string>;
+  condicaoTexto: string | null;
+  condicaoPct: number | null;
+  datas: string[];
+  mesRef: string;
+  quemResponde: QuemResponde;
+};
+
+const NOME_MODELO = /^[a-z0-9_]{1,200}$/;
+const DIA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Confere e normaliza. Problemas em português, para mostrar na tela. */
+export function validarNovaCampanha(
+  e: EntradaNovaCampanha,
+  ctx: { hoje: string; dias: number[] },
+): { ok: true; campanha: NovaCampanha } | { ok: false; problemas: string[] } {
+  const p: string[] = [];
+  const nome = String(e.nome ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (nome.length < 3) p.push("Dê um nome para a campanha.");
+  if (nome.length > 80) p.push("Nome com mais de 80 caracteres.");
+
+  const vistos = new Set<string>();
+  const listas: NovaCampanha["listas"] = [];
+  const templates: Record<string, string> = {};
+  for (const l of e.listas ?? []) {
+    const op = OPCOES_LISTAS.find((o) => o.grupo === l.grupo);
+    if (!op || vistos.has(op.grupo)) continue;
+    vistos.add(op.grupo);
+    const modelo = String(l.modelo ?? "").trim();
+    if (!NOME_MODELO.test(modelo))
+      p.push(`${op.rotulo}: escolha o modelo (só letras minúsculas, números e _).`);
+    const faixa =
+      op.familia === "conversa" ? FAIXAS_CONVERSA.find((f) => f.valor === l.faixaConversa) : null;
+    listas.push({
+      grupo: op.grupo,
+      familia: op.familia,
+      ...(op.de !== undefined ? { de: op.de } : {}),
+      ...(faixa?.ate !== undefined
+        ? { ate: faixa.ate }
+        : op.ate !== undefined
+          ? { ate: op.ate }
+          : {}),
+    });
+    templates[op.grupo] = modelo;
+  }
+  if (!listas.length) p.push("Escolha pelo menos uma lista.");
+
+  let condicaoTexto: string | null = null;
+  let condicaoPct: number | null = null;
+  if (!e.semCondicao) {
+    condicaoTexto =
+      String(e.condicaoTexto ?? "")
+        .trim()
+        .slice(0, 200) || null;
+    condicaoPct =
+      e.condicaoPct === null || e.condicaoPct === undefined || String(e.condicaoPct) === ""
+        ? null
+        : Number(e.condicaoPct);
+    if (
+      condicaoPct !== null &&
+      (!Number.isFinite(condicaoPct) || condicaoPct < 0 || condicaoPct > 25)
+    )
+      p.push("A condição vai de 0% a 25%.");
+    if (!condicaoTexto && !condicaoPct)
+      p.push('Escreva a condição (texto ou %) ou marque "Sem condição".');
+  }
+
+  const datas = [...new Set((e.datas ?? []).map(String))].filter((d) => DIA_ISO.test(d)).sort();
+  if (!datas.length) p.push("Escolha pelo menos uma data de disparo.");
+  for (const d of datas) {
+    const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
+    const isodow = dia === 0 ? 7 : dia;
+    if (d <= ctx.hoje)
+      p.push(`${d.split("-").reverse().join("/")} já passou (a primeira é amanhã).`);
+    else if (!ctx.dias.includes(isodow))
+      p.push(`${d.split("-").reverse().join("/")} não é um dos dias de disparo da configuração.`);
+  }
+
+  const quem: QuemResponde = e.quemResponde === "equipe" ? "equipe" : "alice";
+  if (p.length) return { ok: false, problemas: [...new Set(p)] };
+  return {
+    ok: true,
+    campanha: {
+      nome,
+      listas,
+      templates,
+      condicaoTexto,
+      condicaoPct,
+      datas,
+      mesRef: `${datas[0]!.slice(0, 7)}-01`,
+      quemResponde: quem,
+    },
+  };
+}
+
+/** "terça, quarta e quinta" a partir dos dias da configuração. */
+export function diasTexto(dias: number[]): string {
+  const nomes = ["", "segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+  const n = [...new Set(dias)]
+    .filter((d) => d >= 1 && d <= 7)
+    .sort()
+    .map((d) => nomes[d]!);
+  return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} e ${n.at(-1)}`;
+}

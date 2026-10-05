@@ -71,6 +71,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   "Quero aproveitar!", "Me mostre as datas", "Quero renovar" e "Quero um orçamento" contando como
   interesse. Nada vai para a Meta sem o admin tocar em enviar. Dados (não código): 16 rascunhos da
   Turbine e a "Regra do 13º mês" no fim das instruções da Alice da Turbine.
+- "Campanhas novas" (`20261025120000`, aplicada em 05/10): `mkt_campanhas.quem_responde`
+  ('alice' ou 'equipe', padrão 'alice') e `criada_por`; resposta de campanha "equipe" tira a Alice
+  da conversa com nota interna. `20261025120001` (preparo com etiqueta própria da campanha e lotes
+  com as listas quentes primeiro) vai pelo SQL Editor; até lá o preparo continua o anterior.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,

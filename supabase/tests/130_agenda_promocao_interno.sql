@@ -62,17 +62,21 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALHOU: promoção com 27%%';
 EXCEPTION WHEN invalid_parameter_value THEN NULL; END $$;
 
+-- Próxima segunda-feira (o envio da promoção é agendado para agora; o teste reserva no futuro).
+CREATE FUNCTION pg_temp.segunda(_hora time) RETURNS timestamptz LANGUAGE sql AS $$
+  SELECT ((current_date + (8 - extract(isodow FROM current_date))::int) + _hora) AT TIME ZONE 'America/Sao_Paulo'
+$$;
 -- 4. Envio: sem "Envio ligado" nada sai; ligado, sai numa segunda às 9h; interno é cancelado.
-SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-05 09:30-03')) = 0,
+SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, pg_temp.segunda('09:30'))) = 0,
   'promoção não sai com o envio desligado');
 UPDATE public.mkt_configuracoes SET disparo_ligado = true;
-SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-05 08:30-03')) = 0,
+SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, pg_temp.segunda('08:30'))) = 0,
   'promoção não sai antes das 9h');
 INSERT INTO public.mkt_envios (empresa_id, campanha_id, lote_id, contato_id, normalized_phone, template_nome, agendado_para)
 SELECT e.empresa_id, e.campanha_id, e.lote_id, c.id, c.normalized_phone, e.template_nome, now()
   FROM public.mkt_envios e, public.mkt_contatos c
  WHERE c.normalized_phone = '5511988880001' LIMIT 1;
-SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, '2026-10-05 09:30-03')) = 2,
+SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_reservar_envios(10, pg_temp.segunda('09:30'))) = 2,
   'segunda às 9h30 a promoção sai (2 envios)');
 SELECT pg_temp.ok((SELECT status = 'cancelado' AND erro = 'contato interno da equipe' FROM public.mkt_envios
                     WHERE normalized_phone = '5511988880001'), 'envio para contato interno cancelado');

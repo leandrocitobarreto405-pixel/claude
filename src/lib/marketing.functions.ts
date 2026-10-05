@@ -7,6 +7,11 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import {
+  validarNovaCampanha,
+  type EntradaNovaCampanha,
+  type QuemResponde,
+} from "@/lib/campanha-nova";
 
 export const GRUPOS = ["C1", "C2", "C3", "C4", "C5", "N1", "N2", "N3"] as const;
 export const NOMES_GRUPOS: Record<string, string> = {
@@ -42,6 +47,15 @@ async function campanhaDaEmpresa(empresaId: string, campanhaId: string) {
   return { db, campanha: data };
 }
 
+async function diasDeDisparo(db: Awaited<ReturnType<typeof servico>>, empresaId: string) {
+  const { data } = await db
+    .from("mkt_configuracoes")
+    .select("dias_disparo")
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  return (data?.dias_disparo ?? [2, 3, 4]).map(Number);
+}
+
 // ---------------------------------------------------------------- situação
 export const situacaoMarketing = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
@@ -53,7 +67,7 @@ export const situacaoMarketing = createServerFn({ method: "GET" })
       sb
         .from("mkt_campanhas")
         .select(
-          "id, nome, tipo, gatilho, mes_ref, tema, grupos, listas, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em",
+          "id, nome, tipo, gatilho, mes_ref, tema, grupos, listas, templates, datas_disparo, limites, condicao_texto, condicao_pct, status, motivo_status, estimativa, custo_msg_estimado, aprovada_em, preparada_em, quem_responde, criada_por",
         )
         .eq("empresa_id", emp)
         .order("mes_ref")
@@ -232,6 +246,82 @@ export const prepararCampanhaFn = createServerFn({ method: "POST" })
     return prepararCampanha(db, data.campanhaId);
   });
 
+/** Nova campanha (só admin). Nasce em rascunho e segue o fluxo normal: preparar, conferir, aprovar. */
+export const criarCampanhaFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((input: EntradaNovaCampanha) => ({
+    nome: String(input.nome ?? "").slice(0, 200),
+    listas: (Array.isArray(input.listas) ? input.listas : []).slice(0, 10).map((l) => ({
+      grupo: String(l?.grupo ?? "").slice(0, 10),
+      modelo: String(l?.modelo ?? "").slice(0, 200),
+      faixaConversa: l?.faixaConversa ? String(l.faixaConversa).slice(0, 10) : undefined,
+    })),
+    semCondicao: Boolean(input.semCondicao),
+    condicaoTexto: input.condicaoTexto ? String(input.condicaoTexto).slice(0, 300) : null,
+    condicaoPct:
+      input.condicaoPct === null || input.condicaoPct === undefined
+        ? null
+        : Number(input.condicaoPct),
+    datas: (Array.isArray(input.datas) ? input.datas : []).slice(0, 30).map(String),
+    quemResponde: (input.quemResponde === "equipe" ? "equipe" : "alice") as QuemResponde,
+  }))
+  .handler(async ({ data, context }) => {
+    const db = await servico();
+    const { hojeSP } = await import("@/lib/mkt/campanhas.server");
+    const { data: cfg } = await db
+      .from("mkt_configuracoes")
+      .select("dias_disparo, custo_msg_estimado")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    const r = validarNovaCampanha(data, {
+      hoje: hojeSP(),
+      dias: (cfg?.dias_disparo ?? [2, 3, 4]).map(Number),
+    });
+    if (!r.ok) throw new Error(r.problemas.join(" "));
+    const c = r.campanha;
+    const { data: nova, error } = await db
+      .from("mkt_campanhas")
+      .insert({
+        empresa_id: context.empresaId,
+        nome: c.nome,
+        tipo: "calendario",
+        mes_ref: c.mesRef,
+        grupos: c.listas.map((l) => l.grupo),
+        listas: c.listas,
+        templates: c.templates,
+        datas_disparo: c.datas,
+        condicao_texto: c.condicaoTexto,
+        condicao_pct: c.condicaoPct,
+        custo_msg_estimado: cfg?.custo_msg_estimado ?? 0.32,
+        quem_responde: c.quemResponde,
+        criada_por: context.userId,
+        status: "rascunho",
+      })
+      .select("id")
+      .single();
+    if (error || !nova) throw new Error("Não foi possível criar a campanha.");
+    return { id: nova.id as string };
+  });
+
+/** Quem atende as respostas (Alice ou equipe). Vale para as próximas respostas, a qualquer momento. */
+export const quemRespondeFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((input: { campanhaId: string; quem: QuemResponde }) => ({
+    campanhaId: String(input.campanhaId),
+    quem: (input.quem === "equipe" ? "equipe" : "alice") as QuemResponde,
+  }))
+  .handler(async ({ data, context }) => {
+    const { db, campanha } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
+    if (campanha.tipo !== "calendario") throw new Error("Só campanhas do calendário.");
+    const { error } = await db
+      .from("mkt_campanhas")
+      .update({ quem_responde: data.quem })
+      .eq("id", data.campanhaId)
+      .eq("empresa_id", context.empresaId);
+    if (error) throw new Error("Não foi possível trocar.");
+    return { ok: true, quem: data.quem };
+  });
+
 export const aprovarCampanhaFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
@@ -291,11 +381,6 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
         .filter((d) => DATA.test(d))
         .sort();
       if (!datas.length) throw new Error("Informe pelo menos uma data.");
-      for (const d of datas) {
-        const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
-        if (dia < 2 || dia > 4)
-          throw new Error(`${d.split("-").reverse().join("/")} não é terça, quarta ou quinta.`);
-      }
       const pct =
         input.condicaoPct === null || input.condicaoPct === undefined
           ? null
@@ -317,6 +402,15 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
       throw new Error("Só dá para editar antes da aprovação.");
     const { hojeSP, prepararCampanha } = await import("@/lib/mkt/campanhas.server");
     if (data.datas[0]! <= hojeSP()) throw new Error("A primeira data precisa ser depois de hoje.");
+    // Dias de disparo da configuração da empresa (não mais terça a quinta fixo).
+    const dias = await diasDeDisparo(db, context.empresaId);
+    for (const d of data.datas) {
+      const dia = new Date(`${d}T12:00:00Z`).getUTCDay();
+      if (!dias.includes(dia === 0 ? 7 : dia))
+        throw new Error(
+          `${d.split("-").reverse().join("/")} não é um dos dias de disparo da configuração.`,
+        );
+    }
     const { error } = await db
       .from("mkt_campanhas")
       .update({

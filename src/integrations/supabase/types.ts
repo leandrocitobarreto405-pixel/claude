@@ -2734,6 +2734,8 @@ export type Database = {
           aprovada_por: string | null;
           condicao_pct: number | null;
           condicao_texto: string | null;
+          criada_por: string | null;
+          quem_responde: string;
           created_at: string;
           crm_campaign_id: string | null;
           custo_msg_estimado: number;
@@ -2763,6 +2765,8 @@ export type Database = {
           aprovada_por?: string | null;
           condicao_pct?: number | null;
           condicao_texto?: string | null;
+          criada_por?: string | null;
+          quem_responde?: string;
           created_at?: string;
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
@@ -2792,6 +2796,8 @@ export type Database = {
           aprovada_por?: string | null;
           condicao_pct?: number | null;
           condicao_texto?: string | null;
+          criada_por?: string | null;
+          quem_responde?: string;
           created_at?: string;
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
