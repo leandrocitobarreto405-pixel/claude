@@ -114,6 +114,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 04/10/2026 23:10 | Faixas sem sobrepor   | `2fd5120`        | `cfcfdd9`                |
 | 04/10/2026 23:10 | Rascunhos de modelos  | `6287c8e`        | `2fd5120`                |
 | 05/10/2026 14:51 | Nova campanha         | `31b70cb`        | `007631d`                |
+| 05/10/2026 13:55 | Quantas pessoas       | `9145f99`        | `0348392`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
