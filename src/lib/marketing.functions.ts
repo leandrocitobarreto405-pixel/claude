@@ -8,8 +8,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import {
+  modelosAprovados,
   validarNovaCampanha,
   type EntradaNovaCampanha,
+  type ModeloAprovado,
   type QuemResponde,
 } from "@/lib/campanha-nova";
 
@@ -302,6 +304,31 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
     if (error || !nova) throw new Error("Não foi possível criar a campanha.");
     return { id: nova.id as string };
   });
+
+/** Modelos aprovados na Meta para escolher na campanha nova, com o texto para a prévia. */
+export const modelosAprovadosFn = createServerFn({ method: "GET" })
+  .middleware([requireAdminEmpresa])
+  .handler(
+    async ({
+      context,
+    }): Promise<{ fonte: string; erro: string | null; modelos: ModeloAprovado[] }> => {
+      const db = await servico();
+      const [{ listarParaTela }, { data: cfg }] = await Promise.all([
+        import("@/lib/meta/modelos.server"),
+        db
+          .from("mkt_configuracoes")
+          .select("template_idioma")
+          .eq("empresa_id", context.empresaId)
+          .maybeSingle(),
+      ]);
+      const lista = await listarParaTela(db, context.empresaId);
+      return {
+        fonte: lista.fonte,
+        erro: lista.erro,
+        modelos: modelosAprovados(lista.modelos, cfg?.template_idioma ?? "pt_BR"),
+      };
+    },
+  );
 
 /** Quem atende as respostas (Alice ou equipe). Vale para as próximas respostas, a qualquer momento. */
 export const quemRespondeFn = createServerFn({ method: "POST" })

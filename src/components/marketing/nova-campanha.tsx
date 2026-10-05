@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Check, Snowflake } from "lucide-react";
@@ -7,16 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Botao, Chip } from "@/components/nexa";
-import { criarCampanhaFn } from "@/lib/marketing.functions";
+import { criarCampanhaFn, modelosAprovadosFn } from "@/lib/marketing.functions";
 import {
   diasTexto,
   FAIXAS_CONVERSA,
   listaFria,
   modeloSugerido,
+  previaDoModelo,
   OPCOES_LISTAS,
   ordemDosLotes,
   proximasDatas,
   validarNovaCampanha,
+  type ModeloAprovado,
   type QuemResponde,
 } from "@/lib/campanha-nova";
 import { dateBR, weekdayPT } from "@/lib/format";
@@ -55,6 +58,18 @@ export function NovaCampanha({
   const [datas, setDatas] = useState<string[]>([]);
   const [quem, setQuem] = useState<QuemResponde>("alice");
   const [enviando, setEnviando] = useState(false);
+  // Só os modelos aprovados na Meta aparecem para escolher (lidos quando o formulário abre).
+  const aprovadosFn = useServerFn(modelosAprovadosFn);
+  const aprovados = useQuery({
+    queryKey: [...CHAVE_MKT, "modelos-aprovados"],
+    queryFn: () => aprovadosFn(),
+    enabled: aberto,
+    staleTime: 120_000,
+  });
+  const modelos = aprovados.data?.modelos ?? [];
+  const condicaoAtual = semCondicao
+    ? null
+    : [texto.trim(), pct.trim() ? `${pct.trim()}%` : ""].filter(Boolean).join(" — ") || null;
   const opcoesDeData = useMemo(() => proximasDatas(hoje, dias, 12), [hoje, dias]);
 
   const entrada = {
@@ -79,9 +94,14 @@ export function NovaCampanha({
         const { [grupo]: _, ...resto } = e;
         return resto;
       }
+      // Sugestão pelos nomes da empresa, só se estiver aprovada na Meta.
+      const sugerido = modeloSugerido(grupo, config?.modelos);
       return {
         ...e,
-        [grupo]: { modelo: modeloSugerido(grupo, config?.modelos), faixaConversa: "todos" },
+        [grupo]: {
+          modelo: modelos.some((m) => m.nome === sugerido) ? sugerido : "",
+          faixaConversa: "todos",
+        },
       };
     });
   }
@@ -175,27 +195,58 @@ export function NovaCampanha({
                           </select>
                         </div>
                       ) : null}
-                      <div className="grid gap-1">
-                        <Label htmlFor={`nc-modelo-${o.grupo}`}>Modelo</Label>
-                        <Input
+                      <div className="grid gap-1 sm:col-span-2">
+                        <Label htmlFor={`nc-modelo-${o.grupo}`}>Modelo (aprovados na Meta)</Label>
+                        <select
                           id={`nc-modelo-${o.grupo}`}
-                          className="min-h-11"
+                          className="min-h-11 rounded-botao border border-input bg-card px-3 text-sm"
                           value={e.modelo}
-                          autoCapitalize="off"
-                          spellCheck={false}
+                          disabled={aprovados.isLoading}
                           onChange={(ev) =>
                             setEscolhidas({
                               ...escolhidas,
-                              [o.grupo]: { ...e, modelo: ev.target.value.trim().toLowerCase() },
+                              [o.grupo]: { ...e, modelo: ev.target.value },
                             })
                           }
-                        />
+                        >
+                          <option value="">
+                            {aprovados.isLoading ? "Lendo os modelos na Meta…" : "Escolha o modelo"}
+                          </option>
+                          {modelos.map((m) => (
+                            <option key={m.nome} value={m.nome}>
+                              {m.nome}
+                            </option>
+                          ))}
+                        </select>
+                        {!e.modelo && !aprovados.isLoading ? (
+                          <p className="text-xs text-muted-foreground">
+                            {modelos.some(
+                              (m) => m.nome === modeloSugerido(o.grupo, config?.modelos),
+                            )
+                              ? null
+                              : `O modelo sugerido (${modeloSugerido(o.grupo, config?.modelos)}) ainda não está aprovado na Meta.`}
+                          </p>
+                        ) : null}
                       </div>
+                      <PreviaModelo
+                        modelo={modelos.find((m) => m.nome === e.modelo) ?? null}
+                        condicao={condicaoAtual}
+                        semCondicao={semCondicao}
+                      />
                     </div>
                   ) : null}
                 </div>
               );
             })}
+            {aprovados.data && !modelos.length ? (
+              <p className="rounded-botao bg-atencao px-3 py-2 text-sm text-atencao-foreground">
+                {aprovados.data.erro ?? "Nenhum modelo aprovado na Meta ainda."} Envie os textos em{" "}
+                <Link to="/modelos-mensagem" className="font-semibold underline">
+                  Modelos de mensagem
+                </Link>{" "}
+                e espere a aprovação.
+              </p>
+            ) : null}
             {ordem.length > 1 ? (
               <p className="text-sm text-muted-foreground">
                 Ordem dos lotes: {ordem.map((o) => o.rotulo).join(" → ")}. As listas frias saem por
@@ -312,5 +363,50 @@ export function NovaCampanha({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Como o cliente vê a mensagem do modelo escolhido (com um nome de exemplo e a condição). */
+function PreviaModelo({
+  modelo,
+  condicao,
+  semCondicao,
+}: {
+  modelo: ModeloAprovado | null;
+  condicao: string | null;
+  semCondicao: boolean;
+}) {
+  if (!modelo) return null;
+  const p = previaDoModelo(modelo.form, condicao);
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      <div className="flex flex-col gap-2 rounded-card bg-marca-claro p-3">
+        <p className="text-xs font-semibold text-muted-foreground">Prévia (para a Ana)</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{p.texto}</p>
+        {p.botoes.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {p.botoes.map((b) => (
+              <span
+                key={b}
+                className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-marca"
+              >
+                {b}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {p.usaCondicao && (semCondicao || !condicao) ? (
+        <p className="text-xs text-problema-foreground">
+          Este modelo coloca a condição no texto: escreva a condição da campanha.
+        </p>
+      ) : null}
+      {!modelo.temSn ? (
+        <p className="text-xs text-muted-foreground">
+          A versão {modelo.nome}_sn (para quem está sem nome) ainda não está aprovada: se houver
+          alguém sem nome nesta lista, a conferência bloqueia a campanha.
+        </p>
+      ) : null}
+    </div>
   );
 }

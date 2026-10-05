@@ -4,7 +4,9 @@ import {
   diasTexto,
   listaFria,
   modeloSugerido,
+  modelosAprovados,
   ordemDosLotes,
+  previaDoModelo,
   proximasDatas,
   validarNovaCampanha,
   type EntradaNovaCampanha,
@@ -110,4 +112,67 @@ test("próximas datas permitidas e o texto dos dias", () => {
   ]);
   assert.equal(diasTexto([4, 2, 3]), "terça, quarta e quinta");
   assert.equal(diasTexto([1]), "segunda");
+});
+
+test("só modelos aprovados no idioma da empresa, com aviso da versão _sn", () => {
+  const form = (corpo: string) => ({
+    nome: "",
+    idioma: "pt_BR",
+    categoria: "MARKETING" as const,
+    cabecalho: "",
+    corpo,
+    exemplos: [],
+    rodape: "",
+    botoes: [{ tipo: "QUICK_REPLY" as const, texto: "Quero aproveitar!" }],
+  });
+  const lista = modelosAprovados(
+    [
+      {
+        nome: "tc_oferta",
+        idioma: "pt_BR",
+        status: "APPROVED",
+        categoria: "MARKETING",
+        form: form("Oi, {{1}}!"),
+      },
+      {
+        nome: "tc_oferta_sn",
+        idioma: "pt_BR",
+        status: "APPROVED",
+        categoria: "MARKETING",
+        form: form("Oi!"),
+      },
+      {
+        nome: "tc_conversa",
+        idioma: "pt_BR",
+        status: "APPROVED",
+        categoria: "MARKETING",
+        form: form("Oi, {{1}}! Temos {{2}}."),
+      },
+      {
+        nome: "tc_orcamento",
+        idioma: "pt_BR",
+        status: "PENDING",
+        categoria: "MARKETING",
+        form: form("x"),
+      },
+      {
+        nome: "tc_ingles",
+        idioma: "en_US",
+        status: "APPROVED",
+        categoria: "MARKETING",
+        form: form("x"),
+      },
+    ],
+    "pt_BR",
+  );
+  assert.deepEqual(
+    lista.map((m) => `${m.nome}:${m.temSn}`),
+    ["tc_conversa:false", "tc_oferta:true"],
+  );
+  const p = previaDoModelo(lista[0]!.form, "10% na higienização");
+  assert.equal(p.texto, "Oi, Ana! Temos 10% na higienização.");
+  assert.ok(p.usaCondicao);
+  assert.deepEqual(p.botoes, ["Quero aproveitar!"]);
+  assert.match(previaDoModelo(lista[0]!.form, null).texto, /\[condição da campanha\]/);
+  assert.ok(!previaDoModelo(lista[1]!.form, null).usaCondicao);
 });

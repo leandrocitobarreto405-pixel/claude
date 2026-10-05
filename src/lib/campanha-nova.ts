@@ -4,6 +4,7 @@
  * Sem banco nem rede, para poder testar. O servidor valida de novo com a mesma função.
  */
 import type { Familia } from "@/lib/listas";
+import type { FormModelo } from "@/lib/modelos-mensagem";
 
 export type QuemResponde = "alice" | "equipe";
 
@@ -245,4 +246,62 @@ export function diasTexto(dias: number[]): string {
     .sort()
     .map((d) => nomes[d]!);
   return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} e ${n.at(-1)}`;
+}
+
+// ---------------------------------------------------------------- modelos aprovados e prévia
+export type ModeloAprovado = {
+  nome: string;
+  categoria: string;
+  form: FormModelo;
+  /** A versão "_sn" (para quem está sem nome) também está aprovada. */
+  temSn: boolean;
+};
+
+/** Só os modelos aprovados na Meta, no idioma da empresa, sem as versões "_sn" (vão junto). */
+export function modelosAprovados(
+  modelos: Array<{
+    nome: string;
+    idioma: string;
+    status: string;
+    categoria: string;
+    form: FormModelo;
+  }>,
+  idioma: string,
+): ModeloAprovado[] {
+  const ok = modelos.filter(
+    (m) =>
+      String(m.status).toUpperCase() === "APPROVED" &&
+      m.idioma.toLowerCase() === idioma.toLowerCase(),
+  );
+  const nomes = new Set(ok.map((m) => m.nome));
+  return ok
+    .filter((m) => !m.nome.endsWith("_sn"))
+    .map((m) => ({
+      nome: m.nome,
+      categoria: m.categoria,
+      form: m.form,
+      temSn: nomes.has(`${m.nome}_sn`),
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+/**
+ * Prévia como o cliente vê: {{1}} = um nome de exemplo e {{2}} = a condição da campanha (ou um
+ * aviso de que falta). `usaCondicao`: o texto do modelo traz a condição.
+ */
+export function previaDoModelo(
+  form: FormModelo,
+  condicao: string | null,
+): { texto: string; botoes: string[]; usaCondicao: boolean } {
+  const usaCondicao = /\{\{\s*2\s*\}\}/.test(form.corpo);
+  const exemplos = ["Ana", condicao?.trim() || "[condição da campanha]"];
+  const texto = form.corpo.replace(
+    /\{\{\s*(\d+)\s*\}\}/g,
+    (inteiro, n: string) => exemplos[Number(n) - 1] ?? inteiro,
+  );
+  return {
+    texto: [form.cabecalho.trim(), texto.trim(), form.rodape.trim()].filter(Boolean).join("\n\n"),
+    botoes: form.botoes.map((b) => b.texto).filter(Boolean),
+    usaCondicao,
+  };
 }
