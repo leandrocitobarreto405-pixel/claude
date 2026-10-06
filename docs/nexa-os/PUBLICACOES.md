@@ -81,6 +81,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `20261026120001_preparar_horario.sql` (preparo com hoje/qualquer dia, etiqueta por campanha,
   listas quentes primeiro e limite de pessoas por lista) foi rodada no SQL Editor em 06/10 e
   conferida (igual à testada); versões `20261025120001` e `20261026120001` registradas.
+- "Saudação automática" (`20261027120000`, aplicada em 06/10): `private.ia_mensagem_automatica` e
+  `ia_agendar_por_mensagem` — eco do app do celular (sender nulo, `external_echo`) até 10 s da
+  primeira mensagem do cliente numa conversa nova, ou com texto de saudação/ausência já vista,
+  não tira a Alice da conversa.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -120,6 +124,9 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 04/10/2026 23:10 | Rascunhos de modelos  | `6287c8e`        | `2fd5120`                |
 | 05/10/2026 14:51 | Nova campanha         | `31b70cb`        | `007631d`                |
 | 05/10/2026 13:55 | Quantas pessoas       | `9145f99`        | `0348392`                |
+| 06/10/2026       | Equipe (vendedoras)   | `6b92091`        | `9f501df`                |
+| 06/10/2026       | Comissão da Nexa      | `db1aa08`        | `1c22651`                |
+| 06/10/2026       | Saudação e modelos    | `b3944d7`        | `db1aa08`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
