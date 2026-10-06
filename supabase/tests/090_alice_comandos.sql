@@ -75,8 +75,8 @@ SELECT pg_temp.ok(pg_temp.tarefas(2) = 'responder:pendente', 'nota comum: ' || p
 SELECT pg_temp.msg(5, 2, 'outgoing', '#parar', 'agent_bot', true);
 SELECT pg_temp.ok(pg_temp.tarefas(2) = 'responder:pendente', 'nota do robô: ' || pg_temp.tarefas(2));
 
--- 4. Mensagem digitada no WhatsApp do celular (eco, sem sender): a Alice sai.
-SELECT pg_temp.msg(6, 2, 'outgoing', 'Oii, aqui é a Maria!', 'eco');
+-- 4. Mensagem digitada no WhatsApp do celular (eco, sem sender) 37 s depois: a Alice sai.
+SELECT pg_temp.msg(40, 2, 'outgoing', 'Oii, aqui é a Maria!', 'eco');
 SELECT pg_temp.ok(pg_temp.tarefas(2) = 'passar_para_humano:pendente,responder:ignorada',
   'eco do celular: ' || pg_temp.tarefas(2));
 SELECT pg_temp.ok(pg_temp.nota(2) IS NULL, 'eco do celular não gera nota');
