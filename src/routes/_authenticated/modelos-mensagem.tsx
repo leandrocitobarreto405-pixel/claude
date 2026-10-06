@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
+import { AtualizarModelos } from "@/components/marketing/atualizar-modelos";
+import { CHAVE_MKT } from "@/components/marketing/campanha-card";
 import { EditorModelo, type ModeloEmEdicao } from "@/components/modelos/editor-modelo";
 import { Finalidades } from "@/components/modelos/finalidades";
 import {
@@ -73,6 +75,8 @@ function ModelosMensagem() {
       />
 
       <ConexaoMeta />
+
+      <AtualizarModelos chaves={[CHAVE_LISTA, CHAVE_MKT]} larguraTotal />
 
       <Card className="gap-2">
         <p className="flex items-start gap-2 text-sm">

@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  juntarComMeta,
+  precisaConferirNaMeta,
   preencher,
   situacaoModelo,
   templateParams,
@@ -119,4 +121,30 @@ test("promoção: {{3}} vem dos extras (desconto do Pix); sem extras, não preen
   assert.equal(r.texto, "Oi, Ana! Desconto de 20%, e mais 5% no Pix.");
   const sem = preencher(promo, { primeiroNome: "Ana", condicao: "20%" });
   assert.equal(sem.ok, false);
+});
+
+test("situação dos modelos: Chatwoot atrasado, vale a Meta", () => {
+  const cw: ModeloMeta[] = [
+    { name: "tc_reativacao_cliente", language: "pt_BR", status: "APPROVED" },
+    { name: "tc_reativacao_cliente_sn", language: "pt_BR", status: "PENDING" },
+  ];
+  assert.equal(precisaConferirNaMeta(cw, ["tc_reativacao_cliente"], "pt_BR"), false);
+  assert.equal(
+    precisaConferirNaMeta(cw, ["tc_reativacao_cliente", "tc_reativacao_cliente_sn"], "pt_BR"),
+    true,
+  );
+  const meta: ModeloMeta[] = [
+    { name: "tc_reativacao_cliente", language: "pt_BR", status: "APPROVED" },
+    { name: "tc_reativacao_cliente_sn", language: "pt_BR", status: "APPROVED" },
+    { name: "tc_novo", language: "pt_BR", status: "APPROVED" },
+    { name: "tc_apagado", language: "pt_BR", status: "DELETED" },
+  ];
+  const r = juntarComMeta(cw, meta);
+  assert.ok(situacaoModelo(r.modelos, "tc_reativacao_cliente_sn", "pt_BR").ok);
+  assert.ok(situacaoModelo(r.modelos, "tc_novo", "pt_BR").ok);
+  assert.deepEqual(r.divergentes, [
+    { nome: "tc_reativacao_cliente_sn", idioma: "pt_BR", chatwoot: "PENDING", meta: "APPROVED" },
+    { nome: "tc_novo", idioma: "pt_BR", chatwoot: null, meta: "APPROVED" },
+  ]);
+  assert.equal(r.modelos.length, 3);
 });

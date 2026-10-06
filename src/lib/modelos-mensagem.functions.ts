@@ -74,9 +74,49 @@ export const salvarConexaoMetaFn = createServerFn({ method: "POST" })
 export const listarModelosFn = createServerFn({ method: "GET" })
   .middleware([requireAdminEmpresa])
   .handler(async ({ context }): Promise<ListaModelos> => {
-    const { dbServico } = await import("@/lib/mkt/contexto.server");
+    const { dbServico, contextoEmpresa } = await import("@/lib/mkt/contexto.server");
     const { listarParaTela } = await import("@/lib/meta/modelos.server");
-    return listarParaTela(await dbServico(), context.empresaId);
+    const db = await dbServico();
+    // Ao abrir a tela, pede ao Chatwoot para buscar os modelos na Meta (a lista dele atrasa).
+    try {
+      const ctx = await contextoEmpresa(db, context.empresaId);
+      if (ctx.tokenAdmin) {
+        const { sincronizarModelos } = await import("@/lib/mkt/chatwoot.server");
+        await sincronizarModelos(ctx.conta, ctx.tokenAdmin, ctx.caixa);
+      }
+    } catch {
+      // Sem Chatwoot configurado: a tela mostra o que der.
+    }
+    return listarParaTela(db, context.empresaId);
+  });
+
+export type SituacaoModelosTela = {
+  sincronizou: boolean;
+  conferiuMeta: boolean;
+  divergentes: Array<{ nome: string; chatwoot: string | null; meta: string }>;
+  erroMeta: string | null;
+};
+
+/** Botão "Atualizar situação dos modelos": Chatwoot busca de novo; o que divergir, vale a Meta. */
+export const atualizarSituacaoModelosFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }): Promise<SituacaoModelosTela> => {
+    const { dbServico } = await import("@/lib/mkt/contexto.server");
+    const { modelosAtualizados } = await import("@/lib/mkt/modelos-situacao.server");
+    let r;
+    try {
+      r = await modelosAtualizados(await dbServico(), context.empresaId, { sincronizar: true });
+    } catch (e) {
+      throw new Error(
+        `Não foi possível atualizar: ${e instanceof Error ? e.message.slice(0, 200) : String(e)}`,
+      );
+    }
+    return {
+      sincronizou: r.sincronizou,
+      conferiuMeta: r.conferiuMeta,
+      divergentes: r.divergentes.map((d) => ({ nome: d.nome, chatwoot: d.chatwoot, meta: d.meta })),
+      erroMeta: r.erroMeta,
+    };
   });
 
 const texto = (v: unknown, max: number) => String(v ?? "").slice(0, max);

@@ -25,7 +25,6 @@ import {
   enviarModelo,
   etiquetarConversa,
   garantirContato,
-  modelosDaCaixa,
 } from "./chatwoot.server";
 import { enviarMensagem } from "@/lib/alice/chatwoot-api.server";
 import { modelosDaEmpresa, preencherTexto } from "@/lib/modelos-mensagem";
@@ -153,7 +152,9 @@ async function contextoComModelos(db: Db, cache: Cache, empresaId: string) {
       const ctx = await contextoEmpresa(db, empresaId);
       if (!ctx.tokenAdmin) throw new Error("token de API do Chatwoot não configurado");
       if (!ctx.tokenRobo) throw new Error("robô da Alice não configurado no Chatwoot");
-      const modelos = await modelosDaCaixa(ctx.conta, ctx.tokenAdmin, ctx.caixa);
+      // Lista do Chatwoot conferida com a Meta (ela pode estar atrasada no Chatwoot).
+      const { modelosAtualizados } = await import("./modelos-situacao.server");
+      const { modelos } = await modelosAtualizados(db, empresaId, { ctx });
       c = { ctx, modelos };
     } catch (e) {
       c = { erro: e instanceof Error ? e.message : String(e) };

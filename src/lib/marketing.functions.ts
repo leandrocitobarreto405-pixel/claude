@@ -408,7 +408,9 @@ export const aprovarCampanhaFn = createServerFn({ method: "POST" })
       throw new Error("Esta campanha não está aguardando aprovação.");
     // Confere os modelos de novo na hora de aprovar (podem ter mudado na Meta).
     const { conferirCampanha } = await import("@/lib/mkt/campanhas.server");
-    const conf = await conferirCampanha(db, data.campanhaId);
+    const conf = await conferirCampanha(db, data.campanhaId, undefined, undefined, {
+      sincronizar: true,
+    });
     if (conf.problemas.length) {
       const { rpc } = await import("@/lib/mkt/contexto.server");
       await rpc(db, "mkt_encerrar_campanha", {

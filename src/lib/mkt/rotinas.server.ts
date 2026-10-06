@@ -24,7 +24,6 @@ import {
   etiquetarContato,
   etiquetarConversa,
   garantirContato,
-  modelosDaCaixa,
   prioridadeUrgente,
 } from "./chatwoot.server";
 import { situacaoModelo, templateParams, variaveis } from "./modelos";
@@ -364,7 +363,12 @@ export async function processarAvisosWhatsapp() {
         throw new Error("o telefone do aviso é de um cliente; nada foi enviado");
       const ctx = await contextoEmpresa(db, cfg.empresa_id);
       if (!ctx.tokenAdmin || !ctx.tokenRobo) throw new Error("tokens do Chatwoot não configurados");
-      const modelos = await modelosDaCaixa(ctx.conta, ctx.tokenAdmin, ctx.caixa);
+      const { modelosAtualizados } = await import("./modelos-situacao.server");
+      const { modelos } = await modelosAtualizados(db, cfg.empresa_id, {
+        ctx,
+        precisa: [cfg.aviso_template_nome ?? ""],
+        idioma: cfg.template_idioma,
+      });
       const sit = situacaoModelo(modelos, cfg.aviso_template_nome ?? "", cfg.template_idioma);
       if (!sit.ok) throw new Error(sit.erro);
       const fone = (cfg.aviso_telefone ?? "").replace(/\D/g, "");

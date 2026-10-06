@@ -5,8 +5,7 @@
  * todo modelo que vai sair (com e sem nome) existe, está aprovado e dá para preencher com a
  * condição da campanha. Modelo com problema → campanha bloqueada + aviso.
  */
-import { configMkt, contextoEmpresa, log, rpc, type Db } from "./contexto.server";
-import { modelosDaCaixa } from "./chatwoot.server";
+import { configMkt, log, rpc, type Db } from "./contexto.server";
 import { preencher, situacaoModelo, textoCondicao, type ModeloMeta } from "./modelos";
 
 export function hojeSP(agora = new Date()) {
@@ -75,6 +74,8 @@ export async function conferirCampanha(
   modelosProntos?: ModeloMeta[],
   /** Só os envios deste lote (lembretes do dia). */
   loteId?: string,
+  /** Preparo e aprovação: pede ao Chatwoot para atualizar os modelos antes de conferir. */
+  opcoes: { sincronizar?: boolean } = {},
 ): Promise<Conferencia> {
   const { data: k, error } = await db
     .from("mkt_campanhas")
@@ -83,18 +84,6 @@ export async function conferirCampanha(
     .single();
   if (error) throw error;
   const cfg = await configMkt(db, k.empresa_id);
-  let modelos = modelosProntos;
-  let erroChatwoot: string | null = null;
-  if (!modelos) {
-    try {
-      const ctx = await contextoEmpresa(db, k.empresa_id);
-      if (!ctx.tokenAdmin) throw new Error("token de API do Chatwoot não configurado");
-      modelos = await modelosDaCaixa(ctx.conta, ctx.tokenAdmin, ctx.caixa);
-    } catch (e) {
-      erroChatwoot = `não consegui ler os modelos no Chatwoot: ${e instanceof Error ? e.message : String(e)}`;
-      modelos = [];
-    }
-  }
   const { data: envios, error: e2 } = await db
     .from("mkt_envios")
     .select(
@@ -108,6 +97,24 @@ export async function conferirCampanha(
   if (e2) throw e2;
   const lista = (envios ?? []) as unknown as EnvioPrevia[];
   const condicao = textoCondicao(k.condicao_texto, k.condicao_pct);
+
+  let modelos = modelosProntos;
+  let erroChatwoot: string | null = null;
+  if (!modelos) {
+    try {
+      // A lista do Chatwoot pode estar atrasada: atualiza e, se ainda divergir, vale a Meta.
+      const { modelosAtualizados } = await import("./modelos-situacao.server");
+      const sit = await modelosAtualizados(db, k.empresa_id, {
+        sincronizar: opcoes.sincronizar === true,
+        precisa: [...new Set(lista.map((e) => e.template_nome))],
+        idioma: cfg.template_idioma,
+      });
+      modelos = sit.modelos;
+    } catch (e) {
+      erroChatwoot = `não consegui ler os modelos no Chatwoot: ${e instanceof Error ? e.message : String(e)}`;
+      modelos = [];
+    }
+  }
 
   const porModelo = new Map<string, number>();
   for (const e of lista) porModelo.set(e.template_nome, (porModelo.get(e.template_nome) ?? 0) + 1);
@@ -180,7 +187,9 @@ export async function prepararCampanha(
     _campanha: campanhaId,
     _hoje: opcoes.hoje ?? null,
   });
-  const conf = await conferirCampanha(db, campanhaId, opcoes.modelos);
+  const conf = await conferirCampanha(db, campanhaId, opcoes.modelos, undefined, {
+    sincronizar: true,
+  });
   const { data: k } = await db
     .from("mkt_campanhas")
     .select("empresa_id, nome, datas_disparo")

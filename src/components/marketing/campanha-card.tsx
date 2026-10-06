@@ -37,6 +37,7 @@ import {
 import { brl, dateBR, monthLabelPT, weekdayPT } from "@/lib/format";
 import { nomeDoGrupo, nomeDoSegmento, segmentosDaCampanha, type Segmento } from "@/lib/listas";
 import { fetchDireto } from "@/lib/enderecos";
+import { AtualizarModelos } from "@/components/marketing/atualizar-modelos";
 
 export type Situacao = Awaited<ReturnType<typeof situacaoMarketing>>;
 export type Campanha = Situacao["campanhas"][number];
@@ -544,6 +545,7 @@ function Aprovacao({
               Não dá para aprovar: {problemas.join("; ")}
             </p>
           )}
+          {problemas.some((p) => /modelo/.test(p)) && <AtualizarModelos chaves={[CHAVE_MKT]} />}
         </div>
       )}
       <p className="text-xs text-muted-foreground">

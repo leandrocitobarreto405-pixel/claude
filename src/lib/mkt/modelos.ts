@@ -73,6 +73,54 @@ export function situacaoModelo(
   return { ok: true, modelo: m };
 }
 
+export type Divergencia = {
+  nome: string;
+  idioma: string;
+  /** Situação na lista guardada no Chatwoot (null = o Chatwoot não tem o modelo). */
+  chatwoot: string | null;
+  meta: string;
+};
+
+const chave = (m: ModeloMeta) => `${m.name}|${m.language.toLowerCase()}`;
+
+/** O Chatwoot considera o modelo aprovado? (para decidir se vale perguntar à Meta) */
+export function precisaConferirNaMeta(
+  modelos: ModeloMeta[],
+  nomes: string[],
+  idioma: string,
+): boolean {
+  return nomes.some((n) => !situacaoModelo(modelos, n, idioma).ok);
+}
+
+/**
+ * Junta a lista guardada no Chatwoot (que pode estar atrasada) com a da Meta (a fonte da verdade):
+ * quando a situação diverge, ou o Chatwoot nem tem o modelo, vale o que está na Meta.
+ */
+export function juntarComMeta(
+  chatwoot: ModeloMeta[],
+  meta: ModeloMeta[],
+): { modelos: ModeloMeta[]; divergentes: Divergencia[] } {
+  const naMeta = new Map(
+    meta
+      .filter((m) => !["DELETED", "PENDING_DELETION"].includes(String(m.status).toUpperCase()))
+      .map((m) => [chave(m), m]),
+  );
+  const divergentes: Divergencia[] = [];
+  const modelos = chatwoot.map((c) => {
+    const m = naMeta.get(chave(c));
+    if (!m) return c;
+    naMeta.delete(chave(c));
+    if (String(m.status).toUpperCase() === String(c.status).toUpperCase()) return c;
+    divergentes.push({ nome: c.name, idioma: c.language, chatwoot: c.status, meta: m.status });
+    return { ...c, ...m };
+  });
+  for (const m of naMeta.values()) {
+    divergentes.push({ nome: m.name, idioma: m.language, chatwoot: null, meta: m.status });
+    modelos.push(m);
+  }
+  return { modelos, divergentes };
+}
+
 const VARIAVEL = /\{\{\s*([\w.]+)\s*\}\}/g;
 
 /** Variáveis do texto, na ordem em que aparecem, sem repetir. */
