@@ -42,6 +42,8 @@ export type Salesperson = {
   commission_percentage: number;
   active: boolean;
   effective_from: string;
+  /** Atendente da Nexa: a comissão dela é paga à Nexa (percentual do contrato). */
+  atendente_nexa?: boolean;
 };
 
 export function useSalespeople(onlyActive = true) {
@@ -50,7 +52,7 @@ export function useSalespeople(onlyActive = true) {
     queryFn: async () => {
       let q = supabase
         .from("salespeople")
-        .select("id, name, commission_percentage, active, effective_from")
+        .select("id, name, commission_percentage, active, effective_from, atendente_nexa")
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);
       const { data, error } = await q;

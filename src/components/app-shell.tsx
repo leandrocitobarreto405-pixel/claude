@@ -126,6 +126,7 @@ const NAV_GROUPS = [
     label: "Nexa",
     items: [
       { to: "/nexa/empresas", label: "Empresas e comissões", icon: Building2 },
+      { to: "/nexa/comissoes", label: "Comissão da Nexa", icon: HandCoins },
       { to: "/nexa/chatwoot", label: "Chatwoot", icon: MessagesSquare },
     ],
   },

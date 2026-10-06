@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/app-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMonthSummary } from "@/lib/reports";
+import { textoPercentuais } from "@/lib/comissao-nexa";
 import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dre")({
@@ -27,6 +28,9 @@ export const Route = createFileRoute("/_authenticated/dre")({
 function DRE() {
   const [mes, setMes] = useState(currentMonth());
   const { data: r } = useMonthSummary(mes);
+  // Vendas das atendentes da Nexa: a comissão delas é paga à Nexa e aparece separada.
+  const temNexa = (r?.nexa.recebido ?? 0) > 0;
+  const pctNexa = r?.nexa.percentuais.length ? ` (${textoPercentuais(r.nexa.percentuais)})` : "";
 
   return (
     <>
@@ -81,7 +85,12 @@ function DRE() {
             <Line label="Serviços realizados no mês (valor)" value={r?.servicesValue} muted />
             <Line label="(=) Receita recebida dos serviços do mês" value={r?.revenue} strong />
             <Line label="(-) Taxas de pagamento" value={-(r?.fees ?? 0)} />
-            <Line label="(-) Comissões de vendas" value={-(r?.commissions ?? 0)} />
+            {temNexa ? (
+              <Line label={`(-) Comissão Nexa${pctNexa}`} value={-(r?.nexa.comissao ?? 0)} />
+            ) : null}
+            {!temNexa || (r?.commissionsOthers ?? 0) !== 0 ? (
+              <Line label="(-) Comissões de vendas" value={-(r?.commissionsOthers ?? 0)} />
+            ) : null}
             <Line label="(-) Custo de deslocamento" value={-(r?.mileage ?? 0)} />
             {(r?.cmv ?? 0) > 0 ? (
               <Line label="(-) Produtos usados nos serviços" value={-(r?.cmv ?? 0)} />
@@ -180,7 +189,29 @@ function DRE() {
         <Breakdown title="Receita por vendedora" data={r?.revenueBySalesperson} />
         <Breakdown title="Receita por tipo de serviço" data={r?.revenueByService} />
         <Breakdown title="Taxas por canal de pagamento" data={r?.feesByChannel} />
-        <Breakdown title="Comissões por vendedora" data={r?.commissionsBySalesperson} />
+        {temNexa ? (
+          <section className="card-surface p-5">
+            <h2 className="mb-1 text-lg font-semibold">Comissão Nexa</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Vendas das atendentes da Nexa (recebido dos serviços do mês). A comissão é paga à
+              Nexa.
+            </p>
+            <table className="w-full text-sm">
+              <tbody>
+                {Object.entries(r?.nexa.porVendedora ?? {})
+                  .sort((a, b) => b[1].recebido - a[1].recebido)
+                  .map(([nome, v]) => (
+                    <Line key={nome} label={`${nome} vendeu`} value={v.recebido} />
+                  ))}
+                <Line label="Total vendido pela equipe Nexa" value={r?.nexa.recebido} muted />
+                <Line label={`Comissão Nexa${pctNexa}`} value={r?.nexa.comissao} strong />
+              </tbody>
+            </table>
+          </section>
+        ) : null}
+        {!temNexa || Object.keys(r?.commissionsOthersBySalesperson ?? {}).length > 0 ? (
+          <Breakdown title="Comissões por vendedora" data={r?.commissionsOthersBySalesperson} />
+        ) : null}
         <section className="card-surface p-5">
           <h2 className="mb-3 text-lg font-semibold">Visão de caixa</h2>
           <table className="w-full text-sm">

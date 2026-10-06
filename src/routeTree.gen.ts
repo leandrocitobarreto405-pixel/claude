@@ -51,6 +51,7 @@ import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authe
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
+import { Route as AuthenticatedNexaComissoesRouteImport } from './routes/_authenticated/nexa/comissoes'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
@@ -296,6 +297,12 @@ const AuthenticatedNexaChatwootRoute =
     path: '/nexa/chatwoot',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNexaComissoesRoute =
+  AuthenticatedNexaComissoesRouteImport.update({
+    id: '/nexa/comissoes',
+    path: '/nexa/comissoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNexaEmpresasRoute =
   AuthenticatedNexaEmpresasRouteImport.update({
     id: '/nexa/empresas',
@@ -453,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
+  '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -516,6 +524,7 @@ export interface FileRoutesByTo {
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
+  '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -581,6 +590,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
+  '/_authenticated/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -646,6 +656,7 @@ export interface FileRouteTypes {
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
+    | '/nexa/comissoes'
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
@@ -709,6 +720,7 @@ export interface FileRouteTypes {
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
+    | '/nexa/comissoes'
     | '/nexa/empresas'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
@@ -773,6 +785,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
     | '/_authenticated/nexa/chatwoot'
+    | '/_authenticated/nexa/comissoes'
     | '/_authenticated/nexa/empresas'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
@@ -1115,6 +1128,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNexaChatwootRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/comissoes': {
+      id: '/_authenticated/nexa/comissoes'
+      path: '/nexa/comissoes'
+      fullPath: '/nexa/comissoes'
+      preLoaderRoute: typeof AuthenticatedNexaComissoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nexa/empresas': {
       id: '/_authenticated/nexa/empresas'
       path: '/nexa/empresas'
@@ -1294,6 +1314,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
+  AuthenticatedNexaComissoesRoute: typeof AuthenticatedNexaComissoesRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
@@ -1339,6 +1360,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
+  AuthenticatedNexaComissoesRoute: AuthenticatedNexaComissoesRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,

@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
+import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
 import { monthEnd, monthStart } from "@/lib/format";
 import { cashPaidAmount } from "@/lib/expenses";
 import { fetchReceivables } from "@/lib/receivables";
@@ -23,7 +25,7 @@ export type CompletedVisit = {
     sale_date: string;
     customer_id: string | null;
     commission_percentage_snapshot: number | null;
-    salesperson: { name: string } | null;
+    salesperson: { name: string; atendente_nexa?: boolean; eh_ia?: boolean } | null;
     sales_origin: { name: string } | null;
     customer: { full_name: string; document_number: string | null } | null;
   } | null;
@@ -81,20 +83,34 @@ const COMPLETED_SELECT = `
   technician:technician_id ( name ),
   work_order:work_order_id (
     id, os_number, sale_date, customer_id, commission_percentage_snapshot,
-    salesperson:salesperson_id ( name ),
+    salesperson:salesperson_id ( name, atendente_nexa, eh_ia ),
     sales_origin:sales_origin_id ( name ),
     customer:customer_id ( full_name, document_number )
   )
 `;
 
-export async function fetchCompletedVisits(from: string, to: string) {
-  const { data, error } = await supabase
-    .from("visits")
-    .select(COMPLETED_SELECT)
-    .eq("status", "Concluído")
-    .gte("completion_date", from)
-    .lte("completion_date", to)
-    .order("completion_date");
+/**
+ * Consulta numa empresa específica (tela da Nexa, que soma todas as empresas). Sem empresa,
+ * vale a empresa ativa, como sempre. O banco só aceita empresas a que o usuário tem acesso.
+ */
+function naEmpresa<Q extends { setHeader(name: string, value: string): Q }>(
+  q: Q,
+  empresaId?: string,
+): Q {
+  return empresaId ? q.setHeader(EMPRESA_HEADER, empresaId) : q;
+}
+
+export async function fetchCompletedVisits(from: string, to: string, empresaId?: string) {
+  const { data, error } = await naEmpresa(
+    supabase
+      .from("visits")
+      .select(COMPLETED_SELECT)
+      .eq("status", "Concluído")
+      .gte("completion_date", from)
+      .lte("completion_date", to)
+      .order("completion_date"),
+    empresaId,
+  );
   if (error) throw error;
   return (data ?? []) as unknown as CompletedVisit[];
 }
@@ -144,8 +160,9 @@ export async function fetchPaymentsByServiceMonth(
   from: string,
   to: string,
   completedInput?: CompletedVisit[],
+  empresaId?: string,
 ) {
-  const completed = completedInput ?? (await fetchCompletedVisits(from, to));
+  const completed = completedInput ?? (await fetchCompletedVisits(from, to, empresaId));
 
   const PAY_SELECT = `id, work_order_id, visit_id, payment_date, payment_channel, payment_type, installments,
        gross_amount, applied_rate, payment_fee_amount, net_amount, payment_status, notes,
@@ -157,22 +174,28 @@ export async function fetchPaymentsByServiceMonth(
   ] as string[];
 
   const queries = [
-    supabase
-      .from("payments")
-      .select(PAY_SELECT)
-      .eq("is_active", true)
-      .eq("payment_status", "Pago")
-      .gte("payment_date", from)
-      .lte("payment_date", to),
-  ];
-  if (monthOrderIds.length > 0) {
-    queries.push(
+    naEmpresa(
       supabase
         .from("payments")
         .select(PAY_SELECT)
         .eq("is_active", true)
         .eq("payment_status", "Pago")
-        .in("work_order_id", monthOrderIds),
+        .gte("payment_date", from)
+        .lte("payment_date", to),
+      empresaId,
+    ),
+  ];
+  if (monthOrderIds.length > 0) {
+    queries.push(
+      naEmpresa(
+        supabase
+          .from("payments")
+          .select(PAY_SELECT)
+          .eq("is_active", true)
+          .eq("payment_status", "Pago")
+          .in("work_order_id", monthOrderIds),
+        empresaId,
+      ),
     );
   }
 
@@ -188,11 +211,14 @@ export async function fetchPaymentsByServiceMonth(
 
   // Conclusões dos atendimentos das OSs envolvidas, para definir a competência.
   const orderIds = [...new Set(candidates.map((p) => p.work_order_id).filter(Boolean))] as string[];
-  const { data: visitRows, error: visitErr } = await supabase
-    .from("visits")
-    .select("id, work_order_id, completion_date")
-    .eq("status", "Concluído")
-    .in("work_order_id", orderIds);
+  const { data: visitRows, error: visitErr } = await naEmpresa(
+    supabase
+      .from("visits")
+      .select("id, work_order_id, completion_date")
+      .eq("status", "Concluído")
+      .in("work_order_id", orderIds),
+    empresaId,
+  );
   if (visitErr) throw visitErr;
 
   const visitCompletion = new Map<string, string>();
@@ -232,6 +258,10 @@ export type RevenueAllocation = {
   saleDate: string | null;
   origin: string;
   salesperson: string;
+  /** Vendedora é atendente da Nexa (a comissão dela é paga à Nexa). */
+  salespersonNexa: boolean;
+  /** Vendedora é a IA (Alice). */
+  salespersonIa: boolean;
   service: string;
   serviceValue: number;
   discount: number;
@@ -267,9 +297,10 @@ export async function fetchServiceMonthRevenue(
   from: string,
   to: string,
   completedInput?: CompletedVisit[],
+  empresaId?: string,
 ): Promise<ServiceMonthRevenue> {
-  const completed = completedInput ?? (await fetchCompletedVisits(from, to));
-  const payments = await fetchPaymentsByServiceMonth(from, to, completed);
+  const completed = completedInput ?? (await fetchCompletedVisits(from, to, empresaId));
+  const payments = await fetchPaymentsByServiceMonth(from, to, completed, empresaId);
 
   const orderIds = [
     ...new Set([
@@ -290,11 +321,14 @@ export async function fetchServiceMonthRevenue(
     }[]
   >();
   if (orderIds.length > 0) {
-    const { data, error } = await supabase
-      .from("visits")
-      .select("id, work_order_id, completion_date, visit_value, final_value, discount_amount")
-      .eq("status", "Concluído")
-      .in("work_order_id", orderIds);
+    const { data, error } = await naEmpresa(
+      supabase
+        .from("visits")
+        .select("id, work_order_id, completion_date, visit_value, final_value, discount_amount")
+        .eq("status", "Concluído")
+        .in("work_order_id", orderIds),
+      empresaId,
+    );
     if (error) throw error;
     for (const v of data ?? []) {
       const wo = v.work_order_id as string;
@@ -319,12 +353,15 @@ export async function fetchServiceMonthRevenue(
   // Pagamentos ativos e pagos de qualquer data, para saber o que já foi recebido.
   const paidByOrder = new Map<string, number>();
   if (orderIds.length > 0) {
-    const { data, error } = await supabase
-      .from("payments")
-      .select("work_order_id, gross_amount")
-      .eq("is_active", true)
-      .eq("payment_status", "Pago")
-      .in("work_order_id", orderIds);
+    const { data, error } = await naEmpresa(
+      supabase
+        .from("payments")
+        .select("work_order_id, gross_amount")
+        .eq("is_active", true)
+        .eq("payment_status", "Pago")
+        .in("work_order_id", orderIds),
+      empresaId,
+    );
     if (error) throw error;
     for (const p of data ?? []) {
       const wo = p.work_order_id as string;
@@ -351,6 +388,8 @@ export async function fetchServiceMonthRevenue(
     saleDate: v.work_order?.sale_date ?? null,
     origin: v.work_order?.sales_origin?.name ?? "Indefinida",
     salesperson: v.work_order?.salesperson?.name ?? "Sem vendedora",
+    salespersonNexa: v.work_order?.salesperson?.atendente_nexa === true,
+    salespersonIa: v.work_order?.salesperson?.eh_ia === true,
     service: v.service_type?.name ?? "Sem serviço",
     serviceValue: round2(effectiveVisitValue(v)),
     discount: round2(Math.max(0, Number(v.discount_amount ?? 0))),
@@ -410,6 +449,8 @@ export async function fetchServiceMonthRevenue(
         saleDate: null,
         origin: "Indefinida",
         salesperson: "Sem vendedora",
+        salespersonNexa: false,
+        salespersonIa: false,
         service: "Sem serviço",
         serviceValue: 0,
         discount: 0,
@@ -423,22 +464,31 @@ export async function fetchServiceMonthRevenue(
 
   // Origem/vendedora dos pagamentos sem atendimento concluído no período.
   if (extras.size > 0) {
-    const { data, error } = await supabase
-      .from("work_orders")
-      .select(
-        `id, os_number, sale_date, customer_id,
-         salesperson:salesperson_id ( name ),
-         sales_origin:sales_origin_id ( name )`,
-      )
-      .in("id", [...extras.keys()]);
+    const { data, error } = await naEmpresa(
+      supabase
+        .from("work_orders")
+        .select(
+          `id, os_number, sale_date, customer_id,
+           salesperson:salesperson_id ( name, atendente_nexa, eh_ia ),
+           sales_origin:sales_origin_id ( name )`,
+        )
+        .in("id", [...extras.keys()]),
+      empresaId,
+    );
     if (error) throw error;
     for (const w of data ?? []) {
       const row = extras.get(w.id as string);
       if (!row) continue;
       const origin = (w as { sales_origin?: { name?: string } | null }).sales_origin?.name;
-      const seller = (w as { salesperson?: { name?: string } | null }).salesperson?.name;
+      const seller = (
+        w as {
+          salesperson?: { name?: string; atendente_nexa?: boolean; eh_ia?: boolean } | null;
+        }
+      ).salesperson;
       row.origin = origin ?? "Indefinida";
-      row.salesperson = seller ?? "Sem vendedora";
+      row.salesperson = seller?.name ?? "Sem vendedora";
+      row.salespersonNexa = seller?.atendente_nexa === true;
+      row.salespersonIa = seller?.eh_ia === true;
       row.customerId = (w.customer_id as string | null) ?? null;
       row.saleDate = (w.sale_date as string | null) ?? null;
       row.osNumber = (w.os_number as string) ?? row.osNumber;
@@ -650,6 +700,11 @@ export type MonthSummary = {
   feesByChannel: Record<string, number>;
   commissions: number;
   commissionsBySalesperson: Record<string, number>;
+  /** Parte das comissões que é paga à Nexa (vendedoras atendentes da Nexa). */
+  nexa: ResumoNexaEmpresa;
+  /** Comissões das demais vendedoras (da própria empresa). */
+  commissionsOthers: number;
+  commissionsOthersBySalesperson: Record<string, number>;
   mileage: number;
   cmv: number;
   variableCosts: number;
@@ -750,6 +805,8 @@ export function useMonthSummary(month: string) {
         revenueByService[r.service] = round2((revenueByService[r.service] ?? 0) + value);
       }
 
+      const nexa = resumoNexaDaEmpresa(revenueBase.allocations);
+
       // Custo de deslocamento dos atendimentos realizados no período.
       const mileage = round2(
         completed.reduce((s, v) => s + Number(v.mileage_cost_allocated ?? 0), 0),
@@ -805,6 +862,11 @@ export function useMonthSummary(month: string) {
         feesByChannel,
         commissions,
         commissionsBySalesperson,
+        nexa,
+        commissionsOthers: round2(commissions - nexa.comissao),
+        commissionsOthersBySalesperson: Object.fromEntries(
+          Object.entries(commissionsBySalesperson).filter(([k]) => !(k in nexa.porVendedora)),
+        ),
         mileage,
         cmv,
         variableCosts,

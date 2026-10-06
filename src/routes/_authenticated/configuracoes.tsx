@@ -704,6 +704,19 @@ function Equipe() {
     );
   }
 
+  async function marcarNexa(id: string, atendente_nexa: boolean) {
+    const { error } = await supabase
+      .from("salespeople")
+      .update({ atendente_nexa } as never)
+      .eq("id", id);
+    if (error) {
+      toast.error("Não foi possível salvar.");
+      return;
+    }
+    invalidate("salespeople");
+    toast.success(atendente_nexa ? "Marcada como atendente da Nexa." : "Desmarcada.");
+  }
+
   async function ativarTecnico(id: string, active: boolean) {
     const { error } = await supabase.from("technicians").update({ active }).eq("id", id);
     if (error) {
@@ -749,13 +762,16 @@ function Equipe() {
         <h2 className="mb-1 text-lg font-semibold">Vendedoras e comissões</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           Quem aparece em "Vendedora responsável" na ordem de serviço. Cadastrar alguém como usuário
-          (atendente) não cria a vendedora: cadastre aqui também.
+          (atendente) não cria a vendedora: cadastre aqui também. Para as atendentes da Nexa, use o
+          percentual do contrato com a Nexa (ex.: 5%): é o que a empresa paga à Nexa e aparece no
+          DRE como "Comissão Nexa". Quem paga a atendente é a Nexa.
         </p>
         <div className="space-y-3">
           {(vendedoras ?? []).map((v) => (
             <div key={v.id} className="flex flex-wrap items-center gap-2">
               <p className={v.active ? "min-w-0 flex-1" : "min-w-0 flex-1 text-muted-foreground"}>
                 {v.name}
+                {v.atendente_nexa ? " · Nexa" : ""}
                 {v.active ? "" : " (inativa)"}
               </p>
               <Input
@@ -769,6 +785,17 @@ function Equipe() {
               <Button variant="outline" onClick={() => ativarVendedora(v.id, !v.active)}>
                 {v.active ? "Desativar" : "Ativar"}
               </Button>
+              {ctx?.souNexa ? (
+                <label className="flex min-h-11 w-full items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={v.atendente_nexa === true}
+                    onChange={(e) => marcarNexa(v.id, e.target.checked)}
+                  />
+                  Atendente da Nexa (a comissão vai para a Nexa)
+                </label>
+              ) : null}
             </div>
           ))}
           {vendedoras && !vendedoras.length ? (
