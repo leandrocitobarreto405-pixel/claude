@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useContextoTenant } from "@/lib/tenant";
 import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
 import { toast } from "sonner";
@@ -157,6 +158,8 @@ function NovaOS() {
   const { data: servicos } = useConfigOptions("service_type");
   const { data: estofados } = useConfigOptions("upholstery_type");
   const { data: vendedoras } = useSalespeople();
+  const { data: tenant } = useContextoTenant();
+  const ehAdmin = tenant?.souNexa || tenant?.ativa?.papel === "admin";
   const { data: tecnicos } = useTechnicians();
 
   const [osNumber, setOsNumber] = useState("");
@@ -1006,6 +1009,22 @@ function NovaOS() {
                   </option>
                 ))}
               </NativeSelect>
+              {vendedoras && !vendedoras.length ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma vendedora cadastrada nesta empresa.{" "}
+                  {ehAdmin ? (
+                    <Link
+                      to="/configuracoes"
+                      search={{ aba: "equipe" } as never}
+                      className="font-semibold text-marca underline underline-offset-2"
+                    >
+                      Cadastrar em Configurações → Equipe
+                    </Link>
+                  ) : (
+                    "Peça ao administrador para cadastrar em Configurações → Equipe."
+                  )}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

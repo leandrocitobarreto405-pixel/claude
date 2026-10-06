@@ -30,6 +30,7 @@ import {
 } from "@/lib/calendar.functions";
 import { brl, currentMonth, monthLabelPT, parseNumberBR } from "@/lib/format";
 import { useControleInsumos } from "@/lib/produtos";
+import { useContextoTenant } from "@/lib/tenant";
 import { ControleInsumosCard, ProdutosConfig } from "@/components/produtos-config";
 import { custoFixoPorServico } from "@/lib/quotes.functions";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
@@ -675,6 +676,8 @@ function Taxas() {
 function Equipe() {
   const { data: vendedoras } = useSalespeople(false);
   const { data: tecnicos } = useTechnicians(false);
+  const { data: ctx } = useContextoTenant();
+  const invalidate = useInvalidate();
 
   async function salvarComissao(id: string, valor: string) {
     const pct = parseNumberBR(valor);
@@ -687,6 +690,28 @@ function Equipe() {
       return;
     }
     toast.success("Comissão atualizada. Vale para novas OS.");
+  }
+
+  async function ativarVendedora(id: string, active: boolean) {
+    const { error } = await supabase.from("salespeople").update({ active }).eq("id", id);
+    if (error) {
+      toast.error("Não foi possível salvar.");
+      return;
+    }
+    invalidate("salespeople");
+    toast.success(
+      active ? "Vendedora ativada." : "Vendedora desativada. As OS antigas continuam com ela.",
+    );
+  }
+
+  async function ativarTecnico(id: string, active: boolean) {
+    const { error } = await supabase.from("technicians").update({ active }).eq("id", id);
+    if (error) {
+      toast.error("Não foi possível salvar.");
+      return;
+    }
+    invalidate("technicians");
+    toast.success(active ? "Técnico ativado." : "Técnico desativado.");
   }
 
   async function salvarBase(id: string, valor: string) {
@@ -721,20 +746,40 @@ function Equipe() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="card-surface p-5">
-        <h2 className="mb-4 text-lg font-semibold">Vendedoras e comissões</h2>
+        <h2 className="mb-1 text-lg font-semibold">Vendedoras e comissões</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Quem aparece em "Vendedora responsável" na ordem de serviço. Cadastrar alguém como usuário
+          (atendente) não cria a vendedora: cadastre aqui também.
+        </p>
         <div className="space-y-3">
           {(vendedoras ?? []).map((v) => (
-            <div key={v.id} className="flex items-center gap-3">
-              <p className="flex-1">{v.name}</p>
+            <div key={v.id} className="flex flex-wrap items-center gap-2">
+              <p className={v.active ? "min-w-0 flex-1" : "min-w-0 flex-1 text-muted-foreground"}>
+                {v.name}
+                {v.active ? "" : " (inativa)"}
+              </p>
               <Input
+                aria-label={`Comissão de ${v.name} (%)`}
+                inputMode="decimal"
                 defaultValue={String(v.commission_percentage).replace(".", ",")}
                 onBlur={(e) => salvarComissao(v.id, e.target.value)}
-                className="w-[120px]"
+                className="w-[88px]"
               />
               <span className="text-sm text-muted-foreground">%</span>
+              <Button variant="outline" onClick={() => ativarVendedora(v.id, !v.active)}>
+                {v.active ? "Desativar" : "Ativar"}
+              </Button>
             </div>
           ))}
+          {vendedoras && !vendedoras.length ? (
+            <p className="text-sm text-muted-foreground">Nenhuma vendedora cadastrada ainda.</p>
+          ) : null}
         </div>
+        <NovaVendedora
+          ordem={(vendedoras ?? []).length + 1}
+          souNexa={ctx?.souNexa ?? false}
+          aoSalvar={() => invalidate("salespeople")}
+        />
       </section>
 
       <section className="card-surface p-5">
@@ -742,7 +787,19 @@ function Equipe() {
         <div className="space-y-5">
           {(tecnicos ?? []).map((t) => (
             <div key={t.id} className="space-y-3 rounded-lg border border-border p-3">
-              <p className="font-medium">{t.name}</p>
+              <div className="flex items-center gap-2">
+                <p
+                  className={
+                    t.active ? "flex-1 font-medium" : "flex-1 font-medium text-muted-foreground"
+                  }
+                >
+                  {t.name}
+                  {t.active ? "" : " (inativo)"}
+                </p>
+                <Button variant="outline" onClick={() => ativarTecnico(t.id, !t.active)}>
+                  {t.active ? "Desativar" : "Ativar"}
+                </Button>
+              </div>
               <div className="space-y-2">
                 <Label>Endereço base</Label>
                 <Input
@@ -761,8 +818,168 @@ function Equipe() {
               </div>
             </div>
           ))}
+          {tecnicos && !tecnicos.length ? (
+            <p className="text-sm text-muted-foreground">Nenhum técnico cadastrado ainda.</p>
+          ) : null}
         </div>
+        <NovoTecnico
+          ordem={(tecnicos ?? []).length + 1}
+          aoSalvar={() => invalidate("technicians")}
+        />
       </section>
+    </div>
+  );
+}
+
+function NovaVendedora({
+  ordem,
+  souNexa,
+  aoSalvar,
+}: {
+  ordem: number;
+  souNexa: boolean;
+  aoSalvar: () => void;
+}) {
+  const [nome, setNome] = useState("");
+  const [pct, setPct] = useState("3");
+  const [nexa, setNexa] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    const name = nome.trim();
+    if (name.length < 2) {
+      toast.error("Informe o nome da vendedora.");
+      return;
+    }
+    const comissao = parseNumberBR(pct);
+    if (!Number.isFinite(comissao) || comissao < 0 || comissao > 100) {
+      toast.error("A comissão vai de 0% a 100%.");
+      return;
+    }
+    setSalvando(true);
+    const { error } = await supabase.from("salespeople").insert({
+      name,
+      commission_percentage: comissao,
+      display_order: ordem,
+      // Só a Nexa marca quem é atendente dela (base da comissão da Nexa).
+      ...(souNexa ? { atendente_nexa: nexa } : {}),
+    } as never);
+    setSalvando(false);
+    if (error) {
+      toast.error("Não foi possível cadastrar a vendedora.");
+      return;
+    }
+    toast.success(`${name} cadastrada. Já aparece na ordem de serviço.`);
+    setNome("");
+    aoSalvar();
+  }
+
+  return (
+    <div className="mt-5 grid gap-3 rounded-lg border border-dashed border-border p-3">
+      <p className="font-medium">Adicionar vendedora</p>
+      <div className="grid grid-cols-[1fr_96px] gap-2">
+        <div className="space-y-1">
+          <Label htmlFor="nova-vendedora">Nome</Label>
+          <Input
+            id="nova-vendedora"
+            value={nome}
+            maxLength={60}
+            placeholder="Ex.: Carol"
+            onChange={(e) => setNome(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="nova-vendedora-pct">Comissão %</Label>
+          <Input
+            id="nova-vendedora-pct"
+            inputMode="decimal"
+            value={pct}
+            onChange={(e) => setPct(e.target.value)}
+          />
+        </div>
+      </div>
+      {souNexa ? (
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="size-5"
+            checked={nexa}
+            onChange={(e) => setNexa(e.target.checked)}
+          />
+          Atendente da Nexa (entra na base da comissão da Nexa)
+        </label>
+      ) : null}
+      <Button disabled={salvando} onClick={salvar}>
+        Adicionar vendedora
+      </Button>
+    </div>
+  );
+}
+
+function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void }) {
+  const [nome, setNome] = useState("");
+  const [base, setBase] = useState("");
+  const [email, setEmail] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    const name = nome.trim();
+    if (name.length < 2) {
+      toast.error("Informe o nome do técnico.");
+      return;
+    }
+    const mail = email.trim();
+    if (mail && !mail.includes("@")) {
+      toast.error("Informe um e-mail válido.");
+      return;
+    }
+    setSalvando(true);
+    const { error } = await supabase.from("technicians").insert({
+      name,
+      base_address: base.trim() || null,
+      email: mail || null,
+      display_order: ordem,
+    } as never);
+    setSalvando(false);
+    if (error) {
+      toast.error("Não foi possível cadastrar o técnico.");
+      return;
+    }
+    toast.success(`${name} cadastrado.`);
+    setNome("");
+    setBase("");
+    setEmail("");
+    aoSalvar();
+  }
+
+  return (
+    <div className="mt-5 grid gap-3 rounded-lg border border-dashed border-border p-3">
+      <p className="font-medium">Adicionar técnico</p>
+      <div className="space-y-1">
+        <Label htmlFor="novo-tecnico">Nome</Label>
+        <Input
+          id="novo-tecnico"
+          value={nome}
+          maxLength={60}
+          onChange={(e) => setNome(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="novo-tecnico-base">Endereço base (de onde sai)</Label>
+        <Input id="novo-tecnico-base" value={base} onChange={(e) => setBase(e.target.value)} />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="novo-tecnico-email">E-mail (opcional)</Label>
+        <Input
+          id="novo-tecnico-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      <Button disabled={salvando} onClick={salvar}>
+        Adicionar técnico
+      </Button>
     </div>
   );
 }
