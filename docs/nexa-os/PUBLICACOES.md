@@ -79,8 +79,13 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   (vazio = dias e horário da configuração; preenchido 08:00–20:00 = qualquer dia, inclusive hoje).
   Aprovação até 10 minutos antes do primeiro disparo; envio no horário escolhido, até as 21h.
   `20261026120001_preparar_horario.sql` (preparo com hoje/qualquer dia, etiqueta por campanha,
-  listas quentes primeiro e limite de pessoas por lista) vai pelo SQL Editor; até lá o preparo
-  continua o anterior e campanha com horário próprio não prepara para hoje.
+  listas quentes primeiro e limite de pessoas por lista) foi rodada no SQL Editor em 06/10 e
+  conferida (igual à testada); versões `20261025120001` e `20261026120001` registradas.
+
+Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
+tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
+com `jsonb_to_recordset` no lugar. Se não der para evitar, avisar no topo do arquivo para rodar
+sem aceitar a sugestão de RLS.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
