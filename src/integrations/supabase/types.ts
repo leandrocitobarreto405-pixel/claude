@@ -2728,8 +2728,36 @@ export type Database = {
           },
         ];
       };
+      mkt_campanha_retirados: {
+        Row: {
+          campanha_id: string;
+          contato_id: string;
+          empresa_id: string;
+          id: string;
+          retirado_em: string;
+          retirado_por: string | null;
+        };
+        Insert: {
+          campanha_id: string;
+          contato_id: string;
+          empresa_id: string;
+          id?: string;
+          retirado_em?: string;
+          retirado_por?: string | null;
+        };
+        Update: {
+          campanha_id?: string;
+          contato_id?: string;
+          empresa_id?: string;
+          id?: string;
+          retirado_em?: string;
+          retirado_por?: string | null;
+        };
+        Relationships: [];
+      };
       mkt_campanhas: {
         Row: {
+          repete_de: string | null;
           aprovada_em: string | null;
           aprovada_por: string | null;
           condicao_pct: number | null;
@@ -2762,6 +2790,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          repete_de?: string | null;
           aprovada_em?: string | null;
           aprovada_por?: string | null;
           condicao_pct?: number | null;
@@ -2794,6 +2823,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          repete_de?: string | null;
           aprovada_em?: string | null;
           aprovada_por?: string | null;
           condicao_pct?: number | null;
@@ -2945,6 +2975,8 @@ export type Database = {
       };
       mkt_contatos: {
         Row: {
+          chamado_manual_em: string | null;
+          chamado_manual_por: string | null;
           orcamento_em: string | null;
           perdido_preco_em: string | null;
           latitude: number | null;
@@ -2978,6 +3010,8 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          chamado_manual_em?: string | null;
+          chamado_manual_por?: string | null;
           orcamento_em?: string | null;
           perdido_preco_em?: string | null;
           latitude?: number | null;
@@ -3011,6 +3045,8 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          chamado_manual_em?: string | null;
+          chamado_manual_por?: string | null;
           orcamento_em?: string | null;
           perdido_preco_em?: string | null;
           latitude?: number | null;

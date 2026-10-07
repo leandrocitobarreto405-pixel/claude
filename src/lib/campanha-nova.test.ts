@@ -230,6 +230,7 @@ test("dia e horário próprios: qualquer dia e hoje se ainda der tempo", () => {
 
 test("mandar para quem ficou de fora: mesmas listas, faixas, modelos e condição", () => {
   const r = repetirCampanha({
+    id: "c0000000-0000-0000-0000-000000000001",
     nome: "Outubro",
     listas: [
       { grupo: "C5", familia: "clientes", de: 365 },
@@ -250,4 +251,5 @@ test("mandar para quem ficou de fora: mesmas listas, faixas, modelos e condiçã
   ]);
   assert.equal(r.condicaoPct, 10);
   assert.equal(r.quemResponde, "equipe");
+  assert.equal(r.repeteDe, "c0000000-0000-0000-0000-000000000001", "liga à original (retirados)");
 });

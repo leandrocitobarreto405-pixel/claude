@@ -279,6 +279,7 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
     datas: (Array.isArray(input.datas) ? input.datas : []).slice(0, 30).map(String),
     horaInicio: input.horaInicio ? String(input.horaInicio).slice(0, 5) : null,
     quemResponde: (input.quemResponde === "equipe" ? "equipe" : "alice") as QuemResponde,
+    repeteDe: input.repeteDe && ID.test(String(input.repeteDe)) ? String(input.repeteDe) : null,
   }))
   .handler(async ({ data, context }) => {
     const db = await servico();
@@ -295,6 +296,15 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
     });
     if (!r.ok) throw new Error(r.problemas.join(" "));
     const c = r.campanha;
+    // Origem do "Mandar para quem ficou de fora": só campanha da mesma empresa.
+    const { data: origem } = data.repeteDe
+      ? await db
+          .from("mkt_campanhas")
+          .select("id")
+          .eq("id", data.repeteDe)
+          .eq("empresa_id", context.empresaId)
+          .maybeSingle()
+      : { data: null };
     const { data: nova, error } = await db
       .from("mkt_campanhas")
       .insert({
@@ -314,6 +324,7 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
         hora_inicio: c.horaInicio,
         criada_por: context.userId,
         status: "rascunho",
+        repete_de: origem?.id ?? null,
       })
       .select("id")
       .single();
@@ -807,5 +818,199 @@ export const resumoIndicacoesFn = createServerFn({ method: "GET" })
         criadaEm: i.criada_em,
         virouServico: Boolean(i.indicado_work_order_id),
       })),
+    };
+  });
+
+// ---------------------------------------------------------------- pessoas presas, tirar, chamado à mão
+export type Presas = {
+  total: number;
+  por_grupo: Record<string, number>;
+  campanhas: Array<{ id: string; nome: string; status: string; pessoas: number }>;
+};
+
+/** Quem das listas está fora só porque está em outra campanha ainda não enviada. */
+export const presasCampanhaFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
+  .handler(async ({ data, context }): Promise<Presas> => {
+    if (!ID.test(data.campanhaId)) throw new Error("Campanha inválida.");
+    const { data: r, error } = await context.supabase.rpc(
+      "mkt_campanha_presas" as never,
+      { _campanha: data.campanhaId } as never,
+    );
+    if (error) throw new Error(`Não foi possível conferir: ${error.message}`);
+    const v = (r ?? {}) as Partial<Presas>;
+    return {
+      total: Number(v.total ?? 0),
+      por_grupo: v.por_grupo ?? {},
+      campanhas: v.campanhas ?? [],
+    };
+  });
+
+export type PessoaDaCampanha = {
+  contatoId: string;
+  nome: string | null;
+  telefone: string;
+  grupo: string | null;
+  chamadoManualEm: string | null;
+};
+
+/**
+ * Quem vai receber a campanha (com busca por nome ou telefone, 50 por vez) e quem foi tirado
+ * (à mão ou por "já chamei manualmente").
+ */
+export const pessoasDaCampanhaFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { campanhaId: string; busca?: string; pagina?: number }) => ({
+    campanhaId: String(input.campanhaId),
+    busca: String(input.busca ?? "")
+      .trim()
+      .slice(0, 60),
+    pagina: Math.max(0, Math.min(200, Math.trunc(Number(input.pagina ?? 0)) || 0)),
+  }))
+  .handler(async ({ data, context }) => {
+    const { db } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
+    const { MOTIVO_MANUAL, MOTIVO_TIRADO } = await import("@/lib/mkt/campanhas.server");
+    const POR_PAGINA = 50;
+    const campos =
+      "contato_id, grupo, normalized_phone, erro, mkt_contatos!inner(nome, chamado_manual_em)";
+    let q = db
+      .from("mkt_envios")
+      .select(campos, { count: "exact" })
+      .eq("campanha_id", data.campanhaId)
+      .in("status", ["pendente", "manual"]);
+    const digitos = data.busca.replace(/\D/g, "");
+    if (digitos.length >= 4) q = q.ilike("normalized_phone", `%${digitos}%`);
+    else if (data.busca)
+      q = q.ilike("mkt_contatos.nome", `%${data.busca.replace(/[%_,()]/g, " ")}%`);
+    const [{ data: lista, count, error }, { data: fora }] = await Promise.all([
+      q.order("ordem").range(data.pagina * POR_PAGINA, data.pagina * POR_PAGINA + POR_PAGINA - 1),
+      db
+        .from("mkt_envios")
+        .select(campos)
+        .eq("campanha_id", data.campanhaId)
+        .eq("status", "cancelado")
+        .in("erro", [MOTIVO_TIRADO, MOTIVO_MANUAL])
+        .order("ordem")
+        .limit(300),
+    ]);
+    if (error) throw new Error(`Não foi possível listar: ${error.message}`);
+    type Linha = {
+      contato_id: string;
+      grupo: string | null;
+      normalized_phone: string;
+      erro: string | null;
+      mkt_contatos: { nome: string | null; chamado_manual_em: string | null } | null;
+    };
+    const pessoa = (l: Linha): PessoaDaCampanha => ({
+      contatoId: l.contato_id,
+      nome: l.mkt_contatos?.nome ?? null,
+      telefone: l.normalized_phone,
+      grupo: l.grupo,
+      chamadoManualEm: l.mkt_contatos?.chamado_manual_em ?? null,
+    });
+    const tirados = ((fora ?? []) as unknown as Linha[]).map((l) => ({
+      ...pessoa(l),
+      motivo: (l.erro === MOTIVO_MANUAL ? "manual" : "tirado") as "manual" | "tirado",
+    }));
+    return {
+      total: count ?? 0,
+      porPagina: POR_PAGINA,
+      pessoas: ((lista ?? []) as unknown as Linha[]).map(pessoa),
+      tirados,
+    };
+  });
+
+/** Tira (ou devolve) uma pessoa da campanha antes de aprovar (só admin). */
+export const tirarDaCampanhaFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((input: { campanhaId: string; contatoId: string; devolver?: boolean }) => ({
+    campanhaId: String(input.campanhaId),
+    contatoId: String(input.contatoId),
+    devolver: Boolean(input.devolver),
+  }))
+  .handler(async ({ data, context }) => {
+    if (!ID.test(data.contatoId)) throw new Error("Contato inválido.");
+    const { db, campanha } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
+    const { ANTES_DE_APROVAR, tirarOuDevolver } = await import("@/lib/mkt/campanhas.server");
+    if (!ANTES_DE_APROVAR.includes(campanha.status))
+      throw new Error("Só dá para tirar ou devolver pessoas antes de aprovar a campanha.");
+    const { data: contato } = await db
+      .from("mkt_contatos")
+      .select("id")
+      .eq("id", data.contatoId)
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    if (!contato) throw new Error("Contato não encontrado.");
+    await tirarOuDevolver(db, { ...data, empresaId: context.empresaId, userId: context.userId });
+    return { ok: true };
+  });
+
+/** Busca na base de contatos (nome ou telefone), para marcar "já chamei manualmente". */
+export const buscarContatosMktFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { busca: string }) => ({
+    busca: String(input.busca ?? "")
+      .trim()
+      .slice(0, 60),
+  }))
+  .handler(async ({ data, context }) => {
+    if (data.busca.length < 2) return [];
+    const digitos = data.busca.replace(/\D/g, "");
+    let q = context.supabase
+      .from("mkt_contatos")
+      .select("id, nome, normalized_phone, tipo, chamado_manual_em")
+      .eq("empresa_id", context.empresaId);
+    q =
+      digitos.length >= 4
+        ? q.ilike("normalized_phone", `%${digitos}%`)
+        : q.ilike("nome", `%${data.busca.replace(/[%_,()]/g, " ")}%`);
+    const { data: r, error } = await q.order("nome").limit(20);
+    if (error) throw new Error(`Não foi possível buscar: ${error.message}`);
+    return (r ?? []).map((c) => ({
+      id: c.id as string,
+      nome: (c.nome as string | null) ?? null,
+      telefone: c.normalized_phone as string,
+      tipo: c.tipo as string,
+      chamadoManualEm: (c.chamado_manual_em as string | null) ?? null,
+    }));
+  });
+
+export type ItemChamadoManual = { telefone?: string; contato_id?: string; data?: string };
+
+/**
+ * "Já chamei manualmente" (só admin): um contato, vários ou uma planilha de telefones. Com
+ * simular, só conta quantos foram achados. Marcado, sai das campanhas ainda não aprovadas.
+ */
+export const marcarChamadoManualFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((input: { itens: ItemChamadoManual[]; simular?: boolean }) => {
+    const itens = (Array.isArray(input.itens) ? input.itens : []).slice(0, 5000).map((i) => ({
+      ...(i?.telefone ? { telefone: String(i.telefone).slice(0, 30) } : {}),
+      ...(i?.contato_id && ID.test(String(i.contato_id))
+        ? { contato_id: String(i.contato_id) }
+        : {}),
+      ...(i?.data && /^\d{4}-\d{2}-\d{2}$/.test(String(i.data)) ? { data: String(i.data) } : {}),
+    }));
+    if (!itens.length) throw new Error("Nenhum contato informado.");
+    return { itens, simular: Boolean(input.simular) };
+  })
+  .handler(async ({ data, context }) => {
+    const { data: r, error } = await context.supabase.rpc(
+      "mkt_marcar_chamado_manual" as never,
+      { _itens: data.itens, _simular: data.simular } as never,
+    );
+    if (error) throw new Error(`Não foi possível marcar: ${error.message}`);
+    const v = (r ?? {}) as { marcados?: number; nao_encontrados?: string[] };
+    let tiradosDeCampanhas = 0;
+    if (!data.simular && v.marcados) {
+      const { tirarChamadosManualmente } = await import("@/lib/mkt/campanhas.server");
+      tiradosDeCampanhas = await tirarChamadosManualmente(await servico(), context.empresaId);
+    }
+    return {
+      marcados: Number(v.marcados ?? 0),
+      naoEncontrados: (v.nao_encontrados ?? []).slice(0, 200),
+      totalNaoEncontrados: (v.nao_encontrados ?? []).length,
+      tiradosDeCampanhas,
     };
   });

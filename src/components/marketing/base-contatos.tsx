@@ -21,22 +21,10 @@ import { fetchDireto } from "@/lib/enderecos";
 import { simOuNao } from "@/lib/marketing-tela";
 import { CAMPOS, mapearColunas } from "@/lib/importacao-base";
 import { ModelosDePlanilha } from "./modelos-planilha";
+import { ChamadosManuais } from "./chamado-manual";
+import { dataPlanilha } from "@/lib/planilha-data";
 
 type Row = Record<string, unknown>;
-
-function dataPlanilha(v: unknown): string | null {
-  if (typeof v === "number") {
-    const p = XLSX.SSF.parse_date_code(v);
-    return p ? `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}` : null;
-  }
-  const t = String(v ?? "").trim();
-  const br = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (br) {
-    const ano = br[3]!.length === 2 ? `20${br[3]}` : br[3]!;
-    return `${ano}-${br[2]!.padStart(2, "0")}-${br[1]!.padStart(2, "0")}`;
-  }
-  return t.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
-}
 
 export function BaseContatos({ dados }: { dados: Situacao }) {
   const qc = useQueryClient();
@@ -155,6 +143,8 @@ export function BaseContatos({ dados }: { dados: Situacao }) {
           ofertas.
         </p>
       </SectionCard>
+
+      <ChamadosManuais admin={dados.admin} />
 
       {dados.admin && (
         <SectionCard

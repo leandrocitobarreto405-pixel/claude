@@ -174,6 +174,8 @@ export type EntradaNovaCampanha = {
   /** "14:30": dia e horário próprios (qualquer dia, inclusive hoje). Vazio = configuração. */
   horaInicio?: string | null | undefined;
   quemResponde: QuemResponde;
+  /** "Mandar para quem ficou de fora": quem foi tirado à mão da original também fica fora. */
+  repeteDe?: string | null | undefined;
 };
 
 export type NovaCampanha = {
@@ -386,13 +388,17 @@ export type InicialNovaCampanha = {
   condicaoTexto: string | null;
   condicaoPct: number | null;
   quemResponde: QuemResponde;
+  /** Campanha de origem (quem foi tirado dela à mão fica fora desta também). */
+  repeteDe?: string;
 };
 
 /**
  * Mesma campanha de novo, para quem ficou de fora: mesmas listas (e faixas), modelos, condição
- * e quem responde. Quem já recebeu fica de fora sozinho pelo limite de marketing (30 dias).
+ * e quem responde. Quem já recebeu fica de fora sozinho pelo limite de marketing (30 dias); quem
+ * foi tirado à mão da original também fica fora (repeteDe).
  */
 export function repetirCampanha(c: {
+  id: string;
   nome: string;
   listas: unknown;
   grupos: string[] | null;
@@ -416,5 +422,6 @@ export function repetirCampanha(c: {
     condicaoTexto: c.condicao_texto,
     condicaoPct: c.condicao_pct === null ? null : Number(c.condicao_pct),
     quemResponde: c.quem_responde === "equipe" ? "equipe" : "alice",
+    repeteDe: c.id,
   };
 }

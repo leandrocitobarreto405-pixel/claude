@@ -171,6 +171,7 @@ export function NovaCampanha({
     datas,
     horaInicio: proprio ? hora : null,
     quemResponde: quem,
+    repeteDe: inicial?.repeteDe ?? null,
   };
   const agora = new Date().toLocaleTimeString("pt-BR", {
     timeZone: "America/Sao_Paulo",

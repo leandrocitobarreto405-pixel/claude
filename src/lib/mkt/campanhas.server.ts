@@ -211,6 +211,15 @@ export async function prepararCampanha(
     await registrarFalhaNoCartao(db, campanhaId, "preparar", e);
     throw e;
   }
+  // Quem foi tirado à mão (desta ou da original) continua fora depois de preparar de novo.
+  if (await aplicarRetirados(db, campanhaId)) {
+    const { data: atual } = await db
+      .from("mkt_campanhas")
+      .select("estimativa")
+      .eq("id", campanhaId)
+      .maybeSingle();
+    estimativa = (atual?.estimativa ?? estimativa) as Estimativa;
+  }
   const conf = await conferirCampanha(db, campanhaId, opcoes.modelos, undefined, {
     sincronizar: true,
   });
@@ -275,4 +284,192 @@ export function formatarData(iso: string | undefined | null) {
   if (!iso) return "-";
   const [a, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${a}`;
+}
+
+// ---------------------------------------------------------------- tirar pessoas antes de aprovar
+export const MOTIVO_TIRADO = "tirado da campanha antes de aprovar";
+export const MOTIVO_MANUAL = "já chamado manualmente";
+/** Situações em que ainda dá para tirar ou devolver pessoas (antes de aprovar). */
+export const ANTES_DE_APROVAR = ["rascunho", "aguardando_aprovacao", "bloqueada"];
+
+function pedacos<T>(lista: T[], tamanho = 200): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < lista.length; i += tamanho) out.push(lista.slice(i, i + tamanho));
+  return out;
+}
+
+/** A campanha e as de origem ("Mandar para quem ficou de fora" do "Mandar..."), até 5 níveis. */
+async function cadeiaDeOrigem(db: Db, campanhaId: string): Promise<string[]> {
+  const ids = [campanhaId];
+  let atual = campanhaId;
+  for (let i = 0; i < 5; i++) {
+    const { data } = await db
+      .from("mkt_campanhas")
+      .select("repete_de")
+      .eq("id", atual)
+      .maybeSingle();
+    const origem = data?.repete_de as string | null | undefined;
+    if (!origem || ids.includes(origem)) break;
+    ids.push(origem);
+    atual = origem;
+  }
+  return ids;
+}
+
+/**
+ * Depois de preparar: quem foi tirado à mão desta campanha (ou da original, no "Mandar para quem
+ * ficou de fora") não entra. Devolve quantos ficaram de fora.
+ */
+export async function aplicarRetirados(db: Db, campanhaId: string): Promise<number> {
+  const ids = await cadeiaDeOrigem(db, campanhaId);
+  const { data: ret } = await db
+    .from("mkt_campanha_retirados")
+    .select("contato_id")
+    .in("campanha_id", ids);
+  const contatos = [...new Set((ret ?? []).map((r) => r.contato_id as string))];
+  if (!contatos.length) return 0;
+  let n = 0;
+  for (const parte of pedacos(contatos)) {
+    const { data } = await db
+      .from("mkt_envios")
+      .update({ status: "cancelado", erro: MOTIVO_TIRADO })
+      .eq("campanha_id", campanhaId)
+      .in("contato_id", parte)
+      .in("status", ["pendente", "manual"])
+      .select("id");
+    n += data?.length ?? 0;
+  }
+  if (n) await recontarCampanha(db, campanhaId);
+  return n;
+}
+
+/** Quantidade dos lotes e estimativa (pessoas e custo) sem quem foi tirado. */
+export async function recontarCampanha(db: Db, campanhaId: string) {
+  const [{ data: lotes }, { data: k }] = await Promise.all([
+    db.from("mkt_lotes").select("id").eq("campanha_id", campanhaId),
+    db
+      .from("mkt_campanhas")
+      .select("estimativa, custo_msg_estimado")
+      .eq("id", campanhaId)
+      .maybeSingle(),
+  ]);
+  let total = 0;
+  for (const l of lotes ?? []) {
+    const { count } = await db
+      .from("mkt_envios")
+      .select("id", { count: "exact", head: true })
+      .eq("lote_id", l.id)
+      .neq("status", "cancelado");
+    total += count ?? 0;
+    await db
+      .from("mkt_lotes")
+      .update({ quantidade: count ?? 0 })
+      .eq("id", l.id);
+  }
+  const contar = async (motivo: string) =>
+    (
+      await db
+        .from("mkt_envios")
+        .select("id", { count: "exact", head: true })
+        .eq("campanha_id", campanhaId)
+        .eq("status", "cancelado")
+        .eq("erro", motivo)
+    ).count ?? 0;
+  const [tirados, manuais] = await Promise.all([contar(MOTIVO_TIRADO), contar(MOTIVO_MANUAL)]);
+  const est = (k?.estimativa ?? {}) as Record<string, unknown>;
+  await db
+    .from("mkt_campanhas")
+    .update({
+      estimativa: {
+        ...est,
+        total,
+        custo: Math.round(total * Number(k?.custo_msg_estimado ?? 0) * 100) / 100,
+        tirados,
+        chamados_manualmente: manuais,
+      } as never,
+    })
+    .eq("id", campanhaId);
+}
+
+/** Tira (ou devolve) uma pessoa da campanha antes de aprovar. */
+export async function tirarOuDevolver(
+  db: Db,
+  o: {
+    empresaId: string;
+    campanhaId: string;
+    contatoId: string;
+    userId: string;
+    devolver: boolean;
+  },
+) {
+  if (o.devolver) {
+    await db
+      .from("mkt_campanha_retirados")
+      .delete()
+      .eq("campanha_id", o.campanhaId)
+      .eq("contato_id", o.contatoId)
+      .eq("empresa_id", o.empresaId);
+    await db
+      .from("mkt_envios")
+      .update({ status: "pendente", erro: null })
+      .eq("campanha_id", o.campanhaId)
+      .eq("contato_id", o.contatoId)
+      .eq("status", "cancelado")
+      .eq("erro", MOTIVO_TIRADO);
+  } else {
+    const { error } = await db.from("mkt_campanha_retirados").upsert(
+      {
+        empresa_id: o.empresaId,
+        campanha_id: o.campanhaId,
+        contato_id: o.contatoId,
+        retirado_por: o.userId,
+      },
+      { onConflict: "campanha_id,contato_id" },
+    );
+    if (error) throw new Error(`Não foi possível tirar: ${error.message}`);
+    await db
+      .from("mkt_envios")
+      .update({ status: "cancelado", erro: MOTIVO_TIRADO })
+      .eq("campanha_id", o.campanhaId)
+      .eq("contato_id", o.contatoId)
+      .in("status", ["pendente", "manual"]);
+  }
+  await recontarCampanha(db, o.campanhaId);
+}
+
+/**
+ * Quem foi marcado "já chamei manualmente" há menos do limite sai das campanhas ainda não
+ * aprovadas (conta como marketing naquele dia). Devolve quantas mensagens deixaram de sair.
+ */
+export async function tirarChamadosManualmente(db: Db, empresaId: string): Promise<number> {
+  const { limite_marketing_dias } = await configMkt(db, empresaId);
+  const corte = new Date(Date.now() - Number(limite_marketing_dias ?? 30) * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const { data: campanhas } = await db
+    .from("mkt_campanhas")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .in("status", ANTES_DE_APROVAR);
+  let n = 0;
+  for (const k of campanhas ?? []) {
+    const { data: envios } = await db
+      .from("mkt_envios")
+      .select("id, mkt_contatos!inner(chamado_manual_em)")
+      .eq("campanha_id", k.id)
+      .in("status", ["pendente", "manual"])
+      .gte("mkt_contatos.chamado_manual_em", corte)
+      .limit(5000);
+    const ids = (envios ?? []).map((e) => e.id as string);
+    if (!ids.length) continue;
+    for (const parte of pedacos(ids)) {
+      await db
+        .from("mkt_envios")
+        .update({ status: "cancelado", erro: MOTIVO_MANUAL })
+        .in("id", parte);
+    }
+    n += ids.length;
+    await recontarCampanha(db, k.id);
+  }
+  return n;
 }

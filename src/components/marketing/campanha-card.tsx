@@ -30,6 +30,9 @@ import {
   editarCampanhaFn,
   ligarDisparoFn,
   pausarFn,
+  pessoasDaCampanhaFn,
+  presasCampanhaFn,
+  tirarDaCampanhaFn,
   prepararCampanhaFn,
   quemRespondeFn,
   recusarCampanhaFn,
@@ -39,6 +42,8 @@ import { brl, dateBR, monthLabelPT, weekdayPT } from "@/lib/format";
 import { nomeDoGrupo, nomeDoSegmento, segmentosDaCampanha, type Segmento } from "@/lib/listas";
 import { fetchDireto } from "@/lib/enderecos";
 import { AtualizarModelos } from "@/components/marketing/atualizar-modelos";
+import { BotaoChamadoManual } from "@/components/marketing/chamado-manual";
+import { formatPhoneBR } from "@/lib/crm";
 
 export type Situacao = Awaited<ReturnType<typeof situacaoMarketing>>;
 export type Campanha = Situacao["campanhas"][number];
@@ -53,6 +58,9 @@ type Estimativa = {
   lotes?: number;
   datas?: string[];
   previa_dia1?: boolean;
+  /** Tiradas à mão antes de aprovar e as que saíram por "já chamei manualmente". */
+  tirados?: number;
+  chamados_manualmente?: number;
   /** Ordem dos lotes por lista (quentes primeiro), do preparo. */
   ordem?: Array<{
     grupo: string;
@@ -104,8 +112,106 @@ function limiteDe(c: Campanha, grupo: string): number | null {
 }
 
 /** Listas da campanha, com "X na lista, Y podem receber agora" de cada uma. */
+/** Antes de aprovar: quem das listas está preso em outra campanha ainda não enviada. */
+function usePresas(campanha: Campanha) {
+  const presasFn = useServerFn(presasCampanhaFn);
+  return useQuery({
+    queryKey: [...CHAVE_MKT, "presas", campanha.id],
+    queryFn: () => presasFn({ data: { campanhaId: campanha.id } }),
+    enabled:
+      campanha.tipo === "calendario" &&
+      ["rascunho", "aguardando_aprovacao", "bloqueada"].includes(campanha.status),
+    staleTime: 300_000,
+  });
+}
+
+const SITUACAO_OUTRA: Record<string, string> = {
+  aguardando_aprovacao: "aguardando aprovação",
+  aprovada: "aprovada e ainda não enviada",
+  pausada: "pausada",
+};
+
+/** "263 pessoas estão em outra campanha aguardando aprovação", com atalho para cancelar a outra. */
+function PresasEmOutra({ campanha, admin }: { campanha: Campanha; admin: boolean }) {
+  const q = usePresas(campanha);
+  const qc = useQueryClient();
+  const recusarFn = useServerFn(recusarCampanhaFn);
+  const [cancelar, setCancelar] = useState<{ id: string; nome: string } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const outras = (q.data?.campanhas ?? []).filter((c) => c.pessoas > 0);
+  if (!outras.length) return null;
+  return (
+    <div className="rounded-lg border border-warning bg-card p-3 text-sm">
+      {outras.map((o) => (
+        <div key={o.id} className="flex flex-wrap items-center justify-between gap-2">
+          <p>
+            <AlertTriangle className="mr-1 inline h-4 w-4 text-warning" />
+            <strong>{o.pessoas}</strong> {o.pessoas === 1 ? "pessoa está" : "pessoas estão"} em
+            outra campanha {SITUACAO_OUTRA[o.status] ?? o.status}: "{o.nome}". Por isso a contagem
+            desta é menor.
+          </p>
+          {admin && o.status === "aguardando_aprovacao" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setCancelar({ id: o.id, nome: o.nome })}
+            >
+              Cancelar a outra
+            </Button>
+          )}
+        </div>
+      ))}
+      <Dialog open={cancelar !== null} onOpenChange={(v) => !v && setCancelar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar "{cancelar?.nome}"?</DialogTitle>
+            <DialogDescription>
+              A outra campanha é recusada e nada dela será enviado. As pessoas ficam livres para
+              esta: depois toque em "Preparar de novo" aqui.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setCancelar(null)}>
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={ocupado}
+              onClick={async () => {
+                if (!cancelar) return;
+                setOcupado(true);
+                try {
+                  await recusarFn({
+                    data: {
+                      campanhaId: cancelar.id,
+                      motivo: `cancelada para liberar as pessoas para "${campanha.nome}"`,
+                    },
+                  });
+                  toast.success(
+                    `"${cancelar.nome}" cancelada. Toque em "Preparar de novo" para incluir as pessoas.`,
+                  );
+                  setCancelar(null);
+                  await qc.invalidateQueries({ queryKey: CHAVE_MKT });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Não foi possível cancelar.");
+                } finally {
+                  setOcupado(false);
+                }
+              }}
+            >
+              Cancelar a outra campanha
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function ListasDaCampanha({ campanha, segmentos }: { campanha: Campanha; segmentos: Segmento[] }) {
   const contagemFn = useServerFn(contagemCampanhaFn);
+  const presas = usePresas(campanha);
   const q = useQuery({
     queryKey: [...CHAVE_MKT, "contagem", campanha.id],
     queryFn: () => contagemFn({ data: { campanhaId: campanha.id } }),
@@ -129,6 +235,9 @@ function ListasDaCampanha({ campanha, segmentos }: { campanha: Campanha; segment
                 : q.isLoading
                   ? " · contando…"
                   : ""}
+              {presas.data?.por_grupo[s.grupo]
+                ? ` · ${presas.data.por_grupo[s.grupo]} em outra campanha`
+                : ""}
             </span>
           </li>
         );
@@ -259,6 +368,20 @@ export function CampanhaCard({
               .join(" → ")}
           </p>
         ) : null}
+        {est?.tirados || est?.chamados_manualmente ? (
+          <p className="text-muted-foreground">
+            Fora desta campanha:{" "}
+            {[
+              est.tirados ? `${est.tirados} tirada(s) à mão` : null,
+              est.chamados_manualmente
+                ? `${est.chamados_manualmente} já chamada(s) manualmente`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
+        <PresasEmOutra campanha={campanha} admin={admin} />
         {campanha.motivo_status && (
           <p className="text-destructive">
             <AlertTriangle className="mr-1 inline h-4 w-4" />
@@ -278,7 +401,7 @@ export function CampanhaCard({
         <Button variant="outline" size="sm" onClick={() => setAberta((v) => !v)}>
           {aberta ? "Fechar detalhes" : "Ver detalhes"}
         </Button>
-        {admin && ["rascunho", "bloqueada"].includes(campanha.status) && (
+        {admin && ["rascunho", "bloqueada", "aguardando_aprovacao"].includes(campanha.status) && (
           <Button
             size="sm"
             variant="outline"
@@ -291,7 +414,8 @@ export function CampanhaCard({
               )
             }
           >
-            <RefreshCw className="mr-1 h-4 w-4" /> Preparar agora
+            <RefreshCw className="mr-1 h-4 w-4" />{" "}
+            {campanha.status === "rascunho" ? "Preparar agora" : "Preparar de novo"}
           </Button>
         )}
         {admin && podeEditar && (
@@ -567,6 +691,7 @@ function Aprovacao({
           ))}
         </div>
       </div>
+      <QuemVaiReceber campanha={campanha} admin={admin} />
       {admin && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -590,6 +715,186 @@ function Aprovacao({
         Aprovada, cada lote sai sozinho na data, a partir das 10h, espaçado, e pausa sozinho se os
         erros passarem de 5% ou opt-out + bloqueio passarem de 3%. Sem aprovação até a véspera, nada
         é enviado.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Quem vai receber (nome, telefone, lista), com busca, "Tirar" e "Já chamei manualmente".
+ * Quem é tirado não recebe esta campanha nem o "Mandar para quem ficou de fora" dela; nas
+ * campanhas novas volta normalmente.
+ */
+function QuemVaiReceber({ campanha, admin }: { campanha: Campanha; admin: boolean }) {
+  const qc = useQueryClient();
+  const listarFn = useServerFn(pessoasDaCampanhaFn);
+  const tirarFn = useServerFn(tirarDaCampanhaFn);
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [termo, setTermo] = useState("");
+  const [pagina, setPagina] = useState(0);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const segmentos = segmentosDaCampanha(campanha.listas, campanha.grupos);
+  const q = useQuery({
+    queryKey: [...CHAVE_MKT, "pessoas", campanha.id, termo, pagina],
+    queryFn: () => listarFn({ data: { campanhaId: campanha.id, busca: termo, pagina } }),
+    enabled: aberto,
+  });
+
+  async function tirar(contatoId: string, nome: string | null, devolver = false) {
+    setOcupado(contatoId);
+    try {
+      await tirarFn({ data: { campanhaId: campanha.id, contatoId, devolver } });
+      toast.success(
+        devolver
+          ? `${nome ?? "Contato"} voltou para a campanha.`
+          : `${nome ?? "Contato"} saiu desta campanha.`,
+      );
+      await qc.invalidateQueries({ queryKey: CHAVE_MKT });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  if (!aberto)
+    return (
+      <div>
+        <Button variant="outline" className="min-h-11" onClick={() => setAberto(true)}>
+          <Users className="mr-1 h-4 w-4" /> Ver quem vai receber
+        </Button>
+      </div>
+    );
+
+  const d = q.data;
+  const ultimaPagina = d ? (pagina + 1) * d.porPagina >= d.total : true;
+  return (
+    <div className="grid gap-2 rounded-lg border p-3">
+      <p className="text-sm font-medium">
+        Quem vai receber{d ? ` (${d.total}${termo ? " na busca" : ""})` : ""}
+      </p>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setPagina(0);
+          setTermo(busca.trim());
+        }}
+      >
+        <Input
+          aria-label="Buscar por nome ou telefone"
+          placeholder="Buscar nome ou telefone"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+        <Button type="submit" variant="outline" className="min-h-11 shrink-0">
+          Buscar
+        </Button>
+      </form>
+      {q.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+      {q.error && (
+        <p className="text-sm text-destructive">
+          {q.error instanceof Error ? q.error.message : "Falha ao carregar."}
+        </p>
+      )}
+      <ul className="grid gap-2">
+        {d?.pessoas.map((p) => (
+          <li
+            key={p.contatoId}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 p-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{p.nome ?? "Sem nome"}</p>
+              <p className="text-sm text-muted-foreground">
+                {formatPhoneBR(p.telefone)}
+                {p.grupo ? ` · ${nomeDoGrupo(p.grupo, segmentos)}` : ""}
+              </p>
+            </div>
+            {admin && (
+              <div className="flex flex-wrap gap-2">
+                <BotaoChamadoManual
+                  contatoId={p.contatoId}
+                  nome={p.nome}
+                  marcadoEm={p.chamadoManualEm}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11"
+                  disabled={ocupado !== null}
+                  onClick={() => tirar(p.contatoId, p.nome)}
+                >
+                  <XCircle className="mr-1 h-4 w-4" /> Tirar
+                </Button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      {d && d.pessoas.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {termo ? "Ninguém com esse nome ou telefone." : "Ninguém para receber."}
+        </p>
+      )}
+      {d && (pagina > 0 || !ultimaPagina) && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="min-h-11"
+            disabled={pagina === 0}
+            onClick={() => setPagina((n) => n - 1)}
+          >
+            Anteriores
+          </Button>
+          <Button
+            variant="outline"
+            className="min-h-11"
+            disabled={ultimaPagina}
+            onClick={() => setPagina((n) => n + 1)}
+          >
+            Próximos
+          </Button>
+        </div>
+      )}
+      {d && d.tirados.length > 0 && (
+        <div className="grid gap-2 border-t pt-2">
+          <p className="text-sm font-medium">Fora desta campanha ({d.tirados.length})</p>
+          <ul className="grid gap-2">
+            {d.tirados.map((p) => (
+              <li
+                key={p.contatoId}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <span className="min-w-0">
+                  {p.nome ?? "Sem nome"} · {formatPhoneBR(p.telefone)}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ·{" "}
+                    {p.motivo === "manual"
+                      ? `já chamado manualmente${p.chamadoManualEm ? ` em ${dateBR(p.chamadoManualEm)}` : ""}`
+                      : "tirado à mão"}
+                  </span>
+                </span>
+                {admin && p.motivo === "tirado" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11"
+                    disabled={ocupado !== null}
+                    onClick={() => tirar(p.contatoId, p.nome, true)}
+                  >
+                    Devolver
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Quem você tira não recebe esta campanha nem o "Mandar para quem ficou de fora" dela; nas
+        campanhas novas volta normalmente.
       </p>
     </div>
   );
