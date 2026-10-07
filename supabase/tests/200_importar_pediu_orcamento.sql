@@ -13,11 +13,11 @@ $$;
 
 CREATE TEMP TABLE imp AS SELECT public.mkt_importar_contatos('11111111-1111-1111-1111-111111111111', jsonb_build_array(
   jsonb_build_object('telefone', '11930000001', 'nome', 'Sim Orc', 'tipo', 'nao_comprador',
-    'entrada_em', to_char(current_date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', true),
+    'entrada_em', to_char((now() AT TIME ZONE 'America/Sao_Paulo')::date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', true),
   jsonb_build_object('telefone', '11930000002', 'nome', 'Nao Orc', 'tipo', 'nao_comprador',
-    'entrada_em', to_char(current_date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', false),
+    'entrada_em', to_char((now() AT TIME ZONE 'America/Sao_Paulo')::date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', false),
   jsonb_build_object('telefone', '11930000003', 'nome', 'Vazio Orc', 'tipo', 'nao_comprador',
-    'entrada_em', to_char(current_date - 40, 'YYYY-MM-DD'))
+    'entrada_em', to_char((now() AT TIME ZONE 'America/Sao_Paulo')::date - 40, 'YYYY-MM-DD'))
 ), 'teste') AS r;
 
 SELECT pg_temp.ok((SELECT (r->>'com_orcamento')::int = 1 AND (r->>'novos')::int = 3 FROM imp),
@@ -32,7 +32,7 @@ SELECT pg_temp.ok((SELECT dias_orcamento FROM private.mkt_publico('11111111-1111
 UPDATE public.mkt_contatos SET orcamento_em = now() - interval '5 days' WHERE normalized_phone = '5511930000001';
 SELECT public.mkt_importar_contatos('11111111-1111-1111-1111-111111111111', jsonb_build_array(
   jsonb_build_object('telefone', '11930000001', 'tipo', 'nao_comprador',
-    'entrada_em', to_char(current_date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', 'Sim')), 'teste');
+    'entrada_em', to_char((now() AT TIME ZONE 'America/Sao_Paulo')::date - 40, 'YYYY-MM-DD'), 'pediu_orcamento', 'Sim')), 'teste');
 SELECT pg_temp.ok((SELECT orcamento_em > now() - interval '6 days' FROM public.mkt_contatos
                     WHERE normalized_phone = '5511930000001'), 'não sobrescreve data mais recente');
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_contatos

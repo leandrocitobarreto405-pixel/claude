@@ -90,7 +90,11 @@ const ATRASO_PERDIDA_MS = 3 * 60_000;
  * Varredura (Cloud Scheduler): entrega o que ficou de fora e processa aqui mesmo as tarefas
  * atrasadas. A reserva no banco garante que nenhuma tarefa é feita duas vezes.
  */
-export async function varrerFila(): Promise<{ entregues: number; atrasadas: number }> {
+export async function varrerFila(): Promise<{
+  entregues: number;
+  atrasadas: number;
+  audios: { tentados: number; transcritos: number };
+}> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as Admin;
   const entregues = await enfileirarPendentes(admin);
@@ -106,5 +110,11 @@ export async function varrerFila(): Promise<{ entregues: number; atrasadas: numb
   for (const t of (atrasadas ?? []) as Array<{ id: string }>) {
     await processarTarefa(t.id).catch((e) => console.error("Alice: falha na varredura", t.id, e));
   }
-  return { entregues, atrasadas: atrasadas?.length ?? 0 };
+  // Áudios recebidos sem transcrição (inclusive em conversa que está com a equipe).
+  const { transcreverPendentes } = await import("./audios.server");
+  const audios = await transcreverPendentes(admin).catch((e) => {
+    console.error("Alice: falha ao transcrever áudios pendentes", e);
+    return { tentados: 0, transcritos: 0 };
+  });
+  return { entregues, atrasadas: atrasadas?.length ?? 0, audios };
 }

@@ -92,7 +92,7 @@ SELECT pg_temp.ok((SELECT count(*) FROM res WHERE nome = 'Caio Melo') = 1, 'os o
 INSERT INTO public.mkt_contatos (empresa_id, nome, primeiro_nome, normalized_phone, tipo, ultimo_servico_em,
   ultimo_servico_tipo) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Lia Hig', 'Lia', '5511920000020', 'comprador',
-   ((current_date - interval '6 months')::date + time '12:00') AT TIME ZONE 'America/Sao_Paulo', 'higienizacao');
+   ((((now() AT TIME ZONE 'America/Sao_Paulo')::date) - interval '6 months')::date + time '12:00') AT TIME ZONE 'America/Sao_Paulo', 'higienizacao');
 UPDATE public.mkt_configuracoes SET gatilho_c2_ligado = true WHERE empresa_id = '11111111-1111-1111-1111-111111111111';
 CREATE TEMP TABLE g AS SELECT public.mkt_gerar_gatilhos('11111111-1111-1111-1111-111111111111') AS r;
 SELECT pg_temp.ok((SELECT (r->'C2'->>'novos')::int = 1 AND (r->'C2'->>'aprovacao')::boolean FROM g),

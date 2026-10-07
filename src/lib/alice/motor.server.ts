@@ -402,7 +402,7 @@ async function historico(
         .slice(-MAX_AUDIOS_TRANSCRITOS)
     : [];
   const eventos = new Map<string, Anexos>();
-  const refs = [...comFoto, ...semTranscricao].map((m) => m.raw_event_reference as string);
+  const refs = comFoto.map((m) => m.raw_event_reference as string);
   if (refs.length) {
     const { data: evs } = await db
       .from("integracao_eventos")
@@ -428,31 +428,12 @@ async function historico(
   );
 
   if (semTranscricao.length) {
-    const { transcreverAudio } = await import("./transcricao.server");
-    await Promise.all(
-      semTranscricao.map(async (m) => {
-        const audio = (eventos.get(m.raw_event_reference as string) ?? []).find(
-          (a) => a.file_type === "audio" && a.data_url,
-        );
-        if (!audio) return;
-        const r = await transcreverAudio(audio.data_url!);
-        if ("texto" in r) {
-          m.transcricao = r.texto;
-          await db
-            .from("whatsapp_messages")
-            .update({ transcricao: r.texto })
-            .eq("id", m.id)
-            .eq("empresa_id", empresaId);
-        } else {
-          console.warn("Alice: transcrição falhou", m.id, r.erro);
-          await db
-            .from("whatsapp_messages")
-            .update({ transcricao_erro: r.erro.slice(0, 500) })
-            .eq("id", m.id)
-            .eq("empresa_id", empresaId);
-        }
-      }),
-    );
+    const { transcreverMensagens } = await import("./audios.server");
+    const textos = await transcreverMensagens(db, empresaId, semTranscricao);
+    for (const m of semTranscricao) {
+      const t = textos.get(m.id);
+      if (t) m.transcricao = t;
+    }
   }
 
   return {
