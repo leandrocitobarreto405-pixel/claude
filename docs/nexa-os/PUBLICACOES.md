@@ -85,6 +85,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `ia_agendar_por_mensagem` — eco do app do celular (sender nulo, `external_echo`) até 10 s da
   primeira mensagem do cliente numa conversa nova, ou com texto de saudação/ausência já vista,
   não tira a Alice da conversa.
+- "Usuários e Equipe" (`20261028120000`, aplicada em 07/10): `salespeople.email`,
+  `technicians.user_id` e `foto_path`; gatilho em `usuarios_empresa` que liga (login, e-mail ou
+  mesmo nome) ou cria a vendedora/técnico ao entrar ou mudar de papel, e desativa ao sair do papel;
+  pasta privada `equipe-fotos`. Dados de 07/10 (Turbine): técnico "Josué Barreto", Maria e Carol
+  ligadas aos logins, Alice (IA) com 3%, sábado 9h e 14h; roteiro da Alice versão 4 e agenda
+  automática ligada.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -127,6 +133,11 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 06/10/2026       | Equipe (vendedoras)   | `6b92091`        | `9f501df`                |
 | 06/10/2026       | Comissão da Nexa      | `db1aa08`        | `1c22651`                |
 | 06/10/2026       | Saudação e modelos    | `b3944d7`        | `db1aa08`                |
+| 07/10/2026       | Transcrição de áudio  | `607ace7`        | `cf99f6e`                |
+| 07/10/2026       | Agenda livre (Alice)  | `88dca53`        | `607ace7`                |
+| 07/10/2026       | Áudio longo           | `f8f2043`        | `88dca53`                |
+| 07/10/2026       | Usuários e Equipe     | `d46f737`        | `f8f2043`                |
+| 07/10/2026       | Foto do técnico       | `c638c08`        | `d46f737`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
