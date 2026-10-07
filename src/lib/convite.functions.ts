@@ -21,7 +21,12 @@ export type ResultadoConvite = {
   envio: "convite_enviado" | "aviso_enviado" | "ja_tem_conta" | "falhou";
   /** Motivo, quando o e-mail não saiu (sem dados sensíveis). */
   detalhe: string | null;
+  /** Técnico criado/ligado no convite (para subir a foto em seguida). */
+  tecnicoId?: string | null;
 };
+
+/** Dados da equipe no próprio convite: vendedora (atendente) ou técnico. */
+export type EquipeNoConvite = { nome: string; comissao?: number | null; endereco?: string | null };
 
 /** O Supabase recusou porque o e-mail já tem conta? */
 function jaTemConta(e: { message?: string; code?: string; status?: number } | null): boolean {
@@ -61,6 +66,40 @@ async function avisoPorResend(para: string, empresa: string, papel: string): Pro
   return Boolean(res?.ok);
 }
 
+/**
+ * Liga (pelo e-mail ou pelo mesmo nome, sem login) ou cria a vendedora/técnico do convite.
+ * Usa o cliente da pessoa logada: o banco só aceita na empresa ativa, e só o admin chega aqui.
+ */
+async function prepararEquipe(
+  supabase: unknown,
+  email: string,
+  papel: Papel,
+  e: { nome: string; comissao: number | null; endereco: string | null },
+): Promise<string | null> {
+  const db = supabase as import("@supabase/supabase-js").SupabaseClient;
+  const tabela = papel === "atendente" ? "salespeople" : "technicians";
+  const { data: existentes, error } = await db
+    .from(tabela)
+    .select("id, name, email, user_id")
+    .is("user_id", null);
+  if (error) throw new Error("Não foi possível conferir a equipe.");
+  const lista = (existentes ?? []) as Array<{ id: string; name: string; email: string | null }>;
+  const igual = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const achado =
+    lista.find((x) => x.email && igual(x.email, email)) ?? lista.find((x) => igual(x.name, e.nome));
+  const campos: Record<string, unknown> = { name: e.nome, email, active: true };
+  if (papel === "atendente" && e.comissao !== null) campos["commission_percentage"] = e.comissao;
+  if (papel === "tecnico" && e.endereco) campos["base_address"] = e.endereco;
+  if (achado) {
+    const { error: e2 } = await db.from(tabela).update(campos).eq("id", achado.id);
+    if (e2) throw new Error("Não foi possível atualizar a equipe.");
+    return papel === "tecnico" ? achado.id : null;
+  }
+  const { data: criado, error: e3 } = await db.from(tabela).insert(campos).select("id").single();
+  if (e3) throw new Error("Não foi possível cadastrar na equipe.");
+  return papel === "tecnico" ? (criado as { id: string }).id : null;
+}
+
 const escapar = (t: string) =>
   t.replace(
     /[&<>"']/g,
@@ -69,16 +108,44 @@ const escapar = (t: string) =>
 
 export const convidarPorEmailFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
-  .inputValidator((i: { email: string; papel: Papel; reenviar?: boolean }) => {
-    const email = String(i.email ?? "")
-      .trim()
-      .toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200)
-      throw new Error("Informe um e-mail válido.");
-    if (!(i.papel in PAPEIS)) throw new Error("Papel inválido.");
-    return { email, papel: i.papel, reenviar: Boolean(i.reenviar) };
-  })
+  .inputValidator(
+    (i: { email: string; papel: Papel; reenviar?: boolean; equipe?: EquipeNoConvite | null }) => {
+      const email = String(i.email ?? "")
+        .trim()
+        .toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200)
+        throw new Error("Informe um e-mail válido.");
+      if (!(i.papel in PAPEIS)) throw new Error("Papel inválido.");
+      const nome = String(i.equipe?.nome ?? "")
+        .trim()
+        .slice(0, 80);
+      const comissao =
+        i.equipe?.comissao === null || i.equipe?.comissao === undefined
+          ? null
+          : Number(i.equipe.comissao);
+      if (comissao !== null && (!Number.isFinite(comissao) || comissao < 0 || comissao > 100))
+        throw new Error("A comissão vai de 0% a 100%.");
+      const equipe =
+        (i.papel === "atendente" || i.papel === "tecnico") && nome
+          ? {
+              nome,
+              comissao,
+              endereco:
+                String(i.equipe?.endereco ?? "")
+                  .trim()
+                  .slice(0, 300) || null,
+            }
+          : null;
+      return { email, papel: i.papel, reenviar: Boolean(i.reenviar), equipe };
+    },
+  )
   .handler(async ({ data, context }): Promise<ResultadoConvite> => {
+    // 0. Vendedora/técnico com o nome e a comissão/endereço do convite, ligado pelo e-mail. Vem
+    //    antes do convite: quando a pessoa entra na empresa, o banco liga este cadastro (não cria outro).
+    let tecnicoId: string | null = null;
+    if (!data.reenviar && data.equipe) {
+      tecnicoId = await prepararEquipe(context.supabase, data.email, data.papel, data.equipe);
+    }
     // 1. Registra o convite como hoje (o banco confere que quem pede é admin da empresa).
     if (!data.reenviar) {
       const { error } = await context.supabase.rpc(
@@ -101,12 +168,16 @@ export const convidarPorEmailFn = createServerFn({ method: "POST" })
       data: { empresa, papel },
       redirectTo: `${enderecoDoApp()}/redefinir-senha`,
     });
-    if (!error) return { envio: "convite_enviado", detalhe: null };
+    if (!error) return { envio: "convite_enviado", detalhe: null, tecnicoId };
     if (!jaTemConta(error as never))
-      return { envio: "falhou", detalhe: "O servidor de e-mail não aceitou o convite agora." };
+      return {
+        envio: "falhou",
+        detalhe: "O servidor de e-mail não aceitou o convite agora.",
+        tecnicoId,
+      };
 
     // 3. Já tem conta: aviso pelo Resend, se a chave estiver no servidor.
     if (await avisoPorResend(data.email, empresa, papel))
-      return { envio: "aviso_enviado", detalhe: null };
-    return { envio: "ja_tem_conta", detalhe: null };
+      return { envio: "aviso_enviado", detalhe: null, tecnicoId };
+    return { envio: "ja_tem_conta", detalhe: null, tecnicoId };
   });

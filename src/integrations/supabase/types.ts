@@ -4592,6 +4592,7 @@ export type Database = {
           name: string;
           updated_at: string;
           user_id: string | null;
+          email: string | null;
         };
         Insert: {
           active?: boolean;
@@ -4607,6 +4608,7 @@ export type Database = {
           name: string;
           updated_at?: string;
           user_id?: string | null;
+          email?: string | null;
         };
         Update: {
           active?: boolean;
@@ -4622,6 +4624,7 @@ export type Database = {
           name?: string;
           updated_at?: string;
           user_id?: string | null;
+          email?: string | null;
         };
         Relationships: [
           {
@@ -4827,6 +4830,8 @@ export type Database = {
           name: string;
           updated_at: string;
           vehicle: string | null;
+          user_id: string | null;
+          foto_path: string | null;
         };
         Insert: {
           active?: boolean;
@@ -4842,6 +4847,8 @@ export type Database = {
           name: string;
           updated_at?: string;
           vehicle?: string | null;
+          user_id?: string | null;
+          foto_path?: string | null;
         };
         Update: {
           active?: boolean;
@@ -4857,6 +4864,8 @@ export type Database = {
           name?: string;
           updated_at?: string;
           vehicle?: string | null;
+          user_id?: string | null;
+          foto_path?: string | null;
         };
         Relationships: [
           {

@@ -31,6 +31,7 @@ import {
 import { brl, currentMonth, monthLabelPT, parseNumberBR } from "@/lib/format";
 import { useControleInsumos } from "@/lib/produtos";
 import { useContextoTenant } from "@/lib/tenant";
+import { enviarFotoTecnico, useFotoTecnico } from "@/lib/equipe-fotos";
 import { ControleInsumosCard, ProdutosConfig } from "@/components/produtos-config";
 import { custoFixoPorServico } from "@/lib/quotes.functions";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
@@ -678,6 +679,8 @@ function Equipe() {
   const { data: tecnicos } = useTechnicians(false);
   const { data: ctx } = useContextoTenant();
   const invalidate = useInvalidate();
+  const empresaId = ctx?.ativa?.empresa.id ?? null;
+  const membros = useMembrosDaEmpresa(empresaId);
 
   async function salvarComissao(id: string, valor: string) {
     const pct = parseNumberBR(valor);
@@ -796,6 +799,15 @@ function Equipe() {
                   Atendente da Nexa (a comissão vai para a Nexa)
                 </label>
               ) : null}
+              <LoginDaEquipe
+                tabela="salespeople"
+                id={v.id}
+                userId={v.user_id ?? null}
+                papel="atendente"
+                membros={membros.data ?? []}
+                ligados={(vendedoras ?? []).map((x) => x.user_id ?? null)}
+                aoMudar={() => invalidate("salespeople")}
+              />
             </div>
           ))}
           {vendedoras && !vendedoras.length ? (
@@ -827,6 +839,24 @@ function Equipe() {
                   {t.active ? "Desativar" : "Ativar"}
                 </Button>
               </div>
+              {empresaId ? (
+                <FotoTecnico
+                  empresaId={empresaId}
+                  tecnicoId={t.id}
+                  nome={t.name}
+                  caminho={t.foto_path ?? null}
+                  aoMudar={() => invalidate("technicians")}
+                />
+              ) : null}
+              <LoginDaEquipe
+                tabela="technicians"
+                id={t.id}
+                userId={t.user_id ?? null}
+                papel="tecnico"
+                membros={membros.data ?? []}
+                ligados={(tecnicos ?? []).map((x) => x.user_id ?? null)}
+                aoMudar={() => invalidate("technicians")}
+              />
               <div className="space-y-2">
                 <Label>Endereço base</Label>
                 <Input
@@ -854,6 +884,153 @@ function Equipe() {
           aoSalvar={() => invalidate("technicians")}
         />
       </section>
+    </div>
+  );
+}
+
+type Membro = { userId: string; papel: string; nome: string; email: string | null };
+
+/** Pessoas com login nesta empresa (para ligar vendedora/técnico ao login). */
+function useMembrosDaEmpresa(empresaId: string | null) {
+  return useQuery({
+    queryKey: ["equipe_empresa", empresaId, "membros"],
+    enabled: Boolean(empresaId),
+    queryFn: async (): Promise<Membro[]> => {
+      const { data, error } = await supabase
+        .from("usuarios_empresa")
+        .select("user_id, papel")
+        .eq("empresa_id", empresaId!);
+      if (error) throw error;
+      const ids = (data ?? []).map((m) => m.user_id);
+      const perfis = ids.length
+        ? ((await supabase.from("users_profiles").select("id, full_name, email").in("id", ids))
+            .data ?? [])
+        : [];
+      return (data ?? []).map((m) => {
+        const p = perfis.find((x) => x.id === m.user_id);
+        return {
+          userId: m.user_id,
+          papel: String(m.papel),
+          nome: p?.full_name || p?.email || "Usuário",
+          email: p?.email ?? null,
+        };
+      });
+    },
+  });
+}
+
+/** Login ligado à vendedora/técnico: mostra quem é e permite ligar/desligar. */
+function LoginDaEquipe({
+  tabela,
+  id,
+  userId,
+  papel,
+  membros,
+  ligados,
+  aoMudar,
+}: {
+  tabela: "salespeople" | "technicians";
+  id: string;
+  userId: string | null;
+  papel: "atendente" | "tecnico";
+  membros: Membro[];
+  ligados: Array<string | null>;
+  aoMudar: () => void;
+}) {
+  const opcoes = membros.filter(
+    (m) => m.papel === papel && (m.userId === userId || !ligados.includes(m.userId)),
+  );
+  async function ligar(novo: string) {
+    const membro = membros.find((m) => m.userId === novo);
+    const { error } = await supabase
+      .from(tabela)
+      .update(
+        novo
+          ? { user_id: novo, ...(membro?.email ? { email: membro.email } : {}) }
+          : { user_id: null },
+      )
+      .eq("id", id);
+    if (error) {
+      toast.error("Não foi possível ligar ao login.");
+      return;
+    }
+    toast.success(novo ? "Ligado ao login." : "Login desligado.");
+    aoMudar();
+  }
+  if (!userId && !opcoes.length) return null;
+  return (
+    <label className="flex w-full flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted-foreground">Login:</span>
+      <select
+        className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+        value={userId ?? ""}
+        onChange={(e) => void ligar(e.target.value)}
+      >
+        <option value="">Sem login</option>
+        {opcoes.map((m) => (
+          <option key={m.userId} value={m.userId}>
+            {m.email ?? m.nome}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Foto do técnico (a Alice manda ao cliente com o nome). */
+function FotoTecnico({
+  empresaId,
+  tecnicoId,
+  nome,
+  caminho,
+  aoMudar,
+}: {
+  empresaId: string;
+  tecnicoId: string;
+  nome: string;
+  caminho: string | null;
+  aoMudar: () => void;
+}) {
+  const [versao, setVersao] = useState(0);
+  const [enviando, setEnviando] = useState(false);
+  const url = useFotoTecnico(caminho, versao);
+  async function enviar(arquivo: File | undefined) {
+    if (!arquivo) return;
+    setEnviando(true);
+    try {
+      await enviarFotoTecnico(empresaId, tecnicoId, arquivo);
+      setVersao((v) => v + 1);
+      toast.success("Foto salva. A Alice manda essa foto ao cliente.");
+      aoMudar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível enviar a foto.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+  return (
+    <div className="flex items-center gap-3">
+      {url.data ? (
+        <img
+          src={url.data}
+          alt={`Foto de ${nome}`}
+          className="size-16 shrink-0 rounded-full border border-border object-cover"
+        />
+      ) : (
+        <div className="flex size-16 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-xs text-muted-foreground">
+          sem foto
+        </div>
+      )}
+      <label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-input px-4 text-sm font-medium">
+        {enviando ? "Enviando…" : caminho ? "Trocar foto" : "Adicionar foto"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          disabled={enviando}
+          onChange={(e) => void enviar(e.target.files?.[0])}
+        />
+      </label>
     </div>
   );
 }

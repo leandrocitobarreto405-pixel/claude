@@ -44,6 +44,9 @@ export type Salesperson = {
   effective_from: string;
   /** Atendente da Nexa: a comissão dela é paga à Nexa (percentual do contrato). */
   atendente_nexa?: boolean;
+  /** Login ligado à vendedora (Usuários) e o e-mail dela. */
+  user_id?: string | null;
+  email?: string | null;
 };
 
 export function useSalespeople(onlyActive = true) {
@@ -52,7 +55,9 @@ export function useSalespeople(onlyActive = true) {
     queryFn: async () => {
       let q = supabase
         .from("salespeople")
-        .select("id, name, commission_percentage, active, effective_from, atendente_nexa")
+        .select(
+          "id, name, commission_percentage, active, effective_from, atendente_nexa, user_id, email",
+        )
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);
       const { data, error } = await q;
@@ -70,6 +75,10 @@ export type Technician = {
   vehicle: string | null;
   include_return: boolean;
   active: boolean;
+  /** Login ligado ao técnico (Usuários). */
+  user_id?: string | null;
+  /** Foto na pasta "equipe-fotos" (a Alice manda ao cliente). */
+  foto_path?: string | null;
 };
 
 export function useTechnicians(onlyActive = true) {
@@ -78,7 +87,9 @@ export function useTechnicians(onlyActive = true) {
     queryFn: async () => {
       let q = supabase
         .from("technicians")
-        .select("id, name, email, base_address, vehicle, include_return, active")
+        .select(
+          "id, name, email, base_address, vehicle, include_return, active, user_id, foto_path",
+        )
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);
       const { data, error } = await q;

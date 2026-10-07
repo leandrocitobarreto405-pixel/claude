@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dateBR } from "@/lib/format";
 import { useMinhaEmpresa, type Papel } from "@/lib/tenant";
 import { convidarPorEmailFn, type ResultadoConvite } from "@/lib/convite.functions";
+import { enviarFotoTecnico } from "@/lib/equipe-fotos";
 import { useServerFn } from "@tanstack/react-start";
 import { AcoesConvite } from "@/components/usuarios/acoes-convite";
 
@@ -51,6 +52,11 @@ function Usuarios() {
 
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<Papel>("atendente");
+  // Dados da equipe no próprio convite: vendedora (atendente) ou técnico.
+  const [nome, setNome] = useState("");
+  const [comissao, setComissao] = useState("3");
+  const [endereco, setEndereco] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [convidado, setConvidado] = useState<{
     email: string;
@@ -107,12 +113,52 @@ function Usuarios() {
       toast.error("Informe um e-mail válido.");
       return;
     }
+    const daEquipe = papel === "atendente" || papel === "tecnico";
+    if (daEquipe && nome.trim().length < 2) {
+      toast.error(
+        papel === "atendente"
+          ? "Informe o nome (é o que aparece em Vendedora responsável)."
+          : "Informe o nome do técnico.",
+      );
+      return;
+    }
+    const pct = Number(comissao.replace(",", "."));
+    if (papel === "atendente" && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
+      toast.error("A comissão vai de 0% a 100%.");
+      return;
+    }
     setEnviando(true);
     try {
-      const r = await convidarFn({ data: { email: email.trim(), papel } });
+      const r = await convidarFn({
+        data: {
+          email: email.trim(),
+          papel,
+          equipe: daEquipe
+            ? {
+                nome: nome.trim(),
+                comissao: papel === "atendente" ? pct : null,
+                endereco: papel === "tecnico" ? endereco.trim() : null,
+              }
+            : null,
+        },
+      });
       toast[r.envio === "falhou" ? "warning" : "success"](TEXTO_ENVIO[r.envio]);
+      if (papel === "tecnico" && foto && r.tecnicoId && empresaId) {
+        try {
+          await enviarFotoTecnico(empresaId, r.tecnicoId, foto);
+        } catch (e) {
+          toast.warning(
+            `${e instanceof Error ? e.message : "A foto não foi enviada."} Dá para enviar depois em Configurações → Equipe.`,
+          );
+        }
+      }
       setConvidado({ email: email.trim().toLowerCase(), papel, envio: r.envio });
       setEmail("");
+      setNome("");
+      setEndereco("");
+      setFoto(null);
+      void queryClient.invalidateQueries({ queryKey: ["salespeople"] });
+      void queryClient.invalidateQueries({ queryKey: ["technicians"] });
       void queryClient.invalidateQueries({ queryKey: ["convites_empresa"] });
       void queryClient.invalidateQueries({ queryKey: ["equipe_empresa"] });
     } catch (e) {
@@ -142,7 +188,15 @@ function Usuarios() {
       toast.error("Não foi possível alterar o papel.");
       return;
     }
-    toast.success("Papel atualizado.");
+    toast.success(
+      novo === "atendente"
+        ? "Papel atualizado. A vendedora foi criada ou ligada em Configurações → Equipe."
+        : novo === "tecnico"
+          ? "Papel atualizado. O técnico foi criado ou ligado em Configurações → Equipe."
+          : "Papel atualizado.",
+    );
+    void queryClient.invalidateQueries({ queryKey: ["salespeople"] });
+    void queryClient.invalidateQueries({ queryKey: ["technicians"] });
     void queryClient.invalidateQueries({ queryKey: ["equipe_empresa"] });
     void queryClient.invalidateQueries({ queryKey: ["minha_empresa"] });
   }
@@ -163,7 +217,7 @@ function Usuarios() {
       {admin ? (
         <section className="card-surface mb-6 space-y-4 p-5">
           <h2 className="text-lg font-semibold">Convidar pessoa</h2>
-          <div className="grid gap-3 sm:grid-cols-[1fr_200px_auto] sm:items-end">
+          <div className="grid gap-3 sm:grid-cols-[1fr_200px] sm:items-end">
             <div className="space-y-2">
               <Label htmlFor="email-convite">E-mail</Label>
               <Input
@@ -189,10 +243,62 @@ function Usuarios() {
                 ))}
               </select>
             </div>
-            <Button onClick={convidar} disabled={enviando}>
-              {enviando ? "Enviando..." : "Convidar"}
-            </Button>
           </div>
+          {papel === "atendente" || papel === "tecnico" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="nome-convite">
+                  {papel === "atendente" ? "Nome (vendedora responsável)" : "Nome do técnico"}
+                </Label>
+                <Input
+                  id="nome-convite"
+                  value={nome}
+                  maxLength={80}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder={papel === "atendente" ? "Ex.: Carol" : "Ex.: Josué Barreto"}
+                />
+              </div>
+              {papel === "atendente" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="comissao-convite">Comissão %</Label>
+                  <Input
+                    id="comissao-convite"
+                    inputMode="decimal"
+                    value={comissao}
+                    onChange={(e) => setComissao(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="endereco-convite">Endereço base (de onde sai)</Label>
+                    <Input
+                      id="endereco-convite"
+                      value={endereco}
+                      onChange={(e) => setEndereco(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="foto-convite">Foto (opcional, pode enviar depois)</Label>
+                    <Input
+                      id="foto-convite"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+                    />
+                  </div>
+                </>
+              )}
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                {papel === "atendente"
+                  ? "Já entra como vendedora em Configurações → Equipe. Se já existir alguém com o mesmo nome ou e-mail, liga em vez de duplicar."
+                  : "Já entra como técnico em Configurações → Equipe. Se já existir alguém com o mesmo nome ou e-mail, liga em vez de duplicar."}
+              </p>
+            </div>
+          ) : null}
+          <Button className="min-h-11 w-full sm:w-auto" onClick={convidar} disabled={enviando}>
+            {enviando ? "Enviando..." : "Convidar"}
+          </Button>
           <p className="text-xs text-muted-foreground">
             {PAPEIS.map((p) => `${p.label}: ${p.descricao}`).join(" · ")}
           </p>
