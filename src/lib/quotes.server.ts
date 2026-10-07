@@ -400,17 +400,8 @@ export type CepEstimate = {
   metodo?: "ruas" | "linha_reta";
 };
 
-/** Estima o km de ida e volta entre a base do técnico e o CEP do cliente. */
-export async function estimateKmByCep(
-  db: DB,
-  cepRaw: string,
-  empresaId?: string,
-): Promise<CepEstimate> {
-  const cep = cepRaw.replace(/\D/g, "");
-  if (cep.length !== 8) {
-    return { cep, endereco: null, km: null, base: null, aviso: "Informe um CEP com 8 dígitos." };
-  }
-
+/** Endereço do CEP (ViaCEP) e as partes para localizar no mapa. */
+async function enderecoDoCep(cep: string) {
   let parts: Parameters<typeof geocodeParts>[0] = { postal_code: cep };
   let endereco: string | null = null;
   try {
@@ -438,6 +429,29 @@ export async function estimateKmByCep(
     /* segue com o CEP puro */
   }
 
+  return { parts, endereco };
+}
+
+/** Coordenadas aproximadas de um CEP (para comparar distâncias); null se não achar. */
+export async function coordenadasDoCep(cepRaw: string): Promise<Coords | null> {
+  const cep = cepRaw.replace(/\D/g, "");
+  if (cep.length !== 8) return null;
+  const { parts } = await enderecoDoCep(cep);
+  return geocodeParts(parts);
+}
+
+/** Estima o km de ida e volta entre a base do técnico e o CEP do cliente. */
+export async function estimateKmByCep(
+  db: DB,
+  cepRaw: string,
+  empresaId?: string,
+): Promise<CepEstimate> {
+  const cep = cepRaw.replace(/\D/g, "");
+  if (cep.length !== 8) {
+    return { cep, endereco: null, km: null, base: null, aviso: "Informe um CEP com 8 dígitos." };
+  }
+
+  const { parts, endereco } = await enderecoDoCep(cep);
   const destino = await geocodeParts(parts);
   if (!destino) {
     return {

@@ -95,6 +95,8 @@ const EnviarMensagem = z.object({ texto: z.string().trim().min(1).max(4000) });
 const ConsultarAgenda = z.object({
   data_inicial: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dias: z.number().int().min(1).max(14),
+  periodo: z.enum(["manha", "tarde", "qualquer"]).optional(),
+  cep: z.string().max(12).optional(),
 });
 const AgendarFollowup = z
   .object({
@@ -292,7 +294,7 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
     lista.push({
       name: "consultar_agenda",
       description:
-        "Serviços já agendados por dia, para sugerir datas com vaga. Use antes de propor dias ao cliente.",
+        "Horários livres dos técnicos (horários-base da agenda da empresa menos o que já está marcado), os dias da semana atendidos e quais dias o técnico já tem serviço perto do cliente (prioridade). Use antes de oferecer horário: ofereça um só, desta lista.",
       input_schema: {
         type: "object",
         properties: {
@@ -302,6 +304,15 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
             minimum: 1,
             maximum: 14,
             description: "Quantos dias consultar.",
+          },
+          periodo: {
+            type: "string",
+            enum: ["manha", "tarde", "qualquer"],
+            description: "Preferência do cliente: manhã, tarde ou qualquer.",
+          },
+          cep: {
+            type: "string",
+            description: "CEP do cliente (para priorizar dias com serviço perto).",
           },
         },
         required: ["data_inicial", "dias"],
@@ -397,7 +408,6 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
 }
 
 // ---------------------------------------------------------------- implementações
-const STATUS_OCUPADO = ["Agendado", "Confirmado", "Em deslocamento", "Em execução"];
 
 async function lerLead(ctx: ContextoFerramenta) {
   if (!ctx.leadId) return null;
@@ -735,36 +745,76 @@ function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: 
 }
 
 async function consultarAgenda(ctx: ContextoFerramenta, input: z.infer<typeof ConsultarAgenda>) {
-  const inicio = new Date(`${input.data_inicial}T12:00:00Z`);
-  const fim = new Date(inicio.getTime() + (input.dias - 1) * 86_400_000);
-  const ate = fim.toISOString().slice(0, 10);
-  const { data, error } = await ctx.admin
-    .from("visits")
-    .select("scheduled_date, scheduled_time")
-    .eq("empresa_id", ctx.empresaId)
-    .gte("scheduled_date", input.data_inicial)
-    .lte("scheduled_date", ate)
-    .in("status", STATUS_OCUPADO)
-    .order("scheduled_date")
-    .order("scheduled_time");
-  if (error) return `Não foi possível consultar a agenda: ${error.message}`;
-  const porDia = new Map<string, string[]>();
-  for (const v of data ?? []) {
-    const lista = porDia.get(v.scheduled_date) ?? [];
-    lista.push((v.scheduled_time ?? "").slice(0, 5) || "sem horário");
-    porDia.set(v.scheduled_date, lista);
+  const { agendaLivre, textoAgenda } = await import("./agenda");
+  const periodo = input.periodo ?? "qualquer";
+  const ate = new Date(
+    new Date(`${input.data_inicial}T12:00:00Z`).getTime() + (input.dias - 1) * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const [{ data: base, error: e1 }, { data: visitas, error: e2 }] = await Promise.all([
+    ctx.admin
+      .from("agenda_horarios_base")
+      .select("tecnico_id, dia_semana, hora, technicians!inner(name, active)")
+      .eq("empresa_id", ctx.empresaId)
+      .eq("technicians.active", true),
+    ctx.admin
+      .from("visits")
+      .select(
+        "scheduled_date, scheduled_time, status, technician_id, work_order:work_order_id(customer:customer_id(latitude, longitude))",
+      )
+      .eq("empresa_id", ctx.empresaId)
+      .gte("scheduled_date", input.data_inicial)
+      .lte("scheduled_date", ate),
+  ]);
+  if (e1 || e2) return `Não foi possível consultar a agenda: ${(e1 ?? e2)!.message}`;
+  const horarios = (base ?? []).map((b) => ({
+    tecnicoId: b.tecnico_id as string,
+    tecnico: (b as unknown as { technicians: { name: string } }).technicians.name,
+    diaSemana: b.dia_semana as number,
+    hora: String(b.hora).slice(0, 5),
+  }));
+  type Visita = {
+    scheduled_date: string;
+    scheduled_time: string | null;
+    status: string;
+    technician_id: string | null;
+    work_order: { customer: { latitude: number | null; longitude: number | null } | null } | null;
+  };
+  const ocupacoes = ((visitas ?? []) as unknown as Visita[])
+    .filter((v) => v.scheduled_time)
+    .map((v) => {
+      const c = v.work_order?.customer;
+      return {
+        data: v.scheduled_date,
+        hora: String(v.scheduled_time).slice(0, 5),
+        status: v.status,
+        tecnicoId: v.technician_id,
+        coords:
+          c && c.latitude !== null && c.longitude !== null
+            ? { lat: Number(c.latitude), lon: Number(c.longitude) }
+            : null,
+      };
+    });
+  let cliente: { lat: number; lon: number } | null = null;
+  if (input.cep) {
+    const { coordenadasDoCep } = await import("@/lib/quotes.server");
+    cliente = await coordenadasDoCep(input.cep).catch(() => null);
   }
-  const linhas: string[] = [];
-  for (let i = 0; i < input.dias; i++) {
-    const dia = new Date(inicio.getTime() + i * 86_400_000);
-    const iso = dia.toISOString().slice(0, 10);
-    const semana = dia.toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" });
-    const horarios = porDia.get(iso) ?? [];
-    linhas.push(
-      `${iso} (${semana}): ${horarios.length ? `${horarios.length} serviço(s) às ${horarios.join(", ")}` : "livre"}`,
-    );
-  }
-  return linhas.join("\n");
+  const agoraSP = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const dias = agendaLivre({
+    inicio: input.data_inicial,
+    dias: input.dias,
+    base: horarios,
+    ocupacoes,
+    periodo,
+    agora: { data: agoraSP.slice(0, 10), hora: agoraSP.slice(11, 16) },
+    cliente,
+  });
+  const texto = textoAgenda(horarios, dias, periodo);
+  return input.cep && !cliente
+    ? `${texto}\n(Não consegui localizar o CEP ${input.cep}; a prioridade por proximidade não foi calculada.)`
+    : texto;
 }
 
 /** Cancela o follow-up pendente da conversa (o novo substitui). */
