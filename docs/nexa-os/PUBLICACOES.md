@@ -144,6 +144,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 07/10/2026       | Tirar e chamar à mão  | `90a2c85`        | `3f5f954`                |
 | 07/10/2026       | Lotes e qualidade     | `8721715`        | `1534642`                |
 | 07/10/2026       | Tela após chamada     | `aac86f7`        | `eb2390c`                |
+| 07/10/2026       | Um documento por OS   | `bc1eee9`        | `7c62927`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
