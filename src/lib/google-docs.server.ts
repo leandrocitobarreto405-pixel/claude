@@ -76,6 +76,20 @@ export async function copyFile(fileId: string, name: string, parentId?: string |
   );
 }
 
+/** Documento do Google exportado em PDF (para mandar ao cliente). */
+export async function exportarPdf(fileId: string): Promise<Blob> {
+  const res = await fetch(
+    `${DRIVE_BASE}/files/${encodeURIComponent(fileId)}/export?mimeType=application/pdf`,
+    { headers: await headers(false) },
+  );
+  if (!res.ok) {
+    console.error(`Google Drive export ${fileId} falhou [${res.status}]`);
+    if (res.status === 401) esquecerTokenGoogle(contextoEmpresa().empresaId);
+    throw new Error(`Falha ao exportar o PDF no Google (${res.status}).`);
+  }
+  return new Blob([await res.arrayBuffer()], { type: "application/pdf" });
+}
+
 export async function deleteFile(fileId: string) {
   await call("drive", `/files/${fileId}?supportsAllDrives=true`, { method: "DELETE" });
 }

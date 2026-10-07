@@ -99,6 +99,18 @@ servidor(PORTA_CLAUDE, (req, body) => {
         "tool_use",
       );
     }
+    if (conteudo.includes("Horário reservado")) {
+      return resposta([ferramenta("toolu_os", "gerar_ordem_servico", {})], "tool_use");
+    }
+    if (conteudo.includes("vai em PDF") || conteudo.includes("documento da OS não saiu")) {
+      return resposta([texto("Serviço agendado! ✅\nEstá tudo certinho?")], "end_turn");
+    }
+    if (conteudo.includes("não está mais livre") || conteudo.includes("já tem a OS")) {
+      return resposta(
+        [texto("Esse horário acabou de ser preenchido. Posso ver outro?")],
+        "end_turn",
+      );
+    }
     if (conteudo.includes("Follow-up agendado")) {
       return resposta(
         [texto("Prontinho! Te enviei a proposta!\nEla faz sentido pra você?")],
@@ -177,6 +189,32 @@ servidor(PORTA_CLAUDE, (req, body) => {
         ferramenta("toolu_orc", "criar_orcamento", {
           servico: "higienizacao",
           itens: [{ item: "sofa 3 LUGARES", quantidade: 1 }],
+        }),
+      ],
+      "tool_use",
+    );
+  }
+  const agendar = /Pode ser (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}), (pix|cartao)/.exec(pedido);
+  if (agendar) {
+    return resposta(
+      [
+        ferramenta("toolu_reserva", "reservar_horario", {
+          data: agendar[1],
+          hora: agendar[2],
+          tecnico: "Josué Teste",
+          pagamento: agendar[3],
+          ...(agendar[3] === "cartao" ? { parcelas: 3 } : {}),
+          nome_completo: "Ana Teste da Silva",
+          cpf_cnpj: "123.456.789-00",
+          email: "Ana@Teste.com",
+          cep: "88010-000",
+          rua: "Rua Felipe Schmidt",
+          numero: "100",
+          complemento: "apto 2",
+          bairro: "Centro",
+          cidade: "Florianópolis",
+          uf: "sc",
+          observacoes: "Tem um gato.",
         }),
       ],
       "tool_use",

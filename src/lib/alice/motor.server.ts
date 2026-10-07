@@ -851,7 +851,7 @@ async function conversar(
   const agoraItens = programar ? semNada.slice(0, iMidia + 1) : semNada;
   const depoisItens = programar ? semNada.slice(iMidia + 1) : [];
 
-  const enviadas = await enviarItens(db, d, agoraItens);
+  const enviadas = await enviarItens(db, tarefa.empresa_id, d, agoraItens);
   if (depoisItens.length) {
     await db.from("ia_tarefas").insert({
       empresa_id: tarefa.empresa_id,
@@ -944,7 +944,12 @@ async function conversar(
 const ESPERA_WEBHOOK_MS = 2500;
 
 /** Envia textos (divididos em mensagens) e mídias, na ordem. */
-async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise<string[]> {
+async function enviarItens(
+  db: Admin,
+  empresaId: string,
+  d: DadosConversa,
+  itens: Saida[],
+): Promise<string[]> {
   const enviadas: string[] = [];
   if (!d.tokenRobo) return enviadas;
   for (const item of itens) {
@@ -957,11 +962,11 @@ async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise
         enviadas.push(parte);
       }
     } else {
-      const { data: arquivo, error } = await db.storage
-        .from(item.pasta ?? "alice-midias")
-        .download(item.caminho);
+      const { data: arquivo, error } = item.googleDoc
+        ? await pdfDoGoogle(db, empresaId, item.caminho)
+        : await db.storage.from(item.pasta ?? "alice-midias").download(item.caminho);
       if (error || !arquivo) {
-        console.error("Alice: mídia não encontrada", item.caminho, error?.message);
+        console.error("Alice: mídia não encontrada", item.nome, error?.message);
         continue;
       }
       await enviarAnexo(
@@ -977,6 +982,22 @@ async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise
   return enviadas;
 }
 
+/** Documento da OS (Google Docs) em PDF, com a conta Google da empresa. */
+async function pdfDoGoogle(
+  db: Admin,
+  empresaId: string,
+  docId: string,
+): Promise<{ data: Blob | null; error: { message: string } | null }> {
+  try {
+    const { executarNaEmpresa } = await import("@/lib/request-db.server");
+    const { exportarPdf } = await import("@/lib/google-docs.server");
+    const pdf = await executarNaEmpresa({ db, empresaId, userId: "" }, () => exportarPdf(docId));
+    return { data: pdf, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+  }
+}
+
 function itensDaTarefa(t: Tarefa): Saida[] {
   const itens = (t.dados as { itens?: Saida[] } | null)?.itens;
   return Array.isArray(itens) ? itens : [];
@@ -989,7 +1010,7 @@ async function enviarProgramadas(db: Admin, tarefa: Tarefa): Promise<ResultadoTa
     return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
   if (d.conversa.status !== "pending")
     return { situacao: "ignorada", detalhe: "conversa com a equipe: não enviado" };
-  const enviadas = await enviarItens(db, d, itensDaTarefa(tarefa));
+  const enviadas = await enviarItens(db, tarefa.empresa_id, d, itensDaTarefa(tarefa));
   return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };
 }
 
@@ -1008,7 +1029,7 @@ async function descarregarProgramadas(db: Admin, empresaId: string, d: DadosConv
     .select("*");
   let enviou = false;
   for (const t of (pendentes ?? []) as Tarefa[]) {
-    const enviadas = await enviarItens(db, d, itensDaTarefa(t));
+    const enviadas = await enviarItens(db, empresaId, d, itensDaTarefa(t));
     enviou ||= enviadas.length > 0;
     await concluir(db, t.id, "concluida", "enviada antes da hora: o cliente escreveu");
   }

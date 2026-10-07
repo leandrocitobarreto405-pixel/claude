@@ -39,7 +39,12 @@ export async function dadosEmpresa(): Promise<DadosEmpresa> {
   const { empresaId } = contextoEmpresa();
   const [{ data: empresa }, { data: config }] = await Promise.all([
     db.from("empresas").select("nome, telefone").eq("id", empresaId).maybeSingle(),
-    db.from("app_settings").select("value").eq("key", "company").maybeSingle(),
+    db
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", empresaId)
+      .eq("key", "company")
+      .maybeSingle(),
   ]);
   const v = (config?.value ?? {}) as { name?: string; phone?: string; instagram?: string };
   return {
@@ -54,6 +59,7 @@ export async function readSettings(): Promise<OsDocSettings> {
   const { data } = await db
     .from("app_settings")
     .select("value")
+    .eq("empresa_id", contextoEmpresa().empresaId)
     .eq("key", SETTINGS_KEY)
     .maybeSingle();
   const v = (data?.value ?? {}) as Partial<OsDocSettings>;
@@ -414,6 +420,7 @@ export async function generateDocument(
   const { data: registro, error: registroError } = await db
     .from("work_order_documents")
     .insert({
+      empresa_id: contextoEmpresa().empresaId,
       work_order_id: workOrderId,
       template_type: tipo,
       document_name: nome,
@@ -706,6 +713,7 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
   const { data: registro, error: registroError } = await db
     .from("work_order_documents")
     .insert({
+      empresa_id: contextoEmpresa().empresaId,
       work_order_id: workOrderId,
       template_type: WARRANTY_TYPE,
       document_name: nome,

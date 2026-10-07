@@ -6,7 +6,7 @@ import {
   shareFolderWithEmail,
   uploadFile,
 } from "@/lib/google-docs.server";
-import { bancoDaEmpresa } from "@/lib/request-db.server";
+import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 
 export type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
@@ -29,6 +29,7 @@ async function configuredRootFolder() {
   const { data } = await db
     .from("app_settings")
     .select("value")
+    .eq("empresa_id", contextoEmpresa().empresaId)
     .eq("key", "os_document_settings")
     .maybeSingle();
   const settings = (data?.value ?? {}) as { enabled?: boolean; folderId?: string };

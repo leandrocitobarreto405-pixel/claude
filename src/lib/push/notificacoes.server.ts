@@ -12,6 +12,7 @@ import {
   PREFERENCIAS_PADRAO,
   esperasParaNotificar,
   horaDoResumo,
+  notificacaoAgendamentoAlice,
   notificacaoCampanha,
   notificacaoConcluido,
   notificacaoEspera,
@@ -233,6 +234,22 @@ async function eventosDaEmpresa(
   }
 
   if (quer("agendamento_promocao")) {
+    // Agendamentos feitos pela Alice (e OS dela sem documento): só admin e atendentes.
+    const { data: avisos } = await db
+      .from("mkt_avisos")
+      .select("id, titulo, mensagem")
+      .eq("empresa_id", empresaId)
+      .eq("tipo", "agendamento_alice")
+      .gte("created_at", recente)
+      .limit(30);
+    for (const a of avisos ?? [])
+      eventos.push({
+        tipo: "agendamento_promocao",
+        ref: `alice:${a.id}`,
+        n: notificacaoAgendamentoAlice(a),
+        para: (p) => p.papel !== "tecnico",
+      });
+
     const { data: visitas } = await db
       .from("visits")
       .select(

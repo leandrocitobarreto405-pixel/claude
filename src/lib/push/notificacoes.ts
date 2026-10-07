@@ -33,8 +33,9 @@ export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; pa
     },
     {
       tipo: "agendamento_promocao",
-      rotulo: "Agendamento vindo da promoção",
-      descricao: "Quando alguém que recebeu a promoção da agenda marca um serviço.",
+      rotulo: "Agendamentos novos (promoção e Alice)",
+      descricao:
+        "Quando alguém que recebeu a promoção da agenda marca um serviço e quando a Alice agenda um cliente (o técnico recebe só o da promoção).",
       papeis: ["admin", "atendente", "tecnico"],
     },
     {
@@ -148,6 +149,17 @@ export function notificacaoPromocao(v: {
     titulo: "Agendamento da promoção",
     corpo: `${v.cliente} marcou para ${dataCurta(v.data)} às ${v.hora.slice(0, 5)}.`,
     url: `/agenda?modo=dia&dia=${v.data}`,
+  };
+}
+
+/** Agendamento feito pela Alice (aviso "agendamento_alice"): cliente, dia, horário e valor. */
+export function notificacaoAgendamentoAlice(a: { titulo: string; mensagem: string }): Notificacao {
+  const linhas = a.mensagem.split("\n").map((l) => l.trim());
+  const os = /\bOS (\S+)/.exec(a.mensagem)?.[1]?.replace(/[^\w-]/g, "");
+  return {
+    titulo: a.titulo,
+    corpo: [linhas[0], linhas[1]?.replace(/^Valor:\s*/, "")].filter(Boolean).join(" · "),
+    url: os ? `/os/${encodeURIComponent(os)}` : "/agenda",
   };
 }
 

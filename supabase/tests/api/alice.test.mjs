@@ -596,6 +596,168 @@ sql(`UPDATE ia_tarefas SET situacao = 'ignorada' WHERE situacao = 'pendente'
        AND conversa_id = (SELECT id FROM conversas WHERE chatwoot_conversation_id = 962)`);
 sql(`UPDATE ia_configuracoes SET espera_segundos = 1 WHERE empresa_id = '${EMPRESA}'`);
 
+// ---------------------------------------------------------------- 4h. agendamento pela Alice
+// Horário livre do técnico daqui a 7 dias, orçamento enviado ao lead; o cliente aceita.
+sql(`UPDATE ia_configuracoes SET agenda_automatica = true WHERE empresa_id = '${EMPRESA}'`);
+const tecnico = sql(`INSERT INTO technicians (empresa_id, name, base_address)
+                     VALUES ('${EMPRESA}', 'Josué Teste', 'Rua X, 1') RETURNING id`);
+const diaAg = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 7)::text`);
+sql(`INSERT INTO agenda_horarios_base (empresa_id, tecnico_id, dia_semana, hora)
+     VALUES ('${EMPRESA}', '${tecnico}', extract(dow FROM '${diaAg}'::date)::int, '10:00')`);
+sql(`INSERT INTO config_options (empresa_id, kind, name, display_order)
+     SELECT '${EMPRESA}', 'service_type', 'Higienização', 1
+      WHERE NOT EXISTS (SELECT 1 FROM config_options WHERE empresa_id = '${EMPRESA}'
+                          AND kind = 'service_type' AND name ILIKE 'higien%')`);
+const orcamento = (n) =>
+  sql(`WITH q AS (
+         INSERT INTO quotes (empresa_id, cliente_nome, crm_lead_id, subtotal, desconto, total, valor_a_vista, parcelas, status)
+         SELECT '${EMPRESA}', 'Cliente ${n}', crm_lead_id, 360, 0, 360, 342, 6, 'enviado'
+           FROM conversas WHERE chatwoot_conversation_id = ${950 + n} RETURNING id)
+       INSERT INTO quote_items (empresa_id, quote_id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_tabela, preco_aplicado, quantidade)
+       SELECT '${EMPRESA}', q.id, t.id, 'Sofá 3 lugares', 'higienizacao', 180, 180, 2
+         FROM q, tabela_precos_itens t WHERE t.empresa_id = '${EMPRESA}' AND t.nome = 'Sofá 3 lugares'
+       RETURNING quote_id`);
+const proxima = String(
+  Number(
+    sql(`SELECT coalesce(max(nullif(regexp_replace(os_number, '\\D', '', 'g'), '')::int), 0)
+                FROM work_orders WHERE empresa_id = '${EMPRESA}'`),
+  ) + 1,
+).padStart(4, "0");
+
+await webhook(conversaNova(15));
+await webhook(msg(9151, 15, "Oi, quero higienizar meu sofá"));
+check(
+  "agendamento: Alice atendeu",
+  await ate(() => situacao(15) === "responder:concluida"),
+  situacao(15),
+);
+const quote15 = orcamento(15);
+check("agendamento: orçamento do lead", Boolean(quote15), quote15);
+await webhook(msg(9152, 15, `Pode ser ${diaAg} 10:00, pix`));
+check(
+  "agendamento: resposta concluída",
+  await ate(() => situacao(15) === "responder:concluida,responder:concluida", 25000),
+  situacao(15),
+);
+const os15 =
+  sql(`SELECT w.os_number || '|' || w.status || '|' || w.total_gross_value || '|' || w.items_sum || '|' ||
+                         w.negotiated_payment_method || '|' || w.negotiated_installments || '|' || s.name || '|' ||
+                         o.name || '|' || coalesce(w.adjustment_reason, '-')
+                    FROM work_orders w JOIN salespeople s ON s.id = w.salesperson_id
+                    JOIN config_options o ON o.id = w.sales_origin_id
+                    JOIN crm_leads l ON l.linked_work_order_id = w.id
+                    JOIN conversas c ON c.crm_lead_id = l.id AND c.chatwoot_conversation_id = 965`);
+const [num15, st15, total15, soma15, forma15, parc15, vend15, origem15, ajuste15] = os15.split("|");
+check("agendamento: OS com o próximo número", num15 === proxima, { os15, proxima });
+check(
+  "agendamento: OS agendada no Pix",
+  st15 === "Agendada" && forma15 === "Pix" && parc15 === "1",
+  os15,
+);
+check(
+  "agendamento: total do Pix, itens pela tabela",
+  Number(total15) === 342 && Number(soma15) === 360,
+  os15,
+);
+check("agendamento: motivo do ajuste", ajuste15.includes("Pix"), ajuste15);
+check("agendamento: Alice sozinha → vendedora Alice (IA)", vend15 === "Alice (IA)", vend15);
+check("agendamento: sem outra origem → WhatsApp (criada)", origem15 === "WhatsApp", origem15);
+check(
+  "agendamento: atendimento no dia, hora e técnico",
+  sql(`SELECT v.scheduled_date || ' ' || v.scheduled_time || '|' || t.name || '|' || v.status || '|' ||
+              (SELECT string_agg(i.description || ' x' || i.quantity || ' ' || i.unit_price, ',')
+                 FROM service_items i WHERE i.visit_id = v.id)
+         FROM visits v JOIN work_orders w ON w.id = v.work_order_id JOIN technicians t ON t.id = v.technician_id
+        WHERE w.os_number = '${num15}' AND w.empresa_id = '${EMPRESA}'`) ===
+    `${diaAg} 10:00:00|Josué Teste|Agendado|Sofá 3 lugares x2 180`,
+);
+check(
+  "agendamento: cliente com endereço completo",
+  sql(`SELECT c.full_name || '|' || c.phone || '|' || c.street || ', ' || c.street_number || '|' || c.state || '|' || c.email
+         FROM customers c JOIN work_orders w ON w.customer_id = c.id
+        WHERE w.os_number = '${num15}' AND w.empresa_id = '${EMPRESA}'`) ===
+    "Ana Teste da Silva|5511988000015|Rua Felipe Schmidt, 100|SC|ana@teste.com",
+);
+check(
+  "agendamento: orçamento convertido e lead fechado",
+  sql(`SELECT q.status || '|' || l.is_open FROM quotes q JOIN crm_leads l ON l.id = q.crm_lead_id
+        WHERE q.id = '${quote15}'`) === "convertido|false",
+);
+const aviso15 = sql(`SELECT titulo || '|' || mensagem FROM mkt_avisos
+                      WHERE empresa_id = '${EMPRESA}' AND tipo = 'agendamento_alice'
+                        AND mensagem LIKE '%OS ${num15}%' ORDER BY created_at LIMIT 1`);
+check(
+  "agendamento: aviso à equipe com cliente, dia, horário e valor",
+  aviso15.startsWith("Agendamento feito pela Alice|Ana Teste da Silva") &&
+    aviso15.includes("às 10:00") &&
+    /R\$\s?342,00 no Pix/.test(aviso15),
+  aviso15,
+);
+check(
+  "agendamento: documento desligado → equipe avisada, sem PDF",
+  sql(`SELECT count(*) FROM mkt_avisos WHERE empresa_id = '${EMPRESA}' AND titulo = 'OS da Alice sem documento'
+         AND mensagem LIKE '%OS ${num15}%'`) === "1",
+);
+const fala15 = (await doChatwoot(965)).map(textoDe);
+check(
+  "agendamento: confirmação ao cliente, sem anexo",
+  fala15.some((t) => t.includes("Serviço agendado")) &&
+    !(await doChatwoot(965)).some((c) => c.multipart),
+  fala15,
+);
+// O mesmo horário não é reservado de novo (outra conversa).
+await webhook(conversaNova(16));
+await webhook(msg(9161, 16, "Oi"));
+await ate(() => situacao(16) === "responder:concluida");
+orcamento(16);
+await webhook(msg(9162, 16, `Pode ser ${diaAg} 10:00, pix`));
+await ate(() => situacao(16) === "responder:concluida,responder:concluida", 25000);
+check(
+  "agendamento: horário já ocupado não vira outra OS",
+  sql(
+    `SELECT count(*) FROM visits WHERE empresa_id = '${EMPRESA}' AND scheduled_date = '${diaAg}'`,
+  ) === "1" && (await doChatwoot(966)).map(textoDe).some((t) => t.includes("outro")),
+  (await doChatwoot(966)).map(textoDe),
+);
+
+// Atendente respondeu pelo Chatwoot e devolveu para a Alice: a vendedora é a atendente.
+sql(`INSERT INTO agenda_horarios_base (empresa_id, tecnico_id, dia_semana, hora)
+     VALUES ('${EMPRESA}', '${tecnico}', extract(dow FROM '${diaAg}'::date)::int, '14:00')`);
+await webhook(conversaNova(17));
+await webhook(msg(9171, 17, "Oi"));
+await ate(() => situacao(17) === "responder:concluida");
+await webhook(
+  msg(9172, 17, "Oi! Aqui é a Maria, já te ajudo.", {
+    message_type: "outgoing",
+    sender: { id: 7, name: "Maria Germano", email: "atendimento@turbine.test", type: "user" },
+  }),
+);
+await ate(() => situacao(17).includes("passar_para_humano:concluida"));
+await webhook(nota(9173, 17, "#alice", "open"));
+await ate(() => situacao(17).endsWith("devolver_para_alice:concluida,responder:concluida"));
+orcamento(17);
+await webhook(msg(9174, 17, `Pode ser ${diaAg} 14:00, cartao`));
+check(
+  "agendamento com atendente: concluído",
+  await ate(
+    () =>
+      sql(
+        `SELECT count(*) FROM visits WHERE empresa_id = '${EMPRESA}' AND scheduled_date = '${diaAg}'`,
+      ) === "2",
+    25000,
+  ),
+  situacao(17),
+);
+check(
+  "agendamento com atendente: vendedora é a atendente; cartão em 3x",
+  sql(`SELECT s.name || '|' || w.negotiated_payment_method || '|' || w.negotiated_installments || '|' || w.total_gross_value::numeric(10,2)
+         FROM work_orders w JOIN salespeople s ON s.id = w.salesperson_id
+         JOIN visits v ON v.work_order_id = w.id
+        WHERE w.empresa_id = '${EMPRESA}' AND v.scheduled_date = '${diaAg}' AND v.scheduled_time = '14:00'`) ===
+    "Maria|Crédito|3|360.00",
+);
+sql(`UPDATE ia_configuracoes SET agenda_automatica = false WHERE empresa_id = '${EMPRESA}'`);
+
 // ---------------------------------------------------------------- 4f. varredura da fila
 const varreduraSemChave = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
   method: "POST",

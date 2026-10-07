@@ -4,6 +4,7 @@ import {
   PREFERENCIAS_PADRAO,
   esperasParaNotificar,
   horaDoResumo,
+  notificacaoAgendamentoAlice,
   notificacaoEspera,
   notificacaoPromocao,
   notificacaoResumo,
@@ -113,4 +114,15 @@ test("resumo do técnico: só os serviços dele, em ordem", () => {
     "t1",
   );
   assert.equal(tecnicoDoUsuario({ id: "u2", email: "x@y.com", nome: null }, ligados), "t9");
+});
+
+test("agendamento da Alice: cliente, dia, horário e valor; abre a OS", () => {
+  const n = notificacaoAgendamentoAlice({
+    titulo: "Agendamento feito pela Alice",
+    mensagem:
+      "Ana Souza · qui 08/10 às 10:00\nValor: R$ 797,72 no Pix\nOS 1625 · Técnico: Josué Barreto · Vendedora: Alice (IA)\nConfira a OS no app.",
+  });
+  assert.equal(n.titulo, "Agendamento feito pela Alice");
+  assert.equal(n.corpo, "Ana Souza · qui 08/10 às 10:00 · R$ 797,72 no Pix");
+  assert.equal(n.url, "/os/1625");
 });

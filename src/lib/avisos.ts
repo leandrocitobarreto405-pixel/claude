@@ -43,8 +43,10 @@ export type FontesDeAvisos = {
 
 const ORDEM_TOM: Record<TomChip, number> = { problema: 0, atencao: 1, sucesso: 2, neutro: 3 };
 
-function tomDoMarketing(tipo: string): TomChip {
+function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
   if (tipo === "problema_pos_venda" || tipo === "prioridade_urgente") return "problema";
+  if (tipo === "agendamento_alice")
+    return /não foi gerado|não deu para saber/.test(mensagem) ? "atencao" : "sucesso";
   if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";
   return "neutro";
 }
@@ -70,14 +72,19 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
   }
 
   for (const m of f.marketing) {
+    // Agendamento da Alice abre a OS para conferir.
+    const os =
+      m.tipo === "agendamento_alice"
+        ? /\bOS (\S+)/.exec(m.mensagem)?.[1]?.replace(/[^\w-]/g, "")
+        : undefined;
     lista.push({
       id: `mkt-${m.id}`,
-      tom: tomDoMarketing(m.tipo),
+      tom: tomDoMarketing(m.tipo, m.mensagem),
       titulo: m.titulo,
       texto: m.mensagem,
       quando: m.criadoEm,
       novo: !m.lidoEm,
-      link: { to: "/marketing" },
+      link: os ? { to: "/os/$osNumber", params: { osNumber: os } } : { to: "/marketing" },
       escritorio: true,
     });
   }

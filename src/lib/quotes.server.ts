@@ -401,7 +401,7 @@ export type CepEstimate = {
 };
 
 /** Endereço do CEP (ViaCEP) e as partes para localizar no mapa. */
-async function enderecoDoCep(cep: string) {
+export async function enderecoDoCep(cep: string) {
   let parts: Parameters<typeof geocodeParts>[0] = { postal_code: cep };
   let endereco: string | null = null;
   try {

@@ -10,7 +10,7 @@ import {
   testCalendarConnection,
   updateEvent,
 } from "@/lib/google-calendar.server";
-import { bancoDaEmpresa } from "@/lib/request-db.server";
+import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 
 const SETTINGS_KEY = "google_calendar_settings";
 
@@ -32,6 +32,7 @@ export async function readSettings(): Promise<CalendarSettings> {
   const { data } = await db
     .from("app_settings")
     .select("value")
+    .eq("empresa_id", contextoEmpresa().empresaId)
     .eq("key", SETTINGS_KEY)
     .maybeSingle();
   const v = (data?.value ?? {}) as Partial<CalendarSettings>;

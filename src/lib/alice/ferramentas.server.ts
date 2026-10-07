@@ -44,6 +44,8 @@ export type Saida =
       pasta?: string;
       /** Não segura o resto da resposta (a espera depois da mídia é para vídeo/áudio). */
       semEspera?: boolean;
+      /** caminho é o id de um documento do Google, mandado em PDF (a OS). */
+      googleDoc?: boolean;
     };
 
 export type ContextoFerramenta = {
@@ -64,6 +66,8 @@ export type ContextoFerramenta = {
   saida: Saida[];
   /** Algum follow-up foi agendado (o processador entrega à fila no fim). */
   agendouFollowup: boolean;
+  /** OS reservada nesta resposta (reservar_horario → gerar_ordem_servico). */
+  osReservada?: { id: string; os_number: string };
 };
 
 // ---------------------------------------------------------------- entradas
@@ -339,6 +343,65 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
         required: ["data_inicial", "dias"],
         additionalProperties: false,
       },
+    });
+    lista.push({
+      name: "reservar_horario",
+      description:
+        "Reserva o horário que o cliente aceitou e cria a ordem de serviço (OS) no sistema com o orçamento aprovado, já com o próximo número. Confere de novo se o horário está livre. Use só com o horário aceito e os dados do cliente (nome completo, CEP, número e forma de pagamento). Se o cliente ainda não disse se paga no Pix ou no cartão (e em quantas vezes), pergunte antes; não suponha. Se der erro de horário, consulte a agenda de novo e ofereça outro.",
+      input_schema: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Dia, no formato AAAA-MM-DD." },
+          hora: {
+            type: "string",
+            description: "Horário de chegada, HH:MM (como em consultar_agenda).",
+          },
+          tecnico: {
+            type: "string",
+            description: "Técnico do horário (como em consultar_agenda).",
+          },
+          orcamentos: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Nº dos orçamentos aprovados (o nº que criar_orcamento devolveu). Se o cliente fechou higienização e impermeabilização, informe os dois. Sem isso, vale o orçamento mais recente.",
+          },
+          pagamento: {
+            type: "string",
+            enum: ["pix", "cartao"],
+            description: "Forma de pagamento combinada.",
+          },
+          parcelas: {
+            type: "integer",
+            minimum: 1,
+            maximum: 24,
+            description: "Parcelas no cartão.",
+          },
+          nome_completo: { type: "string" },
+          cpf_cnpj: { type: "string" },
+          email: { type: "string" },
+          cep: { type: "string" },
+          rua: { type: "string", description: "Só se o cliente informou (o CEP completa)." },
+          numero: { type: "string" },
+          complemento: { type: "string" },
+          bairro: { type: "string" },
+          cidade: { type: "string" },
+          uf: { type: "string" },
+          ponto_referencia: { type: "string" },
+          observacoes: {
+            type: "string",
+            description: "Algo que o técnico precise saber (pet, mancha, acesso, portaria).",
+          },
+        },
+        required: ["data", "hora", "pagamento", "nome_completo", "cep", "numero"],
+        additionalProperties: false,
+      },
+    });
+    lista.push({
+      name: "gerar_ordem_servico",
+      description:
+        "Gera o documento da OS reservada nesta conversa e manda ao cliente em PDF, junto da sua próxima mensagem. Use logo depois de reservar_horario, antes da confirmação final.",
+      input_schema: { type: "object", properties: {}, additionalProperties: false },
     });
   }
   lista.push(
@@ -816,72 +879,30 @@ async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof
 
 async function consultarAgenda(ctx: ContextoFerramenta, input: z.infer<typeof ConsultarAgenda>) {
   const { agendaLivre, textoAgenda } = await import("./agenda");
+  const { agoraSP, carregarAgenda } = await import("./agendamento.server");
   const periodo = input.periodo ?? "qualquer";
   const ate = new Date(
     new Date(`${input.data_inicial}T12:00:00Z`).getTime() + (input.dias - 1) * 86_400_000,
   )
     .toISOString()
     .slice(0, 10);
-  const [{ data: base, error: e1 }, { data: visitas, error: e2 }] = await Promise.all([
-    ctx.admin
-      .from("agenda_horarios_base")
-      .select("tecnico_id, dia_semana, hora, technicians!inner(name, active)")
-      .eq("empresa_id", ctx.empresaId)
-      .eq("technicians.active", true),
-    ctx.admin
-      .from("visits")
-      .select(
-        "scheduled_date, scheduled_time, status, technician_id, work_order:work_order_id(customer:customer_id(latitude, longitude))",
-      )
-      .eq("empresa_id", ctx.empresaId)
-      .gte("scheduled_date", input.data_inicial)
-      .lte("scheduled_date", ate),
-  ]);
-  if (e1 || e2) return `Não foi possível consultar a agenda: ${(e1 ?? e2)!.message}`;
-  const horarios = (base ?? []).map((b) => ({
-    tecnicoId: b.tecnico_id as string,
-    tecnico: (b as unknown as { technicians: { name: string } }).technicians.name,
-    diaSemana: b.dia_semana as number,
-    hora: String(b.hora).slice(0, 5),
-  }));
-  type Visita = {
-    scheduled_date: string;
-    scheduled_time: string | null;
-    status: string;
-    technician_id: string | null;
-    work_order: { customer: { latitude: number | null; longitude: number | null } | null } | null;
-  };
-  const ocupacoes = ((visitas ?? []) as unknown as Visita[])
-    .filter((v) => v.scheduled_time)
-    .map((v) => {
-      const c = v.work_order?.customer;
-      return {
-        data: v.scheduled_date,
-        hora: String(v.scheduled_time).slice(0, 5),
-        status: v.status,
-        tecnicoId: v.technician_id,
-        coords:
-          c && c.latitude !== null && c.longitude !== null
-            ? { lat: Number(c.latitude), lon: Number(c.longitude) }
-            : null,
-      };
-    });
+  const agenda = await carregarAgenda(ctx, input.data_inicial, ate);
+  if ("erro" in agenda) return `Não foi possível consultar a agenda: ${agenda.erro}`;
   let cliente: { lat: number; lon: number } | null = null;
   if (input.cep) {
     const { coordenadasDoCep } = await import("@/lib/quotes.server");
     cliente = await coordenadasDoCep(input.cep).catch(() => null);
   }
-  const agoraSP = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" });
   const dias = agendaLivre({
     inicio: input.data_inicial,
     dias: input.dias,
-    base: horarios,
-    ocupacoes,
+    base: agenda.horarios,
+    ocupacoes: agenda.ocupacoes,
     periodo,
-    agora: { data: agoraSP.slice(0, 10), hora: agoraSP.slice(11, 16) },
+    agora: agoraSP(),
     cliente,
   });
-  const texto = textoAgenda(horarios, dias, periodo);
+  const texto = textoAgenda(agenda.horarios, dias, periodo);
   return input.cep && !cliente
     ? `${texto}\n(Não consegui localizar o CEP ${input.cep}; a prioridade por proximidade não foi calculada.)`
     : texto;
@@ -1182,6 +1203,17 @@ export async function executarFerramenta(
         if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
         const p = DadosTecnico.safeParse(entrada);
         return p.success ? r(await enviarDadosTecnico(ctx, p.data)) : invalida(p.error);
+      }
+      case "reservar_horario": {
+        if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
+        const { ReservarHorario, reservarHorario } = await import("./agendamento.server");
+        const p = ReservarHorario.safeParse(entrada);
+        return p.success ? r(await reservarHorario(ctx, p.data)) : invalida(p.error);
+      }
+      case "gerar_ordem_servico": {
+        if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
+        const { gerarOrdemServico } = await import("./agendamento.server");
+        return r(await gerarOrdemServico(ctx));
       }
       case "consultar_agenda": {
         if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
