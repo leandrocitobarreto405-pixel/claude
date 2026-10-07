@@ -56,9 +56,17 @@ function origemCors(request: Request): string | null {
   return origem === new URL(request.url).origin ? null : origem;
 }
 
-function comCors(response: Response, origem: string): Response {
+/**
+ * Cabeçalhos da resposta que o navegador precisa ler numa chamada de outra origem. Sem eles, o
+ * app não sabe que a resposta vem serializada e lê o resultado errado (a ação é feita no
+ * servidor, mas a tela quebra).
+ */
+export const CABECALHOS_EXPOSTOS = "x-tss-serialized, x-tss-raw, content-type";
+
+export function comCors(response: Response, origem: string): Response {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", origem);
+  headers.set("Access-Control-Expose-Headers", CABECALHOS_EXPOSTOS);
   headers.append("Vary", "Origin");
   return new Response(response.body, {
     status: response.status,

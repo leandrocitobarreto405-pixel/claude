@@ -1,11 +1,17 @@
 import { Toaster as Sonner, toast } from "sonner";
+import { mensagemParaTela } from "@/lib/erro-tela";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 // Erro fica na tela até a pessoa fechar (dá tempo de ler); atenção, 10 s. Vale para o app todo.
+// Erro técnico em inglês (do navegador ou do código) aparece em português.
 const erro = toast.error;
 toast.error = ((mensagem, dados) =>
-  erro(mensagem, { duration: Infinity, closeButton: true, ...dados })) as typeof toast.error;
+  erro(typeof mensagem === "string" ? mensagemParaTela(mensagem) : mensagem, {
+    duration: Infinity,
+    closeButton: true,
+    ...dados,
+  })) as typeof toast.error;
 const atencao = toast.warning;
 toast.warning = ((mensagem, dados) =>
   atencao(mensagem, { duration: 10_000, ...dados })) as typeof toast.warning;

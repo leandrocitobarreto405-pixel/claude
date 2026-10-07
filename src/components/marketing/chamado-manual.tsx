@@ -31,6 +31,7 @@ import { dateBR, todayISO } from "@/lib/format";
 import { dataPlanilha } from "@/lib/planilha-data";
 import { semAcento } from "@/lib/importacao-base";
 import { fetchDireto } from "@/lib/enderecos";
+import { textoDoErro } from "@/lib/erro-tela";
 // Mesma chave do Marketing (campanha-card), sem importar o cartão (que usa este botão).
 const CHAVE_MKT = ["marketing"] as const;
 
@@ -40,6 +41,19 @@ type Resultado = {
   totalNaoEncontrados: number;
   tiradosDeCampanhas: number;
 };
+
+/** Resultado da marcação, mesmo se a resposta vier incompleta (marcar uma pessoa: 1). */
+function lerResultado(r: unknown, padraoMarcados: number): Resultado {
+  const v = (r && typeof r === "object" ? r : {}) as Partial<Resultado>;
+  const n = (x: unknown, p = 0) => (typeof x === "number" && Number.isFinite(x) ? x : p);
+  const nao = Array.isArray(v.naoEncontrados) ? v.naoEncontrados.map(String) : [];
+  return {
+    marcados: n(v.marcados, padraoMarcados),
+    naoEncontrados: nao,
+    totalNaoEncontrados: n(v.totalNaoEncontrados, nao.length),
+    tiradosDeCampanhas: n(v.tiradosDeCampanhas),
+  };
+}
 
 function textoResultado(r: Resultado) {
   return [
@@ -78,20 +92,25 @@ export function BotaoChamadoManual({
     }
     setOcupado(true);
     try {
-      const r = await marcar({
-        fetch: fetchDireto,
-        data: { itens: [{ contato_id: contatoId, data }] },
-      });
+      const r = lerResultado(
+        await marcar({
+          fetch: fetchDireto,
+          data: { itens: [{ contato_id: contatoId, data }] },
+        }),
+        1,
+      );
       toast.success(
         `${nome ?? "Contato"}: chamado manualmente em ${dateBR(data)}. ${textoResultado(r)}.`,
       );
       setAberto(false);
-      await qc.invalidateQueries({ queryKey: CHAVE_MKT });
-      aoMarcar?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível marcar.");
+      toast.error(textoDoErro(e, "Não foi possível marcar."));
     } finally {
       setOcupado(false);
+      // Lista de quem vai receber, contagem e cartão da campanha: atualiza mesmo se a tela falhou
+      // (a marcação pode ter sido gravada).
+      await qc.invalidateQueries({ queryKey: CHAVE_MKT }).catch(() => undefined);
+      aoMarcar?.();
     }
   }
 
@@ -190,7 +209,7 @@ export function ChamadosManuais({ admin }: { admin: boolean }) {
       setArquivo(file.name);
       setPrevia(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível ler a planilha.");
+      toast.error(textoDoErro(e, "Não foi possível ler a planilha."));
     }
   }
 
@@ -216,7 +235,10 @@ export function ChamadosManuais({ admin }: { admin: boolean }) {
     }
     setOcupado(true);
     try {
-      const r = await marcar({ fetch: fetchDireto, data: { itens: lista, simular } });
+      const r = lerResultado(
+        await marcar({ fetch: fetchDireto, data: { itens: lista, simular } }),
+        0,
+      );
       if (simular) setPrevia(r);
       else {
         toast.success(`Planilha marcada. ${textoResultado(r)}.`);
@@ -226,7 +248,7 @@ export function ChamadosManuais({ admin }: { admin: boolean }) {
         await qc.invalidateQueries({ queryKey: CHAVE_MKT });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível marcar.");
+      toast.error(textoDoErro(e, "Não foi possível marcar."));
     } finally {
       setOcupado(false);
     }
