@@ -139,6 +139,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 07/10/2026       | Usuários e Equipe     | `d46f737`        | `f8f2043`                |
 | 07/10/2026       | Foto do técnico       | `c638c08`        | `d46f737`                |
 | 07/10/2026       | Alice agenda e faz OS | `680c36c`        | `8f45a3f`                |
+| 07/10/2026       | Alice sem relatório   | `368a4a8`        | `91e8a0a`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
