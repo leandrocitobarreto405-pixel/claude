@@ -113,7 +113,13 @@ servidor(PORTA_CLAUDE, (req, body) => {
     }
     if (conteudo.includes("Follow-up agendado")) {
       return resposta(
-        [texto("Prontinho! Te enviei a proposta!\nEla faz sentido pra você?")],
+        [
+          texto("Prontinho! Te enviei a proposta!\nEla faz sentido pra você?"),
+          // Relatório para si mesma (o modelo às vezes escreve): não pode chegar ao cliente.
+          texto(
+            "- *Ficha do cliente:* atualizei o resumo.\n- *Lembrete:* marcado; se ele não responder, eu sigo.",
+          ),
+        ],
         "end_turn",
       );
     }

@@ -8,6 +8,7 @@ import {
   lerDataHoraLocal,
   normalizarNome,
   proximoHorarioPermitido,
+  textoInterno,
   validade,
 } from "./regras";
 
@@ -83,4 +84,24 @@ test("nomes da tabela comparados sem acento e sem diferença de caixa", () => {
     normalizarNome("Sofá retrátil 2 módulos, até 2,50 m"),
     normalizarNome("sofa retratil 2 modulos, ate 2,50 m"),
   );
+});
+
+test("texto interno da IA (relatório) não vai ao cliente", () => {
+  const relatorio = [
+    'Enviei ao Breno a explicação da higienização numa mensagem só. Como ele não sabe a medida, ela já diz que vou considerar o sofá retrátil de 2 módulos com até 2,50 m e termina com "Ficou alguma dúvida, Breno?".',
+    "- *Ficha do cliente:* atualizei o sofá (retrátil 2 módulos, cinza, medida não informada) e o resumo do atendimento. O próximo passo é o vídeo e o orçamento.\n- *Lembrete:* está marcado para hoje, 07:57. Se ele não responder até lá, eu sigo com o aviso e o vídeo da higienização.",
+    "Usei atualizar_lead e agendar_followup.",
+    "Lembrete: volto a falar com ela amanhã.",
+    "O cliente não respondeu ainda.",
+  ];
+  for (const t of relatorio) assert.equal(textoInterno(t, "Breno"), true, t);
+  const paraCliente = [
+    "Prontinho, Breno! Te enviei a proposta ☺️\nEla faz sentido pro que você está buscando?",
+    "Entendo, Breno! A melhor condição que temos é o Pix.\nQuanto você tinha planejado investir na higienização?",
+    "Tranquilo, Breno! Pela foto, ele parece um sofá retrátil de 2 módulos.\nVocê sabe mais ou menos a medida dele?",
+    "Enquanto eu preparo seu orçamento, vou te mandar um vídeo curtinho, tá bom?",
+    "Se precisar remarcar, me avisa com 24 horas de antecedência, combinado? 💙",
+    "Serviço agendado! ✅\n👨‍🔧 Técnico: Josué Barreto\nEstá tudo certinho, Breno?",
+  ];
+  for (const t of paraCliente) assert.equal(textoInterno(t, "Breno"), false, t);
 });

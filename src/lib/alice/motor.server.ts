@@ -30,7 +30,7 @@ import {
   type Uso,
 } from "./prompt";
 import { chaveTelefone } from "@/lib/avisos";
-import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido } from "./regras";
+import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 
 type Admin = SupabaseClient<Database>;
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
@@ -712,6 +712,8 @@ async function conversar(
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   const ferramentasUsadas: Array<{ nome: string; entrada: unknown; resultado: string }> = [];
   const saida: Saida[] = [];
+  /** Relatório que a IA escreveu para si ("Enviei ao Breno...", "Ficha do cliente..."): não vai. */
+  const retidos: string[] = [];
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
@@ -742,10 +744,12 @@ async function conversar(
     parada = resposta.stop_reason;
     if (resposta.stop_reason === "refusal") break;
 
-    // Tudo o que a IA escreve vai ao cliente, na ordem; depois, o que as ferramentas pediram
-    // (enviar_mensagem, vídeo, áudio), na ordem das chamadas.
+    // O que a IA escreve vai ao cliente, na ordem (menos relatório interno); depois, o que as
+    // ferramentas pediram (enviar_mensagem, vídeo, áudio), na ordem das chamadas.
     for (const b of resposta.content) {
-      if (b.type === "text" && b.text.trim()) saida.push({ tipo: "texto", texto: b.text.trim() });
+      if (b.type !== "text" || !b.text.trim()) continue;
+      if (textoInterno(b.text, lead?.nome)) retidos.push(b.text.trim());
+      else saida.push({ tipo: "texto", texto: b.text.trim() });
     }
     const chamadas = resposta.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
@@ -868,7 +872,10 @@ async function conversar(
       ),
     );
   }
-  await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: enviadas });
+  await db.from("ia_execucoes").insert({
+    ...registro,
+    mensagens_enviadas: [...enviadas, ...retidos.map((t) => `[não enviado: texto interno] ${t}`)],
+  });
 
   if (d.conversa.crm_lead_id) {
     await db

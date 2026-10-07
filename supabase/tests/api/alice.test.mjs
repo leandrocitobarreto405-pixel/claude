@@ -321,6 +321,13 @@ check(
   ordem,
 );
 check(
+  "relatório interno da IA retido (registrado, não enviado)",
+  !ordem.some((t) => t.includes("Ficha do cliente")) &&
+    sql(`SELECT count(*) FROM ia_execucoes e JOIN conversas c ON c.id = e.conversa_id
+          WHERE c.chatwoot_conversation_id = 954
+            AND e.mensagens_enviadas::text LIKE '%não enviado: texto interno%'`) === "1",
+);
+check(
   "valores calculados pelo sistema (total e Pix 5%)",
   /R\$\s?180,00/.test(ordem[2] ?? "") && /R\$\s?171,00/.test(ordem[2] ?? ""),
   ordem[2],

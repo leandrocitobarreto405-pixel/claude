@@ -163,3 +163,40 @@ export const SINONIMOS_PERDA: Record<MotivoPerda, string[]> = {
   "Não precisa mais": ["Não precisa mais"],
   "Sumiu sem responder": ["Sumiu sem responder", "Sem retorno"],
 };
+
+// ---------------------------------------------------------------- texto interno
+const FERRAMENTAS_NOMES =
+  /\b(atualizar_lead|atualizar_etapa|consultar_\w+|criar_orcamento|registrar_\w+|enviar_mensagem|enviar_video|enviar_audio_padrao|enviar_dados_tecnico|agendar_followup|transferir_para_humano|reservar_horario|gerar_ordem_servico)\b/i;
+const BASTIDOR = [
+  /\bficha do cliente\b/i,
+  /\bresumo do atendimento\b/i,
+  /^\W*lembrete\s*:/im,
+  /\blembrete (est[aá] )?(marcado|agendado|é cancelado|será cancelado)\b/i,
+  /\bpr[oó]ximo passo (é|será)\b/i,
+  /\bse (ele|ela) (n[aã]o )?responder\b/i,
+  /\b(enviei|mandei|respondi|expliquei|perguntei|ofereci)\s+(ao|à|a|para o|para a|pro|pra)\s+(cliente|lead)\b/i,
+  /\b(o|a) cliente (n[aã]o )?(respondeu|sabe|disse|pediu|quer|mandou)\b/i,
+  /\batualizei (a ficha|o lead|o cadastro|o sof[aá]|o resumo)\b/i,
+];
+
+/**
+ * Texto que a IA escreveu para si (relatório do que fez), não para o cliente: não é enviado.
+ * Ex.: "Enviei ao Breno a explicação...", "Ficha do cliente: atualizei...", "Lembrete: ...".
+ */
+export function textoInterno(texto: string, nomeCliente?: string | null): boolean {
+  if (FERRAMENTAS_NOMES.test(texto)) return true;
+  if (BASTIDOR.some((r) => r.test(texto))) return true;
+  const nome = (nomeCliente ?? "").trim().split(/\s+/)[0];
+  if (nome && nome.length >= 3) {
+    const n = nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Fala do cliente na terceira pessoa ("Enviei ao Breno", "mandei para a Ana").
+    if (
+      new RegExp(
+        `\\b(enviei|mandei|respondi|expliquei|perguntei|ofereci|passei)\\s+(ao|à|a|para o|para a|pro|pra|para)\\s+${n}\\b`,
+        "i",
+      ).test(texto)
+    )
+      return true;
+  }
+  return false;
+}

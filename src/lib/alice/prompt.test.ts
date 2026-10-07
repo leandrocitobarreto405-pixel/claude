@@ -141,7 +141,7 @@ test("com instruções da empresa: elas substituem o roteiro padrão", () => {
   assert.match(txt, /Toda mensagem termina com uma pergunta\./);
   assert.doesNotMatch(txt, /Na primeira resposta, apresente-se/);
   // Regras técnicas continuam valendo.
-  assert.match(txt, /O texto final da sua resposta vai direto para o cliente/);
+  assert.match(txt, /TODO texto que você escreve fora das ferramentas vai direto para o cliente/);
   assert.match(txt, /vai pela ferramenta enviar_mensagem/);
 });
 
