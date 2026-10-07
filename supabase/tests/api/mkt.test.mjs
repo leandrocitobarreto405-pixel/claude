@@ -802,6 +802,10 @@ sql(`INSERT INTO users_profiles (id, email, full_name) VALUES ('${TEC}', 'tec@pu
 sql(`INSERT INTO technicians (id, empresa_id, name, email) VALUES
        ('e7000000-0000-0000-0000-000000000001', '${EMP}', 'Tec Push', 'TEC@push.test'),
        ('e7000000-0000-0000-0000-000000000002', '${EMP}', 'Outro Técnico', null)`);
+// O papel "técnico" já criou um cadastro automático ligado ao login; a equipe liga o login ao
+// técnico certo (como no "Login" da tela Equipe) e o automático fica de fora.
+sql(`UPDATE technicians SET user_id = NULL, active = false WHERE user_id = '${TEC}'`);
+sql(`UPDATE technicians SET user_id = '${TEC}' WHERE id = 'e7000000-0000-0000-0000-000000000001'`);
 sql(`INSERT INTO customers (id, empresa_id, full_name, phone, neighborhood) VALUES
        ('e7000000-0000-0000-0000-0000000000c1', '${EMP}', 'Carla Push', '11955559991', 'Pinheiros'),
        ('e7000000-0000-0000-0000-0000000000c2', '${EMP}', 'Pedro Outro', '11955559992', 'Lapa')`);

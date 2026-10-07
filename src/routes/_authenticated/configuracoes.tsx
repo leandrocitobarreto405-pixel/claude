@@ -1060,6 +1060,11 @@ function NovaVendedora({
       toast.error("A comissão vai de 0% a 100%.");
       return;
     }
+    const { data: iguais } = await supabase.from("salespeople").select("name");
+    if ((iguais ?? []).some((x) => x.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.error(`Já existe uma vendedora "${name}". Ajuste a que já está na lista.`);
+      return;
+    }
     setSalvando(true);
     const { error } = await supabase.from("salespeople").insert({
       name,
@@ -1135,6 +1140,16 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
     const mail = email.trim();
     if (mail && !mail.includes("@")) {
       toast.error("Informe um e-mail válido.");
+      return;
+    }
+    const { data: iguais } = await supabase.from("technicians").select("name, email");
+    const repetido = (iguais ?? []).find(
+      (x) =>
+        x.name.trim().toLowerCase() === name.toLowerCase() ||
+        (mail && (x.email ?? "").trim().toLowerCase() === mail.toLowerCase()),
+    );
+    if (repetido) {
+      toast.error(`Já existe o técnico "${repetido.name}". Ajuste o que já está na lista.`);
       return;
     }
     setSalvando(true);

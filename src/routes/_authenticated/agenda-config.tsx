@@ -264,8 +264,10 @@ function HorariosBase({ d }: { d: DadosAgendaConfig }) {
     >
       <div className="flex flex-col gap-4 p-4">
         <p className="text-sm text-muted-foreground">
-          Servem só de referência para a promoção: um horário base sem atendimento marcado conta
-          como livre. Encaixes em outros horários não contam.
+          Os horários em que cada técnico pode começar um serviço, por dia da semana (quantos
+          quiser; domingo é opcional). A Alice só oferece esses horários, e a promoção de dia vago
+          usa os mesmos: um horário base sem atendimento marcado conta como livre. Dia sem horário
+          não é oferecido.
         </p>
         {ativos.length === 0 ? (
           <p className="text-sm">Nenhum técnico ativo.</p>
@@ -330,7 +332,7 @@ function HorariosDoTecnico({
     <div className="flex flex-col gap-3 rounded-botao border border-border p-3">
       <p className="font-bold">{nome}</p>
       <ul className="flex flex-col gap-1.5">
-        {[0, 1, 2, 3, 4, 5, 6].map((n) => {
+        {ORDEM_SEMANA.map((n) => {
           const horas = lista.filter((h) => h.diaSemana === n).sort(ordenar);
           if (!horas.length) return null;
           return (
@@ -365,9 +367,9 @@ function HorariosDoTecnico({
             value={dia}
             onChange={(e) => setDia(e.target.value)}
           >
-            {DIAS.map((rotulo, n) => (
-              <option key={rotulo} value={n}>
-                {rotulo}
+            {ORDEM_SEMANA.map((n) => (
+              <option key={n} value={n}>
+                {DIAS[n]}
               </option>
             ))}
           </select>
@@ -393,8 +395,14 @@ function HorariosDoTecnico({
   );
 }
 
+/** Segunda a sábado e o domingo por último. */
+const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+
 function ordenar(a: { diaSemana: number; hora: string }, b: { diaSemana: number; hora: string }) {
-  return a.diaSemana - b.diaSemana || a.hora.localeCompare(b.hora);
+  return (
+    ORDEM_SEMANA.indexOf(a.diaSemana) - ORDEM_SEMANA.indexOf(b.diaSemana) ||
+    a.hora.localeCompare(b.hora)
+  );
 }
 
 // ---------------------------------------------------------------- rodízio e promoção

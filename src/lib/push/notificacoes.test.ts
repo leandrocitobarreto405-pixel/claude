@@ -102,4 +102,15 @@ test("resumo do técnico: só os serviços dele, em ordem", () => {
   assert.equal(tecnicoDoUsuario({ email: "josue@turbine.com", nome: null }, tecs), "t1");
   assert.equal(tecnicoDoUsuario({ email: "outro@x.com", nome: "marcos" }, tecs), "t2");
   assert.equal(tecnicoDoUsuario({ email: null, nome: "Ana" }, tecs), null);
+  // Ligado ao login vale antes do e-mail; técnico inativo não conta.
+  const ligados = [
+    { id: "auto", email: "josue@turbine.com", nome: "josue", userId: "u1", ativo: false },
+    { id: "t1", email: "josue@turbine.com", nome: "Josué", userId: null },
+    { id: "t9", email: null, nome: "Outro", userId: "u2" },
+  ];
+  assert.equal(
+    tecnicoDoUsuario({ id: "u1", email: "josue@turbine.com", nome: null }, ligados),
+    "t1",
+  );
+  assert.equal(tecnicoDoUsuario({ id: "u2", email: "x@y.com", nome: null }, ligados), "t9");
 });

@@ -845,7 +845,7 @@ async function conversar(
 
   // Depois de um vídeo/áudio, o resto espera alguns minutos (o cliente vê o vídeo com calma e a
   // mídia, que demora a carregar no WhatsApp, não chega depois do orçamento).
-  const iMidia = semNada.findIndex((s) => s.tipo === "anexo");
+  const iMidia = semNada.findIndex((s) => s.tipo === "anexo" && !s.semEspera);
   const espera = cfg.espera_apos_midia_segundos;
   const programar = !ctx.passagem && espera > 0 && iMidia >= 0 && iMidia < semNada.length - 1;
   const agoraItens = programar ? semNada.slice(0, iMidia + 1) : semNada;
@@ -957,7 +957,9 @@ async function enviarItens(db: Admin, d: DadosConversa, itens: Saida[]): Promise
         enviadas.push(parte);
       }
     } else {
-      const { data: arquivo, error } = await db.storage.from("alice-midias").download(item.caminho);
+      const { data: arquivo, error } = await db.storage
+        .from(item.pasta ?? "alice-midias")
+        .download(item.caminho);
       if (error || !arquivo) {
         console.error("Alice: mídia não encontrada", item.caminho, error?.message);
         continue;

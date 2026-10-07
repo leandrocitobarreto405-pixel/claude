@@ -78,15 +78,19 @@ async function prepararEquipe(
 ): Promise<string | null> {
   const db = supabase as import("@supabase/supabase-js").SupabaseClient;
   const tabela = papel === "atendente" ? "salespeople" : "technicians";
-  const { data: existentes, error } = await db
-    .from(tabela)
-    .select("id, name, email, user_id")
-    .is("user_id", null);
+  const { data: existentes, error } = await db.from(tabela).select("id, name, email, user_id");
   if (error) throw new Error("Não foi possível conferir a equipe.");
-  const lista = (existentes ?? []) as Array<{ id: string; name: string; email: string | null }>;
+  const lista = (existentes ?? []) as Array<{
+    id: string;
+    name: string;
+    email: string | null;
+    user_id: string | null;
+  }>;
   const igual = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  // Mesmo e-mail (com ou sem login) é a mesma pessoa; mesmo nome só se ainda não tem login.
   const achado =
-    lista.find((x) => x.email && igual(x.email, email)) ?? lista.find((x) => igual(x.name, e.nome));
+    lista.find((x) => x.email && igual(x.email, email)) ??
+    lista.find((x) => !x.user_id && igual(x.name, e.nome));
   const campos: Record<string, unknown> = { name: e.nome, email, active: true };
   if (papel === "atendente" && e.comissao !== null) campos["commission_percentage"] = e.comissao;
   if (papel === "tecnico" && e.endereco) campos["base_address"] = e.endereco;

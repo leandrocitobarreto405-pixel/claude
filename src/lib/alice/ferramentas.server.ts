@@ -36,7 +36,15 @@ type Servico = "higienizacao" | "impermeabilizacao";
 export type Saida =
   /** bloco: vai numa mensagem só, com as linhas em branco dentro (enviar_mensagem). */
   | { tipo: "texto"; texto: string; bloco?: boolean }
-  | { tipo: "anexo"; caminho: string; nome: string };
+  | {
+      tipo: "anexo";
+      caminho: string;
+      nome: string;
+      /** Pasta do arquivo (padrão: "alice-midias"). */
+      pasta?: string;
+      /** Não segura o resto da resposta (a espera depois da mídia é para vídeo/áudio). */
+      semEspera?: boolean;
+    };
 
 export type ContextoFerramenta = {
   admin: Admin;
@@ -92,6 +100,7 @@ const RegistrarIndicacao = z.object({
 });
 const EnviarMidia = z.object({ servico: SERVICO });
 const EnviarMensagem = z.object({ texto: z.string().trim().min(1).max(4000) });
+const DadosTecnico = z.object({ tecnico: z.string().trim().max(80).optional() });
 const ConsultarAgenda = z.object({
   data_inicial: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dias: z.number().int().min(1).max(14),
@@ -291,6 +300,18 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
     });
   }
   if (cfg.agenda_automatica) {
+    lista.push({
+      name: "enviar_dados_tecnico",
+      description:
+        "Manda ao cliente a foto do técnico responsável (junto da sua mensagem) e devolve o nome dele. Use depois que o cliente aprovar o orçamento e na confirmação do agendamento. Informe o técnico do horário oferecido (o nome que veio em consultar_agenda); se a empresa tiver um técnico só, pode omitir.",
+      input_schema: {
+        type: "object",
+        properties: {
+          tecnico: { type: "string", description: "Nome do técnico (como em consultar_agenda)." },
+        },
+        additionalProperties: false,
+      },
+    });
     lista.push({
       name: "consultar_agenda",
       description:
@@ -744,6 +765,55 @@ function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: 
   };
 }
 
+/** Foto (anexo) e nome do técnico; nunca diz ao cliente quantos técnicos a empresa tem. */
+async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof DadosTecnico>) {
+  const { data } = await ctx.admin
+    .from("technicians")
+    .select("id, name, foto_path")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("active", true)
+    .order("display_order");
+  const tecnicos = data ?? [];
+  const norm = (t: string) =>
+    t
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  const pedido = input.tecnico ? norm(input.tecnico) : "";
+  const achado = pedido
+    ? (tecnicos.find((t) => norm(t.name) === pedido) ??
+      tecnicos.find((t) => norm(t.name).includes(pedido) || pedido.includes(norm(t.name))))
+    : tecnicos.length === 1
+      ? tecnicos[0]
+      : undefined;
+  if (!achado) {
+    return {
+      erro: true,
+      texto: tecnicos.length
+        ? `Informe o técnico do horário oferecido. Técnicos: ${tecnicos.map((t) => t.name).join(", ")}.`
+        : "Não há técnico ativo cadastrado. Siga sem a foto.",
+    };
+  }
+  if (!achado.foto_path) {
+    return {
+      erro: false,
+      texto: `Técnico: ${achado.name}. Ainda não há foto cadastrada: diga só o nome, sem prometer foto.`,
+    };
+  }
+  ctx.saida.push({
+    tipo: "anexo",
+    caminho: achado.foto_path,
+    nome: `${achado.name}.${achado.foto_path.split(".").pop() || "jpg"}`,
+    pasta: "equipe-fotos",
+    semEspera: true,
+  });
+  return {
+    erro: false,
+    texto: `Técnico: ${achado.name}. A foto dele vai junto, neste ponto da conversa. Escreva a mensagem com o nome dele (não diga "segue abaixo").`,
+  };
+}
+
 async function consultarAgenda(ctx: ContextoFerramenta, input: z.infer<typeof ConsultarAgenda>) {
   const { agendaLivre, textoAgenda } = await import("./agenda");
   const periodo = input.periodo ?? "qualquer";
@@ -1107,6 +1177,11 @@ export async function executarFerramenta(
         return p.success
           ? r(enviarMidia(ctx, nome === "enviar_video" ? "video" : "audio", p.data.servico))
           : invalida(p.error);
+      }
+      case "enviar_dados_tecnico": {
+        if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
+        const p = DadosTecnico.safeParse(entrada);
+        return p.success ? r(await enviarDadosTecnico(ctx, p.data)) : invalida(p.error);
       }
       case "consultar_agenda": {
         if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };

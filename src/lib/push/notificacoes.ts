@@ -197,17 +197,30 @@ export function notificacaoResumoTecnico(
 
 /** O técnico deste usuário: pelo e-mail cadastrado no técnico; se não houver, pelo nome. */
 export function tecnicoDoUsuario(
-  usuario: { email: string | null; nome: string | null },
-  tecnicos: { id: string; email: string | null; nome: string }[],
+  usuario: { id?: string | null; email: string | null; nome: string | null },
+  tecnicos: {
+    id: string;
+    email: string | null;
+    nome: string;
+    /** Login ligado ao técnico (Usuários e Equipe). */
+    userId?: string | null;
+    ativo?: boolean;
+  }[],
 ): string | null {
+  // Primeiro o técnico ligado ao login; depois e-mail e nome, só entre os ativos.
+  const ativos = tecnicos.filter((t) => t.ativo !== false);
+  if (usuario.id) {
+    const t = ativos.find((x) => x.userId === usuario.id);
+    if (t) return t.id;
+  }
   const email = (usuario.email ?? "").trim().toLowerCase();
   if (email) {
-    const t = tecnicos.find((x) => (x.email ?? "").trim().toLowerCase() === email);
+    const t = ativos.find((x) => (x.email ?? "").trim().toLowerCase() === email);
     if (t) return t.id;
   }
   const nome = (usuario.nome ?? "").trim().toLowerCase();
   if (nome) {
-    const iguais = tecnicos.filter((x) => x.nome.trim().toLowerCase() === nome);
+    const iguais = ativos.filter((x) => x.nome.trim().toLowerCase() === nome);
     if (iguais.length === 1) return iguais[0]!.id;
   }
   return null;

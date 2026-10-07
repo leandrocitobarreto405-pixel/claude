@@ -313,7 +313,10 @@ async function eventosDaEmpresa(
             "id",
             tecnicosPessoas.map((p) => p.userId),
           ),
-        db.from("technicians").select("id, email, name").eq("empresa_id", empresaId),
+        db
+          .from("technicians")
+          .select("id, email, name, user_id, active")
+          .eq("empresa_id", empresaId),
         db
           .from("visits")
           .select(
@@ -337,8 +340,14 @@ async function eventosDaEmpresa(
       for (const p of tecnicosPessoas) {
         const perfil = perfis?.find((x) => x.id === p.userId);
         const tecId = tecnicoDoUsuario(
-          { email: perfil?.email ?? null, nome: perfil?.full_name ?? null },
-          (tecnicos ?? []).map((t) => ({ id: t.id, email: t.email, nome: t.name })),
+          { id: p.userId, email: perfil?.email ?? null, nome: perfil?.full_name ?? null },
+          (tecnicos ?? []).map((t) => ({
+            id: t.id,
+            email: t.email,
+            nome: t.name,
+            userId: t.user_id,
+            ativo: t.active,
+          })),
         );
         const nota = tecId
           ? notificacaoResumoTecnico(
