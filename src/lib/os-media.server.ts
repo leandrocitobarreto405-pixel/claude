@@ -167,7 +167,8 @@ export async function ensureMaterialsFolders(workOrderId: string) {
   return data;
 }
 
-async function ensureInternalFolder(workOrderId: string) {
+/** Pasta "Controle interno" da OS (fora da pasta do cliente, não compartilhada). */
+export async function ensureInternalFolder(workOrderId: string) {
   const db = await admin();
   const materials = await ensureMaterialsFolders(workOrderId);
   const wo = await loadWorkOrder(workOrderId);

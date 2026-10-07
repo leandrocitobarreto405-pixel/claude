@@ -1096,8 +1096,9 @@ function OsDetalhe() {
               ) : null}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              “Atualizar documento” substitui o arquivo atual. “Gerar nova versão” mantém o anterior
-              e cria uma versão nova.
+              A pasta do cliente fica sempre com um documento só. “Atualizar documento” troca o
+              atual; “Gerar nova versão” troca e numera (V2, V3...). Os anteriores ficam guardados
+              na pasta “Controle interno”, que o cliente não vê.
             </p>
           </section>
 

@@ -3,14 +3,19 @@ import {
   copyFile,
   deleteFile,
   docUrl,
+  enviarParaLixeira,
   extractGoogleId,
   fillItemsTable,
   getFile,
+  listarDocumentosDaPasta,
+  moveFile,
+  renameFile,
   replacePlaceholders,
   stripRemainingPlaceholders,
   type DocItem,
 } from "@/lib/google-docs.server";
-import { ensureMaterialsFolders } from "@/lib/os-media.server";
+import { ensureInternalFolder, ensureMaterialsFolders } from "@/lib/os-media.server";
+import { escolherSubstituidos, nomeSubstituido } from "@/lib/os-docs-versoes";
 import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 
 const SETTINGS_KEY = "os_document_settings";
@@ -351,6 +356,73 @@ function renderName(template: string, wo: WorkOrderData) {
     .trim();
 }
 
+/**
+ * Um documento só na pasta do cliente (a pasta é compartilhada com ele): fica o gerado mais
+ * recente e os anteriores, da OS ou do termo, vão para a pasta "Controle interno" da OS. Falha
+ * aqui não desfaz a geração; o que não saiu sai na próxima.
+ */
+async function manterUmDocumento(input: {
+  workOrderId: string;
+  garantia: boolean;
+  base: string;
+  pastaCliente: string;
+}) {
+  const db = await admin();
+  const consulta = db
+    .from("work_order_documents")
+    .select(
+      "id, created_at, google_document_id, google_document_url, generation_status, is_active, document_name, document_version, template_type",
+    )
+    .eq("work_order_id", input.workOrderId);
+  const { data } = await (input.garantia
+    ? consulta.eq("template_type", WARRANTY_TYPE)
+    : consulta.neq("template_type", WARRANTY_TYPE));
+  const registros = data ?? [];
+  const arquivos = await listarDocumentosDaPasta(input.pastaCliente).catch((e) => {
+    console.error("Não consegui listar a pasta da OS no Drive:", e);
+    return [];
+  });
+  const escolha = escolherSubstituidos({ registros, arquivos, base: input.base });
+  if (!escolha.vencedor) return null;
+
+  const naoSaiu = new Set<string>();
+  if (escolha.arquivos.length) {
+    const nomes = new Map<string, string>(arquivos.map((a) => [a.id, a.name]));
+    for (const r of registros)
+      if (r.google_document_id && r.document_name && !nomes.has(r.google_document_id))
+        nomes.set(r.google_document_id, r.document_name);
+    const agora = new Date();
+    let interna: string | null = null;
+    for (const id of escolha.arquivos) {
+      try {
+        const pasta = (interna ??= await ensureInternalFolder(input.workOrderId));
+        await moveFile(id, pasta);
+        await renameFile(id, nomeSubstituido(nomes.get(id) ?? input.base, agora));
+      } catch (e) {
+        // Arquivo que já não existe no Drive não precisa sair; o resto tenta de novo depois.
+        const sumiu = e instanceof Error && /não encontrado/i.test(e.message);
+        if (!sumiu) naoSaiu.add(id);
+        console.error("Documento anterior não saiu da pasta do cliente:", id, e);
+      }
+    }
+  }
+  const substituidos = escolha.registros
+    .filter((r) => !naoSaiu.has(r.google_document_id!))
+    .map((r) => r.id);
+  if (substituidos.length)
+    await db
+      .from("work_order_documents")
+      .update({ is_active: false, generation_status: "Substituído" })
+      .in("id", substituidos);
+  // Tentativa antiga que deu erro deixa de aparecer no lugar do documento que ficou.
+  const errosAntigos = registros
+    .filter((r) => r.is_active && r.generation_status === "Erro" && r.id !== escolha.vencedor!.id)
+    .map((r) => r.id);
+  if (errosAntigos.length)
+    await db.from("work_order_documents").update({ is_active: false }).in("id", errosAntigos);
+  return registros.find((r) => r.id === escolha.vencedor!.id)!;
+}
+
 export async function loadDocument(workOrderId: string) {
   const db = await admin();
   const { data } = await db
@@ -360,6 +432,7 @@ export async function loadDocument(workOrderId: string) {
     .neq("template_type", "Termo de garantia")
     .eq("is_active", true)
     .order("document_version", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (!data) return null;
@@ -434,11 +507,18 @@ export async function generateDocument(
   if (registroError || !registro)
     throw new Error("Não foi possível registrar a geração do documento.");
 
+  let copiaId: string | null = null;
   try {
     const pastas = await ensureMaterialsFolders(workOrderId);
     if (!pastas.materials_folder_id)
       throw new Error("A pasta desta OS não foi criada no Google Drive.");
     const copia = await copyFile(templateId, nome, pastas.materials_folder_id);
+    copiaId = copia.id;
+    // Já registra o arquivo: outra geração da mesma OS em andamento não o tira da pasta.
+    await db
+      .from("work_order_documents")
+      .update({ google_document_id: copia.id })
+      .eq("id", registro.id);
     const combinado = tipo === "Higienização e Impermeabilização";
 
     await replacePlaceholders(copia.id, {
@@ -467,22 +547,42 @@ export async function generateDocument(
       })
       .eq("id", registro.id);
 
-    // Registros antigos: "versao" preserva o anterior; "atualizar"/"novo" substituem.
-    if (anterior) {
-      if (mode === "versao") {
-        await db.from("work_order_documents").update({ is_active: true }).eq("id", anterior.id);
-      } else {
-        await db.from("work_order_documents").delete().eq("id", anterior.id);
-      }
-    }
+    // Um documento só na pasta do cliente: os anteriores vão para o controle interno.
+    const ficou = await manterUmDocumento({
+      workOrderId,
+      garantia: false,
+      base: baseName,
+      pastaCliente: pastas.materials_folder_id,
+    }).catch((e) => {
+      console.error("Falha ao tirar os documentos anteriores da pasta do cliente:", e);
+      return null;
+    });
+    if (ficou && ficou.id !== registro.id && ficou.google_document_url)
+      return {
+        ok: true,
+        url: ficou.google_document_url,
+        name: ficou.document_name ?? nome,
+        version: ficou.document_version,
+        templateType: ficou.template_type,
+      };
 
     return { ok: true, url, name: nome, version: versao, templateType: tipo };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Falha ao gerar o documento.";
     console.error("Falha na geração do documento da OS:", e);
+    // Cópia pela metade não fica na pasta do cliente (vai para a lixeira do Drive).
+    if (copiaId)
+      await enviarParaLixeira(copiaId).catch((x) =>
+        console.error("Cópia com falha não foi para a lixeira:", copiaId, x),
+      );
     await db
       .from("work_order_documents")
-      .update({ generation_status: "Erro", error_message: msg, is_active: !anterior })
+      .update({
+        generation_status: "Erro",
+        error_message: msg,
+        is_active: !anterior,
+        google_document_id: null,
+      })
       .eq("id", registro.id);
     throw new Error(msg);
   }
@@ -726,13 +826,19 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
     .single();
   if (registroError || !registro) throw new Error("Não foi possível registrar a geração do termo.");
 
+  let docId: string | null = null;
   try {
-    const { createDocument, moveFile, writeBlocks } = await import("@/lib/google-docs.server");
+    const { createDocument, writeBlocks } = await import("@/lib/google-docs.server");
     const pastas = await ensureMaterialsFolders(workOrderId);
     if (!pastas.materials_folder_id)
       throw new Error("A pasta desta OS não foi criada no Google Drive.");
 
     const doc = await createDocument(nome);
+    docId = doc.documentId;
+    await db
+      .from("work_order_documents")
+      .update({ google_document_id: doc.documentId })
+      .eq("id", registro.id);
     await writeBlocks(doc.documentId, warrantyBlocks(dados, await dadosEmpresa()));
     await moveFile(doc.documentId, pastas.materials_folder_id);
     const url = docUrl(doc.documentId);
@@ -751,20 +857,35 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
       })
       .eq("id", registro.id);
 
-    if (anterior.document) {
-      await db
-        .from("work_order_documents")
-        .update({ is_active: false })
-        .eq("id", anterior.document.id);
-    }
+    // Um termo só na pasta do cliente: os anteriores vão para o controle interno.
+    const ficou = await manterUmDocumento({
+      workOrderId,
+      garantia: true,
+      base: baseNome,
+      pastaCliente: pastas.materials_folder_id,
+    }).catch((e) => {
+      console.error("Falha ao tirar os termos anteriores da pasta do cliente:", e);
+      return null;
+    });
+    if (ficou && ficou.id !== registro.id && ficou.google_document_url)
+      return {
+        ok: true,
+        url: ficou.google_document_url,
+        name: ficou.document_name ?? nome,
+        version: ficou.document_version,
+      };
 
     return { ok: true, url, name: nome, version: versao };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Falha ao gerar o termo de garantia.";
     console.error("Falha na geração do termo de garantia:", e);
+    if (docId)
+      await enviarParaLixeira(docId).catch((x) =>
+        console.error("Termo com falha não foi para a lixeira:", docId, x),
+      );
     await db
       .from("work_order_documents")
-      .update({ generation_status: "Erro", error_message: msg })
+      .update({ generation_status: "Erro", error_message: msg, google_document_id: null })
       .eq("id", registro.id);
     throw new Error(msg);
   }

@@ -159,6 +159,34 @@ export async function shareFolderWithEmail(folderId: string, email: string) {
   );
 }
 
+/** Documentos do Google dentro da pasta (sem os da lixeira). */
+export async function listarDocumentosDaPasta(parentId: string) {
+  type Arquivo = { id: string; name: string; createdTime: string; mimeType: string };
+  const q = encodeURIComponent(
+    `'${parentId}' in parents and trashed=false and mimeType='application/vnd.google-apps.document'`,
+  );
+  const arquivos: Arquivo[] = [];
+  let pagina = "";
+  do {
+    const r = await call<{ files?: Arquivo[]; nextPageToken?: string }>(
+      "drive",
+      `/files?q=${q}&pageSize=200&fields=nextPageToken,files(id,name,createdTime,mimeType)` +
+        `&supportsAllDrives=true&includeItemsFromAllDrives=true${pagina ? `&pageToken=${encodeURIComponent(pagina)}` : ""}`,
+    );
+    arquivos.push(...(r.files ?? []));
+    pagina = r.nextPageToken ?? "";
+  } while (pagina);
+  return arquivos;
+}
+
+/** Manda para a lixeira do Drive (dá para recuperar por 30 dias). */
+export async function enviarParaLixeira(fileId: string) {
+  await call<DriveFile>("drive", `/files/${fileId}?supportsAllDrives=true&fields=id`, {
+    method: "PATCH",
+    body: { trashed: true },
+  });
+}
+
 /** Renomeia um arquivo ou pasta do Drive. */
 export async function renameFile(fileId: string, name: string) {
   await call<DriveFile>("drive", `/files/${fileId}?supportsAllDrives=true&fields=id,name`, {
