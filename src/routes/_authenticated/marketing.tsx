@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, ChevronRight, Gift, Plus, Users } from "lucide-react";
+import { AlertTriangle, Bell, ChevronRight, Gift, Plus, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import {
   BlocoEscuro,
   Botao,
@@ -26,7 +28,7 @@ import { ConfigMarketing } from "@/components/marketing/config-marketing";
 import { NovaCampanha } from "@/components/marketing/nova-campanha";
 import { repetirCampanha, type InicialNovaCampanha } from "@/lib/campanha-nova";
 import { CartaoPromocao } from "@/components/promocao/cartao-promocao";
-import { resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
+import { ligarDisparoFn, resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
 import { diaMesCurto, proximasCampanhas, resultadosDoMes } from "@/lib/marketing-tela";
 import { haQuanto } from "@/lib/conversas";
 import { currentMonth, monthLabelPT, todayISO } from "@/lib/format";
@@ -66,6 +68,51 @@ function reais(valor: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
+}
+
+/** Campanha aprovada com o envio desligado: nada sai. Alerta no topo até ligar. */
+function EnvioDesligado({ aprovadas, admin }: { aprovadas: Campanha[]; admin: boolean }) {
+  const ligar = useServerFn(ligarDisparoFn);
+  const qc = useQueryClient();
+  const [ligando, setLigando] = useState(false);
+  if (!aprovadas.length) return null;
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-xl border border-destructive bg-destructive p-4 text-destructive-foreground sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="text-sm font-medium">
+        <AlertTriangle className="mr-1 inline h-4 w-4" />O envio está desligado em Configuração:
+        nada vai sair até você ligar.{" "}
+        {aprovadas.length === 1
+          ? `A campanha "${aprovadas[0]!.nome}" está aprovada e parada.`
+          : `${aprovadas.length} campanhas aprovadas estão paradas.`}
+      </p>
+      {admin ? (
+        <Button
+          variant="secondary"
+          className="min-h-11 shrink-0"
+          disabled={ligando}
+          onClick={async () => {
+            setLigando(true);
+            try {
+              await ligar();
+              toast.success("Envio ligado: as campanhas aprovadas saem nas datas.");
+              await qc.invalidateQueries({ queryKey: CHAVE_MKT });
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Não foi possível ligar o envio.");
+            } finally {
+              setLigando(false);
+            }
+          }}
+        >
+          Ligar o envio
+        </Button>
+      ) : (
+        <p className="text-sm">Peça a um administrador para ligar.</p>
+      )}
+    </div>
+  );
 }
 
 function Marketing() {
@@ -134,6 +181,23 @@ function Marketing() {
           </Chip>
         }
       />
+
+      {!d.config?.disparo_ligado && (
+        <EnvioDesligado
+          aprovadas={d.campanhas.filter(
+            (c) =>
+              c.status === "aprovada" ||
+              // Já aprovada e com mensagens esperando para sair (campanha, lembrete, promoção).
+              d.lotes.some(
+                (l) =>
+                  l.campanha_id === c.id &&
+                  ["aprovado", "enviando"].includes(l.status ?? "") &&
+                  Number(l.quantidade ?? 0) > Number(l.tentativas ?? 0),
+              ),
+          )}
+          admin={d.admin}
+        />
+      )}
 
       {/* Resultado do mês. */}
       <CardEscuro aria-label={`Resultado de ${nomeDoMes}`}>

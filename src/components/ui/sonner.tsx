@@ -1,18 +1,39 @@
-import { Toaster as Sonner } from "sonner";
+import { Toaster as Sonner, toast } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+// Erro fica na tela até a pessoa fechar (dá tempo de ler); atenção, 10 s. Vale para o app todo.
+const erro = toast.error;
+toast.error = ((mensagem, dados) =>
+  erro(mensagem, { duration: Infinity, closeButton: true, ...dados })) as typeof toast.error;
+const atencao = toast.warning;
+toast.warning = ((mensagem, dados) =>
+  atencao(mensagem, { duration: 10_000, ...dados })) as typeof toast.warning;
+
+// Abaixo da área segura do topo (barra do iPhone), com folga.
+const DISTANCIA = { top: "calc(env(safe-area-inset-top, 0px) + 12px)" };
+
+/**
+ * Avisos do app: fundo sólido (cores em src/styles.css), texto grande e todos visíveis (sem a
+ * pilha que deixava os de trás apagados).
+ */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       className="toaster group"
+      position="top-center"
+      offset={DISTANCIA}
+      mobileOffset={DISTANCIA}
+      expand
+      visibleToasts={4}
+      richColors
+      closeButton
+      duration={5000}
       toastOptions={{
         classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+          toast: "toast text-base leading-snug shadow-lg",
+          title: "font-semibold",
+          description: "text-[0.9375rem] leading-snug",
         },
       }}
       {...props}

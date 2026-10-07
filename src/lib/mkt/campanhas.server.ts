@@ -178,15 +178,39 @@ export type ResultadoPreparo = {
   problemas: string[];
 };
 
+/**
+ * Falha ao preparar/aprovar fica escrita no cartão da campanha (motivo_status), além do aviso na
+ * tela. Não muda a situação; o próximo preparo ou aprovação com sucesso limpa o texto.
+ */
+export async function registrarFalhaNoCartao(
+  db: Db,
+  campanhaId: string,
+  etapa: "preparar" | "aprovar",
+  erro: unknown,
+) {
+  const texto = erro instanceof Error ? erro.message : String(erro);
+  await db
+    .from("mkt_campanhas")
+    .update({ motivo_status: `Falha ao ${etapa}: ${texto}`.slice(0, 500) })
+    .eq("id", campanhaId)
+    .in("status", ["rascunho", "aguardando_aprovacao"]);
+}
+
 export async function prepararCampanha(
   db: Db,
   campanhaId: string,
   opcoes: { hoje?: string; automatico?: boolean; modelos?: ModeloMeta[] } = {},
 ): Promise<ResultadoPreparo> {
-  const estimativa = await rpc<Estimativa>(db, "mkt_preparar_campanha", {
-    _campanha: campanhaId,
-    _hoje: opcoes.hoje ?? null,
-  });
+  let estimativa: Estimativa;
+  try {
+    estimativa = await rpc<Estimativa>(db, "mkt_preparar_campanha", {
+      _campanha: campanhaId,
+      _hoje: opcoes.hoje ?? null,
+    });
+  } catch (e) {
+    await registrarFalhaNoCartao(db, campanhaId, "preparar", e);
+    throw e;
+  }
   const conf = await conferirCampanha(db, campanhaId, opcoes.modelos, undefined, {
     sincronizar: true,
   });

@@ -284,3 +284,45 @@
     border-color: var(--color-ring);
   }
 }
+
+/* Avisos (sonner): fundo sólido, sem transparência nem desfoque, com texto de bom contraste.
+   O "html" na frente ganha das cores padrão que a biblioteca injeta. */
+html [data-sonner-toaster][data-sonner-theme] {
+  --normal-bg: var(--card);
+  --normal-text: var(--card-foreground);
+  --normal-border: var(--border);
+  --success-bg: var(--success);
+  --success-text: var(--success-foreground);
+  --success-border: var(--success);
+  --error-bg: var(--destructive);
+  --error-text: var(--destructive-foreground);
+  --error-border: var(--destructive);
+  --warning-bg: var(--alerta);
+  --warning-text: var(--alerta-foreground);
+  --warning-border: var(--alerta);
+  --info-bg: var(--marca);
+  --info-text: var(--marca-foreground);
+  --info-border: var(--marca);
+}
+html [data-sonner-toaster] [data-sonner-toast] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font-size: 1rem;
+}
+html [data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: inherit;
+  opacity: 0.95;
+}
+html [data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  width: 28px;
+  height: 28px;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+}
+/* Área de toque de 44 px no botão de fechar. */
+html [data-sonner-toaster] [data-sonner-toast] [data-close-button]::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}

@@ -28,6 +28,7 @@ import {
   conferirCampanhaFn,
   contagemCampanhaFn,
   editarCampanhaFn,
+  ligarDisparoFn,
   pausarFn,
   prepararCampanhaFn,
   quemRespondeFn,
@@ -158,6 +159,9 @@ export function CampanhaCard({
   const aprovarFn = useServerFn(aprovarCampanhaFn);
   const recusarFn = useServerFn(recusarCampanhaFn);
   const pausarServ = useServerFn(pausarFn);
+  const ligarDisparo = useServerFn(ligarDisparoFn);
+  // Aprovou com o envio desligado: aviso claro com o botão para ligar ali mesmo.
+  const [envioDesligado, setEnvioDesligado] = useState(false);
   const est = campanha.estimativa as Estimativa;
   const segmentos = segmentosDaCampanha(campanha.listas, campanha.grupos);
   const alertaLote = lotes.find((l) => Number(l.optout_bloqueio_pct ?? 0) > 3);
@@ -179,6 +183,37 @@ export function CampanhaCard({
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <Dialog open={envioDesligado} onOpenChange={setEnvioDesligado}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>O envio está desligado</DialogTitle>
+            <DialogDescription>
+              O envio está desligado em Configuração: nada vai sair até você ligar. A campanha "
+              {campanha.nome}" continua aprovada e sai nas datas assim que o envio for ligado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setEnvioDesligado(false)}>
+              Deixar desligado
+            </Button>
+            {admin && (
+              <Button
+                disabled={ocupado !== null}
+                onClick={async () => {
+                  await acao(
+                    "ligar",
+                    () => ligarDisparo(),
+                    "Envio ligado: as campanhas aprovadas saem nas datas.",
+                  );
+                  setEnvioDesligado(false);
+                }}
+              >
+                <Play className="mr-1 h-4 w-4" /> Ligar o envio agora
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -316,8 +351,11 @@ export function CampanhaCard({
               aprovar={() =>
                 acao(
                   "aprovar",
-                  () => aprovarFn({ data: { campanhaId: campanha.id } }),
-                  "Aprovada: os lotes saem sozinhos nas datas, às 10h (com o disparo ligado).",
+                  async () => {
+                    const r = await aprovarFn({ data: { campanhaId: campanha.id } });
+                    if (!r.envioLigado) setEnvioDesligado(true);
+                  },
+                  "Campanha aprovada.",
                 )
               }
               recusar={() =>

@@ -421,11 +421,37 @@ export const aprovarCampanhaFn = createServerFn({ method: "POST" })
       throw new Error(`Campanha bloqueada: ${conf.problemas.join("; ")}`);
     }
     const { rpc } = await import("@/lib/mkt/contexto.server");
-    await rpc(db, "mkt_aprovar_campanha", {
-      _campanha: data.campanhaId,
-      _usuario: context.userId,
-      _hoje: null,
-    });
+    try {
+      await rpc(db, "mkt_aprovar_campanha", {
+        _campanha: data.campanhaId,
+        _usuario: context.userId,
+        _hoje: null,
+      });
+    } catch (e) {
+      const { registrarFalhaNoCartao } = await import("@/lib/mkt/campanhas.server");
+      await registrarFalhaNoCartao(db, data.campanhaId, "aprovar", e);
+      throw e;
+    }
+    // Aprovada com o envio desligado: a tela avisa e oferece ligar ali mesmo.
+    const { data: cfg } = await db
+      .from("mkt_configuracoes")
+      .select("disparo_ligado")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    return { ok: true, envioLigado: Boolean(cfg?.disparo_ligado) };
+  });
+
+/** Liga o envio das campanhas (só admin), sem mexer no resto da configuração. */
+export const ligarDisparoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase
+      .from("mkt_configuracoes")
+      .upsert(
+        { empresa_id: context.empresaId, disparo_ligado: true },
+        { onConflict: "empresa_id" },
+      );
+    if (error) throw new Error(`Não foi possível ligar o envio: ${error.message}`);
     return { ok: true };
   });
 
