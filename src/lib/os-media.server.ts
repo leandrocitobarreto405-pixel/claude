@@ -1,4 +1,6 @@
 import {
+  abrirEnvioResumivel,
+  detalhesDoArquivo,
   driveFolderUrl,
   findOrCreateFolderStrict,
   renameFile,
@@ -79,9 +81,12 @@ function serviceFlags(wo: WorkOrderFolderData) {
   return { hig, imp };
 }
 
-export function allowedDestinationsFor(hig: boolean, imp: boolean): MediaDestination[] {
-  const list: MediaDestination[] = [];
-  if (hig) list.push("Antes", "Depois");
+/**
+ * Campos de fotos e vídeos da OS: "Antes" e "Depois" em todas (foto ou vídeo), "Vídeos" onde há
+ * impermeabilização (como antes) e "Controle interno" (só a equipe vê).
+ */
+export function allowedDestinationsFor(_hig: boolean, imp: boolean): MediaDestination[] {
+  const list: MediaDestination[] = ["Antes", "Depois"];
   if (imp) list.push("Vídeos");
   list.push("Controle interno");
   return list;
@@ -193,6 +198,19 @@ export async function ensureInternalFolder(workOrderId: string) {
 export async function destinationFolder(workOrderId: string, destination: MediaDestination) {
   if (destination === "Controle interno") return ensureInternalFolder(workOrderId);
   const folders = await ensureMaterialsFolders(workOrderId);
+  // "Antes" e "Depois" valem para toda OS: a pasta é criada na primeira foto, se ainda não existir.
+  if ((destination === "Antes" || destination === "Depois") && folders.materials_folder_id) {
+    const campo = destination === "Antes" ? "before_folder_id" : "after_folder_id";
+    if (!folders[campo]) {
+      const id = await findOrCreateFolderStrict(destination, folders.materials_folder_id);
+      const db = await admin();
+      await db
+        .from("os_drive_folders")
+        .update({ [campo]: id })
+        .eq("id", folders.id);
+      return id;
+    }
+  }
   const folderId =
     destination === "Antes"
       ? folders.before_folder_id
@@ -203,6 +221,80 @@ export async function destinationFolder(workOrderId: string, destination: MediaD
     throw new Error(`Esta OS não usa a pasta "${destination}". Escolha outro destino.`);
   }
   return folderId;
+}
+
+/** Abre o envio de uma foto ou vídeo direto do celular para a pasta da OS no Drive. */
+export async function abrirEnvioMidia(input: {
+  workOrderId: string;
+  destination: MediaDestination;
+  nome: string;
+  tipo: string;
+  tamanho: number;
+  origem: string;
+}) {
+  const wo = await loadWorkOrder(input.workOrderId);
+  const { hig, imp } = serviceFlags(wo);
+  if (!allowedDestinationsFor(hig, imp).includes(input.destination))
+    throw new Error(`Esta OS não usa a pasta "${input.destination}". Escolha outro campo.`);
+  const pastaId = await destinationFolder(input.workOrderId, input.destination);
+  const sessao = await abrirEnvioResumivel({
+    nome: input.nome,
+    tipo: input.tipo,
+    tamanho: input.tamanho,
+    pastaId,
+    origem: input.origem,
+  });
+  return { sessao };
+}
+
+/**
+ * Registra na OS o arquivo que o celular terminou de enviar ao Drive. Confere no Google que o
+ * arquivo está mesmo na pasta da OS (e no campo escolhido). Registrar duas vezes não duplica.
+ */
+export async function registrarEnvioMidia(input: {
+  workOrderId: string;
+  destination: MediaDestination;
+  fileId: string;
+  userId: string;
+}) {
+  const db = await admin();
+  const wo = await loadWorkOrder(input.workOrderId);
+  const { data: existente } = await db
+    .from("os_drive_files")
+    .select("id, google_file_url")
+    .eq("work_order_id", wo.id)
+    .eq("google_file_id", input.fileId)
+    .maybeSingle();
+  if (existente) return { id: existente.id, url: existente.google_file_url };
+
+  const pastaId = await destinationFolder(input.workOrderId, input.destination);
+  const arq = await detalhesDoArquivo(input.fileId);
+  if (!(arq.parents ?? []).includes(pastaId))
+    throw new Error("O arquivo enviado não está na pasta desta OS.");
+  const { data: pastas } = await db
+    .from("os_drive_folders")
+    .select("id")
+    .eq("work_order_id", wo.id)
+    .single();
+  if (!pastas) throw new Error("Pastas da OS não encontradas.");
+  const { data, error } = await db
+    .from("os_drive_files")
+    .insert({
+      empresa_id: wo.empresa_id,
+      work_order_id: wo.id,
+      folder_id: pastas.id,
+      destination: input.destination,
+      google_file_id: arq.id,
+      google_file_url: arq.webViewLink ?? null,
+      file_name: (arq.name ?? "arquivo").slice(0, 240),
+      mime_type: arq.mimeType ?? "application/octet-stream",
+      file_size: Number(arq.size ?? 0),
+      uploaded_by: input.userId,
+    })
+    .select("id, google_file_url")
+    .single();
+  if (error || !data) throw new Error("O arquivo chegou ao Drive, mas não foi registrado na OS.");
+  return { id: data.id, url: data.google_file_url };
 }
 
 export async function workOrderMediaOptions(workOrderId: string) {

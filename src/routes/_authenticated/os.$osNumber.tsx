@@ -37,20 +37,15 @@ import {
   getOsDocument,
   getOsWarranty,
 } from "@/lib/os-docs.functions";
-import {
-  createCustomerFolderLink,
-  getOsMedia,
-  getOsMediaOptions,
-  uploadOsMedia,
-} from "@/lib/os-media.functions";
+import { createCustomerFolderLink, getOsMedia, getOsMediaOptions } from "@/lib/os-media.functions";
 import { cancelWorkOrder, restoreWorkOrder, softDeleteWorkOrder } from "@/lib/os";
 import { COLLECTION_RULES, collectionRuleLabel, defaultCollectionRule } from "@/lib/collection";
 
 import { useSession } from "@/lib/session";
 import { useConsumoDaOs, useControleInsumos } from "@/lib/produtos";
 import { fetchDireto } from "@/lib/enderecos";
-
-type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
+import { CamposMidia } from "@/components/os/campos-midia";
+import type { DestinoMidia } from "@/lib/envio-midia";
 
 export const Route = createFileRoute("/_authenticated/os/$osNumber")({
   head: () => ({
@@ -190,18 +185,12 @@ function OsDetalhe() {
   const [motivoCancelar, setMotivoCancelar] = useState("");
   const [motivoExcluir, setMotivoExcluir] = useState("");
   const [acaoAberta, setAcaoAberta] = useState<"cancelar" | "excluir" | null>(null);
-  const [destinoMidia, setDestinoMidia] = useState<MediaDestination>("Antes");
-  const [arquivosMidia, setArquivosMidia] = useState<File[]>([]);
-  const [avisosVideo, setAvisosVideo] = useState<string[]>([]);
-  const [enviandoMidia, setEnviandoMidia] = useState(false);
   const [copiandoPasta, setCopiandoPasta] = useState(false);
-  const inputMidiaRef = useRef<HTMLInputElement>(null);
   const gerar = useServerFn(generateOsDocument);
   const buscarDoc = useServerFn(getOsDocument);
   const buscarTermo = useServerFn(getOsWarranty);
   const gerarTermoFn = useServerFn(generateOsWarranty);
   const buscarMidias = useServerFn(getOsMedia);
-  const enviarMidia = useServerFn(uploadOsMedia);
   const criarLinkPasta = useServerFn(createCustomerFolderLink);
   const buscarOpcoesMidia = useServerFn(getOsMediaOptions);
 
@@ -249,76 +238,8 @@ function OsDetalhe() {
   const destinosMidia = (opcoesMidia.data?.destinations ?? [
     "Antes",
     "Depois",
-    "Vídeos",
     "Controle interno",
-  ]) as MediaDestination[];
-
-  useEffect(() => {
-    if (destinosMidia.length && !destinosMidia.includes(destinoMidia)) {
-      setDestinoMidia(destinosMidia[0]!);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opcoesMidia.data]);
-
-  async function selecionarMidias(files: FileList | null) {
-    const selected = Array.from(files ?? []);
-    setArquivosMidia(selected);
-    const longVideos: string[] = [];
-    await Promise.all(
-      selected
-        .filter((file) => file.type.startsWith("video/"))
-        .map(
-          (file) =>
-            new Promise<void>((resolve) => {
-              const video = document.createElement("video");
-              const url = URL.createObjectURL(file);
-              video.preload = "metadata";
-              video.onloadedmetadata = () => {
-                if (video.duration > 60) longVideos.push(file.name);
-                URL.revokeObjectURL(url);
-                resolve();
-              };
-              video.onerror = () => {
-                URL.revokeObjectURL(url);
-                resolve();
-              };
-              video.src = url;
-            }),
-        ),
-    );
-    setAvisosVideo(longVideos);
-  }
-
-  async function enviarArquivos() {
-    if (!workOrderId || arquivosMidia.length === 0) return;
-    setEnviandoMidia(true);
-    let enviados = 0;
-    try {
-      for (const file of arquivosMidia) {
-        const form = new FormData();
-        form.set("workOrderId", workOrderId);
-        form.set("destination", destinoMidia);
-        form.set("file", file);
-        await enviarMidia({ fetch: fetchDireto, data: form });
-        enviados += 1;
-      }
-      toast.success(`${enviados} arquivo(s) enviado(s) para ${destinoMidia}.`);
-      setArquivosMidia([]);
-      setAvisosVideo([]);
-      if (inputMidiaRef.current) inputMidiaRef.current.value = "";
-      await midiasQuery.refetch();
-    } catch (error) {
-      toast.error(
-        enviados > 0
-          ? `${enviados} arquivo(s) enviados antes da falha.`
-          : error instanceof Error
-            ? error.message
-            : "Não foi possível enviar os arquivos.",
-      );
-    } finally {
-      setEnviandoMidia(false);
-    }
-  }
+  ]) as DestinoMidia[];
 
   async function copiarLinkCliente() {
     if (!workOrderId) return;
@@ -1161,23 +1082,14 @@ function OsDetalhe() {
             </div>
 
             <div className="grid gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="destino-midia">Destino</Label>
-                <select
-                  id="destino-midia"
-                  value={destinoMidia}
-                  onChange={(event) => setDestinoMidia(event.target.value as MediaDestination)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {destinosMidia.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-                {destinoMidia === "Controle interno" ? (
-                  <p className="text-sm text-warning">Não vai aparecer para o cliente.</p>
-                ) : null}
+              {workOrderId ? (
+                <CamposMidia
+                  workOrderId={workOrderId}
+                  destinos={destinosMidia}
+                  aoTerminar={() => void midiasQuery.refetch()}
+                />
+              ) : null}
+              <div className="grid gap-1">
                 {opcoesMidia.data?.sharedWithEmail ? (
                   <p className="text-sm text-muted-foreground">
                     Pasta já compartilhada com {opcoesMidia.data.sharedWithEmail}.
@@ -1193,37 +1105,6 @@ function OsDetalhe() {
                   </p>
                 )}
               </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="arquivos-midia">Fotos ou vídeos</Label>
-                <Input
-                  ref={inputMidiaRef}
-                  id="arquivos-midia"
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  onChange={(event) => void selecionarMidias(event.target.files)}
-                />
-                {arquivosMidia.length ? (
-                  <p className="text-sm text-muted-foreground">
-                    {arquivosMidia.length} arquivo(s) selecionado(s).
-                  </p>
-                ) : null}
-                {avisosVideo.length ? (
-                  <p className="text-sm text-warning">
-                    {avisosVideo.length} vídeo(s) têm mais de 60 segundos. O envio continua
-                    permitido.
-                  </p>
-                ) : null}
-              </div>
-
-              <Button
-                onClick={() => void enviarArquivos()}
-                disabled={!arquivosMidia.length || enviandoMidia}
-              >
-                <Upload className="mr-2 size-4" />
-                {enviandoMidia ? "Enviando arquivos..." : "Enviar arquivos"}
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => void copiarLinkCliente()}

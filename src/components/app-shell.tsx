@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   HandCoins,
@@ -392,6 +393,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {abas.length > 0 ? <BarraDeNavegacaoInferior itens={abas} className="lg:hidden" /> : null}
+      <PainelEnvios />
     </div>
   );
 }

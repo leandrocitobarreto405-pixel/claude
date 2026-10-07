@@ -59,10 +59,10 @@ import {
   useProdutos,
 } from "@/lib/produtos";
 import { TECHNICIAN_EXPENSE_CATEGORIES, saveTechnicianExpense } from "@/lib/technician-expenses";
-import { finishOsSharing, getOsMediaOptions, uploadOsMedia } from "@/lib/os-media.functions";
+import { finishOsSharing, getOsMediaOptions } from "@/lib/os-media.functions";
+import { CamposMidia } from "@/components/os/campos-midia";
+import type { DestinoMidia } from "@/lib/envio-midia";
 import { fetchDireto } from "@/lib/enderecos";
-
-type MediaDestination = "Antes" | "Depois" | "Vídeos" | "Controle interno";
 
 export function statusTone(status: string) {
   if (
@@ -578,14 +578,8 @@ export function CompletionDialog({
   const { data: rates } = usePaymentRates();
   const valorPrevisto = Number(visit.final_value ?? visit.visit_value ?? 0);
   const consolidar = useServerFn(consolidarGastosDoTecnico);
-  const enviarMidia = useServerFn(uploadOsMedia);
   const encerrarPasta = useServerFn(finishOsSharing);
   const buscarOpcoesMidia = useServerFn(getOsMediaOptions);
-
-  /** Etapa 2: fotos e vídeos enviados direto pelo técnico. */
-  const [destinoMidia, setDestinoMidia] = useState<MediaDestination>("Antes");
-  const [arquivosMidia, setArquivosMidia] = useState<File[]>([]);
-  const [avisosVideo, setAvisosVideo] = useState<string[]>([]);
 
   const { ativo: controleInsumos } = useControleInsumos();
   const tipoProduto = tipoProdutoDoServico(visit.service_type?.name);
@@ -628,47 +622,12 @@ export function CompletionDialog({
     enabled: open && Boolean(workOrderId),
     queryFn: () => buscarOpcoesMidia({ data: { workOrderId } }),
   });
-  const destinos: MediaDestination[] = (midiaOpcoesQuery.data?.destinations ?? [
+  const destinos = (midiaOpcoesQuery.data?.destinations ?? [
     "Antes",
     "Depois",
-    "Vídeos",
     "Controle interno",
-  ]) as MediaDestination[];
+  ]) as DestinoMidia[];
   const emailCliente = midiaOpcoesQuery.data?.customerEmail ?? null;
-
-  useEffect(() => {
-    if (destinos.length && !destinos.includes(destinoMidia)) setDestinoMidia(destinos[0]!);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midiaOpcoesQuery.data]);
-
-  async function selecionarMidias(files: FileList | null) {
-    const selected = Array.from(files ?? []);
-    setArquivosMidia(selected);
-    const longos: string[] = [];
-    await Promise.all(
-      selected
-        .filter((file) => file.type.startsWith("video/"))
-        .map(
-          (file) =>
-            new Promise<void>((resolve) => {
-              const video = document.createElement("video");
-              const url = URL.createObjectURL(file);
-              video.preload = "metadata";
-              video.onloadedmetadata = () => {
-                if (video.duration > 60) longos.push(file.name);
-                URL.revokeObjectURL(url);
-                resolve();
-              };
-              video.onerror = () => {
-                URL.revokeObjectURL(url);
-                resolve();
-              };
-              video.src = url;
-            }),
-        ),
-    );
-    setAvisosVideo(longos);
-  }
 
   const etapas = usaProdutos
     ? ["Produtos utilizados", "Gastos e fotos", "Pagamento"]
@@ -877,26 +836,6 @@ export function CompletionDialog({
         toast.error("Informe o técnico do atendimento para lançar os gastos.");
       }
 
-      /** Fotos e vídeos deste atendimento: um arquivo com erro não impede os demais. */
-      let enviados = 0;
-      const falhas: string[] = [];
-      for (const file of arquivosMidia) {
-        try {
-          const form = new FormData();
-          form.set("workOrderId", workOrderId);
-          form.set("destination", destinoMidia);
-          form.set("file", file);
-          await enviarMidia({ fetch: fetchDireto, data: form });
-          enviados += 1;
-        } catch {
-          falhas.push(file.name);
-        }
-      }
-      if (enviados) toast.success(`${enviados} arquivo(s) enviado(s) para ${destinoMidia}.`);
-      if (falhas.length) toast.error(`Não foi possível enviar: ${falhas.join(", ")}.`);
-      setArquivosMidia([]);
-      setAvisosVideo([]);
-
       /** Documentos automáticos e compartilhamento da pasta com o e-mail do cliente. */
       try {
         const fim = await encerrarPasta({ data: { workOrderId } });
@@ -1041,50 +980,12 @@ export function CompletionDialog({
             <div className="space-y-3 rounded-lg border border-border p-3">
               <p className="font-medium">Fotos e vídeos do serviço</p>
               <p className="text-muted-foreground">
-                Envie agora as fotos e vídeos. Eles vão para a pasta do cliente e são compartilhados
-                assim que o serviço for concluído.
+                O envio começa assim que você escolhe o arquivo e continua mesmo depois de concluir
+                (com o app aberto). Antes e Depois vão para a pasta do cliente, compartilhada na
+                conclusão; Controle interno só a equipe vê.
               </p>
-
+              {workOrderId ? <CamposMidia workOrderId={workOrderId} destinos={destinos} /> : null}
               <div className="space-y-2">
-                <Label htmlFor="destino-midia-conclusao">Onde salvar</Label>
-                <select
-                  id="destino-midia-conclusao"
-                  value={destinoMidia}
-                  onChange={(e) => setDestinoMidia(e.target.value as MediaDestination)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {destinos.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-                {destinoMidia === "Controle interno" ? (
-                  <p className="text-warning">Não vai aparecer para o cliente.</p>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="arquivos-midia-conclusao">Selecionar arquivos</Label>
-                <Input
-                  id="arquivos-midia-conclusao"
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  onChange={(e) => void selecionarMidias(e.target.files)}
-                />
-                {arquivosMidia.length ? (
-                  <p className="text-muted-foreground">
-                    {arquivosMidia.length} arquivo(s) selecionado(s). O envio acontece ao concluir o
-                    serviço.
-                  </p>
-                ) : null}
-                {avisosVideo.length ? (
-                  <p className="text-warning">
-                    {avisosVideo.length} vídeo(s) têm mais de 60 segundos. O envio continua
-                    permitido.
-                  </p>
-                ) : null}
                 {emailCliente ? (
                   <p className="text-muted-foreground">
                     A pasta será compartilhada com {emailCliente}.

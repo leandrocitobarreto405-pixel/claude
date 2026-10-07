@@ -21,7 +21,9 @@ import { chipDoStatus } from "@/lib/agenda";
 import { brl, dateBR, mapsLink, telLink, timeBR, wazeLink, whatsappLink } from "@/lib/format";
 import { defDoTexto, preencherTexto } from "@/lib/modelos-mensagem";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
-import { getOsMedia, uploadOsMedia } from "@/lib/os-media.functions";
+import { getOsMedia, getOsMediaOptions } from "@/lib/os-media.functions";
+import { CamposMidia } from "@/components/os/campos-midia";
+import type { DestinoMidia } from "@/lib/envio-midia";
 import { extrasDoServicoFn } from "@/lib/servico.functions";
 import { useContextoTenant } from "@/lib/tenant";
 import { fetchDireto } from "@/lib/enderecos";
@@ -44,13 +46,10 @@ function TelaServico() {
   const qc = useQueryClient();
   const extrasFn = useServerFn(extrasDoServicoFn);
   const midiaFn = useServerFn(getOsMedia);
-  const enviarFn = useServerFn(uploadOsMedia);
+  const opcoesFn = useServerFn(getOsMediaOptions);
   const { data: tenant } = useContextoTenant();
   const [concluir, setConcluir] = useState(false);
   const [opcoes, setOpcoes] = useState(false);
-  const [enviando, setEnviando] = useState<string | null>(null);
-  const arquivoAntes = useRef<HTMLInputElement>(null);
-  const arquivoDepois = useRef<HTMLInputElement>(null);
 
   const visita = useQuery({
     queryKey: ["servico", visitId],
@@ -76,6 +75,11 @@ function TelaServico() {
     queryFn: () => midiaFn({ data: { workOrderId: wo!.id } }) as Promise<Midia[]>,
     enabled: Boolean(wo?.id),
   });
+  const opcoesMidia = useQuery({
+    queryKey: ["os_midia_opcoes", wo?.id],
+    queryFn: () => opcoesFn({ data: { workOrderId: wo!.id } }),
+    enabled: Boolean(wo?.id),
+  });
   const textoACaminho = useQuery({
     queryKey: ["textos", "tecnico_a_caminho"],
     queryFn: async () => {
@@ -91,28 +95,6 @@ function TelaServico() {
   function recarregar() {
     void qc.invalidateQueries({ queryKey: ["servico", visitId] });
     void qc.invalidateQueries({ queryKey: ["agenda"] });
-  }
-
-  async function enviarFotos(destino: "Antes" | "Depois", arquivos: FileList | null) {
-    if (!wo?.id || !arquivos?.length) return;
-    setEnviando(destino);
-    let ok = 0;
-    try {
-      for (const f of Array.from(arquivos)) {
-        const fd = new FormData();
-        fd.append("workOrderId", wo.id);
-        fd.append("destination", destino);
-        fd.append("file", f);
-        await enviarFn({ fetch: fetchDireto, data: fd });
-        ok++;
-      }
-      toast.success(`${ok} ${ok === 1 ? "foto enviada" : "fotos enviadas"} para a pasta da OS.`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível enviar a foto.");
-    } finally {
-      setEnviando(null);
-      void midia.refetch();
-    }
   }
 
   if (visita.isLoading)
@@ -142,8 +124,15 @@ function TelaServico() {
   const tel = telLink(cliente?.phone);
   const ex = extras.data;
   const total = Number(v.final_value ?? v.visit_value ?? 0);
-  const antes = (midia.data ?? []).filter((m) => m.destination === "Antes");
-  const depois = (midia.data ?? []).filter((m) => m.destination === "Depois");
+  const destinosMidia = (opcoesMidia.data?.destinations ?? [
+    "Antes",
+    "Depois",
+    "Controle interno",
+  ]) as DestinoMidia[];
+  const quantidades: Partial<Record<DestinoMidia, number>> = {};
+  for (const m of midia.data ?? [])
+    quantidades[m.destination as DestinoMidia] =
+      (quantidades[m.destination as DestinoMidia] ?? 0) + 1;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
@@ -275,64 +264,42 @@ function TelaServico() {
         ) : null}
       </Card>
 
-      {/* Fotos de antes e depois (pasta da OS no Google Drive). */}
+      {/* Fotos e vídeos (pasta da OS no Google Drive). Também depois de concluído. */}
       <Card>
         <h2 className="flex items-center gap-2 text-[15px] font-bold">
-          <Camera className="size-5 text-marca" aria-hidden /> Fotos
+          <Camera className="size-5 text-marca" aria-hidden /> Fotos e vídeos
         </h2>
-        {(
-          [
-            ["Antes", antes, arquivoAntes],
-            ["Depois", depois, arquivoDepois],
-          ] as const
-        ).map(([destino, lista, ref]) => (
-          <div key={destino} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold">
-                {destino} ({lista.length})
-              </span>
-              <Botao
-                variante="contorno"
-                disabled={Boolean(enviando) || !wo?.id}
-                onClick={() => ref.current?.click()}
-              >
-                <Camera /> {enviando === destino ? "Enviando…" : `Foto de ${destino.toLowerCase()}`}
-              </Botao>
-              <input
-                ref={ref}
-                type="file"
-                accept="image/*,video/*"
-                capture="environment"
-                multiple
-                className="hidden"
-                aria-label={`Foto de ${destino.toLowerCase()}`}
-                onChange={(e) => {
-                  void enviarFotos(destino, e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-            {lista.length ? (
-              <ul className="flex flex-wrap gap-2">
-                {lista.slice(0, 8).map((m) => (
-                  <li key={m.id}>
-                    <a
-                      href={m.google_file_url ?? "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex min-h-11 max-w-[11rem] items-center gap-1 truncate rounded-botao border border-border px-3 text-xs"
-                    >
-                      <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                      <span className="truncate">{m.file_name}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ))}
+        {wo?.id ? (
+          <CamposMidia
+            workOrderId={wo.id}
+            destinos={destinosMidia}
+            quantidades={quantidades}
+            aoTerminar={() => void midia.refetch()}
+          />
+        ) : null}
+        {(midia.data ?? []).length ? (
+          <ul className="flex flex-wrap gap-2">
+            {(midia.data ?? []).slice(0, 12).map((m) => (
+              <li key={m.id}>
+                <a
+                  href={m.google_file_url ?? "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 max-w-[11rem] items-center gap-1 truncate rounded-botao border border-border px-3 text-xs"
+                >
+                  <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {m.destination}: {m.file_name}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <p className="text-xs text-muted-foreground">
-          As fotos vão para a pasta da OS. Na conclusão também dá para enviar.
+          Escolha da galeria ou grave na hora. O envio vai direto para a pasta da OS no Google Drive
+          e continua mesmo se você sair desta tela (com o app aberto). Antes e Depois ficam na pasta
+          do cliente.
         </p>
       </Card>
 

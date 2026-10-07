@@ -3,6 +3,7 @@
  * (Configurações → Conectar conta Google). Nenhum ID de modelo, pasta ou token vai ao navegador.
  */
 import { esquecerTokenGoogle, tokenGoogle } from "@/lib/google-auth.server";
+import { bytesRecebidos, motivoDoDrive } from "@/lib/midia-os";
 import { contextoEmpresa } from "@/lib/request-db.server";
 
 const DOCS_BASE = "https://docs.googleapis.com/v1";
@@ -137,6 +138,67 @@ export async function uploadFile(input: {
     throw new Error(`Falha ao enviar arquivo ao Google Drive (${response.status}).`);
   }
   return (await response.json()) as DriveFile;
+}
+
+/**
+ * Abre um envio resumível no Drive para o celular mandar o arquivo direto ao Google (sem passar
+ * pelo servidor). A origem do app vai no pedido para o Google aceitar o envio vindo do navegador.
+ * Devolve o endereço do envio (não contém o token da conta Google).
+ */
+export async function abrirEnvioResumivel(input: {
+  nome: string;
+  tipo: string;
+  tamanho: number;
+  pastaId: string;
+  origem: string;
+}): Promise<string> {
+  const res = await fetch(
+    `${DRIVE_UPLOAD}/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,mimeType,size,webViewLink`,
+    {
+      method: "POST",
+      headers: {
+        ...(await headers()),
+        "X-Upload-Content-Type": input.tipo,
+        "X-Upload-Content-Length": String(input.tamanho),
+        Origin: input.origem,
+      },
+      body: JSON.stringify({ name: input.nome, mimeType: input.tipo, parents: [input.pastaId] }),
+    },
+  );
+  if (!res.ok) {
+    const texto = await res.text();
+    console.error(`Google Drive: abrir envio falhou [${res.status}]: ${texto.slice(0, 500)}`);
+    if (res.status === 401) esquecerTokenGoogle(contextoEmpresa().empresaId);
+    throw new Error(motivoDoDrive(res.status, texto));
+  }
+  const sessao = res.headers.get("location");
+  if (!sessao) throw new Error("O Google Drive não abriu o envio. Tente de novo.");
+  return sessao;
+}
+
+/** Quanto do envio o Google já recebeu; quando terminou, o arquivo criado. */
+export async function situacaoDoEnvio(
+  sessao: string,
+  tamanho: number,
+): Promise<{ recebidos: number; arquivo: DriveFile | null }> {
+  const res = await fetch(sessao, {
+    method: "PUT",
+    headers: { "Content-Range": `bytes */${tamanho}` },
+  });
+  if (res.status === 308)
+    return { recebidos: bytesRecebidos(res.headers.get("range")), arquivo: null };
+  if (res.ok) return { recebidos: tamanho, arquivo: (await res.json()) as DriveFile };
+  const texto = await res.text();
+  console.error(`Google Drive: situação do envio [${res.status}]: ${texto.slice(0, 300)}`);
+  throw new Error(motivoDoDrive(res.status, texto));
+}
+
+/** Dados de um arquivo do Drive, com as pastas onde está. */
+export async function detalhesDoArquivo(fileId: string) {
+  return call<DriveFile & { size?: string; parents?: string[] }>(
+    "drive",
+    `/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,webViewLink,parents&supportsAllDrives=true`,
+  );
 }
 
 export async function shareFolderForAnyone(folderId: string) {
