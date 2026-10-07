@@ -101,50 +101,51 @@ Voltar a versão do app continua seguro: o app anterior não usa as tabelas nova
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 
-| Data (UTC)       | Etapa                 | Commit publicado | Versão anterior (commit) |
-| ---------------- | --------------------- | ---------------- | ------------------------ |
-| 02/10/2026 00:56 | Base + Agenda         | `86d9d15`        | `4a942a7`                |
-| 02/10/2026 13:41 | Início + Conversas    | `a8568c6`        | `86d9d15`                |
-| 02/10/2026 13:59 | Avisos (tela)         | `133e6bc`        | `fab37c7`                |
-| 02/10/2026 14:21 | Avisos no WhatsApp    | `91771de`        | `61c19e2`                |
-| 02/10/2026 14:31 | Marketing             | `79ef000`        | `8d7cbd9`                |
-| 02/10/2026 16:56 | Agenda + promoção     | `f9e84ce`        | `4d9ef1f`                |
-| 02/10/2026 17:28 | Modelos de mensagem   | `316b11e`        | `2f900e8`                |
-| 02/10/2026 18:27 | Notificações push     | `b84c49d`        | `50112f8`                |
-| 02/10/2026 18:38 | Tela do serviço       | `3c40039`        | `b84c49d`                |
-| 02/10/2026 19:15 | Conversas (espera)    | `716ea28`        | `3c40039`                |
-| 02/10/2026 22:19 | Config. por empresa   | `0e7ab52`        | `716ea28`                |
-| 02/10/2026 22:44 | Checklist empresa     | `4a6ac5a`        | `30a7c79`                |
-| 03/10/2026 13:40 | Cidade e estado       | `78be8c4`        | `e4aa78c`                |
-| 03/10/2026 18:32 | Convite (WhatsApp)    | `4e03e42`        | `25a9ad6`                |
-| 03/10/2026 20:14 | Esqueci a senha       | `2703b3f`        | `f54d21b`                |
-| 04/10/2026 01:07 | Encerrar conversas    | `eeaaa67`        | `ff9f68e`                |
-| 04/10/2026 01:46 | Listas de leads       | `869d8bf`        | `0584c05`                |
-| 04/10/2026 02:20 | Promoção dia vago     | `523dc67`        | `869d8bf`                |
-| 04/10/2026 05:55 | Campanhas e listas    | `e74d8b3`        | `b0d51b4`                |
-| 04/10/2026 12:23 | Domínio e km guardado | `48e5b05`        | `624dbf1`                |
-| 04/10/2026 13:18 | Planilha das listas   | `2120cf0`        | `76bf5e9`                |
-| 04/10/2026 17:23 | Pediu orçamento       | `9d2ff92`        | `cd89379`                |
-| 04/10/2026 22:43 | Modelos e lembretes   | `2a0e0a6`        | `f7b9952`                |
-| 04/10/2026 23:10 | Faixas sem sobrepor   | `2fd5120`        | `cfcfdd9`                |
-| 04/10/2026 23:10 | Rascunhos de modelos  | `6287c8e`        | `2fd5120`                |
-| 05/10/2026 14:51 | Nova campanha         | `31b70cb`        | `007631d`                |
-| 05/10/2026 13:55 | Quantas pessoas       | `9145f99`        | `0348392`                |
-| 06/10/2026       | Equipe (vendedoras)   | `6b92091`        | `9f501df`                |
-| 06/10/2026       | Comissão da Nexa      | `db1aa08`        | `1c22651`                |
-| 06/10/2026       | Saudação e modelos    | `b3944d7`        | `db1aa08`                |
-| 07/10/2026       | Transcrição de áudio  | `607ace7`        | `cf99f6e`                |
-| 07/10/2026       | Agenda livre (Alice)  | `88dca53`        | `607ace7`                |
-| 07/10/2026       | Áudio longo           | `f8f2043`        | `88dca53`                |
-| 07/10/2026       | Usuários e Equipe     | `d46f737`        | `f8f2043`                |
-| 07/10/2026       | Foto do técnico       | `c638c08`        | `d46f737`                |
-| 07/10/2026       | Alice agenda e faz OS | `680c36c`        | `8f45a3f`                |
-| 07/10/2026       | Alice sem relatório   | `368a4a8`        | `91e8a0a`                |
-| 07/10/2026       | Avisos e envio        | `bc90d8f`        | `45b5b25`                |
-| 07/10/2026       | Tirar e chamar à mão  | `90a2c85`        | `3f5f954`                |
-| 07/10/2026       | Lotes e qualidade     | `8721715`        | `1534642`                |
-| 07/10/2026       | Tela após chamada     | `aac86f7`        | `eb2390c`                |
-| 07/10/2026       | Um documento por OS   | `bc1eee9`        | `7c62927`                |
+| Data (UTC)       | Etapa                  | Commit publicado | Versão anterior (commit) |
+| ---------------- | ---------------------- | ---------------- | ------------------------ |
+| 02/10/2026 00:56 | Base + Agenda          | `86d9d15`        | `4a942a7`                |
+| 02/10/2026 13:41 | Início + Conversas     | `a8568c6`        | `86d9d15`                |
+| 02/10/2026 13:59 | Avisos (tela)          | `133e6bc`        | `fab37c7`                |
+| 02/10/2026 14:21 | Avisos no WhatsApp     | `91771de`        | `61c19e2`                |
+| 02/10/2026 14:31 | Marketing              | `79ef000`        | `8d7cbd9`                |
+| 02/10/2026 16:56 | Agenda + promoção      | `f9e84ce`        | `4d9ef1f`                |
+| 02/10/2026 17:28 | Modelos de mensagem    | `316b11e`        | `2f900e8`                |
+| 02/10/2026 18:27 | Notificações push      | `b84c49d`        | `50112f8`                |
+| 02/10/2026 18:38 | Tela do serviço        | `3c40039`        | `b84c49d`                |
+| 02/10/2026 19:15 | Conversas (espera)     | `716ea28`        | `3c40039`                |
+| 02/10/2026 22:19 | Config. por empresa    | `0e7ab52`        | `716ea28`                |
+| 02/10/2026 22:44 | Checklist empresa      | `4a6ac5a`        | `30a7c79`                |
+| 03/10/2026 13:40 | Cidade e estado        | `78be8c4`        | `e4aa78c`                |
+| 03/10/2026 18:32 | Convite (WhatsApp)     | `4e03e42`        | `25a9ad6`                |
+| 03/10/2026 20:14 | Esqueci a senha        | `2703b3f`        | `f54d21b`                |
+| 04/10/2026 01:07 | Encerrar conversas     | `eeaaa67`        | `ff9f68e`                |
+| 04/10/2026 01:46 | Listas de leads        | `869d8bf`        | `0584c05`                |
+| 04/10/2026 02:20 | Promoção dia vago      | `523dc67`        | `869d8bf`                |
+| 04/10/2026 05:55 | Campanhas e listas     | `e74d8b3`        | `b0d51b4`                |
+| 04/10/2026 12:23 | Domínio e km guardado  | `48e5b05`        | `624dbf1`                |
+| 04/10/2026 13:18 | Planilha das listas    | `2120cf0`        | `76bf5e9`                |
+| 04/10/2026 17:23 | Pediu orçamento        | `9d2ff92`        | `cd89379`                |
+| 04/10/2026 22:43 | Modelos e lembretes    | `2a0e0a6`        | `f7b9952`                |
+| 04/10/2026 23:10 | Faixas sem sobrepor    | `2fd5120`        | `cfcfdd9`                |
+| 04/10/2026 23:10 | Rascunhos de modelos   | `6287c8e`        | `2fd5120`                |
+| 05/10/2026 14:51 | Nova campanha          | `31b70cb`        | `007631d`                |
+| 05/10/2026 13:55 | Quantas pessoas        | `9145f99`        | `0348392`                |
+| 06/10/2026       | Equipe (vendedoras)    | `6b92091`        | `9f501df`                |
+| 06/10/2026       | Comissão da Nexa       | `db1aa08`        | `1c22651`                |
+| 06/10/2026       | Saudação e modelos     | `b3944d7`        | `db1aa08`                |
+| 07/10/2026       | Transcrição de áudio   | `607ace7`        | `cf99f6e`                |
+| 07/10/2026       | Agenda livre (Alice)   | `88dca53`        | `607ace7`                |
+| 07/10/2026       | Áudio longo            | `f8f2043`        | `88dca53`                |
+| 07/10/2026       | Usuários e Equipe      | `d46f737`        | `f8f2043`                |
+| 07/10/2026       | Foto do técnico        | `c638c08`        | `d46f737`                |
+| 07/10/2026       | Alice agenda e faz OS  | `680c36c`        | `8f45a3f`                |
+| 07/10/2026       | Alice sem relatório    | `368a4a8`        | `91e8a0a`                |
+| 07/10/2026       | Avisos e envio         | `bc90d8f`        | `45b5b25`                |
+| 07/10/2026       | Tirar e chamar à mão   | `90a2c85`        | `3f5f954`                |
+| 07/10/2026       | Lotes e qualidade      | `8721715`        | `1534642`                |
+| 07/10/2026       | Tela após chamada      | `aac86f7`        | `eb2390c`                |
+| 07/10/2026       | Um documento por OS    | `bc1eee9`        | `7c62927`                |
+| 07/10/2026       | Fotos e vídeos (Drive) | `6604089`        | `e6a59d8`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
