@@ -36,6 +36,7 @@ import {
   textoCondicao,
   type ModeloMeta,
 } from "./modelos";
+import { pausarPorQualidade, qualidadeImpede } from "./qualidade.server";
 
 type Reservado = {
   envio_id: string;
@@ -273,6 +274,7 @@ export async function processarFila(
   const campanhas: CacheCampanhas = new Map();
   const textosPorEmpresa = new Map<string, Record<string, string>>();
   const pausadas = new Set<string>();
+  const pausadasQualidade = new Set<string>();
   let anterior = 0;
   for (const r of fila) {
     const c = await contextoComModelos(db, cache, r.empresa_id);
@@ -281,6 +283,12 @@ export async function processarFila(
     if (anterior && falta > 0) await esperar(falta);
 
     const info = await infoCampanha(db, campanhas, r.campanha_id);
+    // Número fora do verde na Meta: pausa tudo da empresa antes de sair (o envio volta à fila).
+    const impede = await qualidadeImpede(db, r.empresa_id);
+    if (impede && !pausadasQualidade.has(r.empresa_id)) {
+      pausadasQualidade.add(r.empresa_id);
+      res.pausas += await pausarPorQualidade(db, r.empresa_id, impede);
+    }
     const pronto = "erro" in c ? c : montar(c.modelos, r, info);
     if ("erro" in pronto && !pausadas.has(r.campanha_id)) {
       pausadas.add(r.campanha_id);

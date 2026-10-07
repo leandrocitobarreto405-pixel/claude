@@ -44,7 +44,8 @@ export type FontesDeAvisos = {
 const ORDEM_TOM: Record<TomChip, number> = { problema: 0, atencao: 1, sucesso: 2, neutro: 3 };
 
 function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
-  if (tipo === "problema_pos_venda" || tipo === "prioridade_urgente") return "problema";
+  if (tipo === "problema_pos_venda" || tipo === "prioridade_urgente" || tipo === "qualidade_numero")
+    return "problema";
   if (tipo === "agendamento_alice")
     return /não foi gerado|não deu para saber/.test(mensagem) ? "atencao" : "sucesso";
   if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";

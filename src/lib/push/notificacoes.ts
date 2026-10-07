@@ -27,8 +27,9 @@ export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; pa
     },
     {
       tipo: "campanha_aprovacao",
-      rotulo: "Campanha esperando aprovação",
-      descricao: "Quando uma campanha de marketing precisa do seu ok.",
+      rotulo: "Campanha esperando aprovação ou pausada",
+      descricao:
+        "Quando uma campanha de marketing precisa do seu ok ou foi pausada sozinha (qualidade do número, opt-out ou modelo).",
       papeis: ["admin"],
     },
     {

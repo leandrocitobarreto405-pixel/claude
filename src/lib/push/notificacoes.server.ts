@@ -223,6 +223,21 @@ async function eventosDaEmpresa(
   }
 
   if (quer("campanha_aprovacao")) {
+    // Envio pausado sozinho (qualidade do número fora do verde, opt-out/bloqueio, modelo): só admin.
+    const { data: pausas } = await db
+      .from("mkt_avisos")
+      .select("id, titulo, mensagem")
+      .eq("empresa_id", empresaId)
+      .in("tipo", ["qualidade_numero", "pausa_automatica"])
+      .gte("created_at", recente)
+      .limit(10);
+    for (const a of pausas ?? [])
+      eventos.push({
+        tipo: "campanha_aprovacao",
+        ref: `pausa:${a.id}`,
+        n: { titulo: a.titulo, corpo: a.mensagem.slice(0, 180), url: "/marketing" },
+      });
+
     const { data } = await db
       .from("mkt_campanhas")
       .select("id, nome")

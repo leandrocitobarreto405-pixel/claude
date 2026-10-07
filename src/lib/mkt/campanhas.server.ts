@@ -212,14 +212,9 @@ export async function prepararCampanha(
     throw e;
   }
   // Quem foi tirado à mão (desta ou da original) continua fora depois de preparar de novo.
-  if (await aplicarRetirados(db, campanhaId)) {
-    const { data: atual } = await db
-      .from("mkt_campanhas")
-      .select("estimativa")
-      .eq("id", campanhaId)
-      .maybeSingle();
-    estimativa = (atual?.estimativa ?? estimativa) as Estimativa;
-  }
+  await aplicarRetirados(db, campanhaId);
+  // Lotes progressivos: 100, 150 e 250 nos primeiros dias, depois o lote da configuração.
+  estimativa = await rpc<Estimativa>(db, "mkt_escalonar_lotes", { _campanha: campanhaId });
   const conf = await conferirCampanha(db, campanhaId, opcoes.modelos, undefined, {
     sincronizar: true,
   });

@@ -156,3 +156,20 @@ export async function lerModelo(cx: ConexaoMeta, id: string): Promise<ModeloDaMe
   if (!/^\d+$/.test(id)) throw new ErroMeta("Modelo inválido.");
   return chamar<ModeloDaMeta>(cx, "GET", `${id}?fields=${CAMPOS}`);
 }
+
+export type NumeroDaConta = {
+  id: string;
+  display_phone_number?: string;
+  quality_rating?: string;
+  whatsapp_business_manager_messaging_limit?: string;
+};
+
+/** Números da conta com a qualidade (GREEN/YELLOW/RED) e o limite de mensagens por dia. */
+export async function numerosDaConta(cx: ConexaoMeta): Promise<NumeroDaConta[]> {
+  const r = await chamar<{ data?: NumeroDaConta[] }>(
+    cx,
+    "GET",
+    `${encodeURIComponent(cx.waba)}/phone_numbers?fields=display_phone_number,quality_rating`,
+  );
+  return r.data ?? [];
+}
