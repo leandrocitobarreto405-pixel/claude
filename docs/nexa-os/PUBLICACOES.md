@@ -91,6 +91,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   pasta privada `equipe-fotos`. Dados de 07/10 (Turbine): técnico "Josué Barreto", Maria e Carol
   ligadas aos logins, Alice (IA) com 3%, sábado 9h e 14h; roteiro da Alice versão 4 e agenda
   automática ligada.
+- "Regras do orçamento" (`20261030120000`, aplicada em 07/10): `tabela_precos_itens.categoria`,
+  tabela `orcamento_configuracoes` (tudo desligado por padrão; só admin grava) e campos de preço
+  editado/vitrine em `quote_items`, `quotes` e `service_items`. Só acrescenta. Dados: Ecoprime
+  com categorias, desconto do item adicional 40%, mínimo de cadeiras R$ 90, muito sujo 10%,
+  vitrine 20%/10%, até 5x, validade 2 dias, textos da mensagem em rascunho neutro.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -146,6 +151,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 07/10/2026       | Tela após chamada      | `aac86f7`        | `eb2390c`                |
 | 07/10/2026       | Um documento por OS    | `bc1eee9`        | `7c62927`                |
 | 07/10/2026       | Fotos e vídeos (Drive) | `6604089`        | `e6a59d8`                |
+| 08/10/2026 00:40 | Regras do orçamento    | `dd5864a`        | `f107c0d`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
