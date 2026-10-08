@@ -201,6 +201,19 @@ minutos. Depois disso, solte o tráfego com `--to-latest` se tiver usado o camin
 
 ## Pendências
 
+### "Valor negociado" diferente da soma dos itens (anotado em 08/10/2026)
+
+Na Nova OS/edição da OS, o campo "Valor negociado" aceita um total diferente da soma dos itens
+(pede motivo do ajuste). Nesse caso os números se separam:
+
+- a comissão prevista da OS (`commission_expected`) e as vendas do mês usam o **total digitado**
+  (`work_orders.total_gross_value`);
+- o valor de cada atendimento (`visits.visit_value`), o a receber, a receita do DRE e a comissão dos
+  relatórios usam a **soma dos itens**.
+
+Por enquanto (decisão de 08/10): o time edita o preço no próprio item (selo "editado"), não o
+"Valor negociado". Sem mudança de código até nova decisão.
+
 ### Fuso horário por empresa (adiado em 03/10/2026)
 
 Fazer só quando entrar uma empresa de **AM, RR, RO, MT, MS ou AC**. Até lá todas as empresas usam o
