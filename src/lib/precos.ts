@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Categoria } from "@/lib/orcamento-regras";
 
 export type ItemPreco = {
   id: string;
@@ -8,9 +9,17 @@ export type ItemPreco = {
   preco_impermeabilizacao: number | null;
   ativo: boolean;
   ordem: number;
+  categoria: Categoria;
 };
 
-const SELECT = "id, nome, preco_higienizacao, preco_impermeabilizacao, ativo, ordem";
+const SELECT = "id, nome, preco_higienizacao, preco_impermeabilizacao, ativo, ordem, categoria";
+
+export const CATEGORIA_LABEL: Record<Categoria, string> = {
+  sofa: "Sofá",
+  colchao: "Colchão",
+  cadeira: "Cadeira",
+  outro: "Outro",
+};
 
 export function useTabelaPrecos(onlyActive = false) {
   return useQuery({
@@ -30,6 +39,7 @@ export type ItemPrecoInput = {
   preco_higienizacao: number;
   preco_impermeabilizacao: number | null;
   ativo: boolean;
+  categoria?: Categoria;
 };
 
 export async function saveItemPreco(input: ItemPrecoInput, id?: string | null) {

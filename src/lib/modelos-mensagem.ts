@@ -671,6 +671,44 @@ Primeiro fazemos a higienização profunda com extração a quente, removendo po
 _Orçamento válido por {validade} dias._`,
   },
   {
+    chave: "orcamento_vitrine",
+    titulo: "Orçamento: valores com boas-vindas (cliente novo)",
+    quando:
+      "Fim da mensagem de orçamento quando a empresa usa preço de vitrine e o cliente é novo (Configurações → Orçamento).",
+    variaveis: [
+      { nome: "vitrine", descricao: "valor dos estofados", exemplo: "R$ 490,00" },
+      { nome: "boas_vindas", descricao: "percentual de boas-vindas", exemplo: "20" },
+      { nome: "cartao", descricao: "valor no cartão com boas-vindas", exemplo: "R$ 390,00" },
+      { nome: "parcelas", descricao: "número de parcelas", exemplo: "5" },
+      { nome: "parcela", descricao: "valor de cada parcela", exemplo: "R$ 78,00" },
+      { nome: "pix", descricao: "valor no Pix", exemplo: "R$ 355,00" },
+    ],
+    padrao: `Valor dos estofados: {vitrine}
+🎁 Boas-vindas (cliente novo): -{boas_vindas}% → *{cartao}* no cartão, em até {parcelas}x de {parcela}
+💸 *No Pix: {pix}*`,
+  },
+  {
+    chave: "orcamento_vitrine_cliente",
+    titulo: "Orçamento: valores para quem já é cliente",
+    quando:
+      "Fim da mensagem de orçamento com preço de vitrine quando o cliente já é cliente (sem boas-vindas).",
+    variaveis: [
+      { nome: "cartao", descricao: "valor no cartão", exemplo: "R$ 490,00" },
+      { nome: "parcelas", descricao: "número de parcelas", exemplo: "5" },
+      { nome: "parcela", descricao: "valor de cada parcela", exemplo: "R$ 98,00" },
+      { nome: "pix", descricao: "valor no Pix", exemplo: "R$ 445,00" },
+    ],
+    padrao: `Valor dos estofados: *{cartao}* no cartão, em até {parcelas}x de {parcela}
+💸 *No Pix: {pix}*`,
+  },
+  {
+    chave: "orcamento_validade",
+    titulo: "Orçamento: validade (com preço de vitrine)",
+    quando: "Última linha da mensagem de orçamento com preço de vitrine.",
+    variaveis: [{ nome: "validade", descricao: "dias de validade", exemplo: "2" }],
+    padrao: "_Orçamento válido por {validade} dias._",
+  },
+  {
     chave: "crm_primeiro_contato",
     titulo: "CRM: primeiro contato",
     quando: "Mensagem pronta na tela do lead. A equipe envia pelo WhatsApp.",

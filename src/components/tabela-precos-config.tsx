@@ -31,8 +31,39 @@ import {
   saveItemPreco,
   setItemPrecoAtivo,
   useTabelaPrecos,
+  CATEGORIA_LABEL,
   type ItemPreco,
 } from "@/lib/precos";
+import type { Categoria } from "@/lib/orcamento-regras";
+
+const CLASSE_SELECT =
+  "flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9";
+
+function SelectCategoria({
+  value,
+  onChange,
+  id,
+}: {
+  value: Categoria;
+  onChange: (c: Categoria) => void;
+  id?: string;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value as Categoria)}
+      className={CLASSE_SELECT}
+      aria-label="Categoria"
+    >
+      {(Object.keys(CATEGORIA_LABEL) as Categoria[]).map((c) => (
+        <option key={c} value={c}>
+          {CATEGORIA_LABEL[c]}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function Linha({
   item,
@@ -60,7 +91,7 @@ function Linha({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`grid grid-cols-1 items-center gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-[auto_1fr_9rem_9rem_auto_auto] ${
+      className={`grid grid-cols-1 items-center gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-[auto_1fr_8rem_9rem_9rem_auto_auto] ${
         isDragging ? "opacity-70 shadow-lg" : ""
       }`}
     >
@@ -82,6 +113,14 @@ function Linha({
         }}
         aria-label="Nome do item"
       />
+
+      <div>
+        <span className="text-xs text-muted-foreground sm:hidden">Categoria</span>
+        <SelectCategoria
+          value={item.categoria}
+          onChange={(c) => void onSalvar(item.id, { categoria: c })}
+        />
+      </div>
 
       <div>
         <span className="text-xs text-muted-foreground sm:hidden">Higienização</span>
@@ -134,6 +173,7 @@ export function TabelaPrecosConfig() {
   const [novoNome, setNovoNome] = useState("");
   const [novoHig, setNovoHig] = useState(0);
   const [novoImp, setNovoImp] = useState(0);
+  const [novaCategoria, setNovaCategoria] = useState<Categoria>("sofa");
   const [aberto, setAberto] = useState(false);
 
   useEffect(() => {
@@ -158,6 +198,7 @@ export function TabelaPrecosConfig() {
               ? campos.preco_impermeabilizacao
               : atual.preco_impermeabilizacao,
           ativo: campos.ativo ?? atual.ativo,
+          categoria: campos.categoria ?? atual.categoria,
         },
         id,
       );
@@ -211,6 +252,7 @@ export function TabelaPrecosConfig() {
         preco_higienizacao: novoHig,
         preco_impermeabilizacao: novoImp > 0 ? novoImp : null,
         ativo: true,
+        categoria: novaCategoria,
       });
       setNovoNome("");
       setNovoHig(0);
@@ -230,7 +272,8 @@ export function TabelaPrecosConfig() {
           <h2 className="text-lg font-semibold">Tabela de preços</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Preços usados nos orçamentos. Deixe a impermeabilização em branco quando o serviço não é
-            oferecido para o item. Arraste pela alça para mudar a ordem.
+            oferecido para o item. A categoria decide o desconto do item adicional e o pedido mínimo
+            de cadeiras (Configurações → Orçamento). Arraste pela alça para mudar a ordem.
           </p>
         </div>
         <Button onClick={() => setAberto((v) => !v)}>
@@ -239,10 +282,18 @@ export function TabelaPrecosConfig() {
       </div>
 
       {aberto ? (
-        <div className="mt-4 grid gap-3 rounded-xl border border-dashed border-border p-4 sm:grid-cols-[1fr_9rem_9rem_auto]">
+        <div className="mt-4 grid gap-3 rounded-xl border border-dashed border-border p-4 sm:grid-cols-[1fr_8rem_9rem_9rem_auto]">
           <div>
             <Label htmlFor="novo-item">Item</Label>
             <Input id="novo-item" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="nova-categoria">Categoria</Label>
+            <SelectCategoria
+              id="nova-categoria"
+              value={novaCategoria}
+              onChange={setNovaCategoria}
+            />
           </div>
           <div>
             <Label>Higienização</Label>
@@ -258,9 +309,10 @@ export function TabelaPrecosConfig() {
         </div>
       ) : null}
 
-      <div className="mt-4 hidden gap-2 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[auto_1fr_9rem_9rem_auto_auto]">
+      <div className="mt-4 hidden gap-2 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[auto_1fr_8rem_9rem_9rem_auto_auto]">
         <span />
         <span>Item</span>
+        <span>Categoria</span>
         <span>Higienização</span>
         <span>Impermeabilização</span>
         <span>Ativo</span>

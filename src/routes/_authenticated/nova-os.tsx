@@ -94,7 +94,19 @@ type ItemForm = {
   quantity: string;
   unit_price: string;
   item_group_id: string;
+  /** Valor da tabela (e o sugerido pelas regras) vindo do orçamento: base do selo "editado". */
+  preco_tabela?: number | null;
+  preco_referencia?: number | null;
+  editado_por?: string | null;
+  editado_em?: string | null;
 };
+
+/** Item com valor diferente do sugerido pela tabela/regras. */
+function itemEditado(it: ItemForm): boolean {
+  const ref = it.preco_referencia ?? it.preco_tabela ?? null;
+  if (ref === null || ref === undefined) return Boolean(it.editado_por || it.editado_em);
+  return Math.abs(parseNumberBR(it.unit_price) - ref) > 0.004;
+}
 
 type VisitForm = {
   id?: string | null;
@@ -225,7 +237,7 @@ function NovaOS() {
            payment_notes, general_notes, customer_id,
            customer:customer_id ( * ),
            visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status,
-             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active ) )`,
+             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em ) )`,
         )
         .eq("os_number", editar)
         .maybeSingle();
@@ -269,6 +281,9 @@ function NovaOS() {
             item_group_id: string;
             display_order: number;
             active: boolean;
+            preco_tabela: number | null;
+            editado_por: string | null;
+            editado_em: string | null;
           }>;
         }>;
       };
@@ -326,6 +341,14 @@ function NovaOS() {
                 .toFixed(2)
                 .replace(".", ","),
               item_group_id: i.item_group_id,
+              preco_tabela: i.preco_tabela === null ? null : Number(i.preco_tabela),
+              // Já gravado: o selo segue o registro de quem editou.
+              preco_referencia:
+                i.editado_por || i.editado_em || i.preco_tabela === null
+                  ? null
+                  : Number(i.unit_price ?? 0),
+              editado_por: i.editado_por,
+              editado_em: i.editado_em,
             })),
         })),
       );
@@ -527,7 +550,9 @@ function NovaOS() {
 
       const { data: itens } = await supabase
         .from("quote_items")
-        .select("nome_snapshot, tipo_servico, preco_aplicado, quantidade")
+        .select(
+          "nome_snapshot, tipo_servico, preco_aplicado, quantidade, preco_tabela, preco_sugerido, editado_por, editado_em",
+        )
         .eq("quote_id", cotacaoIdParam)
         .order("display_order");
       if (!active) return;
@@ -544,7 +569,12 @@ function NovaOS() {
           tipo_servico: string;
           preco_aplicado: number;
           quantidade: number;
+          preco_tabela: number | null;
+          preco_sugerido: number | null;
+          editado_por: string | null;
+          editado_em: string | null;
         };
+        const tabela = Number(it.preco_tabela ?? 0) > 0 ? Number(it.preco_tabela) : null;
         return {
           upholstery_type_id: "",
           description: `${it.nome_snapshot} — ${
@@ -555,6 +585,10 @@ function NovaOS() {
             .toFixed(2)
             .replace(".", ","),
           item_group_id: novoId(),
+          preco_tabela: tabela,
+          preco_referencia: it.preco_sugerido === null ? tabela : Number(it.preco_sugerido),
+          editado_por: it.editado_por,
+          editado_em: it.editado_em,
         };
       });
 
@@ -861,6 +895,13 @@ function NovaOS() {
         unit_price: parseNumberBR(it.unit_price),
         item_group_id: it.item_group_id,
         display_order: idx,
+        preco_tabela: it.preco_tabela ?? null,
+        ...(itemEditado(it)
+          ? {
+              editado_por: it.editado_por ?? user?.id ?? null,
+              editado_em: it.editado_em ?? new Date().toISOString(),
+            }
+          : { editado_por: null, editado_em: null }),
       })),
     }));
 
@@ -1290,12 +1331,24 @@ function NovaOS() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Valor unitário</Label>
+                          <Label>
+                            Valor unitário
+                            {itemEditado(it) ? (
+                              <span className="ml-2 rounded-full bg-atencao px-2 py-0.5 text-[11px] font-medium text-atencao-foreground">
+                                editado
+                              </span>
+                            ) : null}
+                          </Label>
                           <Input
                             inputMode="decimal"
                             value={it.unit_price}
                             onChange={(e) => atualizarItem(i, j, { unit_price: e.target.value })}
                           />
+                          {it.preco_tabela ? (
+                            <p className="text-xs text-muted-foreground">
+                              Valor da tabela: {brl(it.preco_tabela)}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="flex items-end justify-between gap-2">
                           <div>

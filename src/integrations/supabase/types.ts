@@ -218,10 +218,6 @@ export type Database = {
       };
       agenda_configuracoes: {
         Row: {
-          promo_ligada: boolean;
-          promo_listas: Json;
-          promo_margem_min: number | null;
-          promo_km_max: number | null;
           custo_produto_higienizacao: number;
           custo_produto_impermeabilizacao: number;
           deslocamento_volta_min: number;
@@ -230,6 +226,10 @@ export type Database = {
           promo_conversas_novas: boolean;
           promo_desconto_pct: number;
           promo_dias_a_frente: number;
+          promo_km_max: number | null;
+          promo_ligada: boolean;
+          promo_listas: NonNullable<Json>;
+          promo_margem_min: number | null;
           promo_orcamento_dias: number;
           promo_pix_pct: number;
           promo_template_nome: string;
@@ -241,10 +241,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          promo_ligada?: boolean;
-          promo_listas?: Json;
-          promo_margem_min?: number | null;
-          promo_km_max?: number | null;
           custo_produto_higienizacao?: number;
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
@@ -253,6 +249,10 @@ export type Database = {
           promo_conversas_novas?: boolean;
           promo_desconto_pct?: number;
           promo_dias_a_frente?: number;
+          promo_km_max?: number | null;
+          promo_ligada?: boolean;
+          promo_listas?: NonNullable<Json>;
+          promo_margem_min?: number | null;
           promo_orcamento_dias?: number;
           promo_pix_pct?: number;
           promo_template_nome?: string;
@@ -264,10 +264,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          promo_ligada?: boolean;
-          promo_listas?: Json;
-          promo_margem_min?: number | null;
-          promo_km_max?: number | null;
           custo_produto_higienizacao?: number;
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
@@ -276,6 +272,10 @@ export type Database = {
           promo_conversas_novas?: boolean;
           promo_desconto_pct?: number;
           promo_dias_a_frente?: number;
+          promo_km_max?: number | null;
+          promo_ligada?: boolean;
+          promo_listas?: NonNullable<Json>;
+          promo_margem_min?: number | null;
           promo_orcamento_dias?: number;
           promo_pix_pct?: number;
           promo_template_nome?: string;
@@ -718,7 +718,7 @@ export type Database = {
           telefone: string;
         };
         Insert: {
-          chave?: string;
+          chave: string;
           created_at?: string;
           criado_por?: string | null;
           empresa_id: string;
@@ -1952,13 +1952,13 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
-          descricao_negocio: string;
           agenda_automatica: boolean;
           ativo: boolean;
           audio_higienizacao: string | null;
           audio_impermeabilizacao: string | null;
           clientes_antigos_com_equipe: boolean;
           desconto_pix_percentual: number;
+          descricao_negocio: string;
           empresa_id: string;
           esforco: string;
           espera_apos_midia_segundos: number;
@@ -1979,13 +1979,13 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
-          descricao_negocio?: string;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
           audio_impermeabilizacao?: string | null;
           clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;
+          descricao_negocio?: string;
           empresa_id?: string;
           esforco?: string;
           espera_apos_midia_segundos?: number;
@@ -2006,13 +2006,13 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
-          descricao_negocio?: string;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
           audio_impermeabilizacao?: string | null;
           clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;
+          descricao_negocio?: string;
           empresa_id?: string;
           esforco?: string;
           espera_apos_midia_segundos?: number;
@@ -2215,7 +2215,14 @@ export type Database = {
           marcado_por?: string | null;
           situacao?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "implantacao_etapas_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       indicacoes: {
         Row: {
@@ -2690,13 +2697,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "mkt_avisos_conversa_id_fkey";
-            columns: ["conversa_id"];
-            isOneToOne: false;
-            referencedRelation: "conversas";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "mkt_avisos_campanha_id_fkey";
             columns: ["campanha_id"];
             referencedRelation: "mkt_campanhas";
@@ -2707,6 +2707,12 @@ export type Database = {
             columns: ["campanha_id"];
             referencedRelation: "vw_mkt_campanhas_relatorio";
             referencedColumns: ["campanha_id"];
+          },
+          {
+            foreignKeyName: "mkt_avisos_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
           },
           {
             foreignKeyName: "mkt_avisos_empresa_id_fkey";
@@ -2753,18 +2759,23 @@ export type Database = {
           retirado_em?: string;
           retirado_por?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "mkt_campanha_retirados_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       mkt_campanhas: {
         Row: {
-          repete_de: string | null;
           aprovada_em: string | null;
           aprovada_por: string | null;
           condicao_pct: number | null;
           condicao_texto: string | null;
-          criada_por: string | null;
-          quem_responde: string;
           created_at: string;
+          criada_por: string | null;
           crm_campaign_id: string | null;
           custo_msg_estimado: number;
           datas_disparo: string[];
@@ -2772,8 +2783,8 @@ export type Database = {
           empresa_id: string;
           estimativa: Json | null;
           gatilho: string | null;
-          hora_inicio: string | null;
           grupos: string[];
+          hora_inicio: string | null;
           id: string;
           limites: NonNullable<Json>;
           listas: Json | null;
@@ -2781,7 +2792,9 @@ export type Database = {
           motivo_status: string | null;
           nome: string;
           preparada_em: string | null;
+          quem_responde: string;
           recusada_em: string | null;
+          repete_de: string | null;
           status: string;
           tema: string | null;
           template_nome: string | null;
@@ -2790,14 +2803,12 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          repete_de?: string | null;
           aprovada_em?: string | null;
           aprovada_por?: string | null;
           condicao_pct?: number | null;
           condicao_texto?: string | null;
-          criada_por?: string | null;
-          quem_responde?: string;
           created_at?: string;
+          criada_por?: string | null;
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
           datas_disparo?: string[];
@@ -2805,8 +2816,8 @@ export type Database = {
           empresa_id: string;
           estimativa?: Json | null;
           gatilho?: string | null;
-          hora_inicio?: string | null;
           grupos?: string[];
+          hora_inicio?: string | null;
           id?: string;
           limites?: NonNullable<Json>;
           listas?: Json | null;
@@ -2814,7 +2825,9 @@ export type Database = {
           motivo_status?: string | null;
           nome: string;
           preparada_em?: string | null;
+          quem_responde?: string;
           recusada_em?: string | null;
+          repete_de?: string | null;
           status?: string;
           tema?: string | null;
           template_nome?: string | null;
@@ -2823,14 +2836,12 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          repete_de?: string | null;
           aprovada_em?: string | null;
           aprovada_por?: string | null;
           condicao_pct?: number | null;
           condicao_texto?: string | null;
-          criada_por?: string | null;
-          quem_responde?: string;
           created_at?: string;
+          criada_por?: string | null;
           crm_campaign_id?: string | null;
           custo_msg_estimado?: number;
           datas_disparo?: string[];
@@ -2838,8 +2849,8 @@ export type Database = {
           empresa_id?: string;
           estimativa?: Json | null;
           gatilho?: string | null;
-          hora_inicio?: string | null;
           grupos?: string[];
+          hora_inicio?: string | null;
           id?: string;
           limites?: NonNullable<Json>;
           listas?: Json | null;
@@ -2847,7 +2858,9 @@ export type Database = {
           motivo_status?: string | null;
           nome?: string;
           preparada_em?: string | null;
+          quem_responde?: string;
           recusada_em?: string | null;
+          repete_de?: string | null;
           status?: string;
           tema?: string | null;
           template_nome?: string | null;
@@ -2872,9 +2885,6 @@ export type Database = {
       };
       mkt_configuracoes: {
         Row: {
-          limite_marketing_dias: number;
-          modelos: Json;
-          dias_disparo: number[];
           amostra_minima: number;
           aviso_espera_minutos: number | null;
           aviso_resumo_diario: boolean;
@@ -2886,6 +2896,7 @@ export type Database = {
           created_at: string;
           custo_msg_estimado: number;
           dias_antes_preparo: number;
+          dias_disparo: number[];
           disparo_ligado: boolean;
           empresa_id: string;
           gatilho_c1_ligado: boolean;
@@ -2895,17 +2906,18 @@ export type Database = {
           hora_limite: number;
           intervalo_segundos: number;
           limite_erro_pct: number;
+          limite_marketing_dias: number;
           limite_optout_pct: number;
           link_avaliacao_google: string | null;
           lote_tamanho: number;
+          modelos: NonNullable<Json>;
+          planilha_listas_atualizada_em: string | null;
+          planilha_listas_id: string | null;
           preparo_automatico: boolean;
           template_idioma: string;
           updated_at: string;
         };
         Insert: {
-          limite_marketing_dias?: number;
-          modelos?: Json;
-          dias_disparo?: number[];
           amostra_minima?: number;
           aviso_espera_minutos?: number | null;
           aviso_resumo_diario?: boolean;
@@ -2917,6 +2929,7 @@ export type Database = {
           created_at?: string;
           custo_msg_estimado?: number;
           dias_antes_preparo?: number;
+          dias_disparo?: number[];
           disparo_ligado?: boolean;
           empresa_id: string;
           gatilho_c1_ligado?: boolean;
@@ -2926,17 +2939,18 @@ export type Database = {
           hora_limite?: number;
           intervalo_segundos?: number;
           limite_erro_pct?: number;
+          limite_marketing_dias?: number;
           limite_optout_pct?: number;
           link_avaliacao_google?: string | null;
           lote_tamanho?: number;
+          modelos?: NonNullable<Json>;
+          planilha_listas_atualizada_em?: string | null;
+          planilha_listas_id?: string | null;
           preparo_automatico?: boolean;
           template_idioma?: string;
           updated_at?: string;
         };
         Update: {
-          limite_marketing_dias?: number;
-          modelos?: Json;
-          dias_disparo?: number[];
           amostra_minima?: number;
           aviso_espera_minutos?: number | null;
           aviso_resumo_diario?: boolean;
@@ -2948,6 +2962,7 @@ export type Database = {
           created_at?: string;
           custo_msg_estimado?: number;
           dias_antes_preparo?: number;
+          dias_disparo?: number[];
           disparo_ligado?: boolean;
           empresa_id?: string;
           gatilho_c1_ligado?: boolean;
@@ -2957,9 +2972,13 @@ export type Database = {
           hora_limite?: number;
           intervalo_segundos?: number;
           limite_erro_pct?: number;
+          limite_marketing_dias?: number;
           limite_optout_pct?: number;
           link_avaliacao_google?: string | null;
           lote_tamanho?: number;
+          modelos?: NonNullable<Json>;
+          planilha_listas_atualizada_em?: string | null;
+          planilha_listas_id?: string | null;
           preparo_automatico?: boolean;
           template_idioma?: string;
           updated_at?: string;
@@ -2977,26 +2996,26 @@ export type Database = {
         Row: {
           chamado_manual_em: string | null;
           chamado_manual_por: string | null;
-          orcamento_em: string | null;
-          perdido_preco_em: string | null;
-          latitude: number | null;
-          longitude: number | null;
-          geo_endereco: string | null;
-          geo_em: string | null;
           created_at: string;
           credito_indicacao_pct: number;
           crm_lead_id: string | null;
           customer_id: string | null;
           empresa_id: string;
+          geo_em: string | null;
+          geo_endereco: string | null;
           grupo_atual: string | null;
           grupo_calculado_em: string | null;
           id: string;
           indicado_por_contato_id: string | null;
+          latitude: number | null;
           lead_entrada_em: string | null;
+          longitude: number | null;
           nome: string | null;
           normalized_phone: string;
           optout_em: string | null;
+          orcamento_em: string | null;
           origem_importacao: string | null;
+          perdido_preco_em: string | null;
           pos_venda_em: string | null;
           primeiro_nome: string | null;
           recusou_em: string | null;
@@ -3012,26 +3031,26 @@ export type Database = {
         Insert: {
           chamado_manual_em?: string | null;
           chamado_manual_por?: string | null;
-          orcamento_em?: string | null;
-          perdido_preco_em?: string | null;
-          latitude?: number | null;
-          longitude?: number | null;
-          geo_endereco?: string | null;
-          geo_em?: string | null;
           created_at?: string;
           credito_indicacao_pct?: number;
           crm_lead_id?: string | null;
           customer_id?: string | null;
           empresa_id: string;
+          geo_em?: string | null;
+          geo_endereco?: string | null;
           grupo_atual?: string | null;
           grupo_calculado_em?: string | null;
           id?: string;
           indicado_por_contato_id?: string | null;
+          latitude?: number | null;
           lead_entrada_em?: string | null;
+          longitude?: number | null;
           nome?: string | null;
           normalized_phone: string;
           optout_em?: string | null;
+          orcamento_em?: string | null;
           origem_importacao?: string | null;
+          perdido_preco_em?: string | null;
           pos_venda_em?: string | null;
           primeiro_nome?: string | null;
           recusou_em?: string | null;
@@ -3047,26 +3066,26 @@ export type Database = {
         Update: {
           chamado_manual_em?: string | null;
           chamado_manual_por?: string | null;
-          orcamento_em?: string | null;
-          perdido_preco_em?: string | null;
-          latitude?: number | null;
-          longitude?: number | null;
-          geo_endereco?: string | null;
-          geo_em?: string | null;
           created_at?: string;
           credito_indicacao_pct?: number;
           crm_lead_id?: string | null;
           customer_id?: string | null;
           empresa_id?: string;
+          geo_em?: string | null;
+          geo_endereco?: string | null;
           grupo_atual?: string | null;
           grupo_calculado_em?: string | null;
           id?: string;
           indicado_por_contato_id?: string | null;
+          latitude?: number | null;
           lead_entrada_em?: string | null;
+          longitude?: number | null;
           nome?: string | null;
           normalized_phone?: string;
           optout_em?: string | null;
+          orcamento_em?: string | null;
           origem_importacao?: string | null;
+          perdido_preco_em?: string | null;
           pos_venda_em?: string | null;
           primeiro_nome?: string | null;
           recusou_em?: string | null;
@@ -3381,6 +3400,7 @@ export type Database = {
       };
       mkt_lotes: {
         Row: {
+          adiados: number;
           campanha_id: string;
           concluido_em: string | null;
           created_at: string;
@@ -3392,10 +3412,12 @@ export type Database = {
           motivo_pausa: string | null;
           numero: number;
           quantidade: number;
+          retomado_em: string | null;
           sincronizado_em: string | null;
           status: string;
         };
         Insert: {
+          adiados?: number;
           campanha_id: string;
           concluido_em?: string | null;
           created_at?: string;
@@ -3407,10 +3429,12 @@ export type Database = {
           motivo_pausa?: string | null;
           numero: number;
           quantidade?: number;
+          retomado_em?: string | null;
           sincronizado_em?: string | null;
           status?: string;
         };
         Update: {
+          adiados?: number;
           campanha_id?: string;
           concluido_em?: string | null;
           created_at?: string;
@@ -3422,6 +3446,7 @@ export type Database = {
           motivo_pausa?: string | null;
           numero?: number;
           quantidade?: number;
+          retomado_em?: string | null;
           sincronizado_em?: string | null;
           status?: string;
         };
@@ -3557,7 +3582,7 @@ export type Database = {
         Row: {
           atualizado_por: string | null;
           empresa_id: string;
-          form: Json;
+          form: NonNullable<Json>;
           idioma: string;
           origem: string | null;
           template_nome: string;
@@ -3566,7 +3591,7 @@ export type Database = {
         Insert: {
           atualizado_por?: string | null;
           empresa_id: string;
-          form: Json;
+          form: NonNullable<Json>;
           idioma?: string;
           origem?: string | null;
           template_nome: string;
@@ -3575,7 +3600,7 @@ export type Database = {
         Update: {
           atualizado_por?: string | null;
           empresa_id?: string;
-          form?: Json;
+          form?: NonNullable<Json>;
           idioma?: string;
           origem?: string | null;
           template_nome?: string;
@@ -3618,6 +3643,76 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "monthly_goals_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      orcamento_configuracoes: {
+        Row: {
+          arredondamento: string;
+          boas_vindas_pct: number;
+          desconto_adicional_ligado: boolean;
+          desconto_adicional_pct: number;
+          desconto_categorias: string[];
+          distancia_ligado: boolean;
+          distancia_limite_km: number | null;
+          distancia_pct: number;
+          distancia_sem_acrescimo_km: number | null;
+          empresa_id: string;
+          minimo_cadeiras: number | null;
+          parcelas_max: number | null;
+          pix_pct: number;
+          sujidade_ligado: boolean;
+          sujidade_pct: number;
+          updated_at: string;
+          validade_dias: number | null;
+          vitrine_ligada: boolean;
+        };
+        Insert: {
+          arredondamento?: string;
+          boas_vindas_pct?: number;
+          desconto_adicional_ligado?: boolean;
+          desconto_adicional_pct?: number;
+          desconto_categorias?: string[];
+          distancia_ligado?: boolean;
+          distancia_limite_km?: number | null;
+          distancia_pct?: number;
+          distancia_sem_acrescimo_km?: number | null;
+          empresa_id: string;
+          minimo_cadeiras?: number | null;
+          parcelas_max?: number | null;
+          pix_pct?: number;
+          sujidade_ligado?: boolean;
+          sujidade_pct?: number;
+          updated_at?: string;
+          validade_dias?: number | null;
+          vitrine_ligada?: boolean;
+        };
+        Update: {
+          arredondamento?: string;
+          boas_vindas_pct?: number;
+          desconto_adicional_ligado?: boolean;
+          desconto_adicional_pct?: number;
+          desconto_categorias?: string[];
+          distancia_ligado?: boolean;
+          distancia_limite_km?: number | null;
+          distancia_pct?: number;
+          distancia_sem_acrescimo_km?: number | null;
+          empresa_id?: string;
+          minimo_cadeiras?: number | null;
+          parcelas_max?: number | null;
+          pix_pct?: number;
+          sujidade_ligado?: boolean;
+          sujidade_pct?: number;
+          updated_at?: string;
+          validade_dias?: number | null;
+          vitrine_ligada?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_configuracoes_empresa_id_fkey";
             columns: ["empresa_id"];
             referencedRelation: "empresas";
             referencedColumns: ["id"];
@@ -4266,13 +4361,20 @@ export type Database = {
       };
       quote_items: {
         Row: {
+          categoria: string | null;
           created_at: string;
+          desconto_regra_texto: string | null;
+          desconto_regra_valor: number;
           display_order: number;
+          editado_em: string | null;
+          editado_por: string | null;
           empresa_id: string;
           id: string;
+          item_principal: boolean;
           motivo_desconto: string | null;
           nome_snapshot: string;
           preco_aplicado: number;
+          preco_sugerido: number | null;
           preco_tabela: number;
           quantidade: number;
           quote_id: string;
@@ -4281,13 +4383,20 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Insert: {
+          categoria?: string | null;
           created_at?: string;
+          desconto_regra_texto?: string | null;
+          desconto_regra_valor?: number;
           display_order?: number;
+          editado_em?: string | null;
+          editado_por?: string | null;
           empresa_id?: string;
           id?: string;
+          item_principal?: boolean;
           motivo_desconto?: string | null;
           nome_snapshot: string;
           preco_aplicado?: number;
+          preco_sugerido?: number | null;
           preco_tabela?: number;
           quantidade?: number;
           quote_id: string;
@@ -4296,13 +4405,20 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Update: {
+          categoria?: string | null;
           created_at?: string;
+          desconto_regra_texto?: string | null;
+          desconto_regra_valor?: number;
           display_order?: number;
+          editado_em?: string | null;
+          editado_por?: string | null;
           empresa_id?: string;
           id?: string;
+          item_principal?: boolean;
           motivo_desconto?: string | null;
           nome_snapshot?: string;
           preco_aplicado?: number;
+          preco_sugerido?: number | null;
           preco_tabela?: number;
           quantidade?: number;
           quote_id?: string;
@@ -4333,9 +4449,12 @@ export type Database = {
       };
       quotes: {
         Row: {
+          acrescimo_distancia: number;
+          acrescimo_sujidade: number;
           cliente_cep: string | null;
           cliente_endereco: string | null;
           cliente_nome: string;
+          cliente_novo: boolean | null;
           cliente_telefone: string | null;
           contribuicao_percentual: number | null;
           contribuicao_valor: number | null;
@@ -4352,7 +4471,10 @@ export type Database = {
           customer_id: string | null;
           data_servico: string | null;
           desconto: number;
+          distancia_base: string | null;
+          distancia_km: number | null;
           empresa_id: string;
+          fora_da_area: boolean;
           forma_pagamento: string | null;
           generated_work_order_id: string | null;
           id: string;
@@ -4361,6 +4483,8 @@ export type Database = {
           lucro_valor: number | null;
           margem_percentual: number;
           margem_valor: number;
+          minimo_aplicado: number;
+          muito_sujo: boolean;
           observacoes: string | null;
           parcelas: number | null;
           preencher_agenda: boolean;
@@ -4370,11 +4494,18 @@ export type Database = {
           total: number;
           updated_at: string;
           valor_a_vista: number | null;
+          valor_cartao: number | null;
+          valor_pix: number | null;
+          valor_vitrine: number | null;
+          valores_editados_por: string | null;
         };
         Insert: {
+          acrescimo_distancia?: number;
+          acrescimo_sujidade?: number;
           cliente_cep?: string | null;
           cliente_endereco?: string | null;
           cliente_nome: string;
+          cliente_novo?: boolean | null;
           cliente_telefone?: string | null;
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
@@ -4391,7 +4522,10 @@ export type Database = {
           customer_id?: string | null;
           data_servico?: string | null;
           desconto?: number;
+          distancia_base?: string | null;
+          distancia_km?: number | null;
           empresa_id?: string;
+          fora_da_area?: boolean;
           forma_pagamento?: string | null;
           generated_work_order_id?: string | null;
           id?: string;
@@ -4400,6 +4534,8 @@ export type Database = {
           lucro_valor?: number | null;
           margem_percentual?: number;
           margem_valor?: number;
+          minimo_aplicado?: number;
+          muito_sujo?: boolean;
           observacoes?: string | null;
           parcelas?: number | null;
           preencher_agenda?: boolean;
@@ -4409,11 +4545,18 @@ export type Database = {
           total?: number;
           updated_at?: string;
           valor_a_vista?: number | null;
+          valor_cartao?: number | null;
+          valor_pix?: number | null;
+          valor_vitrine?: number | null;
+          valores_editados_por?: string | null;
         };
         Update: {
+          acrescimo_distancia?: number;
+          acrescimo_sujidade?: number;
           cliente_cep?: string | null;
           cliente_endereco?: string | null;
           cliente_nome?: string;
+          cliente_novo?: boolean | null;
           cliente_telefone?: string | null;
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
@@ -4430,7 +4573,10 @@ export type Database = {
           customer_id?: string | null;
           data_servico?: string | null;
           desconto?: number;
+          distancia_base?: string | null;
+          distancia_km?: number | null;
           empresa_id?: string;
+          fora_da_area?: boolean;
           forma_pagamento?: string | null;
           generated_work_order_id?: string | null;
           id?: string;
@@ -4439,6 +4585,8 @@ export type Database = {
           lucro_valor?: number | null;
           margem_percentual?: number;
           margem_valor?: number;
+          minimo_aplicado?: number;
+          muito_sujo?: boolean;
           observacoes?: string | null;
           parcelas?: number | null;
           preencher_agenda?: boolean;
@@ -4448,6 +4596,10 @@ export type Database = {
           total?: number;
           updated_at?: string;
           valor_a_vista?: number | null;
+          valor_cartao?: number | null;
+          valor_pix?: number | null;
+          valor_vitrine?: number | null;
+          valores_editados_por?: string | null;
         };
         Relationships: [
           {
@@ -4540,6 +4692,43 @@ export type Database = {
           },
         ];
       };
+      rotas_distancias: {
+        Row: {
+          calculado_em: string;
+          destino_lat: number;
+          destino_lon: number;
+          empresa_id: string;
+          km: number;
+          origem_lat: number;
+          origem_lon: number;
+        };
+        Insert: {
+          calculado_em?: string;
+          destino_lat: number;
+          destino_lon: number;
+          empresa_id?: string;
+          km: number;
+          origem_lat: number;
+          origem_lon: number;
+        };
+        Update: {
+          calculado_em?: string;
+          destino_lat?: number;
+          destino_lon?: number;
+          empresa_id?: string;
+          km?: number;
+          origem_lat?: number;
+          origem_lon?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rotas_distancias_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       route_cost_allocations: {
         Row: {
           allocated_cost: number;
@@ -4623,12 +4812,12 @@ export type Database = {
           display_order: number;
           effective_from: string;
           eh_ia: boolean;
+          email: string | null;
           empresa_id: string;
           id: string;
           name: string;
           updated_at: string;
           user_id: string | null;
-          email: string | null;
         };
         Insert: {
           active?: boolean;
@@ -4639,12 +4828,12 @@ export type Database = {
           display_order?: number;
           effective_from?: string;
           eh_ia?: boolean;
+          email?: string | null;
           empresa_id?: string;
           id?: string;
           name: string;
           updated_at?: string;
           user_id?: string | null;
-          email?: string | null;
         };
         Update: {
           active?: boolean;
@@ -4655,12 +4844,12 @@ export type Database = {
           display_order?: number;
           effective_from?: string;
           eh_ia?: boolean;
+          email?: string | null;
           empresa_id?: string;
           id?: string;
           name?: string;
           updated_at?: string;
           user_id?: string | null;
-          email?: string | null;
         };
         Relationships: [
           {
@@ -4677,9 +4866,12 @@ export type Database = {
           created_at: string;
           description: string | null;
           display_order: number;
+          editado_em: string | null;
+          editado_por: string | null;
           empresa_id: string;
           id: string;
           item_group_id: string;
+          preco_tabela: number | null;
           quantity: number;
           subtotal: number;
           unit_price: number;
@@ -4692,9 +4884,12 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           display_order?: number;
+          editado_em?: string | null;
+          editado_por?: string | null;
           empresa_id?: string;
           id?: string;
           item_group_id?: string;
+          preco_tabela?: number | null;
           quantity?: number;
           subtotal?: number;
           unit_price?: number;
@@ -4707,9 +4902,12 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           display_order?: number;
+          editado_em?: string | null;
+          editado_por?: string | null;
           empresa_id?: string;
           id?: string;
           item_group_id?: string;
+          preco_tabela?: number | null;
           quantity?: number;
           subtotal?: number;
           unit_price?: number;
@@ -4741,6 +4939,7 @@ export type Database = {
       tabela_precos_itens: {
         Row: {
           ativo: boolean;
+          categoria: string;
           created_at: string;
           empresa_id: string;
           id: string;
@@ -4752,6 +4951,7 @@ export type Database = {
         };
         Insert: {
           ativo?: boolean;
+          categoria?: string;
           created_at?: string;
           empresa_id?: string;
           id?: string;
@@ -4763,6 +4963,7 @@ export type Database = {
         };
         Update: {
           ativo?: boolean;
+          categoria?: string;
           created_at?: string;
           empresa_id?: string;
           id?: string;
@@ -4861,13 +5062,13 @@ export type Database = {
           display_order: number;
           email: string | null;
           empresa_id: string;
+          foto_path: string | null;
           id: string;
           include_return: boolean;
           name: string;
           updated_at: string;
-          vehicle: string | null;
           user_id: string | null;
-          foto_path: string | null;
+          vehicle: string | null;
         };
         Insert: {
           active?: boolean;
@@ -4878,13 +5079,13 @@ export type Database = {
           display_order?: number;
           email?: string | null;
           empresa_id?: string;
+          foto_path?: string | null;
           id?: string;
           include_return?: boolean;
           name: string;
           updated_at?: string;
-          vehicle?: string | null;
           user_id?: string | null;
-          foto_path?: string | null;
+          vehicle?: string | null;
         };
         Update: {
           active?: boolean;
@@ -4895,13 +5096,13 @@ export type Database = {
           display_order?: number;
           email?: string | null;
           empresa_id?: string;
+          foto_path?: string | null;
           id?: string;
           include_return?: boolean;
           name?: string;
           updated_at?: string;
-          vehicle?: string | null;
           user_id?: string | null;
-          foto_path?: string | null;
+          vehicle?: string | null;
         };
         Relationships: [
           {
@@ -5871,7 +6072,7 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean };
       liberar_empresa: {
         Args: { _emp: string; _liberar: boolean };
-        Returns: string | null;
+        Returns: string;
       };
       meu_papel: {
         Args: Record<PropertyKey, never>;
@@ -5886,21 +6087,11 @@ export type Database = {
         Args: { _emp: string; _hoje?: string };
         Returns: Json;
       };
+      mkt_campanha_contagem: { Args: { _campanha: string }; Returns: Json };
+      mkt_campanha_presas: { Args: { _campanha: string }; Returns: Json };
       mkt_confirmar_envio: {
         Args: { _agora?: string; _envio: string };
         Returns: boolean;
-      };
-      mkt_encerrar_campanha: {
-        Args: { _campanha: string; _motivo: string; _status: string };
-        Returns: undefined;
-      };
-      mkt_gerar_gatilhos: {
-        Args: { _emp: string; _hoje?: string };
-        Returns: Json;
-      };
-      mkt_importar_contatos: {
-        Args: { _emp: string; _linhas: Json; _origem: string };
-        Returns: Json;
       };
       mkt_criar_promocao: {
         Args: {
@@ -5914,6 +6105,58 @@ export type Database = {
         };
         Returns: Json;
       };
+      mkt_decidir_lembretes: {
+        Args: { _aprovar: boolean; _lote: string; _usuario: string };
+        Returns: Json;
+      };
+      mkt_encerrar_campanha: {
+        Args: { _campanha: string; _motivo: string; _status: string };
+        Returns: undefined;
+      };
+      mkt_escalonar_lotes: {
+        Args: { _campanha: string; _rampa?: number[] };
+        Returns: Json;
+      };
+      mkt_gerar_gatilhos: {
+        Args: { _emp: string; _hoje?: string };
+        Returns: Json;
+      };
+      mkt_importar_contatos: {
+        Args: { _emp: string; _linhas: Json; _origem: string };
+        Returns: Json;
+      };
+      mkt_lista_publico: {
+        Args: { _filtros: Json; _promocao?: boolean };
+        Returns: {
+          agendado_para: string;
+          cep: string;
+          cliente_em: string;
+          contato_id: string;
+          conversa_em: string;
+          dias_cliente: number;
+          dias_conversa: number;
+          dias_orcamento: number;
+          endereco: string;
+          familias: string[];
+          latitude: number;
+          longitude: number;
+          motivo: string;
+          nome: string;
+          orcamento_a_vista: number;
+          orcamento_em: string;
+          orcamento_km: number;
+          orcamento_valor: number;
+          perdido_preco_em: string;
+          pode_receber: boolean;
+          servico_tipo: string;
+          telefone: string;
+        }[];
+      };
+      mkt_listas_contagem: { Args: { _opcoes: Json }; Returns: Json };
+      mkt_marcar_chamado_manual: {
+        Args: { _itens: Json; _simular?: boolean };
+        Returns: Json;
+      };
       mkt_pausar: {
         Args: { _campanha: string; _lote: string; _motivo: string };
         Returns: number;
@@ -5921,6 +6164,33 @@ export type Database = {
       mkt_preparar_campanha: {
         Args: { _campanha: string; _hoje?: string };
         Returns: Json;
+      };
+      mkt_publico_servico: {
+        Args: { _emp: string; _filtros: Json };
+        Returns: {
+          agendado_para: string;
+          cep: string;
+          cliente_em: string;
+          contato_id: string;
+          conversa_em: string;
+          dias_cliente: number;
+          dias_conversa: number;
+          dias_orcamento: number;
+          endereco: string;
+          familias: string[];
+          latitude: number;
+          longitude: number;
+          motivo: string;
+          nome: string;
+          orcamento_a_vista: number;
+          orcamento_em: string;
+          orcamento_km: number;
+          orcamento_valor: number;
+          perdido_preco_em: string;
+          pode_receber: boolean;
+          servico_tipo: string;
+          telefone: string;
+        }[];
       };
       mkt_registrar_envio: {
         Args: {

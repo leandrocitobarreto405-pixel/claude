@@ -17,6 +17,13 @@ import { findRate, usePaymentRates, useSetting } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
+import { useConfigOrcamento } from "@/lib/orcamento-config";
+import {
+  calcularTotais,
+  sugerirPrecos,
+  type Categoria,
+  type ModoDesconto,
+} from "@/lib/orcamento-regras";
 import {
   STATUS_CLASS,
   STATUS_LABEL,
@@ -58,15 +65,23 @@ export const Route = createFileRoute("/_authenticated/orcamentos/$quoteId")({
   component: OrcamentoDetalhe,
 });
 
+/** Percentual sem casas desnecessárias: 20 → "20", 12,5 → "12,5". */
+const pct = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
 type Linha = {
   key: string;
   tabela_preco_item_id: string;
   nome_snapshot: string;
   tipo_servico: TipoServico;
+  categoria: Categoria;
   preco_tabela: number;
-  preco_aplicado: number;
+  /** Valor digitado pela atendente; sem ele, vale o sugerido pelas regras. */
+  preco_editado: number | null;
+  desconto: ModoDesconto;
   motivo_desconto: string;
   quantidade: number;
+  editado_por: string | null;
+  editado_em: string | null;
 };
 
 function novaChave() {
@@ -93,6 +108,7 @@ function OrcamentoDetalhe() {
   const podeVerCustos = papel !== "tecnico";
 
   const { data: catalogo } = useTabelaPrecos(true);
+  const { regras } = useConfigOrcamento();
   const { data: carregado, refetch } = useQuote(novo ? null : quoteId);
   const salvar = useServerFn(salvarOrcamento);
   const duplicar = useServerFn(duplicarOrcamento);
@@ -123,6 +139,14 @@ function OrcamentoDetalhe() {
   const [metodoKm, setMetodoKm] = useState<"ruas" | "linha_reta" | null>(null);
   const [cepCalculado, setCepCalculado] = useState("");
   const [lead, setLead] = useState<{ id: string; lead_name: string | null } | null>(null);
+  // Regras de preço da empresa.
+  const [principalKey, setPrincipalKey] = useState<string | null>(null);
+  const [muitoSujo, setMuitoSujo] = useState(false);
+  const [clienteNovo, setClienteNovo] = useState<boolean | null>(null);
+  const [kmIda, setKmIda] = useState<number | null>(null);
+  const [baseTecnico, setBaseTecnico] = useState<string | null>(null);
+  const [cartaoEditado, setCartaoEditado] = useState<number | null>(null);
+  const [pixEditado, setPixEditado] = useState<number | null>(null);
 
   const { data: rates } = usePaymentRates(true);
   const { data: impostoPct = 6 } = useSetting<number>("tax_percent", 6);
@@ -163,19 +187,69 @@ function OrcamentoDetalhe() {
     if (Number(q.km_ida_volta) > 0) {
       setCustoKmConfig(Number(q.custo_deslocamento ?? 0) / Number(q.km_ida_volta));
     }
-    setLinhas(
-      carregado.items.map((it) => ({
-        key: it.id,
-        tabela_preco_item_id: it.tabela_preco_item_id ?? "",
-        nome_snapshot: it.nome_snapshot,
-        tipo_servico: it.tipo_servico,
-        preco_tabela: Number(it.preco_tabela ?? 0),
-        preco_aplicado: Number(it.preco_aplicado ?? 0),
-        motivo_desconto: it.motivo_desconto ?? "",
-        quantidade: Number(it.quantidade ?? 1),
-      })),
+    setMuitoSujo(Boolean(q.muito_sujo));
+    setClienteNovo(q.cliente_novo ?? null);
+    setKmIda(
+      q.distancia_km === null || q.distancia_km === undefined ? null : Number(q.distancia_km),
     );
+    setBaseTecnico(q.distancia_base ?? null);
+    const vitrineSalva = q.valor_vitrine !== null && q.valor_vitrine !== undefined;
+    setCartaoEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_cartao) : null);
+    setPixEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_pix) : null);
+    setPrincipalKey(carregado.items.find((it) => it.item_principal)?.id ?? null);
+    setLinhas(
+      carregado.items.map((it) => {
+        const aplicado = Number(it.preco_aplicado ?? 0);
+        const tabela = Number(it.preco_tabela ?? 0);
+        const sugerido = it.preco_sugerido === null ? null : Number(it.preco_sugerido);
+        const ref = sugerido ?? (tabela > 0 ? tabela : null);
+        const editado =
+          Boolean(it.editado_por || it.editado_em) ||
+          (ref !== null && Math.abs(aplicado - ref) > 0.004);
+        const categoria = (it.categoria ?? "outro") as Categoria;
+        const naRegra = regras.descontoAdicional.categorias.includes(categoria);
+        const descontoRegra = Number(it.desconto_regra_valor ?? 0);
+        return {
+          key: it.id,
+          tabela_preco_item_id: it.tabela_preco_item_id ?? "",
+          nome_snapshot: it.nome_snapshot,
+          tipo_servico: it.tipo_servico,
+          categoria,
+          preco_tabela: tabela,
+          preco_editado: editado ? aplicado : null,
+          desconto: (descontoRegra > 0 && !naRegra
+            ? "sim"
+            : descontoRegra === 0 && naRegra && !it.item_principal && sugerido !== null
+              ? "nao"
+              : "auto") as ModoDesconto,
+          motivo_desconto: it.motivo_desconto ?? "",
+          quantidade: Number(it.quantidade ?? 1),
+          editado_por: it.editado_por ?? null,
+          editado_em: it.editado_em ?? null,
+        };
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregado]);
+
+  // Cliente novo: telefone sem cadastro de cliente na empresa (a atendente pode trocar).
+  const final8 = onlyDigits(telefone).slice(-8);
+  const { data: clienteNovoDetectado = null } = useQuery({
+    queryKey: ["orcamento-cliente-novo", final8],
+    enabled: regras.vitrine.ligada && final8.length === 8,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id")
+        .ilike("phone", `%${final8}`)
+        .limit(1);
+      if (error) return null;
+      return (data ?? []).length === 0;
+    },
+  });
+  useEffect(() => {
+    if (clienteNovo === null && clienteNovoDetectado !== null) setClienteNovo(clienteNovoDetectado);
+  }, [clienteNovo, clienteNovoDetectado]);
 
   // Orçamento novo aberto a partir de um lead: já vem com nome e telefone do lead.
   useEffect(() => {
@@ -197,11 +271,45 @@ function OrcamentoDetalhe() {
     };
   }, [novo, leadParam]);
 
-  const subtotal = useMemo(
-    () => round(linhas.reduce((s, l) => s + l.preco_aplicado * Math.max(1, l.quantidade), 0)),
-    [linhas],
+  // Preço sugerido pelas regras (item principal cheio, adicionais com desconto) e valor final.
+  const sugestoes = useMemo(
+    () =>
+      sugerirPrecos(
+        linhas.map((l) => ({
+          key: l.key,
+          categoria: l.categoria,
+          precoTabela: l.preco_tabela,
+          quantidade: l.quantidade,
+          desconto: l.desconto,
+        })),
+        regras,
+        principalKey,
+      ),
+    [linhas, regras, principalKey],
   );
-  const total = round(Math.max(subtotal - desconto, 0));
+  const sugeridoDe = (l: Linha) => sugestoes.get(l.key)?.precoSugerido ?? l.preco_tabela;
+  const finalDe = (l: Linha) => l.preco_editado ?? sugeridoDe(l);
+  const totais = useMemo(
+    () =>
+      calcularTotais({
+        linhas: linhas.map((l) => ({
+          categoria: l.categoria,
+          precoAplicado: l.preco_editado ?? sugestoes.get(l.key)?.precoSugerido ?? l.preco_tabela,
+          quantidade: l.quantidade,
+        })),
+        regras,
+        muitoSujo,
+        distanciaKm: kmIda,
+        desconto,
+        clienteNovo: clienteNovo !== false,
+      }),
+    [linhas, sugestoes, regras, muitoSujo, kmIda, desconto, clienteNovo],
+  );
+  const subtotal = totais.subtotalItens;
+  const vitrine = totais.vitrine;
+  const valorCartao = vitrine ? (cartaoEditado ?? vitrine.cartao) : null;
+  const valorPix = vitrine ? (pixEditado ?? vitrine.pix) : null;
+  const total = vitrine ? round(valorCartao ?? 0) : totais.base;
   const custoDeslocamento = round(km * custoKmConfig);
   const custos = useMemo(
     () => ({
@@ -223,10 +331,14 @@ function OrcamentoDetalhe() {
         tabela_preco_item_id: "",
         nome_snapshot: "",
         tipo_servico: "higienizacao",
+        categoria: "outro",
         preco_tabela: 0,
-        preco_aplicado: 0,
+        preco_editado: null,
+        desconto: "auto",
         motivo_desconto: "",
         quantidade: 1,
+        editado_por: null,
+        editado_em: null,
       },
     ]);
   }
@@ -242,8 +354,11 @@ function OrcamentoDetalhe() {
       tabela_preco_item_id: itemId,
       nome_snapshot: item?.nome ?? "",
       tipo_servico: tipo,
+      categoria: item?.categoria ?? "outro",
       preco_tabela: preco,
-      preco_aplicado: preco,
+      preco_editado: null,
+      editado_por: null,
+      editado_em: null,
     });
   }
 
@@ -261,6 +376,8 @@ function OrcamentoDetalhe() {
       if (r.km !== null) {
         setKm(r.km);
         setMetodoKm(r.metodo ?? null);
+        setKmIda(r.kmIda ?? null);
+        setBaseTecnico(r.base ?? null);
       } else {
         setAvisoKm(r.aviso ?? "Não foi possível estimar o deslocamento por este CEP.");
       }
@@ -283,20 +400,12 @@ function OrcamentoDetalhe() {
   async function gravar(novoStatus?: QuoteStatus) {
     if (!nome.trim()) {
       toast.error("Informe o nome do cliente.");
-      return;
+      return false;
     }
-    const validas = linhas.filter((l) => l.nome_snapshot && l.preco_aplicado > 0);
+    const validas = linhas.filter((l) => l.nome_snapshot && finalDe(l) > 0);
     if (!validas.length) {
       toast.error("Inclua pelo menos um item com valor.");
-      return;
-    }
-    const semMotivo = validas.find(
-      (l) =>
-        l.preco_tabela > 0 && l.preco_aplicado < l.preco_tabela * 0.9 && !l.motivo_desconto.trim(),
-    );
-    if (semMotivo) {
-      toast.error(`Informe o motivo do desconto em "${semMotivo.nome_snapshot}".`);
-      return;
+      return false;
     }
 
     setSalvando(true);
@@ -322,25 +431,43 @@ function OrcamentoDetalhe() {
           preencher_agenda: preencherAgenda,
           ...(lead ? { crm_lead_id: lead.id } : {}),
           status: novoStatus ?? status,
-          items: validas.map((l) => ({
-            tabela_preco_item_id: l.tabela_preco_item_id || null,
-            nome_snapshot: l.nome_snapshot,
-            tipo_servico: l.tipo_servico,
-            preco_tabela: l.preco_tabela,
-            preco_aplicado: l.preco_aplicado,
-            motivo_desconto: l.motivo_desconto || null,
-            quantidade: l.quantidade,
-          })),
+          cliente_novo: regras.vitrine.ligada ? clienteNovo !== false : clienteNovo,
+          muito_sujo: muitoSujo,
+          distancia_km: kmIda,
+          distancia_base: baseTecnico,
+          valor_cartao_editado: cartaoEditado,
+          valor_pix_editado: pixEditado,
+          items: validas.map((l) => {
+            const sug = sugestoes.get(l.key);
+            return {
+              tabela_preco_item_id: l.tabela_preco_item_id || null,
+              nome_snapshot: l.nome_snapshot,
+              tipo_servico: l.tipo_servico,
+              preco_tabela: l.preco_tabela,
+              preco_aplicado: finalDe(l),
+              motivo_desconto: l.motivo_desconto || null,
+              quantidade: l.quantidade,
+              categoria: l.categoria,
+              preco_sugerido: sug ? sug.precoSugerido : l.preco_tabela || null,
+              desconto_regra_valor: sug?.descontoValor ?? 0,
+              desconto_regra_texto: sug?.descontoTexto ?? null,
+              item_principal: Boolean(sug?.principal),
+              editado_por: l.preco_editado !== null ? l.editado_por : null,
+              editado_em: l.preco_editado !== null ? l.editado_em : null,
+            };
+          }),
         },
       });
       toast.success("Orçamento salvo.");
       if (novo && r.id) {
         void navigate({ to: "/orcamentos/$quoteId", params: { quoteId: r.id } });
-      } else {
-        await refetch();
+        return false;
       }
+      await refetch();
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar o orçamento.");
+      return false;
     } finally {
       setSalvando(false);
     }
@@ -348,16 +475,16 @@ function OrcamentoDetalhe() {
 
   const textosEmpresa = useTextosEmpresa();
 
-  function gerarMensagem() {
-    if (!carregado) {
-      toast.info("Salve o orçamento antes de gerar a mensagem.");
-      return;
-    }
+  /** Aprova os valores (salva) e monta a mensagem com o que ficou gravado. */
+  async function gerarMensagem() {
     if (!textosEmpresa) {
       toast.info("Carregando os textos da empresa. Tente de novo em instantes.");
       return;
     }
-    setMensagem(quoteWhatsappMessage(carregado.quote, carregado.items, textosEmpresa));
+    if (!(await gravar())) return;
+    const { data } = await refetch();
+    if (!data) return;
+    setMensagem(quoteWhatsappMessage(data.quote, data.items, { ...textosEmpresa, regras }));
   }
 
   return (
@@ -479,12 +606,24 @@ function OrcamentoDetalhe() {
           </Button>
         </div>
 
+        {regras.descontoAdicional.ligado && linhas.length > 1 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Item principal com preço cheio; itens adicionais com -
+            {pct(regras.descontoAdicional.pct)}
+            %. Toque em "Principal" para trocar e em "Desconto" para escolher onde ele vai.
+          </p>
+        ) : null}
+
         <div className="mt-4 space-y-3">
           {linhas.map((l) => {
             const item = catalogo?.find((i) => i.id === l.tabela_preco_item_id);
             const semImper = !item?.preco_impermeabilizacao;
-            const abaixo = l.preco_tabela > 0 && l.preco_aplicado < l.preco_tabela;
-            const muitoAbaixo = l.preco_tabela > 0 && l.preco_aplicado < l.preco_tabela * 0.9;
+            const sug = sugestoes.get(l.key);
+            const sugerido = sugeridoDe(l);
+            const final = finalDe(l);
+            const editado =
+              l.preco_editado !== null && Math.abs(l.preco_editado - sugerido) > 0.004;
+            const naRegra = regras.descontoAdicional.categorias.includes(l.categoria);
             return (
               <div key={l.key} className="rounded-xl border border-border/70 p-3">
                 <div className="grid gap-3 sm:grid-cols-[1fr_11rem_5rem_9rem_auto]">
@@ -493,7 +632,7 @@ function OrcamentoDetalhe() {
                     <select
                       value={l.tabela_preco_item_id}
                       onChange={(e) => escolherItem(l.key, e.target.value, l.tipo_servico)}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                      className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9"
                     >
                       <option value="">Selecione…</option>
                       {(catalogo ?? []).map((i) => (
@@ -510,7 +649,7 @@ function OrcamentoDetalhe() {
                       onChange={(e) =>
                         escolherItem(l.key, l.tabela_preco_item_id, e.target.value as TipoServico)
                       }
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                      className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9"
                     >
                       <option value="higienizacao">{TIPO_LABEL.higienizacao}</option>
                       <option value="impermeabilizacao" disabled={semImper}>
@@ -533,41 +672,97 @@ function OrcamentoDetalhe() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Preço unitário</Label>
+                    <Label className="text-xs">
+                      Preço unitário
+                      {editado ? (
+                        <span className="ml-2 rounded-full bg-atencao px-2 py-0.5 text-[11px] font-medium text-atencao-foreground">
+                          editado
+                        </span>
+                      ) : null}
+                    </Label>
                     <MoneyInput
-                      value={l.preco_aplicado}
-                      onValueChange={(v) => atualizar(l.key, { preco_aplicado: v })}
-                      className={
-                        muitoAbaixo
-                          ? "border-destructive text-destructive"
-                          : abaixo
-                            ? "border-amber-500 text-amber-700"
-                            : ""
+                      value={final}
+                      onValueChange={(v) =>
+                        atualizar(l.key, {
+                          preco_editado: Math.abs(v - sugerido) > 0.004 ? v : null,
+                        })
                       }
+                      className={editado ? "border-atencao-foreground" : ""}
                     />
                     {l.preco_tabela > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Tabela: {brl(l.preco_tabela)}
+                        Valor da tabela: {brl(l.preco_tabela)}
+                        {Math.abs(sugerido - l.preco_tabela) > 0.004 ? (
+                          <> · sugerido {brl(sugerido)}</>
+                        ) : null}
                       </p>
+                    ) : null}
+                    {editado ? (
+                      <button
+                        type="button"
+                        className="mt-1 min-h-11 text-xs underline sm:min-h-0"
+                        onClick={() => atualizar(l.key, { preco_editado: null })}
+                      >
+                        Voltar ao sugerido
+                      </button>
                     ) : null}
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <span className="text-sm font-semibold">
-                      {brl(l.preco_aplicado * Math.max(1, l.quantidade))}
+                      {brl(final * Math.max(1, l.quantidade))}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
                       aria-label="Remover item"
+                      className="h-11 w-11"
                       onClick={() => setLinhas((prev) => prev.filter((x) => x.key !== l.key))}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>
-                {muitoAbaixo ? (
+                {regras.descontoAdicional.ligado && l.preco_tabela > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPrincipalKey(l.key)}
+                      className={`min-h-11 rounded-full border px-3 sm:min-h-8 ${
+                        sug?.principal
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border"
+                      }`}
+                    >
+                      {sug?.principal ? "Principal (preço cheio)" : "Tornar principal"}
+                    </button>
+                    {!sug?.principal || l.quantidade > 1 ? (
+                      <label className="flex min-h-11 items-center gap-2 sm:min-h-8">
+                        Desconto
+                        <select
+                          value={l.desconto}
+                          onChange={(e) =>
+                            atualizar(l.key, { desconto: e.target.value as ModoDesconto })
+                          }
+                          className="h-11 rounded-md border border-input bg-background px-2 sm:h-8"
+                        >
+                          <option value="auto">
+                            Automático ({naRegra ? "com desconto" : "sem desconto"})
+                          </option>
+                          <option value="sim">Com desconto</option>
+                          <option value="nao">Sem desconto</option>
+                        </select>
+                      </label>
+                    ) : null}
+                    {sug?.descontoTexto ? (
+                      <span className="text-muted-foreground">
+                        {sug.descontoTexto} (−{brl(sug.descontoValor)})
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {editado ? (
                   <div className="mt-2">
-                    <Label className="text-xs">Motivo do desconto (obrigatório)</Label>
+                    <Label className="text-xs">Motivo da alteração (opcional)</Label>
                     <Input
                       value={l.motivo_desconto}
                       onChange={(e) => atualizar(l.key, { motivo_desconto: e.target.value })}
@@ -582,24 +777,160 @@ function OrcamentoDetalhe() {
           ) : null}
         </div>
 
+        {regras.sujidade.ligado || regras.distancia.ligado || regras.vitrine.ligada ? (
+          <div className="mt-5 space-y-3 border-t border-border/70 pt-4">
+            {regras.vitrine.ligada ? (
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={clienteNovo !== false}
+                  onChange={(e) => {
+                    setClienteNovo(e.target.checked);
+                    setCartaoEditado(null);
+                    setPixEditado(null);
+                  }}
+                />
+                <span>
+                  Cliente novo (ganha {pct(regras.vitrine.boasVindasPct)}% de boas-vindas)
+                  {clienteNovoDetectado !== null ? (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      — pelo telefone: {clienteNovoDetectado ? "cliente novo" : "já é cliente"}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            ) : null}
+            {regras.sujidade.ligado ? (
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={muitoSujo}
+                  onChange={(e) => setMuitoSujo(e.target.checked)}
+                />
+                <span>
+                  Muito sujo (+{pct(regras.sujidade.pct)}% no pedido)
+                  {totais.acrescimoSujidade > 0 ? ` · +${brl(totais.acrescimoSujidade)}` : ""}
+                </span>
+              </label>
+            ) : null}
+            {regras.distancia.ligado ? (
+              <div className="text-sm">
+                <p>
+                  Distância (só a ida, da base do técnico mais próximo):{" "}
+                  <strong>
+                    {kmIda === null ? "preencha o CEP do cliente" : `${decimal(kmIda, 1)} km`}
+                  </strong>
+                  {baseTecnico ? ` · base ${baseTecnico}` : ""}
+                  {totais.acrescimoDistancia > 0
+                    ? ` · +${pct(regras.distancia.pct)}% (+${brl(totais.acrescimoDistancia)})`
+                    : ""}
+                </p>
+                {totais.foraDaArea ? (
+                  <p className="mt-1 rounded-md bg-atencao px-3 py-2 text-atencao-foreground">
+                    Fora da área de atendimento (acima de{" "}
+                    {decimal(regras.distancia.limiteKm ?? 0, 1)} km). Confirme com a equipe antes de
+                    enviar.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-5 grid gap-3 border-t border-border/70 pt-4 sm:grid-cols-3">
           <div>
             <Label className="text-xs">Subtotal</Label>
             <p className="text-lg font-medium">{brl(subtotal)}</p>
+            {totais.minimoAplicado > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Pedido mínimo de cadeiras: +{brl(totais.minimoAplicado)}
+              </p>
+            ) : null}
           </div>
           <div>
             <Label className="text-xs">Desconto (R$)</Label>
-            <MoneyInput value={desconto} onValueChange={setDesconto} />
+            <MoneyInput
+              value={desconto}
+              onValueChange={(v) => {
+                setDesconto(v);
+                setCartaoEditado(null);
+                setPixEditado(null);
+              }}
+            />
           </div>
-          <div>
-            <Label className="text-xs">Total</Label>
-            <p className="text-2xl font-semibold text-primary">{brl(total)}</p>
-          </div>
-          <div>
-            <Label className="text-xs">Valor à vista (opcional)</Label>
-            <MoneyInput value={aVista} onValueChange={setAVista} />
-          </div>
+          {vitrine ? (
+            <div>
+              <Label className="text-xs">Valor mínimo (tabela no Pix)</Label>
+              <p className="text-lg font-medium">{brl(totais.base)}</p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">Total</Label>
+                <p className="text-2xl font-semibold text-primary">{brl(total)}</p>
+              </div>
+              <div>
+                <Label className="text-xs">Valor à vista (opcional)</Label>
+                <MoneyInput value={aVista} onValueChange={setAVista} />
+              </div>
+            </>
+          )}
         </div>
+
+        {vitrine ? (
+          <div className="mt-4 rounded-xl border border-border/70 p-3">
+            <p className="text-sm font-medium">Valores para o cliente</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs">Valor dos estofados</Label>
+                <p className="text-lg font-medium">{brl(vitrine.vitrine)}</p>
+              </div>
+              <div>
+                <Label className="text-xs">
+                  Cartão{vitrine.boasVindas ? " (com boas-vindas)" : ""}
+                  {cartaoEditado !== null ? (
+                    <span className="ml-2 rounded-full bg-atencao px-2 py-0.5 text-[11px] font-medium text-atencao-foreground">
+                      editado
+                    </span>
+                  ) : null}
+                </Label>
+                <MoneyInput
+                  value={valorCartao ?? 0}
+                  onValueChange={(v) =>
+                    setCartaoEditado(Math.abs(v - vitrine.cartao) > 0.004 && v > 0 ? v : null)
+                  }
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Calculado: {brl(vitrine.cartao)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs">
+                  Pix
+                  {pixEditado !== null ? (
+                    <span className="ml-2 rounded-full bg-atencao px-2 py-0.5 text-[11px] font-medium text-atencao-foreground">
+                      editado
+                    </span>
+                  ) : null}
+                </Label>
+                <MoneyInput
+                  value={valorPix ?? 0}
+                  onValueChange={(v) =>
+                    setPixEditado(Math.abs(v - vitrine.pix) > 0.004 && v > 0 ? v : null)
+                  }
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Calculado: {brl(vitrine.pix)}</p>
+              </div>
+            </div>
+            {(valorPix ?? 0) < totais.base - 0.004 ? (
+              <p className="mt-2 rounded-md bg-atencao px-3 py-2 text-sm text-atencao-foreground">
+                Pix abaixo do valor mínimo da tabela ({brl(totais.base)}).
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       {podeVerCustos ? (

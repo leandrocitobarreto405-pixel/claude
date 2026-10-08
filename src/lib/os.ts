@@ -40,6 +40,10 @@ export type ServiceItemInput = {
   unit_price: number;
   item_group_id: string;
   display_order: number;
+  /** Valor da tabela e quem editou (selo "editado" na OS). */
+  preco_tabela?: number | null;
+  editado_por?: string | null;
+  editado_em?: string | null;
 };
 
 export type VisitInput = {
@@ -186,6 +190,9 @@ async function saveVisitItems(visitId: string, items: ServiceItemInput[]) {
       item_group_id: i.item_group_id,
       display_order: i.display_order ?? idx,
       active: true,
+      ...(i.preco_tabela !== undefined ? { preco_tabela: i.preco_tabela } : {}),
+      ...(i.editado_por !== undefined ? { editado_por: i.editado_por } : {}),
+      ...(i.editado_em !== undefined ? { editado_em: i.editado_em } : {}),
     };
     const existente = i.id && (atuais ?? []).some((a) => a.id === i.id) ? i.id : null;
     if (existente) {

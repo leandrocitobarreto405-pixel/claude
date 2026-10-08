@@ -22,18 +22,24 @@ export function useTextosEmpresa(): TextosEmpresa | null {
     queryKey: ["textos-empresa", empresaId],
     enabled: Boolean(empresaId),
     queryFn: async () => {
-      const [{ data: textos }, { data: ia }] = await Promise.all([
+      const [{ data: textos }, { data: ia }, { data: orc }] = await Promise.all([
         supabase.from("mensagens_textos").select("chave, texto").eq("empresa_id", empresaId!),
         supabase
           .from("ia_configuracoes")
           .select("parcelas_max, validade_orcamento_dias")
           .eq("empresa_id", empresaId!)
           .maybeSingle(),
+        // Regras de orçamento da empresa: parcelas e validade próprias têm prioridade.
+        supabase
+          .from("orcamento_configuracoes")
+          .select("parcelas_max, validade_dias")
+          .eq("empresa_id", empresaId!)
+          .maybeSingle(),
       ]);
       return {
         textos: Object.fromEntries((textos ?? []).map((t) => [t.chave, t.texto])),
-        parcelasMax: ia?.parcelas_max ?? 5,
-        validadeDias: ia?.validade_orcamento_dias ?? 7,
+        parcelasMax: orc?.parcelas_max ?? ia?.parcelas_max ?? 5,
+        validadeDias: orc?.validade_dias ?? ia?.validade_orcamento_dias ?? 7,
       };
     },
   });

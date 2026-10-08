@@ -2,6 +2,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAddress, drivingRoute, geocodeParts, type Coords } from "./geo.server";
+import {
+  calcularTotais,
+  regrasDaLinha,
+  type Categoria,
+  type RegrasOrcamento,
+} from "./orcamento-regras";
 
 type DB = SupabaseClient<Database>;
 
@@ -15,6 +21,15 @@ export type QuoteItemInput = {
   preco_aplicado: number;
   motivo_desconto: string | null;
   quantidade: number;
+  /** Regras de preço (opcionais; quem não usa, como a Alice, segue igual). */
+  categoria?: Categoria | null;
+  preco_sugerido?: number | null;
+  desconto_regra_valor?: number;
+  desconto_regra_texto?: string | null;
+  item_principal?: boolean;
+  /** Quem editou o valor antes (mantido ao salvar de novo); sem isso, quem salva agora. */
+  editado_por?: string | null;
+  editado_em?: string | null;
 };
 
 export type QuoteInput = {
@@ -39,6 +54,14 @@ export type QuoteInput = {
   crm_lead_id?: string | null;
   status: "rascunho" | "enviado" | "aprovado" | "recusado" | "convertido";
   items: QuoteItemInput[];
+  /** Regras de preço da empresa (opcionais). */
+  cliente_novo?: boolean | null;
+  muito_sujo?: boolean;
+  distancia_km?: number | null;
+  distancia_base?: string | null;
+  /** Valores finais da vitrine editados pela atendente (sem isso, os calculados). */
+  valor_cartao_editado?: number | null;
+  valor_pix_editado?: number | null;
 };
 
 export type MargemParams = {
@@ -67,6 +90,15 @@ async function settingNumber(
   const raw = (data?.value ?? null) as unknown;
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** Regras de orçamento da empresa (desligadas quando não há linha). */
+export async function regrasOrcamento(db: DB, empresaId?: string): Promise<RegrasOrcamento> {
+  const { data } = await daEmpresa(
+    db.from("orcamento_configuracoes").select("*"),
+    empresaId,
+  ).maybeSingle();
+  return regrasDaLinha(data as Record<string, unknown> | null);
 }
 
 async function costPerKm(db: DB, empresaId?: string): Promise<number> {
@@ -172,27 +204,80 @@ async function empresaDoUsuario(db: DB): Promise<string | null> {
 }
 
 /** Calcula subtotais, total, custos, lucro e margem a partir da entrada crua. */
-export function computeQuote(input: QuoteInput, params: MargemParams) {
+export function computeQuote(
+  input: QuoteInput,
+  params: MargemParams & { regras?: RegrasOrcamento; userId?: string | null; agora?: string },
+) {
   const { custoKm, impostoPct, custoFixoPorServico } = params;
+  const agora = params.agora ?? new Date().toISOString();
   const items = input.items.map((it, idx) => {
     const qtd = Math.max(1, Math.round(Number(it.quantidade) || 1));
     const preco = round(Number(it.preco_aplicado) || 0);
+    const tabela = round(Number(it.preco_tabela) || 0);
+    const sugerido =
+      it.preco_sugerido === null || it.preco_sugerido === undefined
+        ? null
+        : round(Number(it.preco_sugerido));
+    // Editado: o valor final é diferente do sugerido pelas regras (ou da tabela, sem regra).
+    const referencia = sugerido ?? (tabela > 0 ? tabela : null);
+    const editado = referencia !== null && Math.abs(preco - referencia) > 0.004;
     return {
       tabela_preco_item_id: it.tabela_preco_item_id,
       nome_snapshot: it.nome_snapshot,
       tipo_servico: it.tipo_servico,
-      preco_tabela: round(Number(it.preco_tabela) || 0),
+      preco_tabela: tabela,
       preco_aplicado: preco,
       motivo_desconto: it.motivo_desconto?.trim() || null,
       quantidade: qtd,
       subtotal: round(preco * qtd),
       display_order: idx,
+      categoria: it.categoria ?? null,
+      preco_sugerido: sugerido,
+      desconto_regra_valor: round(Number(it.desconto_regra_valor) || 0),
+      desconto_regra_texto: it.desconto_regra_texto?.trim() || null,
+      item_principal: Boolean(it.item_principal),
+      editado_por: editado ? (it.editado_por ?? params.userId ?? null) : null,
+      editado_em: editado ? (it.editado_em ?? agora) : null,
     };
   });
 
   const subtotal = round(items.reduce((s, it) => s + it.subtotal, 0));
-  const desconto = Math.min(Math.max(round(Number(input.desconto) || 0), 0), subtotal);
-  const total = round(subtotal - desconto);
+  const regras = params.regras;
+  const totais = regras
+    ? calcularTotais({
+        linhas: items.map((it) => ({
+          categoria: (it.categoria ?? "outro") as Categoria,
+          precoAplicado: it.preco_aplicado,
+          quantidade: it.quantidade,
+        })),
+        regras,
+        muitoSujo: Boolean(input.muito_sujo),
+        distanciaKm:
+          input.distancia_km === null || input.distancia_km === undefined
+            ? null
+            : Number(input.distancia_km),
+        desconto: Number(input.desconto) || 0,
+        clienteNovo: input.cliente_novo !== false,
+      })
+    : null;
+  const desconto = totais
+    ? totais.desconto
+    : Math.min(Math.max(round(Number(input.desconto) || 0), 0), subtotal);
+  const vitrine = totais?.vitrine ?? null;
+  const cartaoEditado =
+    vitrine && input.valor_cartao_editado && input.valor_cartao_editado > 0
+      ? round(input.valor_cartao_editado)
+      : null;
+  const pixEditado =
+    vitrine && input.valor_pix_editado && input.valor_pix_editado > 0
+      ? round(input.valor_pix_editado)
+      : null;
+  const valor_cartao = vitrine ? (cartaoEditado ?? vitrine.cartao) : null;
+  const valor_pix = vitrine ? (pixEditado ?? vitrine.pix) : null;
+  // Com vitrine, o total do orçamento é o valor no cartão e o à vista é o Pix.
+  const total = vitrine
+    ? round(valor_cartao ?? 0)
+    : round(totais ? totais.base : subtotal - desconto);
   const km = Math.max(round(Number(input.km_ida_volta) || 0), 0);
   const custo_deslocamento = round(km * custoKm);
   const custo_produtos = Math.max(round(Number(input.custo_produtos) || 0), 0);
@@ -220,6 +305,24 @@ export function computeQuote(input: QuoteInput, params: MargemParams) {
   const contribuicao_percentual = total > 0 ? round((contribuicao_valor / total) * 100) : 0;
 
   return {
+    regrasAplicadas: {
+      cliente_novo: input.cliente_novo ?? null,
+      muito_sujo: Boolean(input.muito_sujo && totais && totais.acrescimoSujidade > 0),
+      acrescimo_sujidade: totais?.acrescimoSujidade ?? 0,
+      distancia_km:
+        input.distancia_km === null || input.distancia_km === undefined
+          ? null
+          : round(Number(input.distancia_km)),
+      distancia_base: input.distancia_base?.trim() || null,
+      acrescimo_distancia: totais?.acrescimoDistancia ?? 0,
+      fora_da_area: totais?.foraDaArea ?? false,
+      minimo_aplicado: totais?.minimoAplicado ?? 0,
+      valor_vitrine: vitrine?.vitrine ?? null,
+      valor_cartao,
+      valor_pix,
+      valores_editados_por:
+        cartaoEditado !== null || pixEditado !== null ? (params.userId ?? null) : null,
+    },
     preencher_agenda: Boolean(input.preencher_agenda),
     contribuicao_valor,
     contribuicao_percentual,
@@ -255,12 +358,19 @@ export async function saveQuote(
   if (!input.cliente_nome.trim()) throw new Error("Informe o nome do cliente.");
   if (!input.items.length) throw new Error("Inclua pelo menos um item no orçamento.");
 
-  const [custoKm, impostoPct, fixo] = await Promise.all([
+  const [custoKm, impostoPct, fixo, regras] = await Promise.all([
     costPerKm(db, empresaId),
     settingNumber(db, "tax_percent", 6, empresaId),
     fixedCostPerService(db, empresaId),
+    regrasOrcamento(db, empresaId),
   ]);
-  const calc = computeQuote(input, { custoKm, impostoPct, custoFixoPorServico: fixo.valor });
+  const calc = computeQuote(input, {
+    custoKm,
+    impostoPct,
+    custoFixoPorServico: fixo.valor,
+    regras,
+    userId,
+  });
   empresaId ??= (await empresaDoUsuario(db)) ?? undefined;
 
   const row = {
@@ -275,7 +385,12 @@ export async function saveQuote(
     desconto: calc.desconto,
     total: calc.total,
     valor_a_vista:
-      input.valor_a_vista && input.valor_a_vista > 0 ? round(input.valor_a_vista) : null,
+      calc.regrasAplicadas.valor_pix !== null
+        ? calc.regrasAplicadas.valor_pix
+        : input.valor_a_vista && input.valor_a_vista > 0
+          ? round(input.valor_a_vista)
+          : null,
+    ...calc.regrasAplicadas,
     km_ida_volta: calc.km_ida_volta,
     custo_deslocamento: calc.custo_deslocamento,
     custo_produtos: calc.custo_produtos,
@@ -362,6 +477,10 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
       preencher_agenda: Boolean(orig["preencher_agenda"] ?? false),
       crm_lead_id: (orig["crm_lead_id"] as string | null) ?? null,
       status: "rascunho",
+      cliente_novo: (orig["cliente_novo"] as boolean | null) ?? null,
+      muito_sujo: Boolean(orig["muito_sujo"] ?? false),
+      distancia_km: orig["distancia_km"] === null ? null : Number(orig["distancia_km"]),
+      distancia_base: (orig["distancia_base"] as string | null) ?? null,
       items: (items ?? []).map((raw) => {
         const it = raw as unknown as Record<string, unknown>;
         return {
@@ -372,6 +491,11 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
           preco_aplicado: Number(it["preco_aplicado"] ?? 0),
           motivo_desconto: (it["motivo_desconto"] as string | null) ?? null,
           quantidade: Number(it["quantidade"] ?? 1),
+          categoria: (it["categoria"] as Categoria | null) ?? null,
+          preco_sugerido: it["preco_sugerido"] === null ? null : Number(it["preco_sugerido"]),
+          desconto_regra_valor: Number(it["desconto_regra_valor"] ?? 0),
+          desconto_regra_texto: (it["desconto_regra_texto"] as string | null) ?? null,
+          item_principal: Boolean(it["item_principal"] ?? false),
         };
       }),
     },
@@ -394,6 +518,8 @@ export type CepEstimate = {
   cep: string;
   endereco: string | null;
   km: number | null;
+  /** Só a ida, da base do técnico mais próximo (para o acréscimo por distância). */
+  kmIda?: number | null;
   base: string | null;
   aviso: string | null;
   /** "ruas": distância pelas ruas (ida e volta); "linha_reta": aproximação quando o roteador falha. */
@@ -471,8 +597,10 @@ export async function estimateKmByCep(
     empresaId,
   )
     .order("display_order")
-    .limit(5);
+    .limit(10);
 
+  // Base do técnico mais próximo do cliente (em linha reta); depois a rota pelas ruas.
+  let maisPerto: { nome: string; coords: Coords; reta: number } | null = null;
   for (const raw of tecnicos ?? []) {
     const t = raw as unknown as {
       name: string;
@@ -485,23 +613,28 @@ export async function estimateKmByCep(
         ? { lat: Number(t.base_latitude), lon: Number(t.base_longitude) }
         : null;
     if (!base && t.base_address) base = await geocodeParts({ full_address: t.base_address });
-    if (base) {
-      // Pelas ruas: base → cliente → base. Sem resposta do roteador, linha reta × 2.
-      const rota = await drivingRoute([
-        { label: t.name, coords: base },
-        { label: "Cliente", coords: destino },
-        { label: t.name, coords: base },
-      ]);
-      const pelasRuas = rota && rota.totalKm > 0;
-      return {
-        cep,
-        endereco,
-        km: pelasRuas ? rota.totalKm : Math.round(haversine(base, destino) * 2 * 10) / 10,
-        base: t.name,
-        aviso: null,
-        metodo: pelasRuas ? "ruas" : "linha_reta",
-      };
-    }
+    if (!base) continue;
+    const reta = haversine(base, destino);
+    if (!maisPerto || reta < maisPerto.reta) maisPerto = { nome: t.name, coords: base, reta };
+  }
+  if (maisPerto) {
+    // Pelas ruas: base → cliente → base. Sem resposta do roteador, linha reta × 2.
+    const rota = await drivingRoute([
+      { label: maisPerto.nome, coords: maisPerto.coords },
+      { label: "Cliente", coords: destino },
+      { label: maisPerto.nome, coords: maisPerto.coords },
+    ]);
+    const pelasRuas = rota && rota.totalKm > 0;
+    const km = pelasRuas ? rota.totalKm : Math.round(maisPerto.reta * 2 * 10) / 10;
+    return {
+      cep,
+      endereco,
+      km,
+      kmIda: Math.round((km / 2) * 10) / 10,
+      base: maisPerto.nome,
+      aviso: null,
+      metodo: pelasRuas ? "ruas" : "linha_reta",
+    };
   }
 
   return {

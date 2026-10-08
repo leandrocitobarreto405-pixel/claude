@@ -35,6 +35,7 @@ import { enviarFotoTecnico, useFotoTecnico } from "@/lib/equipe-fotos";
 import { ControleInsumosCard, ProdutosConfig } from "@/components/produtos-config";
 import { custoFixoPorServico } from "@/lib/quotes.functions";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
+import { OrcamentoRegrasConfig } from "@/components/orcamento-regras-config";
 import { ContaGoogle } from "@/components/conta-google";
 import { MensagensOrigem } from "@/components/mensagens-origem";
 import { AliceConfig } from "@/components/alice-config";
@@ -42,6 +43,7 @@ import { AliceConfig } from "@/components/alice-config";
 const ABAS = [
   "meta",
   "precos",
+  "orcamento",
   "taxas",
   "equipe",
   "produtos",
@@ -85,6 +87,7 @@ function Configuracoes() {
         <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="meta">Meta e custos</TabsTrigger>
           <TabsTrigger value="precos">Tabela de preços</TabsTrigger>
+          <TabsTrigger value="orcamento">Orçamento</TabsTrigger>
           <TabsTrigger value="taxas">Taxas de pagamento</TabsTrigger>
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           {controleInsumos ? <TabsTrigger value="produtos">Produtos</TabsTrigger> : null}
@@ -100,6 +103,9 @@ function Configuracoes() {
         </TabsContent>
         <TabsContent value="precos">
           <TabelaPrecosConfig />
+        </TabsContent>
+        <TabsContent value="orcamento">
+          <OrcamentoRegrasConfig />
         </TabsContent>
         <TabsContent value="taxas">
           <Taxas />
