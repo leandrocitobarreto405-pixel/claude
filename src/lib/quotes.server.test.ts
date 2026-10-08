@@ -100,3 +100,80 @@ test("muito sujo soma 10% antes da vitrine", () => {
   assert.equal(r.regrasAplicadas.acrescimo_sujidade, 35.2);
   assert.equal(r.regrasAplicadas.muito_sujo, true);
 });
+
+const turbine: RegrasOrcamento = {
+  ...REGRAS_DESLIGADAS,
+  classe: { ligada: true, aPct: 20 },
+  acrescimos: { ligado: true, almofadasPct: 10, encardidoPct: 10 },
+};
+
+function sofaTurbine(extra: Partial<QuoteInput["items"][number]> = {}): QuoteInput {
+  return entrada({
+    cliente_novo: null,
+    items: [
+      {
+        tabela_preco_item_id: null,
+        nome_snapshot: "Sofá comum 3 lugares",
+        tipo_servico: "higienizacao",
+        preco_tabela: 260,
+        preco_sugerido: 312,
+        preco_aplicado: 312,
+        motivo_desconto: null,
+        quantidade: 1,
+        categoria: "sofa",
+        classe: "A",
+        ...extra,
+      },
+    ],
+  });
+}
+
+test("classe/acréscimos: o servidor refaz o % pelas regras e guarda as marcações", () => {
+  const r = computeQuote(sofaTurbine({ almofadas_soltas: true }), { ...params, regras: turbine });
+  const it = r.items[0]!;
+  assert.equal(it.classe, "A");
+  assert.equal(it.almofadas_soltas, true);
+  assert.equal(it.acrescimo_pct, 30);
+  // Preço calculado pela regra (sugerido) não conta como edição.
+  assert.equal(it.editado_por, null);
+});
+
+test("empresa sem classe/acréscimos: marcações ignoradas", () => {
+  const r = computeQuote(sofaTurbine({ almofadas_soltas: true, muito_encardido: true }), {
+    ...params,
+    regras: REGRAS_DESLIGADAS,
+  });
+  const it = r.items[0]!;
+  assert.deepEqual(
+    [it.classe, it.almofadas_soltas, it.muito_encardido, it.acrescimo_pct],
+    [null, false, false, 0],
+  );
+});
+
+test("preço final editado por pessoa: guarda calculado, final e quem editou", () => {
+  const r = computeQuote(sofaTurbine({ preco_aplicado: 300 }), {
+    ...params,
+    regras: turbine,
+    userId: "maria",
+  });
+  const it = r.items[0]!;
+  assert.deepEqual([it.preco_sugerido, it.preco_aplicado, it.editado_por], [312, 300, "maria"]);
+});
+
+test("desconto: campanha pelo % (nunca valor livre) e manual pelo valor", () => {
+  const camp = computeQuote(
+    { ...sofaTurbine(), desconto_tipo: "campanha", desconto_pct: 15, desconto: 999 },
+    { ...params, regras: turbine },
+  );
+  assert.equal(camp.desconto, 46.8); // 15% de 312
+  assert.equal(camp.total, 265.2);
+  assert.equal(camp.regrasAplicadas.desconto_tipo, "campanha");
+  const manual = computeQuote(
+    { ...sofaTurbine(), desconto_tipo: "manual", desconto: 12 },
+    { ...params, regras: turbine },
+  );
+  assert.equal(manual.desconto, 12);
+  assert.equal(manual.regrasAplicadas.desconto_pct, null);
+  const sem = computeQuote(sofaTurbine(), { ...params, regras: turbine });
+  assert.equal(sem.regrasAplicadas.desconto_tipo, null);
+});

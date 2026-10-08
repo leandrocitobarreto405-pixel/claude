@@ -18,6 +18,8 @@ type Ctx = {
   leadId: string | null;
   contatoId: string | null;
   agora: Date;
+  /** Telefone já conhecido (tela do orçamento); sem ele, o da conversa/lead. */
+  telefone?: string | null;
 };
 
 /** Telefone com e sem o 9º dígito (o WhatsApp manda alguns celulares sem ele). */
@@ -71,6 +73,7 @@ export type Marketing = {
 };
 
 async function telefoneDaConversa(ctx: Ctx) {
+  if (ctx.telefone) return ctx.telefone;
   if (ctx.contatoId) {
     const { data } = await ctx.admin
       .from("whatsapp_contacts")

@@ -43,6 +43,10 @@ export type QuoteItem = {
   item_principal: boolean;
   editado_por: string | null;
   editado_em: string | null;
+  classe: "A" | "B" | "C" | null;
+  almofadas_soltas: boolean;
+  muito_encardido: boolean;
+  acrescimo_pct: number;
 };
 
 export type Quote = {
@@ -93,10 +97,12 @@ export type Quote = {
   valor_cartao: number | null;
   valor_pix: number | null;
   valores_editados_por: string | null;
+  desconto_tipo: "campanha" | "indicacao" | "manual" | null;
+  desconto_pct: number | null;
 };
 
 const QUOTE_SELECT =
-  "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at, crm_lead_id, lead:crm_lead_id ( id, lead_name ), cliente_novo, muito_sujo, acrescimo_sujidade, distancia_km, distancia_base, acrescimo_distancia, fora_da_area, minimo_aplicado, valor_vitrine, valor_cartao, valor_pix, valores_editados_por";
+  "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at, crm_lead_id, lead:crm_lead_id ( id, lead_name ), cliente_novo, muito_sujo, acrescimo_sujidade, distancia_km, distancia_base, acrescimo_distancia, fora_da_area, minimo_aplicado, valor_vitrine, valor_cartao, valor_pix, valores_editados_por, desconto_tipo, desconto_pct";
 
 const round2 = (v: number) => Math.round((Number.isFinite(v) ? v : 0) * 100) / 100;
 
@@ -206,7 +212,7 @@ export function avaliarMargem(args: {
 }
 
 const ITEM_SELECT =
-  "id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_tabela, preco_aplicado, motivo_desconto, quantidade, subtotal, display_order, categoria, preco_sugerido, desconto_regra_valor, desconto_regra_texto, item_principal, editado_por, editado_em";
+  "id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_tabela, preco_aplicado, motivo_desconto, quantidade, subtotal, display_order, categoria, preco_sugerido, desconto_regra_valor, desconto_regra_texto, item_principal, editado_por, editado_em, classe, almofadas_soltas, muito_encardido, acrescimo_pct";
 
 /** Lista os orçamentos criados no mês informado ("2026-09"). */
 export function useQuotes(month: string) {

@@ -11,6 +11,8 @@ export type TextosEmpresa = {
   empresa: string;
   parcelasMax: number;
   validadeDias: number;
+  /** Desconto do Pix em % (configuração da Alice). */
+  pixPct: number;
   /** Texto da chave (editado ou padrão), sem preencher as variáveis. */
   texto: (chave: string) => string;
 };
@@ -26,7 +28,7 @@ export function useTextosEmpresa(): TextosEmpresa | null {
         supabase.from("mensagens_textos").select("chave, texto").eq("empresa_id", empresaId!),
         supabase
           .from("ia_configuracoes")
-          .select("parcelas_max, validade_orcamento_dias")
+          .select("parcelas_max, validade_orcamento_dias, desconto_pix_percentual")
           .eq("empresa_id", empresaId!)
           .maybeSingle(),
         // Regras de orçamento da empresa: parcelas e validade próprias têm prioridade.
@@ -40,6 +42,7 @@ export function useTextosEmpresa(): TextosEmpresa | null {
         textos: Object.fromEntries((textos ?? []).map((t) => [t.chave, t.texto])),
         parcelasMax: orc?.parcelas_max ?? ia?.parcelas_max ?? 5,
         validadeDias: orc?.validade_dias ?? ia?.validade_orcamento_dias ?? 7,
+        pixPct: Number(ia?.desconto_pix_percentual ?? 0),
       };
     },
   });
@@ -49,6 +52,7 @@ export function useTextosEmpresa(): TextosEmpresa | null {
     empresa: tenant.ativa.empresa.nome,
     parcelasMax: d.parcelasMax,
     validadeDias: d.validadeDias,
+    pixPct: d.pixPct,
     texto: (chave) => textoOuPadrao(chave, d.textos) ?? "",
   };
 }

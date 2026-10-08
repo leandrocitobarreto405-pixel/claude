@@ -167,6 +167,48 @@ export function OrcamentoRegrasConfig() {
       </Bloco>
 
       <Bloco
+        titulo="Classe do estofado"
+        descricao="Em cada item, a equipe escolhe A, B ou C (padrão B). Classe A tem acréscimo sobre a tabela; B e C ficam no preço da tabela."
+        ligado={f.classe_ligada}
+        onLigar={(v) => set("classe_ligada", v)}
+        desabilitado={bloqueado}
+      >
+        <div>
+          <Label className="text-xs">Acréscimo da classe A (%)</Label>
+          <DecimalInput
+            value={f.classe_a_pct}
+            onValueChange={(v) => set("classe_a_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+      </Bloco>
+
+      <Bloco
+        titulo="Acréscimos por item"
+        descricao="Marcados em cada item e somados com a classe sobre a tabela (ex.: A + almofadas + encardido = +40%). O preço com acréscimo é arredondado para o real de cima."
+        ligado={f.acrescimos_ligado}
+        onLigar={(v) => set("acrescimos_ligado", v)}
+        desabilitado={bloqueado}
+      >
+        <div>
+          <Label className="text-xs">Almofadas soltas (%)</Label>
+          <DecimalInput
+            value={f.almofadas_soltas_pct}
+            onValueChange={(v) => set("almofadas_soltas_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Muito encardido (%)</Label>
+          <DecimalInput
+            value={f.encardido_pct}
+            onValueChange={(v) => set("encardido_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+      </Bloco>
+
+      <Bloco
         titulo="Pedido mínimo só de cadeiras"
         descricao="Quando o orçamento tem só cadeiras e fica abaixo deste valor, completa até o mínimo. Deixe 0 para não usar."
         desabilitado={bloqueado}

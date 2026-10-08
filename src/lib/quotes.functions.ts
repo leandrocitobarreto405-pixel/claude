@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireEmpresa } from "@/lib/empresa.middleware";
 import type { QuoteInput } from "./quotes.server";
 
 export const salvarOrcamento = createServerFn({ method: "POST" })
@@ -31,4 +32,31 @@ export const custoFixoPorServico = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { fixedCostPerService } = await import("./quotes.server");
     return fixedCostPerService(context.supabase);
+  });
+
+export type DescontoCliente = { pct: number; rotulo: string } | { erro: string };
+
+/**
+ * Descontos que o cliente tem direito (mesma regra da Alice): campanha recebida há até 30 dias
+ * com condição em % ainda válida, ou indicação/crédito de indicação. Nunca os dois juntos.
+ */
+export const descontosDoCliente = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { telefone: string }) => ({ telefone: String(input.telefone ?? "") }))
+  .handler(async ({ data }): Promise<{ campanha: DescontoCliente; indicacao: DescontoCliente }> => {
+    const { contextoEmpresa } = await import("@/lib/request-db.server");
+    const { lerMarketing, descontoPermitido } = await import("@/lib/alice/marketing.server");
+    const { db, empresaId } = contextoEmpresa();
+    const m = await lerMarketing({
+      admin: db,
+      empresaId,
+      leadId: null,
+      contatoId: null,
+      agora: new Date(),
+      telefone: data.telefone.replace(/\D/g, "") || null,
+    });
+    return {
+      campanha: descontoPermitido(m, "campanha"),
+      indicacao: descontoPermitido(m, "indicacao"),
+    };
   });

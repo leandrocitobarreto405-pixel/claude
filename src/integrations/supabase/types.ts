@@ -3651,8 +3651,12 @@ export type Database = {
       };
       orcamento_configuracoes: {
         Row: {
+          acrescimos_ligado: boolean;
+          almofadas_soltas_pct: number;
           arredondamento: string;
           boas_vindas_pct: number;
+          classe_a_pct: number;
+          classe_ligada: boolean;
           desconto_adicional_ligado: boolean;
           desconto_adicional_pct: number;
           desconto_categorias: string[];
@@ -3661,6 +3665,7 @@ export type Database = {
           distancia_pct: number;
           distancia_sem_acrescimo_km: number | null;
           empresa_id: string;
+          encardido_pct: number;
           minimo_cadeiras: number | null;
           parcelas_max: number | null;
           pix_pct: number;
@@ -3671,8 +3676,12 @@ export type Database = {
           vitrine_ligada: boolean;
         };
         Insert: {
+          acrescimos_ligado?: boolean;
+          almofadas_soltas_pct?: number;
           arredondamento?: string;
           boas_vindas_pct?: number;
+          classe_a_pct?: number;
+          classe_ligada?: boolean;
           desconto_adicional_ligado?: boolean;
           desconto_adicional_pct?: number;
           desconto_categorias?: string[];
@@ -3681,6 +3690,7 @@ export type Database = {
           distancia_pct?: number;
           distancia_sem_acrescimo_km?: number | null;
           empresa_id: string;
+          encardido_pct?: number;
           minimo_cadeiras?: number | null;
           parcelas_max?: number | null;
           pix_pct?: number;
@@ -3691,8 +3701,12 @@ export type Database = {
           vitrine_ligada?: boolean;
         };
         Update: {
+          acrescimos_ligado?: boolean;
+          almofadas_soltas_pct?: number;
           arredondamento?: string;
           boas_vindas_pct?: number;
+          classe_a_pct?: number;
+          classe_ligada?: boolean;
           desconto_adicional_ligado?: boolean;
           desconto_adicional_pct?: number;
           desconto_categorias?: string[];
@@ -3701,6 +3715,7 @@ export type Database = {
           distancia_pct?: number;
           distancia_sem_acrescimo_km?: number | null;
           empresa_id?: string;
+          encardido_pct?: number;
           minimo_cadeiras?: number | null;
           parcelas_max?: number | null;
           pix_pct?: number;
@@ -4361,7 +4376,10 @@ export type Database = {
       };
       quote_items: {
         Row: {
+          acrescimo_pct: number;
+          almofadas_soltas: boolean;
           categoria: string | null;
+          classe: string | null;
           created_at: string;
           desconto_regra_texto: string | null;
           desconto_regra_valor: number;
@@ -4372,6 +4390,7 @@ export type Database = {
           id: string;
           item_principal: boolean;
           motivo_desconto: string | null;
+          muito_encardido: boolean;
           nome_snapshot: string;
           preco_aplicado: number;
           preco_sugerido: number | null;
@@ -4383,7 +4402,10 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Insert: {
+          acrescimo_pct?: number;
+          almofadas_soltas?: boolean;
           categoria?: string | null;
+          classe?: string | null;
           created_at?: string;
           desconto_regra_texto?: string | null;
           desconto_regra_valor?: number;
@@ -4394,6 +4416,7 @@ export type Database = {
           id?: string;
           item_principal?: boolean;
           motivo_desconto?: string | null;
+          muito_encardido?: boolean;
           nome_snapshot: string;
           preco_aplicado?: number;
           preco_sugerido?: number | null;
@@ -4405,7 +4428,10 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Update: {
+          acrescimo_pct?: number;
+          almofadas_soltas?: boolean;
           categoria?: string | null;
+          classe?: string | null;
           created_at?: string;
           desconto_regra_texto?: string | null;
           desconto_regra_valor?: number;
@@ -4416,6 +4442,7 @@ export type Database = {
           id?: string;
           item_principal?: boolean;
           motivo_desconto?: string | null;
+          muito_encardido?: boolean;
           nome_snapshot?: string;
           preco_aplicado?: number;
           preco_sugerido?: number | null;
@@ -4471,6 +4498,8 @@ export type Database = {
           customer_id: string | null;
           data_servico: string | null;
           desconto: number;
+          desconto_pct: number | null;
+          desconto_tipo: string | null;
           distancia_base: string | null;
           distancia_km: number | null;
           empresa_id: string;
@@ -4522,6 +4551,8 @@ export type Database = {
           customer_id?: string | null;
           data_servico?: string | null;
           desconto?: number;
+          desconto_pct?: number | null;
+          desconto_tipo?: string | null;
           distancia_base?: string | null;
           distancia_km?: number | null;
           empresa_id?: string;
@@ -4573,6 +4604,8 @@ export type Database = {
           customer_id?: string | null;
           data_servico?: string | null;
           desconto?: number;
+          desconto_pct?: number | null;
+          desconto_tipo?: string | null;
           distancia_base?: string | null;
           distancia_km?: number | null;
           empresa_id?: string;

@@ -6,6 +6,8 @@
  */
 
 export type Categoria = "sofa" | "colchao" | "cadeira" | "outro";
+/** Classe do estofado: A tem acréscimo; B (padrão) e C ficam no preço da tabela. */
+export type Classe = "A" | "B" | "C";
 export type Arredondamento = "dezena_5" | "noventa";
 
 export type RegrasOrcamento = {
@@ -26,6 +28,8 @@ export type RegrasOrcamento = {
   };
   parcelasMax: number | null;
   validadeDias: number | null;
+  classe: { ligada: boolean; aPct: number };
+  acrescimos: { ligado: boolean; almofadasPct: number; encardidoPct: number };
 };
 
 export const REGRAS_DESLIGADAS: RegrasOrcamento = {
@@ -36,6 +40,8 @@ export const REGRAS_DESLIGADAS: RegrasOrcamento = {
   vitrine: { ligada: false, boasVindasPct: 20, pixPct: 10, arredondamento: "dezena_5" },
   parcelasMax: null,
   validadeDias: null,
+  classe: { ligada: false, aPct: 20 },
+  acrescimos: { ligado: false, almofadasPct: 10, encardidoPct: 10 },
 };
 
 /** Linha do banco (orcamento_configuracoes) → regras. Sem linha: tudo desligado. */
@@ -70,7 +76,64 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
     },
     parcelasMax: nn(l["parcelas_max"]),
     validadeDias: nn(l["validade_dias"]),
+    classe: { ligada: Boolean(l["classe_ligada"]), aPct: n(l["classe_a_pct"], 20) },
+    acrescimos: {
+      ligado: Boolean(l["acrescimos_ligado"]),
+      almofadasPct: n(l["almofadas_soltas_pct"], 10),
+      encardidoPct: n(l["encardido_pct"], 10),
+    },
   };
+}
+
+// ---------------------------------------------------------------- classe e acréscimos do item
+
+export type MarcasItem = {
+  classe?: Classe | null;
+  almofadasSoltas?: boolean;
+  muitoEncardido?: boolean;
+};
+
+/**
+ * Acréscimo do item em % sobre a tabela: classe A + almofadas soltas + muito encardido (somam).
+ * Só conta o que a empresa ligou. Ex.: A (20) + almofadas (10) + encardido (10) = 40.
+ */
+export function acrescimoDoItem(regras: RegrasOrcamento, m: MarcasItem): number {
+  let pct = 0;
+  if (regras.classe.ligada && m.classe === "A") pct += regras.classe.aPct;
+  if (regras.acrescimos.ligado) {
+    if (m.almofadasSoltas) pct += regras.acrescimos.almofadasPct;
+    if (m.muitoEncardido) pct += regras.acrescimos.encardidoPct;
+  }
+  return r2(pct);
+}
+
+/** Texto dos acréscimos aplicados (ex.: ["classe A +20%", "almofadas soltas +10%"]). */
+export function rotulosAcrescimo(regras: RegrasOrcamento, m: MarcasItem): string[] {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const r: string[] = [];
+  if (regras.classe.ligada && m.classe === "A") r.push(`classe A +${fmt(regras.classe.aPct)}%`);
+  if (regras.acrescimos.ligado && m.almofadasSoltas)
+    r.push(`almofadas soltas +${fmt(regras.acrescimos.almofadasPct)}%`);
+  if (regras.acrescimos.ligado && m.muitoEncardido)
+    r.push(`muito encardido +${fmt(regras.acrescimos.encardidoPct)}%`);
+  return r;
+}
+
+/** Preço do item com acréscimo, arredondado para o real inteiro de cima (sem acréscimo: a tabela). */
+export function precoComAcrescimo(precoTabela: number, pct: number): number {
+  const base = r2(precoTabela);
+  if (pct <= 0 || base <= 0) return base;
+  return Math.ceil(r2(base * (1 + pct / 100)) - 1e-9);
+}
+
+/** Desconto de campanha ou indicação: percentual sobre o valor antes do desconto. */
+export function descontoPorPct(valor: number, pct: number): number {
+  return pct > 0 ? r2((valor * pct) / 100) : 0;
+}
+
+/** Valor no Pix: total menos o desconto do Pix (com centavos). */
+export function valorPix(total: number, pixPct: number): number {
+  return r2(total * (1 - Math.max(0, pixPct) / 100));
 }
 
 const r2 = (v: number) => Math.round((Number.isFinite(v) ? v : 0) * 100) / 100;
@@ -238,6 +301,8 @@ export function calcularTotais(args: {
   muitoSujo: boolean;
   distanciaKm: number | null;
   desconto: number;
+  /** Desconto de campanha/indicação em %: quando vem, vale sobre o valor antes do desconto. */
+  descontoPct?: number | null;
   clienteNovo: boolean;
 }): Totais {
   const { regras } = args;
@@ -255,7 +320,8 @@ export function calcularTotais(args: {
   const faixa = faixaDistancia(args.distanciaKm, regras.distancia);
   const acrescimoDistancia = r2((baseAdicionais * faixa.pct) / 100);
   const antes = r2(baseAdicionais + acrescimoSujidade + acrescimoDistancia);
-  const desconto = Math.min(Math.max(r2(args.desconto), 0), antes);
+  const pedido = args.descontoPct ? descontoPorPct(antes, args.descontoPct) : args.desconto;
+  const desconto = Math.min(Math.max(r2(pedido), 0), antes);
   const base = r2(antes - desconto);
   return {
     subtotalItens,

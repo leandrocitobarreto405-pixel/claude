@@ -32,7 +32,26 @@ export type ContextoEmpresa = {
   ferramentas: string[];
   /** A empresa entrega termo de garantia da impermeabilização (modelo configurado). */
   garantiaImpermeabilizacao?: boolean;
+  /** Acréscimos de preço ligados na empresa (classe A, almofadas soltas, muito encardido). */
+  acrescimosPreco?: {
+    classeAPct: number | null;
+    almofadasPct: number | null;
+    encardidoPct: number | null;
+  } | null;
 };
+
+/** Como a Alice aplica classe e acréscimos (só quando a empresa usa). */
+export function regraAcrescimos(c: ContextoEmpresa): string {
+  const a = c.acrescimosPreco;
+  if (!a) return "";
+  const partes = [
+    a.classeAPct !== null ? `classe (A +${a.classeAPct}%; B e C = tabela; padrão B)` : null,
+    a.almofadasPct !== null ? `almofadas_soltas (+${a.almofadasPct}%)` : null,
+    a.encardidoPct !== null ? `muito_encardido (+${a.encardidoPct}%)` : null,
+  ].filter(Boolean);
+  return `
+- A tabela abaixo é o preço base (classe B, sem acréscimos). Acréscimos desta empresa: ${partes.join(", ")}. Nunca calcule acréscimo de cabeça: marque no item em criar_orcamento (ou em consultar_tabela_precos) e use os valores que a ferramenta devolver. Você não altera preço de outra forma.`;
+}
 
 /** Regra da garantia da impermeabilização (só para empresa com termo de garantia). */
 export function regraGarantia(c: ContextoEmpresa): string {
@@ -98,7 +117,7 @@ export function instrucoesFixas(c: ContextoEmpresa): string {
 - Soe como uma pessoa conversando. Não use "Me conta:" com dois pontos nem aberturas de formulário; se for pedir algo, chame pelo nome ("Me conta, Ana, o que..."). Nunca repita na mesma conversa uma abertura ou expressão que você já usou (ex.: "Me conta", "Show", "Perfeito", "Poxa"): varie.
 - Negrito do WhatsApp é com um asterisco (*assim*). Não use títulos (#), tabelas nem links em markdown.
 - No histórico, "[atendente da equipe]" marca mensagens escritas por uma pessoa da equipe e "[sistema]" marca avisos automáticos do Nexa: não foram escritos pelo cliente e não devem ser citados para ele. Áudios do cliente chegam como transcrição automática.
-- Valores (preço, total, parcela, Pix, validade): use só a tabela oficial abaixo e o que as ferramentas devolverem. Para montar orçamento, use criar_orcamento e copie os números que ela devolve.
+- Valores (preço, total, parcela, Pix, validade): use só a tabela oficial abaixo e o que as ferramentas devolverem. Para montar orçamento, use criar_orcamento e copie os números que ela devolve.${regraAcrescimos(c)}
 - Ferramentas liberadas agora: ${c.ferramentas.join(", ")}. Se as instruções da empresa citarem uma ferramenta que não está nesta lista, ela ainda não está disponível: siga a alternativa que as instruções indicarem ou use transferir_para_humano.
 - transferir_para_humano: o campo resumo é para a equipe (vira nota interna). Depois de transferir, você não responde mais nesta conversa até a equipe devolver.
 - Cliente que já foi atendido pela empresa (diz que já fez o serviço com vocês, quer "fazer de novo", fala do mesmo estofado de outra vez ou chama alguém da equipe pelo nome): transfira com transferir_para_humano, porque a equipe tem o histórico dele. Se a equipe devolveu a conversa para você, atenda normalmente.${regraGarantia(c)}

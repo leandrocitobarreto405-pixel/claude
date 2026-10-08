@@ -47,6 +47,8 @@ type QuoteMensagem = Pick<
       | "valor_vitrine"
       | "valor_cartao"
       | "valor_pix"
+      | "desconto_tipo"
+      | "desconto_pct"
     >
   >;
 
@@ -126,7 +128,16 @@ export function quoteWhatsappMessage(
   const aVista =
     quote.valor_a_vista && quote.valor_a_vista > 0 ? Number(quote.valor_a_vista) : total;
   if (Number(quote.desconto ?? 0) > 0) {
-    partes.push("", `Subtotal: ${brl(quote.subtotal)}`, `Desconto: -${brl(quote.desconto)}`);
+    const pctTxt = quote.desconto_pct
+      ? ` (${Number(quote.desconto_pct).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)`
+      : "";
+    const rotulo =
+      quote.desconto_tipo === "campanha"
+        ? `Desconto da campanha${pctTxt}`
+        : quote.desconto_tipo === "indicacao"
+          ? `Desconto de indicação${pctTxt}`
+          : "Desconto";
+    partes.push("", `Subtotal: ${brl(quote.subtotal)}`, `${rotulo}: -${brl(quote.desconto)}`);
   }
   partes.push(
     "",

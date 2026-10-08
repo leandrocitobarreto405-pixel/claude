@@ -3,9 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAddress, drivingRoute, geocodeParts, type Coords } from "./geo.server";
 import {
+  acrescimoDoItem,
   calcularTotais,
   regrasDaLinha,
   type Categoria,
+  type Classe,
   type RegrasOrcamento,
 } from "./orcamento-regras";
 
@@ -30,7 +32,13 @@ export type QuoteItemInput = {
   /** Quem editou o valor antes (mantido ao salvar de novo); sem isso, quem salva agora. */
   editado_por?: string | null;
   editado_em?: string | null;
+  /** Classe do estofado e acréscimos marcados (só valem se a empresa ligou). */
+  classe?: Classe | null;
+  almofadas_soltas?: boolean;
+  muito_encardido?: boolean;
 };
+
+export type DescontoTipo = "campanha" | "indicacao" | "manual";
 
 export type QuoteInput = {
   id?: string | null;
@@ -62,6 +70,9 @@ export type QuoteInput = {
   /** Valores finais da vitrine editados pela atendente (sem isso, os calculados). */
   valor_cartao_editado?: number | null;
   valor_pix_editado?: number | null;
+  /** Desconto: campanha OU indicação (percentual das regras de marketing) ou valor manual. */
+  desconto_tipo?: DescontoTipo | null;
+  desconto_pct?: number | null;
 };
 
 export type MargemParams = {
@@ -221,6 +232,18 @@ export function computeQuote(
     // Editado: o valor final é diferente do sugerido pelas regras (ou da tabela, sem regra).
     const referencia = sugerido ?? (tabela > 0 ? tabela : null);
     const editado = referencia !== null && Math.abs(preco - referencia) > 0.004;
+    // Classe e acréscimos: o percentual é refeito aqui pelas regras da empresa (não vem da tela).
+    const regrasItem = params.regras;
+    const classe = regrasItem?.classe.ligada ? (it.classe ?? "B") : null;
+    const almofadas_soltas = Boolean(regrasItem?.acrescimos.ligado && it.almofadas_soltas);
+    const muito_encardido = Boolean(regrasItem?.acrescimos.ligado && it.muito_encardido);
+    const acrescimo_pct = regrasItem
+      ? acrescimoDoItem(regrasItem, {
+          classe,
+          almofadasSoltas: almofadas_soltas,
+          muitoEncardido: muito_encardido,
+        })
+      : 0;
     return {
       tabela_preco_item_id: it.tabela_preco_item_id,
       nome_snapshot: it.nome_snapshot,
@@ -238,11 +261,26 @@ export function computeQuote(
       item_principal: Boolean(it.item_principal),
       editado_por: editado ? (it.editado_por ?? params.userId ?? null) : null,
       editado_em: editado ? (it.editado_em ?? agora) : null,
+      classe,
+      almofadas_soltas,
+      muito_encardido,
+      acrescimo_pct,
     };
   });
 
   const subtotal = round(items.reduce((s, it) => s + it.subtotal, 0));
   const regras = params.regras;
+  // Campanha ou indicação: o valor sai do percentual (nunca os dois); manual: o valor digitado.
+  const descontoTipo =
+    input.desconto_tipo === "campanha" ||
+    input.desconto_tipo === "indicacao" ||
+    input.desconto_tipo === "manual"
+      ? input.desconto_tipo
+      : null;
+  const descontoPct =
+    descontoTipo && descontoTipo !== "manual" && Number(input.desconto_pct) > 0
+      ? round(Number(input.desconto_pct))
+      : null;
   const totais = regras
     ? calcularTotais({
         linhas: items.map((it) => ({
@@ -257,12 +295,21 @@ export function computeQuote(
             ? null
             : Number(input.distancia_km),
         desconto: Number(input.desconto) || 0,
+        descontoPct: descontoPct,
         clienteNovo: input.cliente_novo !== false,
       })
     : null;
   const desconto = totais
     ? totais.desconto
-    : Math.min(Math.max(round(Number(input.desconto) || 0), 0), subtotal);
+    : Math.min(
+        Math.max(
+          descontoPct !== null
+            ? round((subtotal * descontoPct) / 100)
+            : round(Number(input.desconto) || 0),
+          0,
+        ),
+        subtotal,
+      );
   const vitrine = totais?.vitrine ?? null;
   const cartaoEditado =
     vitrine && input.valor_cartao_editado && input.valor_cartao_editado > 0
@@ -306,6 +353,8 @@ export function computeQuote(
 
   return {
     regrasAplicadas: {
+      desconto_tipo: desconto > 0 ? descontoTipo : null,
+      desconto_pct: desconto > 0 ? descontoPct : null,
       cliente_novo: input.cliente_novo ?? null,
       muito_sujo: Boolean(input.muito_sujo && totais && totais.acrescimoSujidade > 0),
       acrescimo_sujidade: totais?.acrescimoSujidade ?? 0,
@@ -481,6 +530,8 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
       muito_sujo: Boolean(orig["muito_sujo"] ?? false),
       distancia_km: orig["distancia_km"] === null ? null : Number(orig["distancia_km"]),
       distancia_base: (orig["distancia_base"] as string | null) ?? null,
+      desconto_tipo: (orig["desconto_tipo"] as DescontoTipo | null) ?? null,
+      desconto_pct: orig["desconto_pct"] === null ? null : Number(orig["desconto_pct"]),
       items: (items ?? []).map((raw) => {
         const it = raw as unknown as Record<string, unknown>;
         return {
@@ -496,6 +547,9 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
           desconto_regra_valor: Number(it["desconto_regra_valor"] ?? 0),
           desconto_regra_texto: (it["desconto_regra_texto"] as string | null) ?? null,
           item_principal: Boolean(it["item_principal"] ?? false),
+          classe: (it["classe"] as Classe | null) ?? null,
+          almofadas_soltas: Boolean(it["almofadas_soltas"] ?? false),
+          muito_encardido: Boolean(it["muito_encardido"] ?? false),
         };
       }),
     },

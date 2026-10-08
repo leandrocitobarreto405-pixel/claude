@@ -22,6 +22,11 @@ export type LinhaConfigOrcamento = {
   arredondamento: "dezena_5" | "noventa";
   parcelas_max: number | null;
   validade_dias: number | null;
+  classe_ligada: boolean;
+  classe_a_pct: number;
+  acrescimos_ligado: boolean;
+  almofadas_soltas_pct: number;
+  encardido_pct: number;
 };
 
 export const CONFIG_PADRAO: LinhaConfigOrcamento = {
@@ -41,6 +46,11 @@ export const CONFIG_PADRAO: LinhaConfigOrcamento = {
   arredondamento: "dezena_5",
   parcelas_max: null,
   validade_dias: null,
+  classe_ligada: false,
+  classe_a_pct: 20,
+  acrescimos_ligado: false,
+  almofadas_soltas_pct: 10,
+  encardido_pct: 10,
 };
 
 const CAMPOS = Object.keys(CONFIG_PADRAO).join(", ");

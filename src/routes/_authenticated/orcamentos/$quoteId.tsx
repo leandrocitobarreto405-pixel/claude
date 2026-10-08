@@ -19,9 +19,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
 import { useConfigOrcamento } from "@/lib/orcamento-config";
 import {
+  acrescimoDoItem,
   calcularTotais,
+  precoComAcrescimo,
   sugerirPrecos,
+  valorPix as valorNoPix,
   type Categoria,
+  type Classe,
   type ModoDesconto,
 } from "@/lib/orcamento-regras";
 import {
@@ -38,6 +42,7 @@ import { quoteWhatsappMessage, whatsappLink } from "@/lib/quote-message";
 import { useTextosEmpresa } from "@/lib/textos-cliente";
 import {
   custoFixoPorServico,
+  descontosDoCliente,
   duplicarOrcamento,
   estimarKmPorCep,
   salvarOrcamento,
@@ -78,6 +83,10 @@ type Linha = {
   /** Valor digitado pela atendente; sem ele, vale o sugerido pelas regras. */
   preco_editado: number | null;
   desconto: ModoDesconto;
+  /** Classe do estofado e acréscimos (quando a empresa usa). */
+  classe: Classe;
+  almofadas: boolean;
+  encardido: boolean;
   motivo_desconto: string;
   quantidade: number;
   editado_por: string | null;
@@ -109,6 +118,7 @@ function OrcamentoDetalhe() {
 
   const { data: catalogo } = useTabelaPrecos(true);
   const { regras } = useConfigOrcamento();
+  const textosEmpresa = useTextosEmpresa();
   const { data: carregado, refetch } = useQuote(novo ? null : quoteId);
   const salvar = useServerFn(salvarOrcamento);
   const duplicar = useServerFn(duplicarOrcamento);
@@ -122,7 +132,12 @@ function OrcamentoDetalhe() {
   const [observacoes, setObservacoes] = useState("");
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [desconto, setDesconto] = useState(0);
-  const [aVista, setAVista] = useState(0);
+  // Desconto: nenhum, campanha OU indicação (percentual das regras de marketing) ou valor manual.
+  const [descontoTipo, setDescontoTipo] = useState<"nenhum" | "campanha" | "indicacao" | "manual">(
+    "nenhum",
+  );
+  // Valor no Pix: calculado (total − Pix da empresa); só fica fixo se a atendente editar.
+  const [aVistaEditado, setAVistaEditado] = useState<number | null>(null);
   const [km, setKm] = useState(0);
   const [custoProdutos, setCustoProdutos] = useState(0);
   const [custoMaoObra, setCustoMaoObra] = useState(0);
@@ -175,7 +190,9 @@ function OrcamentoDetalhe() {
     setDataServico(q.data_servico ?? "");
     setObservacoes(q.observacoes ?? "");
     setDesconto(Number(q.desconto ?? 0));
-    setAVista(Number(q.valor_a_vista ?? 0));
+    setDescontoTipo(q.desconto_tipo ?? (Number(q.desconto ?? 0) > 0 ? "manual" : "nenhum"));
+    // Valor salvo; se for igual ao calculado, deixa de contar como editado (efeito abaixo).
+    setAVistaEditado(q.valor_a_vista === null ? null : Number(q.valor_a_vista));
     setKm(Number(q.km_ida_volta ?? 0));
     setCustoProdutos(Number(q.custo_produtos ?? 0));
     setCustoMaoObra(Number(q.custo_mao_obra ?? 0));
@@ -217,6 +234,9 @@ function OrcamentoDetalhe() {
           categoria,
           preco_tabela: tabela,
           preco_editado: editado ? aplicado : null,
+          classe: (it.classe ?? "B") as Classe,
+          almofadas: Boolean(it.almofadas_soltas),
+          encardido: Boolean(it.muito_encardido),
           desconto: (descontoRegra > 0 && !naRegra
             ? "sim"
             : descontoRegra === 0 && naRegra && !it.item_principal && sugerido !== null
@@ -271,6 +291,29 @@ function OrcamentoDetalhe() {
     };
   }, [novo, leadParam]);
 
+  // Classe e acréscimos do item: % sobre a tabela e o preço já arredondado para o real de cima.
+  const acrescimoDe = (l: Linha) =>
+    acrescimoDoItem(regras, {
+      classe: l.classe,
+      almofadasSoltas: l.almofadas,
+      muitoEncardido: l.encardido,
+    });
+  const tabelaComAcrescimo = (l: Linha) => precoComAcrescimo(l.preco_tabela, acrescimoDe(l));
+
+  // Descontos que o cliente tem (campanha ou indicação), pela mesma regra da Alice.
+  const descontosFn = useServerFn(descontosDoCliente);
+  const foneDigitos = onlyDigits(telefone);
+  const { data: descontosCliente } = useQuery({
+    queryKey: ["orcamento-descontos", foneDigitos],
+    enabled: foneDigitos.length >= 10,
+    queryFn: () => descontosFn({ data: { telefone: foneDigitos } }),
+  });
+  const opcaoDesconto =
+    descontoTipo === "campanha" || descontoTipo === "indicacao"
+      ? descontosCliente?.[descontoTipo]
+      : undefined;
+  const descontoPct = opcaoDesconto && "pct" in opcaoDesconto ? opcaoDesconto.pct : null;
+
   // Preço sugerido pelas regras (item principal cheio, adicionais com desconto) e valor final.
   const sugestoes = useMemo(
     () =>
@@ -278,38 +321,48 @@ function OrcamentoDetalhe() {
         linhas.map((l) => ({
           key: l.key,
           categoria: l.categoria,
-          precoTabela: l.preco_tabela,
+          precoTabela: tabelaComAcrescimo(l),
           quantidade: l.quantidade,
           desconto: l.desconto,
         })),
         regras,
         principalKey,
       ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [linhas, regras, principalKey],
   );
-  const sugeridoDe = (l: Linha) => sugestoes.get(l.key)?.precoSugerido ?? l.preco_tabela;
+  const sugeridoDe = (l: Linha) => sugestoes.get(l.key)?.precoSugerido ?? tabelaComAcrescimo(l);
   const finalDe = (l: Linha) => l.preco_editado ?? sugeridoDe(l);
   const totais = useMemo(
     () =>
       calcularTotais({
         linhas: linhas.map((l) => ({
           categoria: l.categoria,
-          precoAplicado: l.preco_editado ?? sugestoes.get(l.key)?.precoSugerido ?? l.preco_tabela,
+          precoAplicado: l.preco_editado ?? sugeridoDe(l),
           quantidade: l.quantidade,
         })),
         regras,
         muitoSujo,
         distanciaKm: kmIda,
-        desconto,
+        desconto: descontoTipo === "manual" ? desconto : 0,
+        descontoPct,
         clienteNovo: clienteNovo !== false,
       }),
-    [linhas, sugestoes, regras, muitoSujo, kmIda, desconto, clienteNovo],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [linhas, sugestoes, regras, muitoSujo, kmIda, desconto, descontoTipo, descontoPct, clienteNovo],
   );
   const subtotal = totais.subtotalItens;
   const vitrine = totais.vitrine;
   const valorCartao = vitrine ? (cartaoEditado ?? vitrine.cartao) : null;
   const valorPix = vitrine ? (pixEditado ?? vitrine.pix) : null;
   const total = vitrine ? round(valorCartao ?? 0) : totais.base;
+  const pixPct = textosEmpresa?.pixPct ?? 0;
+  const aVistaCalculado = pixPct > 0 ? valorNoPix(total, pixPct) : 0;
+  const aVista = aVistaEditado ?? aVistaCalculado;
+  useEffect(() => {
+    if (aVistaEditado !== null && Math.abs(aVistaEditado - aVistaCalculado) < 0.005)
+      setAVistaEditado(null);
+  }, [aVistaEditado, aVistaCalculado]);
   const custoDeslocamento = round(km * custoKmConfig);
   const custos = useMemo(
     () => ({
@@ -335,6 +388,9 @@ function OrcamentoDetalhe() {
         preco_tabela: 0,
         preco_editado: null,
         desconto: "auto",
+        classe: "B",
+        almofadas: false,
+        encardido: false,
         motivo_desconto: "",
         quantidade: 1,
         editado_por: null,
@@ -420,7 +476,9 @@ function OrcamentoDetalhe() {
           customer_id: null,
           data_servico: dataServico || null,
           observacoes: observacoes || null,
-          desconto,
+          desconto: descontoTipo === "manual" ? desconto : 0,
+          desconto_tipo: descontoTipo === "nenhum" ? null : descontoTipo,
+          desconto_pct: descontoPct,
           valor_a_vista: aVista > 0 ? aVista : null,
           km_ida_volta: km,
           custo_produtos: custoProdutos,
@@ -446,6 +504,9 @@ function OrcamentoDetalhe() {
               preco_tabela: l.preco_tabela,
               preco_aplicado: finalDe(l),
               motivo_desconto: l.motivo_desconto || null,
+              classe: regras.classe.ligada ? l.classe : null,
+              almofadas_soltas: regras.acrescimos.ligado && l.almofadas,
+              muito_encardido: regras.acrescimos.ligado && l.encardido,
               quantidade: l.quantidade,
               categoria: l.categoria,
               preco_sugerido: sug ? sug.precoSugerido : l.preco_tabela || null,
@@ -472,8 +533,6 @@ function OrcamentoDetalhe() {
       setSalvando(false);
     }
   }
-
-  const textosEmpresa = useTextosEmpresa();
 
   /** Aprova os valores (salva) e monta a mensagem com o que ficou gravado. */
   async function gerarMensagem() {
@@ -722,6 +781,59 @@ function OrcamentoDetalhe() {
                     </Button>
                   </div>
                 </div>
+                {(regras.classe.ligada || regras.acrescimos.ligado) && l.preco_tabela > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    {regras.classe.ligada ? (
+                      <div
+                        role="radiogroup"
+                        aria-label="Classe do estofado"
+                        className="flex overflow-hidden rounded-full border border-border"
+                      >
+                        {(["A", "B", "C"] as const).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            role="radio"
+                            aria-checked={l.classe === c}
+                            onClick={() => atualizar(l.key, { classe: c })}
+                            className={`min-h-11 min-w-11 px-3 font-medium sm:min-h-8 ${
+                              l.classe === c ? "bg-primary text-primary-foreground" : ""
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {regras.acrescimos.ligado ? (
+                      <>
+                        <label className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 sm:min-h-8">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={l.almofadas}
+                            onChange={(e) => atualizar(l.key, { almofadas: e.target.checked })}
+                          />
+                          Almofadas soltas
+                        </label>
+                        <label className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 sm:min-h-8">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={l.encardido}
+                            onChange={(e) => atualizar(l.key, { encardido: e.target.checked })}
+                          />
+                          Muito encardido
+                        </label>
+                      </>
+                    ) : null}
+                    {acrescimoDe(l) > 0 ? (
+                      <span className="text-muted-foreground">
+                        +{pct(acrescimoDe(l))}% → {brl(tabelaComAcrescimo(l))}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
                 {regras.descontoAdicional.ligado && l.preco_tabela > 0 ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <button
@@ -850,15 +962,56 @@ function OrcamentoDetalhe() {
             ) : null}
           </div>
           <div>
-            <Label className="text-xs">Desconto (R$)</Label>
-            <MoneyInput
-              value={desconto}
-              onValueChange={(v) => {
-                setDesconto(v);
+            <Label htmlFor="desconto-tipo" className="text-xs">
+              Desconto
+            </Label>
+            <select
+              id="desconto-tipo"
+              value={descontoTipo}
+              onChange={(e) => {
+                setDescontoTipo(e.target.value as typeof descontoTipo);
                 setCartaoEditado(null);
                 setPixEditado(null);
+                setAVistaEditado(null);
               }}
-            />
+              className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9"
+            >
+              <option value="nenhum">Sem desconto</option>
+              {(["campanha", "indicacao"] as const).map((t) => {
+                const op = descontosCliente?.[t];
+                const nomeOp = t === "campanha" ? "Campanha" : "Indicação";
+                return (
+                  <option key={t} value={t} disabled={!op || !("pct" in op)}>
+                    {op && "pct" in op
+                      ? `${nomeOp} (${pct(op.pct)}%)`
+                      : `${nomeOp} (não disponível)`}
+                  </option>
+                );
+              })}
+              <option value="manual">Valor manual (R$)</option>
+            </select>
+            {descontoTipo === "manual" ? (
+              <MoneyInput
+                className="mt-2"
+                value={desconto}
+                onValueChange={(v) => {
+                  setDesconto(v);
+                  setCartaoEditado(null);
+                  setPixEditado(null);
+                  setAVistaEditado(null);
+                }}
+              />
+            ) : opcaoDesconto && "pct" in opcaoDesconto ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {opcaoDesconto.rotulo}: −{brl(totais.desconto)}
+              </p>
+            ) : opcaoDesconto && "erro" in opcaoDesconto ? (
+              <p className="mt-1 text-xs text-destructive">{opcaoDesconto.erro}</p>
+            ) : foneDigitos.length < 10 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Campanha e indicação aparecem com o celular do cliente preenchido.
+              </p>
+            ) : null}
           </div>
           {vitrine ? (
             <div>
@@ -872,8 +1025,29 @@ function OrcamentoDetalhe() {
                 <p className="text-2xl font-semibold text-primary">{brl(total)}</p>
               </div>
               <div>
-                <Label className="text-xs">Valor à vista (opcional)</Label>
-                <MoneyInput value={aVista} onValueChange={setAVista} />
+                <Label className="text-xs">
+                  {pixPct > 0 ? `No Pix (−${pct(pixPct)}%)` : "Valor à vista (opcional)"}
+                  {aVistaEditado !== null ? (
+                    <span className="ml-2 rounded-full bg-atencao px-2 py-0.5 text-[11px] font-medium text-atencao-foreground">
+                      editado
+                    </span>
+                  ) : null}
+                </Label>
+                <MoneyInput
+                  value={aVista}
+                  onValueChange={(v) =>
+                    setAVistaEditado(Math.abs(v - aVistaCalculado) > 0.004 ? v : null)
+                  }
+                />
+                {pixPct > 0 && aVistaEditado !== null ? (
+                  <button
+                    type="button"
+                    className="mt-1 min-h-11 text-xs underline sm:min-h-0"
+                    onClick={() => setAVistaEditado(null)}
+                  >
+                    Voltar ao calculado ({brl(aVistaCalculado)})
+                  </button>
+                ) : null}
               </div>
             </>
           )}

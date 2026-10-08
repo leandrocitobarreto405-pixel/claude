@@ -253,7 +253,7 @@ async function contextoEmpresa(
   cfg: ConfigIa,
   ferramentas: string[],
 ): Promise<ContextoEmpresa> {
-  const [empresa, config, precos, servicos, equipe, modelos] = await Promise.all([
+  const [empresa, config, precos, servicos, equipe, modelos, regrasPreco] = await Promise.all([
     db.from("empresas").select("nome, telefone").eq("id", empresaId).single(),
     db
       .from("app_settings")
@@ -288,6 +288,11 @@ async function contextoEmpresa(
       .eq("empresa_id", empresaId)
       .eq("key", "os_document_settings")
       .maybeSingle(),
+    db
+      .from("orcamento_configuracoes")
+      .select("classe_ligada, classe_a_pct, acrescimos_ligado, almofadas_soltas_pct, encardido_pct")
+      .eq("empresa_id", empresaId)
+      .maybeSingle(),
   ]);
   const v = (config.data?.value ?? {}) as { name?: string; phone?: string; instagram?: string };
   const preco = (x: number | null) => (x === null || Number(x) <= 0 ? null : Number(x));
@@ -313,6 +318,20 @@ async function contextoEmpresa(
     horaInicio: cfg.hora_inicio,
     horaFim: cfg.hora_fim,
     ferramentas,
+    acrescimosPreco:
+      regrasPreco.data && (regrasPreco.data.classe_ligada || regrasPreco.data.acrescimos_ligado)
+        ? {
+            classeAPct: regrasPreco.data.classe_ligada
+              ? Number(regrasPreco.data.classe_a_pct)
+              : null,
+            almofadasPct: regrasPreco.data.acrescimos_ligado
+              ? Number(regrasPreco.data.almofadas_soltas_pct)
+              : null,
+            encardidoPct: regrasPreco.data.acrescimos_ligado
+              ? Number(regrasPreco.data.encardido_pct)
+              : null,
+          }
+        : null,
     garantiaImpermeabilizacao: Boolean(
       (modelos.data?.value as { templateGarantia?: string } | null)?.templateGarantia,
     ),

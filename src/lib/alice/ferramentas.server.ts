@@ -7,7 +7,6 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
-  condicoesPagamento,
   dataHoraTexto,
   dentroDaJanela,
   lerDataHoraLocal,
@@ -20,6 +19,8 @@ import {
   type MotivoPerda,
 } from "./regras";
 
+import { rotulosAcrescimo } from "@/lib/orcamento-regras";
+import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import {
   descontoPermitido,
   lerMarketing,
@@ -82,7 +83,13 @@ const AtualizarLead = z.object({
   temperatura: z.enum(["QUENTE", "FRIO"]).optional(),
 });
 const ConsultarCep = z.object({ cep: z.string().trim().min(8).max(10) });
-const ConsultarTabela = z.object({ servico: SERVICO.optional() });
+const CLASSE = z.enum(["A", "B", "C"]);
+const ConsultarTabela = z.object({
+  servico: SERVICO.optional(),
+  classe: CLASSE.optional(),
+  almofadas_soltas: z.boolean().optional(),
+  muito_encardido: z.boolean().optional(),
+});
 const CriarOrcamento = z.object({
   servico: SERVICO,
   itens: z
@@ -90,6 +97,9 @@ const CriarOrcamento = z.object({
       z.object({
         item: z.string().trim().min(1).max(120),
         quantidade: z.number().int().min(1).max(50).default(1),
+        classe: CLASSE.optional(),
+        almofadas_soltas: z.boolean().optional(),
+        muito_encardido: z.boolean().optional(),
       }),
     )
     .min(1)
@@ -151,6 +161,20 @@ const S_SERVICO = {
   enum: ["higienizacao", "impermeabilizacao"],
   description: "Serviço: higienizacao ou impermeabilizacao.",
 } as const;
+const S_CLASSE = {
+  type: "string",
+  enum: ["A", "B", "C"],
+  description:
+    "Classe do estofado (padrão B). Só vale se a empresa usa classe; siga as instruções da empresa antes de usar A.",
+} as const;
+const S_ALMOFADAS = {
+  type: "boolean",
+  description: "true se as almofadas são soltas (acréscimo da empresa). Fixas: false.",
+} as const;
+const S_ENCARDIDO = {
+  type: "boolean",
+  description: "true só se a foto mostrar o estofado muito encardido (acréscimo da empresa).",
+} as const;
 
 /** Ferramentas liberadas para a empresa (a ordem é fixa, para aproveitar o cache). */
 export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthropic.Beta.BetaTool[] {
@@ -204,10 +228,16 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
     },
     {
       name: "consultar_tabela_precos",
-      description: "Tabela de preços oficial, por item e serviço (nomes exatos para o orçamento).",
+      description:
+        "Tabela de preços oficial, por item e serviço (nomes exatos para o orçamento). Com classe/almofadas_soltas/muito_encardido, devolve os preços já com os acréscimos da empresa.",
       input_schema: {
         type: "object",
-        properties: { servico: S_SERVICO },
+        properties: {
+          servico: S_SERVICO,
+          classe: S_CLASSE,
+          almofadas_soltas: S_ALMOFADAS,
+          muito_encardido: S_ENCARDIDO,
+        },
         additionalProperties: false,
       },
     },
@@ -226,6 +256,9 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
               properties: {
                 item: { type: "string", description: "Nome exato do item na tabela." },
                 quantidade: { type: "integer", minimum: 1 },
+                classe: S_CLASSE,
+                almofadas_soltas: S_ALMOFADAS,
+                muito_encardido: S_ENCARDIDO,
               },
               required: ["item"],
               additionalProperties: false,
@@ -659,13 +692,6 @@ async function consultarCep(ctx: ContextoFerramenta, input: z.infer<typeof Consu
   return linhas.join("\n");
 }
 
-type ItemTabela = {
-  id: string;
-  nome: string;
-  preco_higienizacao: number;
-  preco_impermeabilizacao: number | null;
-};
-
 async function tabela(ctx: ContextoFerramenta): Promise<ItemTabela[]> {
   const { data } = await ctx.admin
     .from("tabela_precos_itens")
@@ -676,32 +702,51 @@ async function tabela(ctx: ContextoFerramenta): Promise<ItemTabela[]> {
   return (data ?? []) as ItemTabela[];
 }
 
-function precoDe(item: ItemTabela, servico: Servico): number | null {
-  const v = servico === "higienizacao" ? item.preco_higienizacao : item.preco_impermeabilizacao;
-  return v === null || v === undefined || Number(v) <= 0 ? null : Number(v);
-}
-
 async function consultarTabela(ctx: ContextoFerramenta, input: z.infer<typeof ConsultarTabela>) {
   const itens = await tabela(ctx);
   if (!itens.length) return "Tabela de preços não cadastrada. Não informe valores; transfira.";
   const servicos: Servico[] = input.servico
     ? [input.servico]
     : ["higienizacao", "impermeabilizacao"];
-  return servicos
+  const { regrasOrcamento } = await import("@/lib/quotes.server");
+  const regras = await regrasOrcamento(ctx.admin, ctx.empresaId);
+  const texto = servicos
     .map((s) => {
       const linhas = itens
-        .map((i) => ({ i, p: precoDe(i, s) }))
-        .filter((x) => x.p !== null)
-        .map((x) => `- ${x.i.nome}: ${reais(x.p!)}`);
+        .map((i) =>
+          precificar(
+            {
+              item: i,
+              quantidade: 1,
+              classe: input.classe,
+              almofadas_soltas: input.almofadas_soltas,
+              muito_encardido: input.muito_encardido,
+            },
+            s,
+            regras,
+          ),
+        )
+        .filter((l): l is NonNullable<typeof l> => l !== null)
+        .map((l) => `- ${l.item.nome}: ${reais(l.preco)}`);
       return `${s === "higienizacao" ? "Higienização" : "Impermeabilização"}:\n${linhas.join("\n") || "(nenhum item)"}`;
     })
     .join("\n\n");
+  const rotulos = rotulosAcrescimo(regras, {
+    classe: input.classe ?? null,
+    almofadasSoltas: Boolean(input.almofadas_soltas),
+    muitoEncardido: Boolean(input.muito_encardido),
+  });
+  return rotulos.length
+    ? `Preços já com ${rotulos.join(" + ")} (arredondados para o real de cima):\n\n${texto}`
+    : texto;
 }
 
 async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof CriarOrcamento>) {
   const itens = await tabela(ctx);
   const porNome = new Map(itens.map((i) => [normalizarNome(i.nome), i]));
-  const escolhidos: Array<{ item: ItemTabela; preco: number; quantidade: number }> = [];
+  const { regrasOrcamento } = await import("@/lib/quotes.server");
+  const regras = await regrasOrcamento(ctx.admin, ctx.empresaId);
+  const escolhidos: LinhaOrcamento[] = [];
   for (const pedido of input.itens) {
     const item = porNome.get(normalizarNome(pedido.item));
     if (!item) {
@@ -710,28 +755,38 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         texto: `Item "${pedido.item}" não está na tabela. Itens válidos: ${itens.map((i) => i.nome).join("; ")}. Se nenhum servir, transfira para a equipe.`,
       };
     }
-    const preco = precoDe(item, input.servico);
-    if (preco === null) {
+    // Preço só pelas regras: tabela + classe/acréscimos da empresa (a Alice não informa valor).
+    const linha = precificar(
+      {
+        item,
+        quantidade: pedido.quantidade,
+        classe: pedido.classe,
+        almofadas_soltas: pedido.almofadas_soltas,
+        muito_encardido: pedido.muito_encardido,
+      },
+      input.servico,
+      regras,
+    );
+    if (linha === null) {
       return {
         erro: true,
         texto: `"${item.nome}" não tem preço de ${input.servico === "higienizacao" ? "higienização" : "impermeabilização"} na tabela (não oferecemos esse serviço para esse item).`,
       };
     }
-    escolhidos.push({ item, preco, quantidade: pedido.quantidade });
+    escolhidos.push(linha);
   }
 
   const lead = await lerLead(ctx);
-  const bruto = escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0);
   // Desconto de campanha ou de indicação: linha separada; o Pix vale sobre o total com desconto.
-  let desconto: { pct: number; rotulo: string; valor: number } | null = null;
+  let regraDesconto: { pct: number; rotulo: string } | null = null;
   if (input.desconto) {
     const d = descontoPermitido(await lerMarketing(ctx), input.desconto);
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
-    desconto = { ...d, valor: Math.round(bruto * d.pct) / 100 };
+    regraDesconto = d;
   }
-  const total = bruto - (desconto?.valor ?? 0);
-  const cond = condicoesPagamento(
-    total,
+  const { bruto, desconto, cond } = totalizar(
+    escolhidos,
+    regraDesconto,
     ctx.cfg.parcelas_max,
     Number(ctx.cfg.desconto_pix_percentual),
   );
@@ -759,6 +814,8 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       data_servico: null,
       observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct}% (${reais(desconto.valor)}).` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
       desconto: desconto?.valor ?? 0,
+      desconto_tipo: desconto ? (input.desconto ?? null) : null,
+      desconto_pct: desconto?.pct ?? null,
       valor_a_vista: cond.pix,
       km_ida_volta: km,
       custo_produtos: 0,
@@ -772,10 +829,14 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         tabela_preco_item_id: e.item.id,
         nome_snapshot: e.item.nome,
         tipo_servico: input.servico,
-        preco_tabela: e.preco,
+        preco_tabela: e.precoTabela,
+        preco_sugerido: e.preco,
         preco_aplicado: e.preco,
         motivo_desconto: null,
         quantidade: e.quantidade,
+        classe: e.classe,
+        almofadas_soltas: e.almofadasSoltas,
+        muito_encardido: e.muitoEncardido,
       })),
     },
     null,
@@ -784,7 +845,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
 
   const linhas = escolhidos.map(
     (e) =>
-      `• ${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${e.item.nome} — ${reais(e.preco * e.quantidade)}`,
+      `• ${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${e.item.nome} — ${reais(e.preco * e.quantidade)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
   );
   return {
     erro: false,

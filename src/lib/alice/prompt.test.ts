@@ -171,3 +171,14 @@ test("garantia: regra só para empresa com termo de garantia configurado", () =>
   assert.match(txt, /visita técnica gratuita de avaliação/);
   assert.match(txt, /transferir_para_humano, motivo "garantia – manutenção"/);
 });
+
+test("acréscimos: só para empresa com classe/acréscimos ligados, sem conta de cabeça", () => {
+  assert.doesNotMatch(instrucoesFixas(empresa), /almofadas_soltas/);
+  const txt = instrucoesFixas({
+    ...empresa,
+    acrescimosPreco: { classeAPct: 20, almofadasPct: 10, encardidoPct: 10 },
+  });
+  assert.match(txt, /classe \(A \+20%; B e C = tabela; padrão B\)/);
+  assert.match(txt, /almofadas_soltas \(\+10%\), muito_encardido \(\+10%\)/);
+  assert.match(txt, /Nunca calcule acréscimo de cabeça/);
+});
