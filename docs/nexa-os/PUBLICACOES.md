@@ -99,6 +99,18 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Termo por modelo" (sem migração): `os_document_settings.templateGarantia` (JSON em
   `app_settings`). Em 08/10 configurado só na Turbine (modelo `1Kq_s36d…`). OS de teste
   `TESTE-GARANTIA` (cliente fictício, R$ 0,00, telefone 00000000000) criada para conferir o termo.
+- "Classe e acréscimos" (`20261031120000`, aplicada em 08/10): classe A e acréscimos por item
+  em `orcamento_configuracoes` (desligados por padrão), classe/marcações/% em `quote_items` e
+  `desconto_tipo`/`desconto_pct` em `quotes`. Só acrescenta. Dados de 08/10 (só Turbine):
+  impermeabilização = 2 × higienização em 13 itens e nova ordem da tabela (voltar: valores antigos
+  em `voltar-tabela-turbine-0810.sql`, guardado na sessão; resumo: retrátil 649,90/649,90/799,90/
+  899,90, comum 549,90/649,90/749,90, sofá-cama igual ao retrátil, poltrona 239,90, cabeceira
+  485,90); linha de regras da Turbine com só classe (A +20%) e acréscimos (almofadas soltas e muito
+  encardido +10%) ligados. Roteiro da Alice: seção 4 trocada pelo texto aprovado
+  (`docs/nexa-os/alice/turbine-secao4-0810.md`); cópia exata da anterior em
+  `docs/nexa-os/alice/turbine-secao4-ate-0810.md` (md5 do roteiro antes: `189b2512…`, depois:
+  `0879f123…`). Para voltar, trocar a seção 4 do roteiro (de "## 4." até "## 5.") pelo arquivo
+  da cópia.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -156,6 +168,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 07/10/2026       | Fotos e vídeos (Drive) | `6604089`        | `e6a59d8`                |
 | 08/10/2026 00:40 | Regras do orçamento    | `dd5864a`        | `f107c0d`                |
 | 08/10/2026 01:30 | Termo por modelo       | `478ed9c`        | `6783fec`                |
+| 08/10/2026 23:55 | Classe e acréscimos    | `460cd55`        | `3b7a39b`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
