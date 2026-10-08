@@ -96,6 +96,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   editado/vitrine em `quote_items`, `quotes` e `service_items`. Só acrescenta. Dados: Ecoprime
   com categorias, desconto do item adicional 40%, mínimo de cadeiras R$ 90, muito sujo 10%,
   vitrine 20%/10%, até 5x, validade 2 dias, textos da mensagem em rascunho neutro.
+- "Termo por modelo" (sem migração): `os_document_settings.templateGarantia` (JSON em
+  `app_settings`). Em 08/10 configurado só na Turbine (modelo `1Kq_s36d…`). OS de teste
+  `TESTE-GARANTIA` (cliente fictício, R$ 0,00, telefone 00000000000) criada para conferir o termo.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -152,6 +155,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 07/10/2026       | Um documento por OS    | `bc1eee9`        | `7c62927`                |
 | 07/10/2026       | Fotos e vídeos (Drive) | `6604089`        | `e6a59d8`                |
 | 08/10/2026 00:40 | Regras do orçamento    | `dd5864a`        | `f107c0d`                |
+| 08/10/2026 01:30 | Termo por modelo       | `478ed9c`        | `6783fec`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
