@@ -16,6 +16,7 @@ import {
 } from "@/lib/google-docs.server";
 import { ensureInternalFolder, ensureMaterialsFolders } from "@/lib/os-media.server";
 import { escolherSubstituidos, nomeSubstituido } from "@/lib/os-docs-versoes";
+import { SEM_MODELO_GARANTIA } from "@/lib/os-docs-campos";
 import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 
 const SETTINGS_KEY = "os_document_settings";
@@ -28,6 +29,8 @@ export type OsDocSettings = {
   templateHigienizacao: string;
   templateImpermeabilizacao: string;
   templateCombinado: string;
+  /** Modelo do termo de garantia da impermeabilização (vazio = termo não é gerado). */
+  templateGarantia: string;
   folderId: string;
 };
 
@@ -75,6 +78,7 @@ export async function readSettings(): Promise<OsDocSettings> {
     templateHigienizacao: v.templateHigienizacao ?? "",
     templateImpermeabilizacao: v.templateImpermeabilizacao ?? "",
     templateCombinado: v.templateCombinado ?? "",
+    templateGarantia: v.templateGarantia ?? "",
     folderId: v.folderId ?? "",
   };
 }
@@ -86,17 +90,25 @@ export async function saveSettings(input: {
   higienizacao: string;
   impermeabilizacao: string;
   combinado: string;
+  /** Omitido: mantém o modelo do termo salvo. */
+  garantia?: string;
   pasta: string;
 }) {
   const current = await readSettings();
   type IdKey =
-    "templateHigienizacao" | "templateImpermeabilizacao" | "templateCombinado" | "folderId";
+    | "templateHigienizacao"
+    | "templateImpermeabilizacao"
+    | "templateCombinado"
+    | "templateGarantia"
+    | "folderId";
   const campos: Array<[IdKey, string, string, "doc" | "pasta"]> = [
     ["templateHigienizacao", input.higienizacao, "modelo de higienização", "doc"],
     ["templateImpermeabilizacao", input.impermeabilizacao, "modelo de impermeabilização", "doc"],
     ["templateCombinado", input.combinado, "modelo combinado", "doc"],
     ["folderId", input.pasta, "pasta de destino", "pasta"],
   ];
+  if (input.garantia !== undefined)
+    campos.push(["templateGarantia", input.garantia, "modelo do termo de garantia", "doc"]);
 
   const next: OsDocSettings = {
     ...current,
@@ -107,10 +119,8 @@ export async function saveSettings(input: {
 
   for (const [key, raw, rotulo, tipo] of campos) {
     const texto = (raw ?? "").trim();
-    if (!texto) {
-      next[key] = "";
-      continue;
-    }
+    // Em branco mantém o que já está salvo (a tela limpa os campos depois de salvar).
+    if (!texto) continue;
     const id = extractGoogleId(texto);
     if (!id) throw new Error(`Link ou ID inválido para o ${rotulo}.`);
     const file = await getFile(id);
@@ -146,6 +156,7 @@ export async function testIntegration() {
     [s.templateHigienizacao, "Higienização"],
     [s.templateImpermeabilizacao, "Impermeabilização"],
     [s.templateCombinado, "Higienização e Impermeabilização"],
+    ...(s.templateGarantia ? ([[s.templateGarantia, "Termo de garantia"]] as const) : []),
   ] as const) {
     const file = await getFile(id);
     if (file.mimeType !== "application/vnd.google-apps.document")
@@ -672,85 +683,19 @@ function warrantyData(wo: WarrantyOrder) {
   };
 }
 
-function warrantyBlocks(d: NonNullable<ReturnType<typeof warrantyData>>, e: DadosEmpresa) {
-  const b: Array<{ text: string; heading?: 1 | 2; bold?: boolean }> = [];
-  b.push({ text: "TERMO DE GARANTIA – SERVIÇO DE IMPERMEABILIZAÇÃO", heading: 1 });
-  b.push({ text: "" });
-  b.push({ text: `Cliente: ${d.cliente}`, bold: true });
-  b.push({ text: `Data do Serviço: ${d.dataServico}`, bold: true });
-  b.push({ text: `Técnico Responsável: ${d.tecnico || "—"}`, bold: true });
-  b.push({ text: `Estofado(s) Atendido(s): ${d.estofados || "—"}`, bold: true });
-  b.push({ text: `DATA DA PRÓXIMA IMPERMEABILIZAÇÃO: ${d.proxima}`, bold: true });
-  b.push({ text: "" });
-  b.push({ text: `Garantia ${e.nome} – 12 Meses de Proteção e Cuidado`, heading: 2 });
-  b.push({
-    text: `A ${e.nome} assegura ao cliente que o serviço de impermeabilização de estofados realizado está coberto por garantia de 1 (um) ano a partir da data do serviço.`,
-  });
-  b.push({ text: "" });
-  b.push({ text: "Cobertura da Garantia", heading: 2 });
-  b.push({ text: "Durante o período de vigência, o cliente tem direito a:" });
-  b.push({
-    text: "• 1 ano de proteção contra penetração imediata de líquidos (quando limpos corretamente após o derramamento).",
-  });
-  b.push({
-    text: "• 3 visitas técnicas gratuitas, mediante agendamento, para avaliação preventiva ou corretiva.",
-  });
-  b.push({
-    text: "• Reaplicação sem custo adicional, caso o serviço tenha sido comprometido por falha de execução ou baixa fixação do produto.",
-  });
-  b.push({ text: "" });
-  b.push({ text: "A Garantia NÃO cobre:", heading: 2 });
-  b.push({
-    text: "• Danos causados por uso inadequado do estofado (arranhões, rasgos, fogo, corte, tinta, etc.).",
-  });
-  b.push({
-    text: `• Problemas decorrentes de limpeza com produtos abrasivos ou sem orientação da ${e.nome}.`,
-  });
-  b.push({
-    text: "• Uso do estofado antes da secagem completa (mínimo de 2 horas após a aplicação).",
-  });
-  b.push({
-    text: "• Infiltrações/manchas causadas por fluídos corporais de pets/humanos (urina, sangue, fezes, vômito etc).",
-  });
-  b.push({
-    text: "• Sujeiras superficiais decorrentes do uso diário, como marcas de mãos, pés, roupas sujas, gordura corporal, poeira, resíduos ou encardimento natural do tecido.",
-  });
-  b.push({ text: "" });
-  b.push({
-    text: "A impermeabilização tem como principal função proteger o tecido contra a penetração de líquidos e reduzir o risco de manchas permanentes por infiltração, não impedindo o acúmulo de sujeiras superficiais causadas pelo uso cotidiano.",
-  });
-  b.push({
-    text: `Para manter o estofado conservado, o cliente deverá seguir corretamente as orientações do Guia de Cuidados Pós-Impermeabilização. Caso deseje, a ${e.nome} poderá realizar limpeza profissional de manutenção mediante cobrança adicional.`,
-  });
-  b.push({ text: "" });
-  b.push({ text: "Como Acionar a Garantia", heading: 2 });
-  b.push({ text: "Em caso de necessidade, o cliente deverá:" });
-  b.push({
-    text: e.telefone
-      ? `• Entrar em contato pelo WhatsApp da ${e.nome} no número: ${e.telefone}.`
-      : `• Entrar em contato pelo WhatsApp da ${e.nome}.`,
-  });
-  b.push({ text: "• Enviar foto ou vídeo do problema identificado." });
-  b.push({ text: "• Informar nome completo e data do serviço." });
-  b.push({
-    text: "• Agendar uma das 3 visitas técnicas gratuitas (disponíveis em dias úteis e horário comercial).",
-  });
-  b.push({ text: "" });
-  b.push({ text: "Observações Importantes", heading: 2 });
-  b.push({
-    text: "A garantia é intransferível e válida apenas para o estofado atendido originalmente.",
-  });
-  b.push({
-    text: "O cliente deverá seguir as orientações do Manual Pós-Serviço, entregue junto a este termo.",
-  });
-  b.push({
-    text: "Após a aplicação do produto impermeabilizante, é expressamente proibido ao cliente realizar testes por conta própria, como derramar líquidos ou pressionar a superfície propositalmente. Somente o técnico responsável está autorizado a realizar testes de eficácia, seguindo os critérios técnicos e o tempo de cura adequado. Qualquer tentativa de teste feita pelo cliente pode comprometer o desempenho do produto e invalidar a garantia.",
-  });
-  b.push({ text: "" });
-  b.push({ text: `${e.nome} – Excelência em Higienização e Impermeabilização`, bold: true });
-  b.push({ text: "Av. Paulista, 726 – sala 1202" });
-  if (e.instagram) b.push({ text: `Instagram: ${e.instagram}` });
-  return b;
+/** Campos do modelo do termo de garantia. */
+export function camposGarantia(
+  osNumber: string,
+  d: NonNullable<ReturnType<typeof warrantyData>>,
+): Record<string, string> {
+  return {
+    NUMERO_OS: osNumber,
+    NOME_CLIENTE: d.cliente,
+    DATA_SERVICO: d.dataServico,
+    TECNICO: d.tecnico || "—",
+    ESTOFADOS: d.estofados || "—",
+    DATA_PROXIMA: d.proxima,
+  };
 }
 
 async function loadWarrantyOrder(workOrderId: string): Promise<WarrantyOrder> {
@@ -796,6 +741,9 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
   const s = await readSettings();
   if (!s.enabled) throw new Error("A integração com o Google está desativada nas Configurações.");
   if (!s.folderId) throw new Error("Informe a pasta de destino nas Configurações.");
+  // Sem modelo próprio não gera: o texto de outra empresa nunca vai para o cliente.
+  if (!s.templateGarantia)
+    throw new Error(`${SEM_MODELO_GARANTIA} em Configurações → Modelos da OS.`);
 
   const db = await admin();
   const wo = await loadWarrantyOrder(workOrderId);
@@ -828,25 +776,25 @@ export async function generateWarranty(workOrderId: string, userId: string | nul
 
   let docId: string | null = null;
   try {
-    const { createDocument, writeBlocks } = await import("@/lib/google-docs.server");
     const pastas = await ensureMaterialsFolders(workOrderId);
     if (!pastas.materials_folder_id)
       throw new Error("A pasta desta OS não foi criada no Google Drive.");
 
-    const doc = await createDocument(nome);
-    docId = doc.documentId;
+    // Cópia do modelo da empresa, já na pasta da OS, com os campos trocados.
+    const copia = await copyFile(s.templateGarantia, nome, pastas.materials_folder_id);
+    docId = copia.id;
     await db
       .from("work_order_documents")
-      .update({ google_document_id: doc.documentId })
+      .update({ google_document_id: copia.id })
       .eq("id", registro.id);
-    await writeBlocks(doc.documentId, warrantyBlocks(dados, await dadosEmpresa()));
-    await moveFile(doc.documentId, pastas.materials_folder_id);
-    const url = docUrl(doc.documentId);
+    await replacePlaceholders(copia.id, camposGarantia(wo.os_number, dados));
+    await stripRemainingPlaceholders(copia.id);
+    const url = copia.webViewLink ?? docUrl(copia.id);
 
     await db
       .from("work_order_documents")
       .update({
-        google_document_id: doc.documentId,
+        google_document_id: copia.id,
         google_document_url: url,
         generation_status: "Gerado",
         generated_at: new Date().toISOString(),

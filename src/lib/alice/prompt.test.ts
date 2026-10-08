@@ -162,3 +162,12 @@ test("áudio do cliente com transcrição vai como texto", () => {
   ]);
   assert.match(JSON.stringify(t), /transcrição automática\] quero limpar meu sofá/);
 });
+
+test("garantia: regra só para empresa com termo de garantia configurado", () => {
+  assert.doesNotMatch(instrucoesFixas(empresa), /garantia – manutenção/);
+  const txt = instrucoesFixas({ ...empresa, garantiaImpermeabilizacao: true });
+  assert.match(txt, /fluido corporal de pet ou pessoa/);
+  assert.match(txt, /líquido denso/);
+  assert.match(txt, /visita técnica gratuita de avaliação/);
+  assert.match(txt, /transferir_para_humano, motivo "garantia – manutenção"/);
+});

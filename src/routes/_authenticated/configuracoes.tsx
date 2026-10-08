@@ -23,6 +23,7 @@ import { templateText } from "@/lib/os";
 import { DEFAULT_NOTA_TEMPLATE } from "@/lib/nota-fiscal";
 import { useServerFn } from "@tanstack/react-start";
 import { getOsDocSettings, saveOsDocSettings, testOsDocIntegration } from "@/lib/os-docs.functions";
+import { CAMPOS_MODELO_GARANTIA, CAMPOS_MODELO_OS } from "@/lib/os-docs-campos";
 import {
   getCalendarSettings,
   saveCalendarSettings,
@@ -1591,6 +1592,22 @@ function MensagemNota() {
   );
 }
 
+/** Campos que o app troca no modelo (escreva exatamente assim no Google Docs). */
+function CamposDoModelo({ campos }: { campos: readonly string[] }) {
+  return (
+    <div className="rounded-lg border border-border/70 p-3 text-xs text-muted-foreground">
+      <p className="mb-1 font-medium text-foreground">Campos usados no modelo</p>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1">
+        {campos.map((c) => (
+          <li key={c}>
+            <code>{c}</code>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ModelosOS() {
   const ler = useServerFn(getOsDocSettings);
   const salvarFn = useServerFn(saveOsDocSettings);
@@ -1603,6 +1620,7 @@ function ModelosOS() {
   const [hig, setHig] = useState("");
   const [imp, setImp] = useState("");
   const [comb, setComb] = useState("");
+  const [garantia, setGarantia] = useState("");
   const [pasta, setPasta] = useState("");
   const [status, setStatus] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -1627,6 +1645,7 @@ function ModelosOS() {
           higienizacao: hig,
           impermeabilizacao: imp,
           combinado: comb,
+          garantia,
           pasta,
         },
       });
@@ -1634,6 +1653,7 @@ function ModelosOS() {
       setHig("");
       setImp("");
       setComb("");
+      setGarantia("");
       setPasta("");
       await query.refetch();
     } catch (e) {
@@ -1704,6 +1724,23 @@ function ModelosOS() {
             onChange={(e) => setComb(e.target.value)}
             placeholder="Link do Google Docs"
           />
+        </div>
+        <CamposDoModelo campos={CAMPOS_MODELO_OS} />
+        <div className="space-y-2">
+          <Label htmlFor="tpl-garantia">
+            Modelo Termo de garantia {d?.hasGarantia ? "(salvo)" : "(pendente)"}
+          </Label>
+          <Input
+            id="tpl-garantia"
+            value={garantia}
+            onChange={(e) => setGarantia(e.target.value)}
+            placeholder="Link do Google Docs"
+          />
+          <p className="text-xs text-muted-foreground">
+            Gerado para OS com impermeabilização. Sem este modelo, o termo não é gerado e aparece o
+            aviso “Configure o modelo do termo de garantia”.
+          </p>
+          <CamposDoModelo campos={CAMPOS_MODELO_GARANTIA} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="tpl-pasta">

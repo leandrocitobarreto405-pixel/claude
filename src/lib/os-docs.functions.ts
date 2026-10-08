@@ -8,6 +8,7 @@ export type OsDocStatus = {
   hasHigienizacao: boolean;
   hasImpermeabilizacao: boolean;
   hasCombinado: boolean;
+  hasGarantia: boolean;
   hasFolder: boolean;
   configured: boolean;
 };
@@ -36,6 +37,7 @@ export const getOsDocSettings = createServerFn({ method: "GET" })
       hasHigienizacao: Boolean(s.templateHigienizacao),
       hasImpermeabilizacao: Boolean(s.templateImpermeabilizacao),
       hasCombinado: Boolean(s.templateCombinado),
+      hasGarantia: Boolean(s.templateGarantia),
       hasFolder: Boolean(s.folderId),
       configured: Boolean(
         s.templateHigienizacao && s.templateImpermeabilizacao && s.templateCombinado && s.folderId,
@@ -53,6 +55,7 @@ export const saveOsDocSettings = createServerFn({ method: "POST" })
       higienizacao: string;
       impermeabilizacao: string;
       combinado: string;
+      garantia?: string;
       pasta: string;
     }) => input,
   )

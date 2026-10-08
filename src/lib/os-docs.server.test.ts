@@ -9,6 +9,8 @@ const agora = () => new Date((relogio += 1000)).toISOString();
 type Arquivo = { id: string; name: string; parent: string; createdTime: string; trashed: boolean };
 const drive = new Map<string, Arquivo>();
 let falharPreenchimento = false;
+const copiasDe: string[] = [];
+const preenchidos: Array<Record<string, string>> = [];
 let seq = 0;
 const novoArquivo = (name: string, parent: string) => {
   const id = `doc-${++seq}`;
@@ -27,6 +29,7 @@ const tabelas: Record<string, Linha[]> = {
         templateHigienizacao: "modelo-hig",
         templateImpermeabilizacao: "modelo-imp",
         templateCombinado: "modelo-comb",
+        templateGarantia: "modelo-garantia",
         folderId: "raiz",
       },
     },
@@ -100,7 +103,12 @@ class Consulta {
     this.mudanca = m;
     return this;
   }
-  upsert() {
+  upsert(m: Linha) {
+    // Configurações da empresa: troca o valor da chave (empresa emp-1).
+    const t = (tabelas[this.tabela] ??= []);
+    const atual = t.find((l) => l["key"] === m["key"] && l["empresa_id"] === "emp-1");
+    if (atual) Object.assign(atual, m);
+    else t.push({ empresa_id: "emp-1", ...m });
     return this;
   }
   private executar(): Linha[] {
@@ -156,7 +164,8 @@ mock.module("@/lib/os-media.server", {
 });
 mock.module("@/lib/google-docs.server", {
   namedExports: {
-    copyFile: async (_modelo: string, nome: string, pasta: string) => {
+    copyFile: async (modelo: string, nome: string, pasta: string) => {
+      copiasDe.push(modelo);
       const id = novoArquivo(nome, pasta);
       return { id, webViewLink: `https://docs/${id}` };
     },
@@ -176,14 +185,15 @@ mock.module("@/lib/google-docs.server", {
       [...drive.values()]
         .filter((a) => a.parent === pasta && !a.trashed)
         .map((a) => ({ ...a, mimeType: "application/vnd.google-apps.document" })),
-    replacePlaceholders: async () => {
+    replacePlaceholders: async (_id: string, campos: Record<string, string>) => {
+      preenchidos.push(campos);
       if (falharPreenchimento) throw new Error("Falha na comunicação com o Google (500).");
     },
     fillItemsTable: async () => undefined,
     stripRemainingPlaceholders: async () => undefined,
     writeBlocks: async () => undefined,
     docUrl: (id: string) => `https://docs/${id}`,
-    getFile: async () => ({}),
+    getFile: async () => ({ mimeType: "application/vnd.google-apps.document" }),
     deleteFile: async () => undefined,
     extractGoogleId: (v: string) => v,
   },
@@ -259,4 +269,54 @@ test("termo de garantia: um só na pasta do cliente", async () => {
     naPasta("pasta-interna").some((n) => n.startsWith(`Termo de garantia — ${base} (substituído`)),
   );
   assert.equal(naPasta("pasta-cliente").filter((n) => n.startsWith("OS ")).length, 1);
+});
+
+test("termo de garantia sai da cópia do modelo da empresa, com os campos trocados", async () => {
+  copiasDe.length = 0;
+  preenchidos.length = 0;
+  await docs.generateWarranty("os-1", "u1");
+  assert.deepEqual(copiasDe, ["modelo-garantia"]);
+  assert.deepEqual(preenchidos.at(-1), {
+    NUMERO_OS: "1628",
+    NOME_CLIENTE: "Giulia Ramilo Assunção",
+    DATA_SERVICO: "07/10/2026",
+    TECNICO: "Josué",
+    ESTOFADOS: "Sofá",
+    DATA_PROXIMA: "07/10/2027",
+  });
+});
+
+test("salvar com campos em branco mantém os modelos já salvos", async () => {
+  await docs.saveSettings({
+    enabled: true,
+    autoGenerate: true,
+    nameTemplate: "",
+    higienizacao: "",
+    impermeabilizacao: "",
+    combinado: "",
+    garantia: "",
+    pasta: "",
+  });
+  const s = await docs.readSettings();
+  assert.equal(s.templateHigienizacao, "modelo-hig");
+  assert.equal(s.templateGarantia, "modelo-garantia");
+  assert.equal(s.folderId, "raiz");
+});
+
+test("empresa sem modelo do termo: avisa e não gera com texto de outra empresa", async () => {
+  const cfg = tabelas["app_settings"]![0]!;
+  const valor = cfg["value"] as Record<string, unknown>;
+  cfg["value"] = { ...valor, templateGarantia: "" };
+  const antes = registros().length;
+  copiasDe.length = 0;
+  await assert.rejects(
+    docs.generateWarranty("os-1", "u1"),
+    /Configure o modelo do termo de garantia/,
+  );
+  assert.equal(registros().length, antes);
+  assert.equal(copiasDe.length, 0);
+  const r = await docs.ensureOsDocuments("os-1", "u1");
+  assert.equal(r.warranty, false);
+  assert.ok(r.errors.some((e) => e.startsWith("Configure o modelo do termo de garantia")));
+  cfg["value"] = valor;
 });

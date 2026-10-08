@@ -253,7 +253,7 @@ async function contextoEmpresa(
   cfg: ConfigIa,
   ferramentas: string[],
 ): Promise<ContextoEmpresa> {
-  const [empresa, config, precos, servicos, equipe] = await Promise.all([
+  const [empresa, config, precos, servicos, equipe, modelos] = await Promise.all([
     db.from("empresas").select("nome, telefone").eq("id", empresaId).single(),
     db
       .from("app_settings")
@@ -281,6 +281,13 @@ async function contextoEmpresa(
       .eq("active", true)
       .eq("eh_ia", false)
       .order("name"),
+    // Modelos da OS: com o modelo do termo de garantia, a Alice conhece as regras da garantia.
+    db
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", empresaId)
+      .eq("key", "os_document_settings")
+      .maybeSingle(),
   ]);
   const v = (config.data?.value ?? {}) as { name?: string; phone?: string; instagram?: string };
   const preco = (x: number | null) => (x === null || Number(x) <= 0 ? null : Number(x));
@@ -306,6 +313,9 @@ async function contextoEmpresa(
     horaInicio: cfg.hora_inicio,
     horaFim: cfg.hora_fim,
     ferramentas,
+    garantiaImpermeabilizacao: Boolean(
+      (modelos.data?.value as { templateGarantia?: string } | null)?.templateGarantia,
+    ),
   };
 }
 
