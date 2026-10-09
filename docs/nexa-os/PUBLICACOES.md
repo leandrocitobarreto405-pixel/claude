@@ -111,6 +111,13 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `docs/nexa-os/alice/turbine-secao4-ate-0810.md` (md5 do roteiro antes: `189b2512…`, depois:
   `0879f123…`). Para voltar, trocar a seção 4 do roteiro (de "## 4." até "## 5.") pelo arquivo
   da cópia.
+- "Colchão adicional" (`20261101120000`, aplicada em 09/10): `tabela_precos_itens.preco_adicional`,
+  `adicional_pos_fechamento` em `quote_items` e `service_items`, `adicional_oferecido_em` e
+  `adicional_aceito` em `quotes`. Só acrescenta. Dados (só Turbine): colchão como adicional
+  solteiro 159,90, casal 199,90, queen 229,90, king 269,90. Roteiro da Turbine: classe = tecido
+  (linho, veludo, bouclé), oferta de colchão depois do fechamento e Etapa 3 "considerei de 2,30 a
+  2,50 m" (seção 4 atual em `docs/nexa-os/alice/turbine-secao4-0910.md`; md5 do roteiro
+  `d623b742…`).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -169,6 +176,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 08/10/2026 00:40 | Regras do orçamento    | `dd5864a`        | `f107c0d`                |
 | 08/10/2026 01:30 | Termo por modelo       | `478ed9c`        | `6783fec`                |
 | 08/10/2026 23:55 | Classe e acréscimos    | `460cd55`        | `3b7a39b`                |
+| 09/10/2026 00:40 | Colchão adicional      | `f9fd9d4`        | `4348cb9`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
