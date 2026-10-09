@@ -40,6 +40,8 @@ export type LinhaOrcamento = {
   classe: Classe | null;
   almofadasSoltas: boolean;
   muitoEncardido: boolean;
+  /** Adicional pós-fechamento (preço fixo, fora do desconto). */
+  adicional?: boolean;
 };
 
 export function precoDe(item: ItemTabela, servico: Servico): number | null {
@@ -87,8 +89,12 @@ export function totalizar(
   parcelasMax: number,
   pixPct: number,
 ): Totais {
-  const bruto = Math.round(linhas.reduce((s, l) => s + l.preco * l.quantidade, 0) * 100) / 100;
-  const d = desconto ? { ...desconto, valor: descontoPorPct(bruto, desconto.pct) } : null;
+  const soma = (ls: LinhaOrcamento[]) =>
+    Math.round(ls.reduce((s, l) => s + l.preco * l.quantidade, 0) * 100) / 100;
+  const bruto = soma(linhas);
+  // Desconto de campanha/indicação só nos itens normais (o adicional já tem preço especial).
+  const baseDesconto = soma(linhas.filter((l) => !l.adicional));
+  const d = desconto ? { ...desconto, valor: descontoPorPct(baseDesconto, desconto.pct) } : null;
   const total = Math.round((bruto - (d?.valor ?? 0)) * 100) / 100;
   return { bruto, desconto: d, cond: condicoesPagamento(total, parcelasMax, pixPct) };
 }

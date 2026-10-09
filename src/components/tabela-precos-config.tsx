@@ -79,11 +79,13 @@ function Linha({
   });
   const [hig, setHig] = useState(Number(item.preco_higienizacao ?? 0));
   const [imp, setImp] = useState<number>(Number(item.preco_impermeabilizacao ?? 0));
+  const [adic, setAdic] = useState<number>(Number(item.preco_adicional ?? 0));
   const [nome, setNome] = useState(item.nome);
 
   useEffect(() => {
     setHig(Number(item.preco_higienizacao ?? 0));
     setImp(Number(item.preco_impermeabilizacao ?? 0));
+    setAdic(Number(item.preco_adicional ?? 0));
     setNome(item.nome);
   }, [item]);
 
@@ -91,7 +93,7 @@ function Linha({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`grid grid-cols-1 items-center gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-[auto_1fr_8rem_9rem_9rem_auto_auto] ${
+      className={`grid grid-cols-1 items-center gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-[auto_1fr_8rem_8rem_8rem_8rem_auto_auto] ${
         isDragging ? "opacity-70 shadow-lg" : ""
       }`}
     >
@@ -151,6 +153,21 @@ function Linha({
         />
       </div>
 
+      <div>
+        <span className="text-xs text-muted-foreground sm:hidden">
+          Adicional pós-fechamento (higienização)
+        </span>
+        <MoneyInput
+          value={adic}
+          onValueChange={setAdic}
+          onBlur={() => {
+            const atual = Number(item.preco_adicional ?? 0);
+            if (adic !== atual) void onSalvar(item.id, { preco_adicional: adic > 0 ? adic : null });
+          }}
+          aria-label="Preço como adicional pós-fechamento"
+        />
+      </div>
+
       <div className="flex items-center gap-2">
         <Switch
           checked={item.ativo}
@@ -199,6 +216,8 @@ export function TabelaPrecosConfig() {
               : atual.preco_impermeabilizacao,
           ativo: campos.ativo ?? atual.ativo,
           categoria: campos.categoria ?? atual.categoria,
+          preco_adicional:
+            campos.preco_adicional !== undefined ? campos.preco_adicional : atual.preco_adicional,
         },
         id,
       );
@@ -273,7 +292,9 @@ export function TabelaPrecosConfig() {
           <p className="mt-1 text-sm text-muted-foreground">
             Preços usados nos orçamentos. Deixe a impermeabilização em branco quando o serviço não é
             oferecido para o item. A categoria decide o desconto do item adicional e o pedido mínimo
-            de cadeiras (Configurações → Orçamento). Arraste pela alça para mudar a ordem.
+            de cadeiras (Configurações → Orçamento). "Adicional" é o preço de higienização quando o
+            item entra depois do fechamento (ex.: colchão): fixo e fora dos descontos. Arraste pela
+            alça para mudar a ordem.
           </p>
         </div>
         <Button onClick={() => setAberto((v) => !v)}>
@@ -309,12 +330,13 @@ export function TabelaPrecosConfig() {
         </div>
       ) : null}
 
-      <div className="mt-4 hidden gap-2 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[auto_1fr_8rem_9rem_9rem_auto_auto]">
+      <div className="mt-4 hidden gap-2 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[auto_1fr_8rem_8rem_8rem_8rem_auto_auto]">
         <span />
         <span>Item</span>
         <span>Categoria</span>
         <span>Higienização</span>
         <span>Impermeabilização</span>
+        <span>Adicional</span>
         <span>Ativo</span>
         <span />
       </div>

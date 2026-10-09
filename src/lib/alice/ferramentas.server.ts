@@ -108,6 +108,12 @@ const CriarOrcamento = z.object({
   rotulo: z.string().trim().max(40).optional(),
   desconto: z.enum(["campanha", "indicacao"]).optional(),
 });
+const AdicionalPosFechamento = z.object({
+  acao: z.enum(["oferecer", "aceitou", "recusou"]),
+  item: z.string().trim().max(120).optional(),
+  quantidade: z.number().int().min(1).max(10).optional(),
+  orcamento: z.string().trim().max(40).optional(),
+});
 const RegistrarIndicacao = z.object({
   nome: z.string().trim().min(1).max(120),
   telefone: z.string().trim().min(8).max(30),
@@ -291,6 +297,29 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
           },
         },
         required: ["nome", "telefone"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "adicional_pos_fechamento",
+      description:
+        "Adicional depois do fechamento (ex.: colchão em pedido só de higienização), seguindo as instruções da empresa. 'oferecer' (uma vez só, depois que o cliente confirmou) registra a oferta e devolve os preços; 'aceitou' inclui o item no mesmo orçamento (e na OS, se já existir) pelo preço de adicional; 'recusou' registra a recusa. Recusa pedido com impermeabilização.",
+      input_schema: {
+        type: "object",
+        properties: {
+          acao: { type: "string", enum: ["oferecer", "aceitou", "recusou"] },
+          item: {
+            type: "string",
+            description: "Com 'aceitou': nome exato do item (ex.: 'Colchão casal').",
+          },
+          quantidade: { type: "integer", minimum: 1 },
+          orcamento: {
+            type: "string",
+            description:
+              "Nº do orçamento (o que criar_orcamento devolveu). Sem isso, o fechado mais recente.",
+          },
+        },
+        required: ["acao"],
         additionalProperties: false,
       },
     },
@@ -1242,6 +1271,12 @@ export async function executarFerramenta(
       case "criar_orcamento": {
         const p = CriarOrcamento.safeParse(entrada);
         return p.success ? r(await criarOrcamento(ctx, p.data)) : invalida(p.error);
+      }
+      case "adicional_pos_fechamento": {
+        const p = AdicionalPosFechamento.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        const { adicionalPosFechamento } = await import("./adicional.server");
+        return r(await adicionalPosFechamento(ctx, p.data));
       }
       case "registrar_indicacao": {
         const p = RegistrarIndicacao.safeParse(entrada);

@@ -273,7 +273,13 @@ export function calcularVitrine(
 
 // ---------------------------------------------------------------- totais do orçamento
 
-export type LinhaValor = { categoria: Categoria; precoAplicado: number; quantidade: number };
+export type LinhaValor = {
+  categoria: Categoria;
+  precoAplicado: number;
+  quantidade: number;
+  /** Adicional pós-fechamento: preço fixo, fora dos acréscimos do pedido e do desconto. */
+  adicional?: boolean;
+};
 
 export type Totais = {
   subtotalItens: number;
@@ -306,15 +312,19 @@ export function calcularTotais(args: {
   clienteNovo: boolean;
 }): Totais {
   const { regras } = args;
-  const subtotalItens = r2(
-    args.linhas.reduce((s, l) => s + l.precoAplicado * Math.max(1, l.quantidade), 0),
-  );
-  const soCadeiras = args.linhas.length > 0 && args.linhas.every((l) => l.categoria === "cadeira");
+  const soma = (ls: LinhaValor[]) =>
+    r2(ls.reduce((s, l) => s + l.precoAplicado * Math.max(1, l.quantidade), 0));
+  const normais = args.linhas.filter((l) => !l.adicional);
+  const subtotalItens = soma(args.linhas);
+  // Adicional pós-fechamento entra pelo preço fixo: sem sujidade/distância e sem desconto.
+  const subtotalAdicional = soma(args.linhas.filter((l) => l.adicional));
+  const subtotalNormais = r2(subtotalItens - subtotalAdicional);
+  const soCadeiras = normais.length > 0 && normais.every((l) => l.categoria === "cadeira");
   const minimoAplicado =
-    soCadeiras && regras.minimoCadeiras !== null && subtotalItens < regras.minimoCadeiras
-      ? r2(regras.minimoCadeiras - subtotalItens)
+    soCadeiras && regras.minimoCadeiras !== null && subtotalNormais < regras.minimoCadeiras
+      ? r2(regras.minimoCadeiras - subtotalNormais)
       : 0;
-  const baseAdicionais = r2(subtotalItens + minimoAplicado);
+  const baseAdicionais = r2(subtotalNormais + minimoAplicado);
   const acrescimoSujidade =
     regras.sujidade.ligado && args.muitoSujo ? r2((baseAdicionais * regras.sujidade.pct) / 100) : 0;
   const faixa = faixaDistancia(args.distanciaKm, regras.distancia);
@@ -322,7 +332,7 @@ export function calcularTotais(args: {
   const antes = r2(baseAdicionais + acrescimoSujidade + acrescimoDistancia);
   const pedido = args.descontoPct ? descontoPorPct(antes, args.descontoPct) : args.desconto;
   const desconto = Math.min(Math.max(r2(pedido), 0), antes);
-  const base = r2(antes - desconto);
+  const base = r2(antes - desconto + subtotalAdicional);
   return {
     subtotalItens,
     minimoAplicado,

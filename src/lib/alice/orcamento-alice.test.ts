@@ -105,3 +105,18 @@ test("simulação 3: comum 3 lugares muito encardido + 4 cadeiras assento+encost
   assert.deepEqual([sofa.preco, cadeiras.preco], [286, 55]);
   assert.deepEqual([t.cond.total, t.cond.pix, t.cond.parcela], [506, 480.7, 101.2]);
 });
+
+test("colchão adicional: preço fixo, fora do desconto; Pix sobre o total", () => {
+  const sofa = precificar({ item: retratil230, quantidade: 1 }, "higienizacao", turbine)!;
+  const colchaoAdic = {
+    ...precificar({ item: colchao, quantidade: 1 }, "higienizacao", turbine)!,
+    preco: 199.9,
+    adicional: true,
+  };
+  const sem = totalizar([sofa, colchaoAdic], null, 5, 5);
+  assert.deepEqual([sem.cond.total, sem.cond.parcela, sem.cond.pix], [509.9, 101.98, 484.41]);
+  // Campanha 15% (ou indicação): só sobre o sofá.
+  const camp = totalizar([sofa, colchaoAdic], { pct: 15, rotulo: "Condição da campanha" }, 5, 5);
+  assert.equal(camp.desconto?.valor, 46.5);
+  assert.deepEqual([camp.cond.total, camp.cond.pix], [463.4, 440.23]);
+});

@@ -36,6 +36,8 @@ export type QuoteItemInput = {
   classe?: Classe | null;
   almofadas_soltas?: boolean;
   muito_encardido?: boolean;
+  /** Incluído depois do fechamento: preço fixo de adicional, fora do desconto. */
+  adicional_pos_fechamento?: boolean;
 };
 
 export type DescontoTipo = "campanha" | "indicacao" | "manual";
@@ -234,9 +236,14 @@ export function computeQuote(
     const editado = referencia !== null && Math.abs(preco - referencia) > 0.004;
     // Classe e acréscimos: o percentual é refeito aqui pelas regras da empresa (não vem da tela).
     const regrasItem = params.regras;
-    const classe = regrasItem?.classe.ligada ? (it.classe ?? "B") : null;
-    const almofadas_soltas = Boolean(regrasItem?.acrescimos.ligado && it.almofadas_soltas);
-    const muito_encardido = Boolean(regrasItem?.acrescimos.ligado && it.muito_encardido);
+    const adicional = Boolean(it.adicional_pos_fechamento);
+    const classe = regrasItem?.classe.ligada && !adicional ? (it.classe ?? "B") : null;
+    const almofadas_soltas = Boolean(
+      regrasItem?.acrescimos.ligado && !adicional && it.almofadas_soltas,
+    );
+    const muito_encardido = Boolean(
+      regrasItem?.acrescimos.ligado && !adicional && it.muito_encardido,
+    );
     const acrescimo_pct = regrasItem
       ? acrescimoDoItem(regrasItem, {
           classe,
@@ -265,6 +272,7 @@ export function computeQuote(
       almofadas_soltas,
       muito_encardido,
       acrescimo_pct,
+      adicional_pos_fechamento: adicional,
     };
   });
 
@@ -287,6 +295,7 @@ export function computeQuote(
           categoria: (it.categoria ?? "outro") as Categoria,
           precoAplicado: it.preco_aplicado,
           quantidade: it.quantidade,
+          adicional: it.adicional_pos_fechamento,
         })),
         regras,
         muitoSujo: Boolean(input.muito_sujo),
@@ -304,7 +313,14 @@ export function computeQuote(
     : Math.min(
         Math.max(
           descontoPct !== null
-            ? round((subtotal * descontoPct) / 100)
+            ? round(
+                ((subtotal -
+                  items
+                    .filter((it) => it.adicional_pos_fechamento)
+                    .reduce((s, it) => s + it.subtotal, 0)) *
+                  descontoPct) /
+                  100,
+              )
             : round(Number(input.desconto) || 0),
           0,
         ),
@@ -494,6 +510,60 @@ export async function saveQuote(
   return { id: quoteId, ...calc };
 }
 
+/** Orçamento salvo (linha do banco + itens) de volta para a entrada de saveQuote. */
+export function quoteInputDoBanco(
+  orig: Record<string, unknown>,
+  items: Array<Record<string, unknown>>,
+): QuoteInput {
+  return {
+    id: (orig["id"] as string | undefined) ?? null,
+    cliente_nome: String(orig["cliente_nome"] ?? ""),
+    cliente_telefone: (orig["cliente_telefone"] as string | null) ?? null,
+    cliente_cep: (orig["cliente_cep"] as string | null) ?? null,
+    cliente_endereco: (orig["cliente_endereco"] as string | null) ?? null,
+    customer_id: (orig["customer_id"] as string | null) ?? null,
+    data_servico: (orig["data_servico"] as string | null) ?? null,
+    observacoes: (orig["observacoes"] as string | null) ?? null,
+    desconto: Number(orig["desconto"] ?? 0),
+    valor_a_vista: orig["valor_a_vista"] === null ? null : Number(orig["valor_a_vista"]),
+    km_ida_volta: Number(orig["km_ida_volta"] ?? 0),
+    custo_produtos: Number(orig["custo_produtos"] ?? 0),
+    custo_mao_obra: Number(orig["custo_mao_obra"] ?? 0),
+    forma_pagamento: (orig["forma_pagamento"] as string | null) ?? null,
+    parcelas: Number(orig["parcelas"] ?? 1),
+    taxa_percentual: Number(orig["taxa_percentual"] ?? 0),
+    preencher_agenda: Boolean(orig["preencher_agenda"] ?? false),
+    crm_lead_id: (orig["crm_lead_id"] as string | null) ?? null,
+    status: (orig["status"] as QuoteInput["status"]) ?? "rascunho",
+    cliente_novo: (orig["cliente_novo"] as boolean | null) ?? null,
+    muito_sujo: Boolean(orig["muito_sujo"] ?? false),
+    distancia_km: orig["distancia_km"] === null ? null : Number(orig["distancia_km"]),
+    distancia_base: (orig["distancia_base"] as string | null) ?? null,
+    desconto_tipo: (orig["desconto_tipo"] as DescontoTipo | null) ?? null,
+    desconto_pct: orig["desconto_pct"] === null ? null : Number(orig["desconto_pct"]),
+    items: items.map((it) => ({
+      tabela_preco_item_id: (it["tabela_preco_item_id"] as string | null) ?? null,
+      nome_snapshot: String(it["nome_snapshot"] ?? ""),
+      tipo_servico: it["tipo_servico"] as TipoServico,
+      preco_tabela: Number(it["preco_tabela"] ?? 0),
+      preco_aplicado: Number(it["preco_aplicado"] ?? 0),
+      motivo_desconto: (it["motivo_desconto"] as string | null) ?? null,
+      quantidade: Number(it["quantidade"] ?? 1),
+      categoria: (it["categoria"] as Categoria | null) ?? null,
+      preco_sugerido: it["preco_sugerido"] === null ? null : Number(it["preco_sugerido"]),
+      desconto_regra_valor: Number(it["desconto_regra_valor"] ?? 0),
+      desconto_regra_texto: (it["desconto_regra_texto"] as string | null) ?? null,
+      item_principal: Boolean(it["item_principal"] ?? false),
+      editado_por: (it["editado_por"] as string | null) ?? null,
+      editado_em: (it["editado_em"] as string | null) ?? null,
+      classe: (it["classe"] as Classe | null) ?? null,
+      almofadas_soltas: Boolean(it["almofadas_soltas"] ?? false),
+      muito_encardido: Boolean(it["muito_encardido"] ?? false),
+      adicional_pos_fechamento: Boolean(it["adicional_pos_fechamento"] ?? false),
+    })),
+  };
+}
+
 export async function duplicateQuote(db: DB, id: string, userId: string | null) {
   const { data: q, error } = await db.from("quotes").select("*").eq("id", id).single();
   if (error) throw error;
@@ -505,53 +575,15 @@ export async function duplicateQuote(db: DB, id: string, userId: string | null) 
   if (itemsErr) throw itemsErr;
 
   const orig = q as unknown as Record<string, unknown>;
+  const base = quoteInputDoBanco(orig, (items ?? []) as unknown as Array<Record<string, unknown>>);
   return saveQuote(
     db,
     {
-      cliente_nome: `${String(orig["cliente_nome"] ?? "")} (cópia)`.slice(0, 120),
-      cliente_telefone: (orig["cliente_telefone"] as string | null) ?? null,
-      cliente_cep: (orig["cliente_cep"] as string | null) ?? null,
-      cliente_endereco: (orig["cliente_endereco"] as string | null) ?? null,
-      customer_id: (orig["customer_id"] as string | null) ?? null,
-      data_servico: (orig["data_servico"] as string | null) ?? null,
-      observacoes: (orig["observacoes"] as string | null) ?? null,
-      desconto: Number(orig["desconto"] ?? 0),
-      valor_a_vista: orig["valor_a_vista"] === null ? null : Number(orig["valor_a_vista"]),
-      km_ida_volta: Number(orig["km_ida_volta"] ?? 0),
-      custo_produtos: Number(orig["custo_produtos"] ?? 0),
-      custo_mao_obra: Number(orig["custo_mao_obra"] ?? 0),
-      forma_pagamento: (orig["forma_pagamento"] as string | null) ?? null,
-      parcelas: Number(orig["parcelas"] ?? 1),
-      taxa_percentual: Number(orig["taxa_percentual"] ?? 0),
-      preencher_agenda: Boolean(orig["preencher_agenda"] ?? false),
-      crm_lead_id: (orig["crm_lead_id"] as string | null) ?? null,
+      ...base,
+      id: null,
+      cliente_nome: `${base.cliente_nome} (cópia)`.slice(0, 120),
       status: "rascunho",
-      cliente_novo: (orig["cliente_novo"] as boolean | null) ?? null,
-      muito_sujo: Boolean(orig["muito_sujo"] ?? false),
-      distancia_km: orig["distancia_km"] === null ? null : Number(orig["distancia_km"]),
-      distancia_base: (orig["distancia_base"] as string | null) ?? null,
-      desconto_tipo: (orig["desconto_tipo"] as DescontoTipo | null) ?? null,
-      desconto_pct: orig["desconto_pct"] === null ? null : Number(orig["desconto_pct"]),
-      items: (items ?? []).map((raw) => {
-        const it = raw as unknown as Record<string, unknown>;
-        return {
-          tabela_preco_item_id: (it["tabela_preco_item_id"] as string | null) ?? null,
-          nome_snapshot: String(it["nome_snapshot"] ?? ""),
-          tipo_servico: it["tipo_servico"] as TipoServico,
-          preco_tabela: Number(it["preco_tabela"] ?? 0),
-          preco_aplicado: Number(it["preco_aplicado"] ?? 0),
-          motivo_desconto: (it["motivo_desconto"] as string | null) ?? null,
-          quantidade: Number(it["quantidade"] ?? 1),
-          categoria: (it["categoria"] as Categoria | null) ?? null,
-          preco_sugerido: it["preco_sugerido"] === null ? null : Number(it["preco_sugerido"]),
-          desconto_regra_valor: Number(it["desconto_regra_valor"] ?? 0),
-          desconto_regra_texto: (it["desconto_regra_texto"] as string | null) ?? null,
-          item_principal: Boolean(it["item_principal"] ?? false),
-          classe: (it["classe"] as Classe | null) ?? null,
-          almofadas_soltas: Boolean(it["almofadas_soltas"] ?? false),
-          muito_encardido: Boolean(it["muito_encardido"] ?? false),
-        };
-      }),
+      items: base.items.map(({ editado_por: _p, editado_em: _e, ...it }) => it),
     },
     userId,
   );

@@ -10,9 +10,12 @@ export type ItemPreco = {
   ativo: boolean;
   ordem: number;
   categoria: Categoria;
+  /** Preço como adicional pós-fechamento (higienização); vazio = não é oferecido. */
+  preco_adicional: number | null;
 };
 
-const SELECT = "id, nome, preco_higienizacao, preco_impermeabilizacao, ativo, ordem, categoria";
+const SELECT =
+  "id, nome, preco_higienizacao, preco_impermeabilizacao, ativo, ordem, categoria, preco_adicional";
 
 export const CATEGORIA_LABEL: Record<Categoria, string> = {
   sofa: "Sofá",
@@ -40,6 +43,7 @@ export type ItemPrecoInput = {
   preco_impermeabilizacao: number | null;
   ativo: boolean;
   categoria?: Categoria;
+  preco_adicional?: number | null;
 };
 
 export async function saveItemPreco(input: ItemPrecoInput, id?: string | null) {

@@ -87,6 +87,9 @@ type Linha = {
   classe: Classe;
   almofadas: boolean;
   encardido: boolean;
+  /** Adicional pós-fechamento: preço fixo de adicional, fora do desconto. */
+  adicional: boolean;
+  preco_adicional: number | null;
   motivo_desconto: string;
   quantidade: number;
   editado_por: string | null;
@@ -237,6 +240,11 @@ function OrcamentoDetalhe() {
           classe: (it.classe ?? "B") as Classe,
           almofadas: Boolean(it.almofadas_soltas),
           encardido: Boolean(it.muito_encardido),
+          adicional: Boolean(it.adicional_pos_fechamento),
+          preco_adicional:
+            it.adicional_pos_fechamento && sugerido !== null
+              ? sugerido
+              : (catalogo?.find((c) => c.id === it.tabela_preco_item_id)?.preco_adicional ?? null),
           desconto: (descontoRegra > 0 && !naRegra
             ? "sim"
             : descontoRegra === 0 && naRegra && !it.item_principal && sugerido !== null
@@ -298,7 +306,10 @@ function OrcamentoDetalhe() {
       almofadasSoltas: l.almofadas,
       muitoEncardido: l.encardido,
     });
-  const tabelaComAcrescimo = (l: Linha) => precoComAcrescimo(l.preco_tabela, acrescimoDe(l));
+  const tabelaComAcrescimo = (l: Linha) =>
+    l.adicional && l.preco_adicional
+      ? l.preco_adicional
+      : precoComAcrescimo(l.preco_tabela, acrescimoDe(l));
 
   // Descontos que o cliente tem (campanha ou indicação), pela mesma regra da Alice.
   const descontosFn = useServerFn(descontosDoCliente);
@@ -323,7 +334,7 @@ function OrcamentoDetalhe() {
           categoria: l.categoria,
           precoTabela: tabelaComAcrescimo(l),
           quantidade: l.quantidade,
-          desconto: l.desconto,
+          desconto: l.adicional ? ("nao" as const) : l.desconto,
         })),
         regras,
         principalKey,
@@ -339,6 +350,7 @@ function OrcamentoDetalhe() {
         linhas: linhas.map((l) => ({
           categoria: l.categoria,
           precoAplicado: l.preco_editado ?? sugeridoDe(l),
+          adicional: l.adicional,
           quantidade: l.quantidade,
         })),
         regras,
@@ -391,6 +403,8 @@ function OrcamentoDetalhe() {
         classe: "B",
         almofadas: false,
         encardido: false,
+        adicional: false,
+        preco_adicional: null,
         motivo_desconto: "",
         quantidade: 1,
         editado_por: null,
@@ -411,6 +425,8 @@ function OrcamentoDetalhe() {
       nome_snapshot: item?.nome ?? "",
       tipo_servico: tipo,
       categoria: item?.categoria ?? "outro",
+      preco_adicional: item?.preco_adicional ?? null,
+      adicional: false,
       preco_tabela: preco,
       preco_editado: null,
       editado_por: null,
@@ -507,6 +523,7 @@ function OrcamentoDetalhe() {
               classe: regras.classe.ligada ? l.classe : null,
               almofadas_soltas: regras.acrescimos.ligado && l.almofadas,
               muito_encardido: regras.acrescimos.ligado && l.encardido,
+              adicional_pos_fechamento: l.adicional,
               quantidade: l.quantidade,
               categoria: l.categoria,
               preco_sugerido: sug ? sug.precoSugerido : l.preco_tabela || null,
@@ -781,7 +798,9 @@ function OrcamentoDetalhe() {
                     </Button>
                   </div>
                 </div>
-                {(regras.classe.ligada || regras.acrescimos.ligado) && l.preco_tabela > 0 ? (
+                {(regras.classe.ligada || regras.acrescimos.ligado) &&
+                l.preco_tabela > 0 &&
+                !l.adicional ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     {regras.classe.ligada ? (
                       <div
@@ -834,6 +853,30 @@ function OrcamentoDetalhe() {
                     ) : null}
                   </div>
                 ) : null}
+                {(() => {
+                  const precoAdic =
+                    l.preco_adicional ??
+                    catalogo?.find((c) => c.id === l.tabela_preco_item_id)?.preco_adicional ??
+                    null;
+                  if (!precoAdic || l.tipo_servico !== "higienizacao") return null;
+                  return (
+                    <label className="mt-2 flex min-h-11 w-fit items-center gap-2 rounded-full border border-border px-3 text-xs sm:min-h-8">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5"
+                        checked={l.adicional}
+                        onChange={(e) =>
+                          atualizar(l.key, {
+                            adicional: e.target.checked,
+                            preco_adicional: precoAdic,
+                            preco_editado: null,
+                          })
+                        }
+                      />
+                      Adicional pós-fechamento ({brl(precoAdic)}, fora do desconto)
+                    </label>
+                  );
+                })()}
                 {regras.descontoAdicional.ligado && l.preco_tabela > 0 ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <button

@@ -177,3 +177,53 @@ test("desconto: campanha pelo % (nunca valor livre) e manual pelo valor", () => 
   const sem = computeQuote(sofaTurbine(), { ...params, regras: turbine });
   assert.equal(sem.regrasAplicadas.desconto_tipo, null);
 });
+
+test("adicional pós-fechamento: sem classe/acréscimos e fora do desconto de campanha", () => {
+  const e = entrada({
+    cliente_novo: null,
+    desconto_tipo: "campanha",
+    desconto_pct: 15,
+    items: [
+      {
+        tabela_preco_item_id: null,
+        nome_snapshot: "Sofá retrátil 2 módulos, de 2,30 a 2,50 m",
+        tipo_servico: "higienizacao",
+        preco_tabela: 310,
+        preco_sugerido: 310,
+        preco_aplicado: 310,
+        motivo_desconto: null,
+        quantidade: 1,
+        categoria: "sofa",
+      },
+      {
+        tabela_preco_item_id: null,
+        nome_snapshot: "Colchão casal",
+        tipo_servico: "higienizacao",
+        preco_tabela: 249.9,
+        preco_sugerido: 199.9,
+        preco_aplicado: 199.9,
+        motivo_desconto: null,
+        quantidade: 1,
+        categoria: "colchao",
+        adicional_pos_fechamento: true,
+        muito_encardido: true,
+        classe: "A",
+      },
+    ],
+  });
+  const r = computeQuote(e, { ...params, regras: turbine });
+  const colchao = r.items[1]!;
+  assert.deepEqual(
+    [
+      colchao.adicional_pos_fechamento,
+      colchao.classe,
+      colchao.muito_encardido,
+      colchao.acrescimo_pct,
+    ],
+    [true, null, false, 0],
+  );
+  assert.equal(colchao.editado_por, null);
+  assert.equal(r.subtotal, 509.9);
+  assert.equal(r.desconto, 46.5);
+  assert.equal(r.total, 463.4);
+});

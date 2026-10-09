@@ -99,6 +99,8 @@ type ItemForm = {
   preco_referencia?: number | null;
   editado_por?: string | null;
   editado_em?: string | null;
+  /** Incluído depois do fechamento (preço de adicional). */
+  adicional?: boolean;
 };
 
 /** Item com valor diferente do sugerido pela tabela/regras. */
@@ -237,7 +239,7 @@ function NovaOS() {
            payment_notes, general_notes, customer_id,
            customer:customer_id ( * ),
            visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status,
-             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em ) )`,
+             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em, adicional_pos_fechamento ) )`,
         )
         .eq("os_number", editar)
         .maybeSingle();
@@ -284,6 +286,7 @@ function NovaOS() {
             preco_tabela: number | null;
             editado_por: string | null;
             editado_em: string | null;
+            adicional_pos_fechamento: boolean;
           }>;
         }>;
       };
@@ -349,6 +352,7 @@ function NovaOS() {
                   : Number(i.unit_price ?? 0),
               editado_por: i.editado_por,
               editado_em: i.editado_em,
+              adicional: Boolean(i.adicional_pos_fechamento),
             })),
         })),
       );
@@ -551,7 +555,7 @@ function NovaOS() {
       const { data: itens } = await supabase
         .from("quote_items")
         .select(
-          "nome_snapshot, tipo_servico, preco_aplicado, quantidade, preco_tabela, preco_sugerido, editado_por, editado_em",
+          "nome_snapshot, tipo_servico, preco_aplicado, quantidade, preco_tabela, preco_sugerido, editado_por, editado_em, adicional_pos_fechamento",
         )
         .eq("quote_id", cotacaoIdParam)
         .order("display_order");
@@ -573,13 +577,14 @@ function NovaOS() {
           preco_sugerido: number | null;
           editado_por: string | null;
           editado_em: string | null;
+          adicional_pos_fechamento: boolean;
         };
         const tabela = Number(it.preco_tabela ?? 0) > 0 ? Number(it.preco_tabela) : null;
         return {
           upholstery_type_id: "",
           description: `${it.nome_snapshot} — ${
             it.tipo_servico === "impermeabilizacao" ? "Impermeabilização" : "Higienização"
-          }`.slice(0, 200),
+          }${it.adicional_pos_fechamento ? " (adicional)" : ""}`.slice(0, 200),
           quantity: String(it.quantidade ?? 1),
           unit_price: Number(it.preco_aplicado ?? 0)
             .toFixed(2)
@@ -589,6 +594,7 @@ function NovaOS() {
           preco_referencia: it.preco_sugerido === null ? tabela : Number(it.preco_sugerido),
           editado_por: it.editado_por,
           editado_em: it.editado_em,
+          adicional: Boolean(it.adicional_pos_fechamento),
         };
       });
 
@@ -896,6 +902,7 @@ function NovaOS() {
         item_group_id: it.item_group_id,
         display_order: idx,
         preco_tabela: it.preco_tabela ?? null,
+        adicional_pos_fechamento: Boolean(it.adicional),
         ...(itemEditado(it)
           ? {
               editado_por: it.editado_por ?? user?.id ?? null,
@@ -1347,6 +1354,7 @@ function NovaOS() {
                           {it.preco_tabela ? (
                             <p className="text-xs text-muted-foreground">
                               Valor da tabela: {brl(it.preco_tabela)}
+                              {it.adicional ? " · adicional pós-fechamento" : ""}
                             </p>
                           ) : null}
                         </div>

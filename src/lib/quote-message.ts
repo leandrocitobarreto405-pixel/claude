@@ -7,12 +7,17 @@ import { TIPO_LABEL, type Quote, type QuoteItem } from "@/lib/quotes";
 type ItemMensagem = Pick<
   QuoteItem,
   "quantidade" | "nome_snapshot" | "tipo_servico" | "subtotal" | "desconto_regra_texto"
->;
+> &
+  Partial<Pick<QuoteItem, "adicional_pos_fechamento">>;
 
 function listaEstofados(items: ItemMensagem[], comPreco: boolean) {
   return items
     .map((it) => {
-      const regra = it.desconto_regra_texto ? ` (${it.desconto_regra_texto})` : "";
+      const regra = it.adicional_pos_fechamento
+        ? " (adicional)"
+        : it.desconto_regra_texto
+          ? ` (${it.desconto_regra_texto})`
+          : "";
       return comPreco
         ? `• ${it.quantidade}x ${it.nome_snapshot} — ${TIPO_LABEL[it.tipo_servico]}${regra}: ${brl(it.subtotal)}`
         : `• ${it.quantidade}x ${it.nome_snapshot}${regra}`;

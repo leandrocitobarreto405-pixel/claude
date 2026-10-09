@@ -4377,6 +4377,7 @@ export type Database = {
       quote_items: {
         Row: {
           acrescimo_pct: number;
+          adicional_pos_fechamento: boolean;
           almofadas_soltas: boolean;
           categoria: string | null;
           classe: string | null;
@@ -4403,6 +4404,7 @@ export type Database = {
         };
         Insert: {
           acrescimo_pct?: number;
+          adicional_pos_fechamento?: boolean;
           almofadas_soltas?: boolean;
           categoria?: string | null;
           classe?: string | null;
@@ -4429,6 +4431,7 @@ export type Database = {
         };
         Update: {
           acrescimo_pct?: number;
+          adicional_pos_fechamento?: boolean;
           almofadas_soltas?: boolean;
           categoria?: string | null;
           classe?: string | null;
@@ -4478,6 +4481,8 @@ export type Database = {
         Row: {
           acrescimo_distancia: number;
           acrescimo_sujidade: number;
+          adicional_aceito: boolean | null;
+          adicional_oferecido_em: string | null;
           cliente_cep: string | null;
           cliente_endereco: string | null;
           cliente_nome: string;
@@ -4531,6 +4536,8 @@ export type Database = {
         Insert: {
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;
+          adicional_aceito?: boolean | null;
+          adicional_oferecido_em?: string | null;
           cliente_cep?: string | null;
           cliente_endereco?: string | null;
           cliente_nome: string;
@@ -4584,6 +4591,8 @@ export type Database = {
         Update: {
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;
+          adicional_aceito?: boolean | null;
+          adicional_oferecido_em?: string | null;
           cliente_cep?: string | null;
           cliente_endereco?: string | null;
           cliente_nome?: string;
@@ -4896,6 +4905,7 @@ export type Database = {
       service_items: {
         Row: {
           active: boolean;
+          adicional_pos_fechamento: boolean;
           created_at: string;
           description: string | null;
           display_order: number;
@@ -4914,6 +4924,7 @@ export type Database = {
         };
         Insert: {
           active?: boolean;
+          adicional_pos_fechamento?: boolean;
           created_at?: string;
           description?: string | null;
           display_order?: number;
@@ -4932,6 +4943,7 @@ export type Database = {
         };
         Update: {
           active?: boolean;
+          adicional_pos_fechamento?: boolean;
           created_at?: string;
           description?: string | null;
           display_order?: number;
@@ -4978,6 +4990,7 @@ export type Database = {
           id: string;
           nome: string;
           ordem: number;
+          preco_adicional: number | null;
           preco_higienizacao: number;
           preco_impermeabilizacao: number | null;
           updated_at: string;
@@ -4990,6 +5003,7 @@ export type Database = {
           id?: string;
           nome: string;
           ordem?: number;
+          preco_adicional?: number | null;
           preco_higienizacao?: number;
           preco_impermeabilizacao?: number | null;
           updated_at?: string;
@@ -5002,6 +5016,7 @@ export type Database = {
           id?: string;
           nome?: string;
           ordem?: number;
+          preco_adicional?: number | null;
           preco_higienizacao?: number;
           preco_impermeabilizacao?: number | null;
           updated_at?: string;

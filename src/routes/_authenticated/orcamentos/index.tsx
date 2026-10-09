@@ -74,7 +74,7 @@ function Orcamentos() {
         </Button>
       </div>
 
-      <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
         <div className="card-surface p-4">
           <p className="text-xs text-muted-foreground">Orçamentos no mês</p>
           <p className="mt-1 text-2xl font-semibold">{resumo.quantidade}</p>
@@ -94,6 +94,17 @@ function Orcamentos() {
         <div className="card-surface p-4">
           <p className="text-xs text-muted-foreground">Taxa de conversão</p>
           <p className="mt-1 text-2xl font-semibold">{pct(resumo.conversao, 0)}</p>
+        </div>
+        <div className="card-surface p-4">
+          <p className="text-xs text-muted-foreground">Adicional pós-fechamento</p>
+          <p className="mt-1 text-2xl font-semibold">
+            {resumo.adicionalAceitos} de {resumo.adicionalOferecidos}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {resumo.adicionalOferecidos
+              ? `aceitos (${pct((resumo.adicionalAceitos / resumo.adicionalOferecidos) * 100, 0)})`
+              : "nenhuma oferta no mês"}
+          </p>
         </div>
       </section>
 

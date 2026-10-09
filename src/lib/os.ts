@@ -44,6 +44,7 @@ export type ServiceItemInput = {
   preco_tabela?: number | null;
   editado_por?: string | null;
   editado_em?: string | null;
+  adicional_pos_fechamento?: boolean;
 };
 
 export type VisitInput = {
@@ -193,6 +194,9 @@ async function saveVisitItems(visitId: string, items: ServiceItemInput[]) {
       ...(i.preco_tabela !== undefined ? { preco_tabela: i.preco_tabela } : {}),
       ...(i.editado_por !== undefined ? { editado_por: i.editado_por } : {}),
       ...(i.editado_em !== undefined ? { editado_em: i.editado_em } : {}),
+      ...(i.adicional_pos_fechamento !== undefined
+        ? { adicional_pos_fechamento: i.adicional_pos_fechamento }
+        : {}),
     };
     const existente = i.id && (atuais ?? []).some((a) => a.id === i.id) ? i.id : null;
     if (existente) {
