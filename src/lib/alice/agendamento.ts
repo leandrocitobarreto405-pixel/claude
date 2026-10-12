@@ -308,3 +308,62 @@ export function avisoAgendamento(a: {
     push: `${a.cliente} · ${quando} · ${reais(a.valores.total)}`,
   };
 }
+
+// ---------------------------------------------------------------- chegada e remarcação
+const horaCurta = (min: number) => {
+  const h = Math.floor(min / 60) % 24;
+  const m = min % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+};
+
+/** Janela de chegada do técnico: 1 hora a partir do horário-base ("09:00" → "entre 9h e 10h"). */
+export function janelaChegada(hora: string): string {
+  const [h, m] = hora.split(":").map(Number);
+  const inicio = (h ?? 0) * 60 + (m ?? 0);
+  return `entre ${horaCurta(inicio)} e ${horaCurta(inicio + 60)}`;
+}
+
+/** Minutos entre dois horários locais (data AAAA-MM-DD e hora HH:MM, mesmo fuso). */
+function minutosEntre(
+  de: { data: string; hora: string },
+  ate: { data: string; hora: string },
+): number {
+  const t = (x: { data: string; hora: string }) => Date.parse(`${x.data}T${x.hora}:00Z`);
+  return (t(ate) - t(de)) / 60_000;
+}
+
+/** A Alice só remarca com mais de 24 h até o serviço (horário de Brasília dos dois lados). */
+export function podeRemarcar(
+  servico: { data: string; hora: string },
+  agora: { data: string; hora: string },
+): boolean {
+  return minutosEntre(agora, servico) > 24 * 60;
+}
+
+/** Assinatura do pedido de orçamento: o mesmo pedido em 30 minutos não vira outro orçamento. */
+export function assinaturaOrcamento(o: {
+  servico: string;
+  desconto: string | null;
+  itens: Array<{
+    itemId: string | null;
+    quantidade: number;
+    preco: number;
+    classe?: string | null;
+    almofadasSoltas?: boolean;
+    muitoEncardido?: boolean;
+  }>;
+}): string {
+  const itens = o.itens
+    .map((i) =>
+      [
+        i.itemId ?? "-",
+        i.quantidade,
+        Math.round(i.preco * 100),
+        i.classe ?? "-",
+        i.almofadasSoltas ? 1 : 0,
+        i.muitoEncardido ? 1 : 0,
+      ].join(":"),
+    )
+    .sort();
+  return [o.servico, o.desconto ?? "-", ...itens].join("|");
+}

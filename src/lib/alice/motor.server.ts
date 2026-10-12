@@ -61,8 +61,13 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
   const { data: reservada, error } = await db.rpc("ia_reservar_tarefa", { _tarefa_id: tarefaId });
   const tarefa = (reservada as Tarefa | null) ?? null;
   if (error) throw error;
-  if (!tarefa?.id)
+  if (!tarefa?.id) {
+    // A reserva pode ter adiado a tarefa (outra resposta da mesma conversa em andamento):
+    // ela volta para a fila no novo horário.
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
     return { situacao: "ignorada", detalhe: "tarefa não está pronta ou já foi feita" };
+  }
 
   try {
     const r =
@@ -727,6 +732,8 @@ async function conversar(
     passagem: null,
     saida: [],
     agendouFollowup: false,
+    notas: [],
+    midias: new Set(),
   };
   const cliente = new Anthropic();
   // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
@@ -843,25 +850,92 @@ async function conversar(
     return { situacao: "concluida", detalhe: "sem resposta: passada para humano" };
   }
 
+  // O que já mudou no sistema (ex.: remarcação) vai para a equipe de qualquer jeito.
+  await enviarNotas(d, ctx, true);
+
   // Mensagem nova do cliente chegou enquanto a Alice pensava: a próxima tarefa responde tudo junto.
-  const [{ data: novaTarefa }, { data: agora }, { data: passagem }] = await Promise.all([
+  const desde = new Date(inicio).toISOString();
+  const [
+    { data: outras },
+    { data: agora },
+    { data: passagem },
+    { data: ultima },
+    { data: humanas },
+  ] = await Promise.all([
     db
       .from("ia_tarefas")
       .select("id")
       .eq("conversa_id", d.conversa.id)
       .eq("tipo", "responder")
-      .eq("situacao", "pendente")
-      .maybeSingle(),
+      .in("situacao", ["pendente", "processando"])
+      .neq("id", tarefa.id)
+      .limit(1),
     db.from("conversas").select("status").eq("id", d.conversa.id).single(),
     db
       .from("ia_tarefas")
-      .select("id")
+      .select("id, motivo")
       .eq("conversa_id", d.conversa.id)
       .eq("tipo", "passar_para_humano")
       .eq("situacao", "pendente")
       .maybeSingle(),
+    db
+      .from("whatsapp_messages")
+      .select("message_timestamp")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("conversa_id", d.conversa.id)
+      .eq("direction", "Recebida")
+      .eq("privada", false)
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("conversa_id", d.conversa.id)
+      .eq("direction", "Enviada")
+      .eq("remetente_tipo", "user")
+      .eq("privada", false)
+      .gte("created_at", desde)
+      .limit(1),
   ]);
-  if (novaTarefa) {
+  // Outra resposta da conversa na fila, ou mensagem do cliente mais nova que a última que a Alice
+  // leu (nesse caso garante a tarefa que vai responder tudo junto).
+  const mensagemNova = Boolean(
+    ultima &&
+    (!hist.ultimaDoCliente ||
+      new Date(ultima.message_timestamp).getTime() > hist.ultimaDoCliente.getTime()),
+  );
+  const clienteEscreveu = Boolean(outras?.length) || mensagemNova;
+  const humanoEscreveu =
+    passagem?.motivo === "atendente humano assumiu" || Boolean(humanas?.length);
+  const equipeAssumiu = agora?.status !== "pending" || Boolean(passagem);
+  // OS criada/remarcada nesta resposta: a confirmação sai junto (a próxima resposta continua dali),
+  // a não ser que alguém da equipe tenha escrito — aí só a equipe é avisada.
+  const comOs = Boolean(ctx.osAcao) && !ctx.passagem;
+  if (comOs && humanoEscreveu) {
+    const os = ctx.osAcao!;
+    await enviarNota(
+      d,
+      `🤖 OS ${os.os_number} ${os.tipo === "criada" ? "criada" : "remarcada"} pela ${cfg.nome} para ${os.quando} — o cliente NÃO recebeu a confirmação (a equipe assumiu a conversa enquanto ela respondia).`,
+    );
+    await db
+      .from("ia_execucoes")
+      .insert({ ...registro, erro: "descartada: humano assumiu (OS avisada à equipe)" });
+    return { situacao: "ignorada", detalhe: "humano assumiu: OS avisada à equipe por nota" };
+  }
+  if (!comOs && clienteEscreveu) {
+    if (!outras?.length && !equipeAssumiu) {
+      await db.from("ia_tarefas").insert({
+        empresa_id: tarefa.empresa_id,
+        conversa_id: d.conversa.id,
+        tipo: "responder",
+        executar_apos: new Date(Date.now() + 3000).toISOString(),
+        motivo: "mensagem nova durante a resposta",
+      });
+      const { enfileirarPendentes } = await import("./fila.server");
+      await enfileirarPendentes(db);
+    }
     await db
       .from("ia_execucoes")
       .insert({ ...registro, erro: "descartada: cliente mandou mensagem nova" });
@@ -871,7 +945,7 @@ async function conversar(
     };
   }
   // Equipe assumiu enquanto a Alice pensava (a passagem ainda não mudou a situação no Chatwoot).
-  if (agora?.status !== "pending" || passagem) {
+  if (!comOs && equipeAssumiu) {
     await db.from("ia_execucoes").insert({ ...registro, erro: "descartada: humano assumiu" });
     return { situacao: "ignorada", detalhe: "humano assumiu durante o processamento" };
   }
@@ -905,6 +979,7 @@ async function conversar(
     ...registro,
     mensagens_enviadas: [...enviadas, ...retidos.map((t) => `[não enviado: texto interno] ${t}`)],
   });
+  await enviarNotas(d, ctx, false);
 
   if (d.conversa.crm_lead_id) {
     await db
@@ -958,6 +1033,7 @@ async function conversar(
       await db.from("crm_followups").insert({
         empresa_id: tarefa.empresa_id,
         crm_lead_id: d.conversa.crm_lead_id,
+        conversa_id: d.conversa.id,
         scheduled_at: quando,
         responsavel: "equipe",
         notes: `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`,
@@ -976,6 +1052,23 @@ async function conversar(
 }
 
 // ---------------------------------------------------------------- envio
+/** Nota privada no Chatwoot (só a equipe vê). */
+async function enviarNota(d: DadosConversa, texto: string) {
+  if (!d.tokenRobo) return;
+  await enviarMensagem(
+    d.conta,
+    d.tokenRobo,
+    d.conversa.chatwoot_conversation_id,
+    texto,
+    true,
+  ).catch((e) => console.error("Alice: nota para a equipe não enviada", e));
+}
+
+/** Notas das ferramentas (avisar_equipe, remarcação): sempre=true sai mesmo sem resposta. */
+async function enviarNotas(d: DadosConversa, ctx: ContextoFerramenta, sempre: boolean) {
+  for (const n of ctx.notas ?? []) if (n.sempre === sempre) await enviarNota(d, n.texto);
+}
+
 /** Tempo para a mensagem enviada voltar pelo webhook e entrar no histórico. */
 const ESPERA_WEBHOOK_MS = 2500;
 

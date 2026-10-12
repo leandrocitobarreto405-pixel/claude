@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  assinaturaOrcamento,
   avisoAgendamento,
   casarVendedora,
   ecoAutomatico,
   escolherOrigem,
   escolherVendedora,
+  janelaChegada,
+  podeRemarcar,
   proximoNumeroOS,
   valoresDaReserva,
   visitasDosOrcamentos,
@@ -225,4 +228,51 @@ test("aviso à equipe tem cliente, dia, horário e valor", () => {
   assert.match(a.mensagem, /3x/);
   assert.match(a.mensagem, /OS 1625/);
   assert.match(a.push, /Ana Souza · qui 08\/10 às 10:00 · R\$\s?1\.469,70/);
+});
+
+test("janela de chegada: 1 hora a partir do horário-base", () => {
+  assert.equal(janelaChegada("09:00"), "entre 9h e 10h");
+  assert.equal(janelaChegada("10:00"), "entre 10h e 11h");
+  assert.equal(janelaChegada("14:00"), "entre 14h e 15h");
+  assert.equal(janelaChegada("13:30"), "entre 13h30 e 14h30");
+});
+
+test("remarcação pela Alice só com mais de 24 h até o serviço", () => {
+  const servico = { data: "2026-10-15", hora: "09:00" };
+  assert.equal(podeRemarcar(servico, { data: "2026-10-12", hora: "10:00" }), true, "3 dias antes");
+  assert.equal(podeRemarcar(servico, { data: "2026-10-14", hora: "08:59" }), true, "24 h e 1 min");
+  assert.equal(podeRemarcar(servico, { data: "2026-10-14", hora: "09:00" }), false, "24 h exatas");
+  assert.equal(
+    podeRemarcar(servico, { data: "2026-10-14", hora: "15:00" }),
+    false,
+    "véspera à tarde",
+  );
+  assert.equal(podeRemarcar(servico, { data: "2026-10-16", hora: "10:00" }), false, "já passou");
+});
+
+test("orçamento igual tem a mesma assinatura (não duplica); diferente muda", () => {
+  const base = {
+    servico: "higienizacao",
+    desconto: null,
+    itens: [
+      { itemId: "sofa", quantidade: 1, preco: 308, classe: "B" },
+      { itemId: "cadeira", quantidade: 4, preco: 55 },
+    ],
+  };
+  const mesmaOrdemTrocada = { ...base, itens: [...base.itens].reverse() };
+  assert.equal(assinaturaOrcamento(base), assinaturaOrcamento(mesmaOrdemTrocada));
+  assert.notEqual(
+    assinaturaOrcamento(base),
+    assinaturaOrcamento({ ...base, desconto: "campanha" }),
+    "com desconto é outro",
+  );
+  assert.notEqual(
+    assinaturaOrcamento(base),
+    assinaturaOrcamento({ ...base, itens: [{ itemId: "sofa", quantidade: 2, preco: 308 }] }),
+    "quantidade diferente é outro",
+  );
+  assert.notEqual(
+    assinaturaOrcamento(base),
+    assinaturaOrcamento({ ...base, servico: "impermeabilizacao" }),
+  );
 });

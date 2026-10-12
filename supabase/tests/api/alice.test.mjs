@@ -154,7 +154,7 @@ const nomesFerramentas = (primeira.body.tools ?? []).map((t) => t.name).join(","
 check(
   "ferramentas da fase 1 (vídeo cadastrado, agenda desligada)",
   nomesFerramentas ===
-    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,registrar_indicacao,adicional_pos_fechamento,enviar_mensagem,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,transferir_para_humano",
+    "atualizar_lead,consultar_cliente,consultar_cep,consultar_tabela_precos,criar_orcamento,registrar_indicacao,adicional_pos_fechamento,enviar_mensagem,enviar_video,agendar_followup,registrar_motivo_perda,atualizar_etapa,avisar_equipe,transferir_para_humano",
   nomesFerramentas,
 );
 check(
@@ -762,6 +762,74 @@ check(
          JOIN visits v ON v.work_order_id = w.id
         WHERE w.empresa_id = '${EMPRESA}' AND v.scheduled_date = '${diaAg}' AND v.scheduled_time = '14:00'`) ===
     "Maria|Crédito|3|360.00",
+);
+
+// OS criada e o cliente escreve enquanto a Alice ainda responde: a confirmação sai mesmo assim
+// e a mensagem nova é respondida depois (uma resposta por vez na conversa).
+sql(`INSERT INTO agenda_horarios_base (empresa_id, tecnico_id, dia_semana, hora)
+     VALUES ('${EMPRESA}', '${tecnico}', extract(dow FROM '${diaAg}'::date)::int, '15:00'),
+            ('${EMPRESA}', '${tecnico}', extract(dow FROM '${diaAg}'::date)::int, '16:00')`);
+const visitasAs = (hora) =>
+  sql(`SELECT count(*) FROM visits WHERE empresa_id = '${EMPRESA}' AND scheduled_date = '${diaAg}'
+         AND scheduled_time = '${hora}'`);
+const emAndamento = (n) => /pendente|processando/.test(situacao(n));
+await webhook(conversaNova(18));
+await webhook(msg(9181, 18, "Oi"));
+await ate(() => situacao(18) === "responder:concluida");
+orcamento(18);
+await webhook(msg(9182, 18, `Pode ser ${diaAg} 15:00, pix [demorar]`));
+await ate(() => visitasAs("15:00") === "1", 20000);
+await webhook(msg(9183, 18, "Obrigada!"));
+await esperar(500);
+await ate(() => !emAndamento(18), 40000);
+const fala18 = (await doChatwoot(968)).map(textoDe);
+check(
+  "OS + mensagem nova durante a resposta: confirmação enviada",
+  fala18.some((t) => t?.includes("Serviço agendado")),
+  fala18,
+);
+check(
+  "OS + mensagem nova: a mensagem nova também é respondida, uma resposta por vez",
+  situacao(18) === "responder:concluida,responder:concluida,responder:concluida" &&
+    sql(`SELECT count(*) FROM ia_execucoes e JOIN conversas c ON c.id = e.conversa_id
+          WHERE c.chatwoot_conversation_id = 968 AND e.erro IS NULL`) === "3",
+  situacao(18),
+);
+check(
+  "OS + mensagem nova: a segunda resposta só começa depois que a primeira termina",
+  sql(`SELECT (array_agg(t.iniciada_em ORDER BY t.created_at))[3] >= (array_agg(t.concluida_em ORDER BY t.created_at))[2]
+         FROM ia_tarefas t JOIN conversas c ON c.id = t.conversa_id WHERE c.chatwoot_conversation_id = 968`) ===
+    "t",
+);
+
+// OS criada e alguém da equipe escreve enquanto a Alice responde: o cliente não recebe a
+// confirmação; a equipe recebe uma nota com a OS.
+await webhook(conversaNova(19));
+await webhook(msg(9191, 19, "Oi"));
+await ate(() => situacao(19) === "responder:concluida");
+orcamento(19);
+await webhook(msg(9192, 19, `Pode ser ${diaAg} 16:00, pix [demorar]`));
+await ate(() => visitasAs("16:00") === "1", 20000);
+await webhook(
+  msg(9193, 19, "Oi! Aqui é a Maria, vou conferir.", {
+    message_type: "outgoing",
+    sender: { id: 7, name: "Maria Germano", email: "atendimento@turbine.test", type: "user" },
+  }),
+);
+await esperar(500);
+await ate(() => !emAndamento(19), 40000);
+const posts19 = await doChatwoot(969);
+check(
+  "OS + equipe escreveu: o cliente não recebe a confirmação",
+  !posts19.some((c) => !c.body?.private && textoDe(c)?.includes("Serviço agendado")),
+  posts19.map(textoDe),
+);
+check(
+  "OS + equipe escreveu: nota para a equipe com a OS",
+  posts19.some(
+    (c) => c.body?.private && /OS \d+ criada .*NÃO recebeu a confirmação/.test(textoDe(c) ?? ""),
+  ),
+  posts19.map(textoDe),
 );
 sql(`UPDATE ia_configuracoes SET agenda_automatica = false WHERE empresa_id = '${EMPRESA}'`);
 

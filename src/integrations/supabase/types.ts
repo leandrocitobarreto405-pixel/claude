@@ -986,6 +986,7 @@ export type Database = {
           completed_at: string | null;
           created_at: string;
           crm_lead_id: string;
+          conversa_id: string | null;
           empresa_id: string;
           ia_tarefa_id: string | null;
           id: string;
@@ -1001,6 +1002,7 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           crm_lead_id: string;
+          conversa_id?: string | null;
           empresa_id?: string;
           ia_tarefa_id?: string | null;
           id?: string;
@@ -1016,6 +1018,7 @@ export type Database = {
           completed_at?: string | null;
           created_at?: string;
           crm_lead_id?: string;
+          conversa_id?: string | null;
           empresa_id?: string;
           ia_tarefa_id?: string | null;
           id?: string;

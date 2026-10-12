@@ -21,6 +21,7 @@ import {
 
 import { rotulosAcrescimo } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
+import { assinaturaOrcamento } from "./agendamento";
 import {
   descontoPermitido,
   lerMarketing,
@@ -69,7 +70,42 @@ export type ContextoFerramenta = {
   agendouFollowup: boolean;
   /** OS reservada nesta resposta (reservar_horario → gerar_ordem_servico). */
   osReservada?: { id: string; os_number: string };
+  /**
+   * OS criada ou remarcada nesta resposta: a confirmação ao cliente sai mesmo se a resposta for
+   * refeita (mensagem nova do cliente), e só não sai se alguém da equipe escreveu na conversa.
+   */
+  osAcao?: { tipo: "criada" | "remarcada"; os_number: string; quando: string };
+  /**
+   * Notas privadas para a equipe (no Chatwoot). sempre = sai mesmo se a resposta for descartada
+   * (registra algo que já mudou no sistema, como uma remarcação).
+   */
+  notas?: Array<{ texto: string; sempre: boolean }>;
+  /** Mídias já postas na resposta (foto do técnico, PDF da OS): não vão duas vezes. */
+  midias?: Set<string>;
 };
+
+/** Nota privada para a equipe (enviada pelo processador depois da resposta). */
+export function notaParaEquipe(ctx: ContextoFerramenta, texto: string, sempre = false) {
+  (ctx.notas ??= []).push({ texto, sempre });
+}
+
+/** A mídia já foi mandada nesta conversa (por uma resposta anterior ou por esta)? */
+export async function midiaJaEnviada(ctx: ContextoFerramenta, nome: string): Promise<boolean> {
+  if (ctx.midias?.has(nome)) return true;
+  const { count } = await ctx.admin
+    .from("ia_execucoes")
+    .select("id", { count: "exact", head: true })
+    .eq("empresa_id", ctx.empresaId)
+    .eq("conversa_id", ctx.conversaId)
+    .is("erro", null)
+    .contains("mensagens_enviadas", [`[mídia] ${nome}`]);
+  return (count ?? 0) > 0;
+}
+
+/** Põe a mídia na resposta, uma vez só. */
+export function marcarMidia(ctx: ContextoFerramenta, nome: string) {
+  (ctx.midias ??= new Set()).add(nome);
+}
 
 // ---------------------------------------------------------------- entradas
 const SERVICO = z.enum(["higienizacao", "impermeabilizacao"]);
@@ -121,6 +157,10 @@ const RegistrarIndicacao = z.object({
 const EnviarMidia = z.object({ servico: SERVICO });
 const EnviarMensagem = z.object({ texto: z.string().trim().min(1).max(4000) });
 const DadosTecnico = z.object({ tecnico: z.string().trim().max(80).optional() });
+const AvisarEquipe = z.object({
+  motivo: z.string().trim().min(2).max(80),
+  resumo: z.string().trim().min(2).max(2000),
+});
 const ConsultarAgenda = z.object({
   data_inicial: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dias: z.number().int().min(1).max(14),
@@ -460,6 +500,24 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
       },
     });
     lista.push({
+      name: "remarcar_horario",
+      description:
+        "Muda o dia/horário de um serviço já confirmado: move a mesma OS (mesmo número) para o horário livre que o cliente aceitou, atualiza a agenda e avisa a equipe. Só vale para a OS que você criou nesta conversa e com mais de 24 h até o serviço; senão a ferramenta recusa e diz o que fazer. Antes, consulte a agenda (consultar_agenda) e ofereça horários livres; use só com o 'ok' do cliente.",
+      input_schema: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Novo dia, AAAA-MM-DD." },
+          hora: { type: "string", description: "Novo horário, HH:MM (como em consultar_agenda)." },
+          tecnico: {
+            type: "string",
+            description: "Técnico do novo horário (como em consultar_agenda).",
+          },
+        },
+        required: ["data", "hora"],
+        additionalProperties: false,
+      },
+    });
+    lista.push({
       name: "gerar_ordem_servico",
       description:
         "Gera o documento da OS reservada nesta conversa e manda ao cliente em PDF, junto da sua próxima mensagem. Use logo depois de reservar_horario, antes da confirmação final.",
@@ -523,6 +581,24 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
       },
     },
     {
+      name: "avisar_equipe",
+      description:
+        "Deixa uma nota interna para a equipe (o cliente não vê) SEM transferir: você continua atendendo. Use para sinalizar uma oportunidade (ex.: upsell para a vendedora) ou algo que a equipe precisa saber.",
+      input_schema: {
+        type: "object",
+        properties: {
+          motivo: { type: "string", description: "Ex.: 'upsell'." },
+          resumo: {
+            type: "string",
+            description:
+              "O que a equipe precisa saber: cliente, OS, o que foi fechado e a oportunidade.",
+          },
+        },
+        required: ["motivo", "resumo"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "transferir_para_humano",
       description:
         "Passa a conversa para a equipe (motivo obrigatório) e pausa você nesta conversa. Escreva ao cliente a frase de aviso (se as instruções pedirem) no texto da resposta.",
@@ -532,12 +608,12 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
           motivo: {
             type: "string",
             description:
-              "Ex.: 'pediu desconto', 'combo', 'item fora da tabela', 'upsell', 'áudio validade'.",
+              "Ex.: 'desconto', 'encaixe na agenda', 'remarcação', 'combo', 'item fora da tabela', 'áudio validade'.",
           },
           resumo: {
             type: "string",
             description:
-              "Para a equipe: o que o cliente quer, estofados, valores passados, dores e próximo passo.",
+              "Para a equipe: o que o cliente quer, estofados, valores passados, dores e próximo passo. Encaixe na agenda: nº da OS (se houver), horário atual, horário que o cliente quer, bairro e o que você já ofereceu. Desconto: itens, valor do orçamento, forma de pagamento preferida e o que o cliente disse.",
           },
           problema_pos_venda: {
             type: "boolean",
@@ -770,6 +846,57 @@ async function consultarTabela(ctx: ContextoFerramenta, input: z.infer<typeof Co
     : texto;
 }
 
+/** Orçamento do lead criado nos últimos 30 minutos com o mesmo pedido (itens, preços e desconto). */
+async function orcamentoIgualRecente(
+  ctx: ContextoFerramenta,
+  leadId: string,
+  assinatura: string,
+): Promise<{ id: string } | null> {
+  const desde = new Date(ctx.agora.getTime() - 30 * 60_000).toISOString();
+  const { data } = await ctx.admin
+    .from("quotes")
+    .select(
+      "id, desconto_tipo, quote_items(tabela_preco_item_id, tipo_servico, quantidade, preco_aplicado, classe, almofadas_soltas, muito_encardido)",
+    )
+    .eq("empresa_id", ctx.empresaId)
+    .eq("crm_lead_id", leadId)
+    .neq("status", "recusado")
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  type Linha = {
+    id: string;
+    desconto_tipo: string | null;
+    quote_items: Array<{
+      tabela_preco_item_id: string | null;
+      tipo_servico: string;
+      quantidade: number;
+      preco_aplicado: number;
+      classe: string | null;
+      almofadas_soltas: boolean;
+      muito_encardido: boolean;
+    }>;
+  };
+  for (const q of (data ?? []) as unknown as Linha[]) {
+    const itens = q.quote_items ?? [];
+    if (!itens.length) continue;
+    const a = assinaturaOrcamento({
+      servico: itens[0]!.tipo_servico,
+      desconto: q.desconto_tipo,
+      itens: itens.map((i) => ({
+        itemId: i.tabela_preco_item_id,
+        quantidade: Number(i.quantidade),
+        preco: Number(i.preco_aplicado),
+        classe: i.classe,
+        almofadasSoltas: i.almofadas_soltas,
+        muitoEncardido: i.muito_encardido,
+      })),
+    });
+    if (a === assinatura) return { id: q.id };
+  }
+  return null;
+}
+
 async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof CriarOrcamento>) {
   const itens = await tabela(ctx);
   const porNome = new Map(itens.map((i) => [normalizarNome(i.nome), i]));
@@ -831,46 +958,64 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     endereco = r?.endereco ?? null;
   }
 
+  // O mesmo pedido de novo em 30 minutos (resposta refeita, cliente repetiu) não vira outro
+  // orçamento: devolve o que já existe.
+  const assinatura = assinaturaOrcamento({
+    servico: input.servico,
+    desconto: desconto ? (input.desconto ?? null) : null,
+    itens: escolhidos.map((e) => ({
+      itemId: e.item.id,
+      quantidade: e.quantidade,
+      preco: e.preco,
+      classe: e.classe,
+      almofadasSoltas: e.almofadasSoltas,
+      muitoEncardido: e.muitoEncardido,
+    })),
+  });
+  const existente = lead ? await orcamentoIgualRecente(ctx, lead.id, assinatura) : null;
+
   const { saveQuote } = await import("@/lib/quotes.server");
-  const salvo = await saveQuote(
-    ctx.admin,
-    {
-      cliente_nome: lead?.lead_name?.trim() || "Cliente do WhatsApp",
-      cliente_telefone: lead?.phone ?? null,
-      cliente_cep: cep,
-      cliente_endereco: endereco,
-      customer_id: lead?.customer_id ?? null,
-      data_servico: null,
-      observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct}% (${reais(desconto.valor)}).` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
-      desconto: desconto?.valor ?? 0,
-      desconto_tipo: desconto ? (input.desconto ?? null) : null,
-      desconto_pct: desconto?.pct ?? null,
-      valor_a_vista: cond.pix,
-      km_ida_volta: km,
-      custo_produtos: 0,
-      custo_mao_obra: 0,
-      forma_pagamento: null,
-      parcelas: cond.parcelas,
-      taxa_percentual: 0,
-      crm_lead_id: lead?.id ?? null,
-      status: "enviado",
-      items: escolhidos.map((e) => ({
-        tabela_preco_item_id: e.item.id,
-        nome_snapshot: e.item.nome,
-        tipo_servico: input.servico,
-        preco_tabela: e.precoTabela,
-        preco_sugerido: e.preco,
-        preco_aplicado: e.preco,
-        motivo_desconto: null,
-        quantidade: e.quantidade,
-        classe: e.classe,
-        almofadas_soltas: e.almofadasSoltas,
-        muito_encardido: e.muitoEncardido,
-      })),
-    },
-    null,
-    ctx.empresaId,
-  );
+  const salvo =
+    existente ??
+    (await saveQuote(
+      ctx.admin,
+      {
+        cliente_nome: lead?.lead_name?.trim() || "Cliente do WhatsApp",
+        cliente_telefone: lead?.phone ?? null,
+        cliente_cep: cep,
+        cliente_endereco: endereco,
+        customer_id: lead?.customer_id ?? null,
+        data_servico: null,
+        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct}% (${reais(desconto.valor)}).` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
+        desconto: desconto?.valor ?? 0,
+        desconto_tipo: desconto ? (input.desconto ?? null) : null,
+        desconto_pct: desconto?.pct ?? null,
+        valor_a_vista: cond.pix,
+        km_ida_volta: km,
+        custo_produtos: 0,
+        custo_mao_obra: 0,
+        forma_pagamento: null,
+        parcelas: cond.parcelas,
+        taxa_percentual: 0,
+        crm_lead_id: lead?.id ?? null,
+        status: "enviado",
+        items: escolhidos.map((e) => ({
+          tabela_preco_item_id: e.item.id,
+          nome_snapshot: e.item.nome,
+          tipo_servico: input.servico,
+          preco_tabela: e.precoTabela,
+          preco_sugerido: e.preco,
+          preco_aplicado: e.preco,
+          motivo_desconto: null,
+          quantidade: e.quantidade,
+          classe: e.classe,
+          almofadas_soltas: e.almofadasSoltas,
+          muito_encardido: e.muitoEncardido,
+        })),
+      },
+      null,
+      ctx.empresaId,
+    ));
 
   const linhas = escolhidos.map(
     (e) =>
@@ -879,7 +1024,9 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   return {
     erro: false,
     texto: [
-      `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — nº ${String(salvo.id).slice(0, 8)}. Use exatamente estes valores:`,
+      existente
+        ? `Este mesmo orçamento já existe (criado há pouco) — nº ${String(salvo.id).slice(0, 8)}; não criei outro. Use exatamente estes valores:`
+        : `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — nº ${String(salvo.id).slice(0, 8)}. Use exatamente estes valores:`,
       `Serviço: ${input.servico === "higienizacao" ? "Higienização" : "Impermeabilização"}`,
       ...linhas,
       ...(desconto
@@ -954,10 +1101,18 @@ async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof
       texto: `Técnico: ${achado.name}. Ainda não há foto cadastrada: diga só o nome, sem prometer foto.`,
     };
   }
+  const nomeFoto = `${achado.name}.${achado.foto_path.split(".").pop() || "jpg"}`;
+  if (await midiaJaEnviada(ctx, nomeFoto)) {
+    return {
+      erro: false,
+      texto: `Técnico: ${achado.name}. A foto dele já foi enviada nesta conversa: não vai de novo. Use só o nome.`,
+    };
+  }
+  marcarMidia(ctx, nomeFoto);
   ctx.saida.push({
     tipo: "anexo",
     caminho: achado.foto_path,
-    nome: `${achado.name}.${achado.foto_path.split(".").pop() || "jpg"}`,
+    nome: nomeFoto,
     pasta: "equipe-fotos",
     semEspera: true,
   });
@@ -1076,6 +1231,7 @@ async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof Ag
   const { error: errFollow } = await ctx.admin.from("crm_followups").insert({
     empresa_id: ctx.empresaId,
     crm_lead_id: ctx.leadId,
+    conversa_id: ctx.conversaId,
     scheduled_at: quando.toISOString(),
     responsavel: daAlice ? "alice" : "equipe",
     ia_tarefa_id: tarefaId,
@@ -1221,6 +1377,7 @@ async function registrarPerda(ctx: ContextoFerramenta, input: z.infer<typeof Reg
       await ctx.admin.from("crm_followups").insert({
         empresa_id: ctx.empresaId,
         crm_lead_id: lead.id,
+        conversa_id: ctx.conversaId,
         scheduled_at: quando.toISOString(),
         responsavel: "equipe",
         notes: `🤖 ${ctx.cfg.nome}: cliente adiou${input.detalhe ? ` (${input.detalhe})` : ""}. Retomar o contato.`,
@@ -1306,6 +1463,12 @@ export async function executarFerramenta(
         const p = ReservarHorario.safeParse(entrada);
         return p.success ? r(await reservarHorario(ctx, p.data)) : invalida(p.error);
       }
+      case "remarcar_horario": {
+        if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
+        const { RemarcarHorario, remarcarHorario } = await import("./agendamento.server");
+        const p = RemarcarHorario.safeParse(entrada);
+        return p.success ? r(await remarcarHorario(ctx, p.data)) : invalida(p.error);
+      }
       case "gerar_ordem_servico": {
         if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
         const { gerarOrdemServico } = await import("./agendamento.server");
@@ -1329,6 +1492,19 @@ export async function executarFerramenta(
       case "atualizar_etapa": {
         const p = AtualizarEtapa.safeParse(entrada);
         return p.success ? r(await atualizarEtapa(ctx, p.data)) : invalida(p.error);
+      }
+      case "avisar_equipe": {
+        const p = AvisarEquipe.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        notaParaEquipe(
+          ctx,
+          `🤖 ${ctx.cfg.nome} avisa a equipe (a conversa continua com ela).\nMotivo: ${p.data.motivo}\nResumo: ${p.data.resumo}`,
+        );
+        return {
+          conteudo:
+            "Nota interna registrada para a equipe (o cliente não vê). Continue o atendimento normalmente; não comente com o cliente.",
+          erro: false,
+        };
       }
       case "transferir_para_humano": {
         const p = Transferir.safeParse(entrada);

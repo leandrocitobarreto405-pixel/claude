@@ -36,7 +36,7 @@ function servidor(porta, tratar) {
         // Notificação no celular (corpo cifrado): guarda os bytes para o teste abrir.
         bruto64: tipo === "application/octet-stream" ? bruto.toString("base64") : null,
       });
-      const r = tratar(req, json);
+      const r = await tratar(req, json);
       res.writeHead(r.status ?? 200, { "Content-Type": r.tipo ?? "application/json" });
       res.end(r.bruto ?? JSON.stringify(r.corpo ?? {}));
     })
@@ -103,9 +103,11 @@ servidor(PORTA_CLAUDE, (req, body) => {
       return resposta([ferramenta("toolu_os", "gerar_ordem_servico", {})], "tool_use");
     }
     if (conteudo.includes("vai em PDF") || conteudo.includes("documento da OS não saiu")) {
-      return resposta([texto("Serviço agendado! ✅\nEstá tudo certinho?")], "end_turn");
+      const r = resposta([texto("Serviço agendado! ✅\nEstá tudo certinho?")], "end_turn");
+      // "[demorar]": a resposta demora (o teste manda outra mensagem enquanto isso).
+      return tudo.includes("[demorar]") ? new Promise((ok) => setTimeout(() => ok(r), 4000)) : r;
     }
-    if (conteudo.includes("não está mais livre") || conteudo.includes("já tem a OS")) {
+    if (conteudo.includes("não está livre") || conteudo.includes("já tem a OS")) {
       return resposta(
         [texto("Esse horário acabou de ser preenchido. Posso ver outro?")],
         "end_turn",

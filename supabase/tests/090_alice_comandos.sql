@@ -110,11 +110,19 @@ SELECT pg_temp.msg(12, 4, 'outgoing', '#desligar', 'user', true, 'open');
 SELECT pg_temp.ok((pg_temp.contato(4)).ia_desligada, 'desligar com a Alice desligada');
 UPDATE public.ia_configuracoes SET ativo = true;
 
--- 8. Cliente antigo (cadastrado em Clientes): a Alice não responde; passa para a equipe com nota.
+-- 8. Só cadastro em Clientes não torna cliente antigo (a Alice responde). Com serviço realizado
+--    (comprador na base), a Alice não responde; passa para a equipe com nota.
 INSERT INTO public.customers (empresa_id, full_name, phone)
 VALUES ('11111111-1111-1111-1111-111111111111', 'Karina', '(11) 97000-0005');
-SELECT pg_temp.msg(13, 5, 'incoming', 'Oi! Quero marcar de novo');
+SELECT pg_temp.msg(113, 5, 'incoming', 'Oi! Quero um orçamento');
 SELECT pg_temp.ok((pg_temp.contato(5)).is_existing_customer, 'contato ligado ao cliente');
+SELECT pg_temp.ok(pg_temp.tarefas(5) = 'responder:pendente', 'só cadastro: Alice responde: ' || pg_temp.tarefas(5));
+DELETE FROM public.ia_tarefas WHERE conversa_id = (SELECT id FROM public.conversas WHERE chatwoot_conversation_id = 5);
+INSERT INTO public.mkt_contatos (empresa_id, nome, normalized_phone, tipo, ultimo_servico_em)
+VALUES ('11111111-1111-1111-1111-111111111111', 'Karina', '5511970000005', 'comprador', '2025-06-01')
+ON CONFLICT (empresa_id, private.telefone_chave(normalized_phone))
+DO UPDATE SET tipo = 'comprador', ultimo_servico_em = EXCLUDED.ultimo_servico_em;
+SELECT pg_temp.msg(13, 5, 'incoming', 'Oi! Quero marcar de novo');
 SELECT pg_temp.ok(pg_temp.tarefas(5) = 'passar_para_humano:pendente', 'cliente antigo: ' || pg_temp.tarefas(5));
 SELECT pg_temp.ok(pg_temp.nota(5) LIKE '%Cliente antigo%', 'nota do cliente antigo');
 
@@ -129,7 +137,7 @@ SELECT pg_temp.ok(pg_temp.tarefas(5) LIKE '%responder:pendente%', 'devolvida: Al
 -- 10. Lead com serviço feito também é cliente antigo; com a opção desligada a Alice responde.
 SELECT pg_temp.msg(16, 6, 'incoming', 'Oi');
 UPDATE public.ia_tarefas SET situacao = 'concluida' WHERE situacao = 'pendente';
-UPDATE public.crm_leads SET realizado_em = now()
+UPDATE public.crm_leads SET realizado_em = '2026-09-01 12:00-03'
  WHERE id = (SELECT crm_lead_id FROM public.conversas WHERE chatwoot_conversation_id = 6);
 SELECT pg_temp.msg(17, 6, 'incoming', 'Oi de novo');
 SELECT pg_temp.ok(pg_temp.tarefas(6) = 'passar_para_humano:pendente,responder:concluida',

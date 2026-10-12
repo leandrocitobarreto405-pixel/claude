@@ -14,6 +14,8 @@ import {
   ecoAutomatico,
   escolherOrigem,
   escolherVendedora,
+  janelaChegada,
+  podeRemarcar,
   proximoNumeroOS,
   textoPagamento,
   valoresDaReserva,
@@ -23,7 +25,12 @@ import {
   type ServicoOrcamento,
   type Vendedora,
 } from "./agendamento";
-import type { ContextoFerramenta } from "./ferramentas.server";
+import {
+  marcarMidia,
+  midiaJaEnviada,
+  notaParaEquipe,
+  type ContextoFerramenta,
+} from "./ferramentas.server";
 
 type Ctx = ContextoFerramenta;
 
@@ -105,6 +112,47 @@ export const ReservarHorario = z.object({
   observacoes: z.string().trim().max(500).optional(),
 });
 export type ReservarHorarioInput = z.infer<typeof ReservarHorario>;
+
+export const RemarcarHorario = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  hora: z.string().regex(/^\d{2}:\d{2}$/),
+  tecnico: z.string().trim().max(80).optional(),
+});
+export type RemarcarHorarioInput = z.infer<typeof RemarcarHorario>;
+
+/** Encaixe: o cliente quer um horário ocupado (texto para a Alice, igual na reserva e na remarcação). */
+const REGRA_ENCAIXE =
+  'Ofereça uma vez os horários livres mais próximos (consultar_agenda). Se o cliente quiser mesmo esse horário (ou nenhum servir), não recuse nem prometa: diga que vai ver com a equipe se consegue um encaixe e transfira com o motivo "encaixe na agenda" (no resumo: OS se houver, horário atual, horário que ele quer, bairro e o que você já ofereceu).';
+
+/** O horário (dia, hora e técnico) ainda está livre? Mesma regra de consultar_agenda. */
+async function horarioLivre(
+  ctx: Ctx,
+  data: string,
+  hora: string,
+  tecnico: string | undefined,
+): Promise<{ tecnicoId: string; tecnico: string } | string> {
+  const agenda = await carregarAgenda(ctx, data, data);
+  if ("erro" in agenda) return `Não foi possível conferir a agenda: ${agenda.erro}`;
+  const { agendaLivre } = await import("./agenda");
+  const [dia] = agendaLivre({
+    inicio: data,
+    dias: 1,
+    base: agenda.horarios,
+    ocupacoes: agenda.ocupacoes,
+    periodo: "qualquer",
+    agora: agoraSP(),
+    cliente: null,
+  });
+  const livres = (dia?.livres ?? []).filter((h) => h.hora === hora);
+  const pedido = tecnico ? norm(tecnico) : "";
+  const slot = pedido
+    ? (livres.find((h) => norm(h.tecnico) === pedido) ??
+      livres.find((h) => norm(h.tecnico).includes(pedido) || pedido.includes(norm(h.tecnico))))
+    : livres[0];
+  if (!slot)
+    return `O horário ${diaCurto(data)} às ${hora} não está livre${tecnico ? ` para ${tecnico}` : ""}. ${REGRA_ENCAIXE}`;
+  return { tecnicoId: slot.tecnicoId, tecnico: slot.tecnico };
+}
 
 type Resultado = { erro: boolean; texto: string };
 
@@ -484,35 +532,12 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
   if (ja)
     return {
       erro: true,
-      texto: `Este cliente já tem a OS ${ja.os_number} reservada nesta conversa. Para mudar data, horário ou itens, transfira para a equipe (motivo "reagendar").`,
+      texto: `Este cliente já tem a OS ${ja.os_number} reservada nesta conversa: não crie outra. Para mudar o dia ou o horário, use remarcar_horario; para mudar itens, transfira para a equipe.`,
     };
 
   // 1. Horário ainda livre (mesma regra de consultar_agenda).
-  const agenda = await carregarAgenda(ctx, input.data, input.data);
-  if ("erro" in agenda)
-    return { erro: true, texto: `Não foi possível conferir a agenda: ${agenda.erro}` };
-  const { agendaLivre } = await import("./agenda");
-  const [dia] = agendaLivre({
-    inicio: input.data,
-    dias: 1,
-    base: agenda.horarios,
-    ocupacoes: agenda.ocupacoes,
-    periodo: "qualquer",
-    agora: agoraSP(),
-    cliente: null,
-  });
-  const livres = (dia?.livres ?? []).filter((h) => h.hora === input.hora);
-  const pedido = input.tecnico ? norm(input.tecnico) : "";
-  const slot = pedido
-    ? (livres.find((h) => norm(h.tecnico) === pedido) ??
-      livres.find((h) => norm(h.tecnico).includes(pedido) || pedido.includes(norm(h.tecnico))))
-    : livres[0];
-  if (!slot) {
-    return {
-      erro: true,
-      texto: `O horário ${diaCurto(input.data)} às ${input.hora} não está mais livre${input.tecnico ? ` para ${input.tecnico}` : ""}. Consulte a agenda de novo (consultar_agenda) e ofereça outro horário ao cliente.`,
-    };
-  }
+  const slot = await horarioLivre(ctx, input.data, input.hora, input.tecnico);
+  if (typeof slot === "string") return { erro: true, texto: slot };
 
   // 2. Orçamento(s) aceito(s) → atendimentos e valores.
   const orcamentos = await orcamentosDaReserva(ctx, input.orcamentos);
@@ -767,11 +792,16 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
     mensagem: aviso.mensagem,
   });
 
+  ctx.osAcao = {
+    tipo: "criada",
+    os_number: wo.os_number,
+    quando: `${diaCurto(input.data)}, chegada ${janelaChegada(input.hora)}`,
+  };
   return {
     erro: false,
     texto: [
       `Horário reservado. OS ${wo.os_number} criada no sistema.`,
-      `Dia: ${diaCurto(input.data)} · chegada a partir de ${input.hora}`,
+      `Dia: ${diaCurto(input.data)} · chegada ${janelaChegada(input.hora)} (diga assim ao cliente)`,
       `Técnico: ${slot.tecnico}`,
       `Endereço: ${buildFullAddress(endereco)}`,
       `Valor: ${textoPagamento(valores)}, pago após o serviço`,
@@ -835,6 +865,12 @@ export async function gerarOrdemServico(ctx: Ctx): Promise<Resultado> {
       erro: true,
       texto: "Ainda não há OS reservada nesta conversa. Use reservar_horario antes.",
     };
+  const nome = `OS ${os.os_number}.pdf`;
+  if (await midiaJaEnviada(ctx, nome))
+    return {
+      erro: false,
+      texto: `A OS ${os.os_number} em PDF já foi enviada nesta conversa: não vai de novo. Siga com a confirmação.`,
+    };
   try {
     const r = await executarNaEmpresa(
       { db: ctx.admin, empresaId: ctx.empresaId, userId: "" },
@@ -851,10 +887,11 @@ export async function gerarOrdemServico(ctx: Ctx): Promise<Resultado> {
     const { extractGoogleId } = await import("@/lib/google-docs.server");
     const docId = extractGoogleId(r.url ?? "");
     if (!docId) throw new Error("documento sem endereço do Google");
+    marcarMidia(ctx, nome);
     ctx.saida.push({
       tipo: "anexo",
       caminho: docId,
-      nome: `OS ${os.os_number}.pdf`,
+      nome,
       googleDoc: true,
       semEspera: true,
     });
@@ -876,4 +913,114 @@ export async function gerarOrdemServico(ctx: Ctx): Promise<Resultado> {
       texto: `O agendamento está feito (OS ${os.os_number}), mas o documento da OS não saiu agora. Faça a confirmação normalmente e diga que a equipe manda a OS em seguida.`,
     };
   }
+}
+
+// ---------------------------------------------------------------- remarcar
+/**
+ * Remarca a OS que a própria Alice criou nesta conversa, com mais de 24 h até o serviço: move os
+ * mesmos atendimentos (dia, hora e técnico), atualiza o Google Agenda e avisa a equipe.
+ */
+export async function remarcarHorario(ctx: Ctx, input: RemarcarHorarioInput): Promise<Resultado> {
+  const transferir =
+    'Explique com gentileza que vai pedir para a equipe ajustar e transfira com o motivo "remarcação".';
+  const os = await osDaConversa(ctx);
+  if (!os)
+    return {
+      erro: true,
+      texto: `Não há OS criada por você nesta conversa: você não pode remarcar. ${transferir}`,
+    };
+  const { data: lista } = await ctx.admin
+    .from("visits")
+    .select("id, scheduled_date, scheduled_time, status, technician_id")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("work_order_id", os.id)
+    .neq("status", "Cancelado");
+  const visitas = (lista ?? []).filter((v) => v.scheduled_date && v.scheduled_time);
+  if (!visitas.length || visitas.some((v) => v.status === "Concluído"))
+    return {
+      erro: true,
+      texto: `A OS ${os.os_number} não tem atendimento a remarcar. ${transferir}`,
+    };
+  const quando = (v: (typeof visitas)[number]) => ({
+    data: String(v.scheduled_date),
+    hora: String(v.scheduled_time).slice(0, 5),
+  });
+  const atual = quando(visitas[0]!);
+  if (visitas.some((v) => quando(v).data !== atual.data || quando(v).hora !== atual.hora))
+    return {
+      erro: true,
+      texto: `Os atendimentos da OS ${os.os_number} estão em horários diferentes. ${transferir}`,
+    };
+  if (!podeRemarcar(atual, agoraSP()))
+    return {
+      erro: true,
+      texto: `Faltam menos de 24 h para o serviço (${diaCurto(atual.data)} às ${atual.hora}): você não remarca. ${transferir}`,
+    };
+  if (input.data === atual.data && input.hora === atual.hora)
+    return {
+      erro: true,
+      texto: `A OS ${os.os_number} já está em ${diaCurto(atual.data)}, chegada ${janelaChegada(atual.hora)}.`,
+    };
+
+  const slot = await horarioLivre(ctx, input.data, input.hora, input.tecnico);
+  if (typeof slot === "string") return { erro: true, texto: slot };
+
+  const { error } = await ctx.admin
+    .from("visits")
+    .update({
+      scheduled_date: input.data,
+      scheduled_time: input.hora,
+      technician_id: slot.tecnicoId,
+    })
+    .eq("empresa_id", ctx.empresaId)
+    .in(
+      "id",
+      visitas.map((v) => v.id),
+    );
+  if (error) throw error;
+
+  const de = `${diaCurto(atual.data)} às ${atual.hora}`;
+  const para = `${diaCurto(input.data)} às ${input.hora}`;
+  await ctx.admin.from("work_order_history").insert({
+    empresa_id: ctx.empresaId,
+    work_order_id: os.id,
+    event_type: "Edição",
+    description: `${ctx.cfg.nome} (IA) remarcou a OS ${os.os_number} de ${de} para ${para} (técnico ${slot.tecnico}), a pedido do cliente.`,
+    details: {
+      conversa_id: ctx.conversaId,
+      remarcacao: {
+        de: atual,
+        para: { data: input.data, hora: input.hora },
+        tecnico: slot.tecnico,
+      },
+    } as never,
+  });
+
+  await executarNaEmpresa({ db: ctx.admin, empresaId: ctx.empresaId, userId: "" }, async () => {
+    const { syncEvent } = await import("@/lib/calendar.server");
+    for (const v of visitas) await syncEvent("visit", v.id);
+  }).catch((e) => console.error("Alice: agenda Google não sincronizada na remarcação", e));
+
+  const texto = `🤖 ${ctx.cfg.nome} remarcou a OS ${os.os_number} de ${de} para ${para} (técnico ${slot.tecnico}). O documento da OS ainda mostra a data antiga: gere de novo no app se precisar.`;
+  notaParaEquipe(ctx, texto, true);
+  await ctx.admin.from("mkt_avisos").insert({
+    empresa_id: ctx.empresaId,
+    tipo: "agendamento_alice",
+    titulo: `${ctx.cfg.nome} remarcou a OS ${os.os_number}`,
+    mensagem: `De ${de} para ${para} (técnico ${slot.tecnico}).`,
+  });
+  ctx.osAcao = {
+    tipo: "remarcada",
+    os_number: os.os_number,
+    quando: `${diaCurto(input.data)}, chegada ${janelaChegada(input.hora)}`,
+  };
+  return {
+    erro: false,
+    texto: [
+      `Remarcado. A OS ${os.os_number} (mesmo número) agora é:`,
+      `Dia: ${diaCurto(input.data)} · chegada ${janelaChegada(input.hora)} (diga assim ao cliente)`,
+      `Técnico: ${slot.tecnico}`,
+      "Repita a confirmação final inteira com a data nova. Não reenvie a OS em PDF; se o técnico mudou, use enviar_dados_tecnico.",
+    ].join("\n"),
+  };
 }
