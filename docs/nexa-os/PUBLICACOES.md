@@ -118,6 +118,16 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   (linho, veludo, bouclé), oferta de colchão depois do fechamento e Etapa 3 "considerei de 2,30 a
   2,50 m" (seção 4 atual em `docs/nexa-os/alice/turbine-secao4-0910.md`; md5 do roteiro
   `d623b742…`).
+- "Alice: uma resposta por vez e cliente antigo" (`20261102120000`, aplicada em 12/10): troca
+  `ia_reservar_tarefa` (não começa uma resposta da Alice enquanto outra da mesma conversa roda;
+  a segunda é adiada e volta para a fila), cria `private.ia_cliente_antigo(contato, desde)`
+  (cliente antigo = serviço realizado: atendimento concluído, lead realizado ou comprador na
+  base; a função antiga continua existindo) e troca o gatilho `ia_agendar_por_mensagem` para
+  usá-la. Acrescenta `crm_followups.conversa_id` e o gatilho `trg_crm_followup_unico_por_conversa`
+  (um follow-up pendente por conversa; os anteriores da mesma conversa, e os da Alice sem conversa
+  do mesmo lead, são cancelados; follow-up feito à mão no CRM não é tocado). Para voltar a regra
+  antiga do cliente antigo sem apagar nada: recriar `ia_agendar_por_mensagem` como em
+  `20261027120000_alice_saudacao_automatica.sql`.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -177,6 +187,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 08/10/2026 01:30 | Termo por modelo       | `478ed9c`        | `6783fec`                |
 | 08/10/2026 23:55 | Classe e acréscimos    | `460cd55`        | `3b7a39b`                |
 | 09/10/2026 00:40 | Colchão adicional      | `f9fd9d4`        | `4348cb9`                |
+| 12/10/2026 08:35 | Alice: fila e remarcar | `3a187c2`        | `57b03a0`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
