@@ -672,7 +672,7 @@ check("agendamento: sem outra origem → WhatsApp (criada)", origem15 === "Whats
 check(
   "agendamento: atendimento no dia, hora e técnico",
   sql(`SELECT v.scheduled_date || ' ' || v.scheduled_time || '|' || t.name || '|' || v.status || '|' ||
-              (SELECT string_agg(i.description || ' x' || i.quantity || ' ' || i.unit_price, ',')
+              (SELECT string_agg(i.description || ' x' || trim_scale(i.quantity) || ' ' || i.unit_price, ',')
                  FROM service_items i WHERE i.visit_id = v.id)
          FROM visits v JOIN work_orders w ON w.id = v.work_order_id JOIN technicians t ON t.id = v.technician_id
         WHERE w.os_number = '${num15}' AND w.empresa_id = '${EMPRESA}'`) ===

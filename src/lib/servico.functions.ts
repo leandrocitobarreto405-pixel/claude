@@ -9,6 +9,8 @@ import { chaveTelefone } from "@/lib/avisos";
 export type ItemServico = {
   descricao: string;
   quantidade: number;
+  /** "m2": tapete cobrado por m². */
+  unidade: "un" | "m2";
   unitario: number;
   subtotal: number;
 };
@@ -44,7 +46,7 @@ export const extrasDoServicoFn = createServerFn({ method: "GET" })
     const [{ data: itens }, leads] = await Promise.all([
       db
         .from("service_items")
-        .select("description, quantity, unit_price, subtotal, active, display_order")
+        .select("description, quantity, unit_price, subtotal, active, display_order, unidade")
         .eq("empresa_id", context.empresaId)
         .eq("visit_id", data.visitId)
         .eq("active", true)
@@ -91,6 +93,7 @@ export const extrasDoServicoFn = createServerFn({ method: "GET" })
       itens: (itens ?? []).map((i) => ({
         descricao: i.description ?? "Item",
         quantidade: Number(i.quantity ?? 1),
+        unidade: i.unidade === "m2" ? ("m2" as const) : ("un" as const),
         unitario: Number(i.unit_price ?? 0),
         subtotal: Number(i.subtotal ?? 0),
       })),

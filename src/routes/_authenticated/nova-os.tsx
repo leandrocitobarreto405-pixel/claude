@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { normalizarQuantidade, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { useContextoTenant } from "@/lib/tenant";
 import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
@@ -101,7 +102,14 @@ type ItemForm = {
   editado_em?: string | null;
   /** Incluído depois do fechamento (preço de adicional). */
   adicional?: boolean;
+  /** "m2": quantidade em m² (tapete, aceita vírgula); padrão: peças. */
+  unidade?: "un" | "m2";
 };
+
+/** Quantidade digitada (m² aceita vírgula). */
+function qtdItem(i: ItemForm): number {
+  return i.unidade === "m2" ? parseNumberBR(i.quantity) : Number(i.quantity) || 0;
+}
 
 /** Item com valor diferente do sugerido pela tabela/regras. */
 function itemEditado(it: ItemForm): boolean {
@@ -148,7 +156,7 @@ function novaVisita(tecnicoId = ""): VisitForm {
 }
 
 function subtotalItem(i: ItemForm) {
-  return Math.max(0, Number(i.quantity) || 0) * Math.max(0, parseNumberBR(i.unit_price));
+  return Math.max(0, qtdItem(i)) * Math.max(0, parseNumberBR(i.unit_price));
 }
 
 function totalVisita(v: VisitForm) {
@@ -239,7 +247,7 @@ function NovaOS() {
            payment_notes, general_notes, customer_id,
            customer:customer_id ( * ),
            visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status,
-             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em, adicional_pos_fechamento ) )`,
+             service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em, adicional_pos_fechamento, unidade ) )`,
         )
         .eq("os_number", editar)
         .maybeSingle();
@@ -287,6 +295,7 @@ function NovaOS() {
             editado_por: string | null;
             editado_em: string | null;
             adicional_pos_fechamento: boolean;
+            unidade: string;
           }>;
         }>;
       };
@@ -339,7 +348,8 @@ function NovaOS() {
               id: i.id,
               upholstery_type_id: i.upholstery_type_id ?? "",
               description: i.description ?? "",
-              quantity: String(i.quantity ?? 1),
+              quantity: String(i.quantity ?? 1).replace(".", ","),
+              unidade: i.unidade === "m2" ? ("m2" as const) : ("un" as const),
               unit_price: Number(i.unit_price ?? 0)
                 .toFixed(2)
                 .replace(".", ","),
@@ -555,7 +565,7 @@ function NovaOS() {
       const { data: itens } = await supabase
         .from("quote_items")
         .select(
-          "nome_snapshot, tipo_servico, preco_aplicado, quantidade, preco_tabela, preco_sugerido, editado_por, editado_em, adicional_pos_fechamento",
+          "nome_snapshot, tipo_servico, preco_aplicado, quantidade, preco_tabela, preco_sugerido, editado_por, editado_em, adicional_pos_fechamento, categoria",
         )
         .eq("quote_id", cotacaoIdParam)
         .order("display_order");
@@ -578,14 +588,16 @@ function NovaOS() {
           editado_por: string | null;
           editado_em: string | null;
           adicional_pos_fechamento: boolean;
+          categoria: string | null;
         };
         const tabela = Number(it.preco_tabela ?? 0) > 0 ? Number(it.preco_tabela) : null;
         return {
           upholstery_type_id: "",
-          description: `${it.nome_snapshot} — ${
-            it.tipo_servico === "impermeabilizacao" ? "Impermeabilização" : "Higienização"
-          }${it.adicional_pos_fechamento ? " (adicional)" : ""}`.slice(0, 200),
-          quantity: String(it.quantidade ?? 1),
+          description: `${it.nome_snapshot} — ${rotuloServico(it.tipo_servico, it.categoria)}${
+            it.adicional_pos_fechamento ? " (adicional)" : ""
+          }`.slice(0, 200),
+          quantity: String(it.quantidade ?? 1).replace(".", ","),
+          unidade: unidadeDaCategoria(it.categoria),
           unit_price: Number(it.preco_aplicado ?? 0)
             .toFixed(2)
             .replace(".", ","),
@@ -643,7 +655,7 @@ function NovaOS() {
     service_name: servicos?.find((s) => s.id === v.service_type_id)?.name ?? null,
     amount: visitTotal(
       v.items.map((it) => ({
-        quantity: Math.max(1, Number(it.quantity) || 1),
+        quantity: normalizarQuantidade(qtdItem(it), it.unidade ?? "un"),
         unit_price: parseNumberBR(it.unit_price),
       })),
     ),
@@ -833,7 +845,7 @@ function NovaOS() {
           toast.error(`Informe o item ${j + 1} do atendimento ${i + 1}.`);
           return;
         }
-        if ((Number(it.quantity) || 0) < 1) {
+        if (it.unidade === "m2" ? qtdItem(it) <= 0 : qtdItem(it) < 1) {
           toast.error(`Quantidade inválida no item ${j + 1} do atendimento ${i + 1}.`);
           return;
         }
@@ -897,7 +909,8 @@ function NovaOS() {
         id: it.id ?? null,
         upholstery_type_id: it.upholstery_type_id || null,
         description: it.description.trim() || null,
-        quantity: Math.max(1, Number(it.quantity) || 1),
+        quantity: normalizarQuantidade(qtdItem(it), it.unidade ?? "un"),
+        unidade: it.unidade ?? "un",
         unit_price: parseNumberBR(it.unit_price),
         item_group_id: it.item_group_id,
         display_order: idx,
@@ -1326,13 +1339,16 @@ function NovaOS() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Quantidade</Label>
+                          <Label>{it.unidade === "m2" ? "Área (m²)" : "Quantidade"}</Label>
                           <Input
-                            inputMode="numeric"
+                            inputMode={it.unidade === "m2" ? "decimal" : "numeric"}
                             value={it.quantity}
                             onChange={(e) =>
                               atualizarItem(i, j, {
-                                quantity: e.target.value.replace(/[^\d]/g, ""),
+                                quantity: e.target.value.replace(
+                                  it.unidade === "m2" ? /[^\d,]/g : /[^\d]/g,
+                                  "",
+                                ),
                               })
                             }
                           />

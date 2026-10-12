@@ -5,7 +5,10 @@
  * Pix). Funções puras: valem na tela, no servidor e nos testes.
  */
 
-export type Categoria = "sofa" | "colchao" | "cadeira" | "outro";
+import { categoriaDeLimpeza } from "./unidade";
+
+/** tapete (por m²) e persiana: limpeza, fora das regras de item adicional. */
+export type Categoria = "sofa" | "colchao" | "cadeira" | "outro" | "tapete" | "persiana";
 /** Classe do estofado: A tem acréscimo; B (padrão) e C ficam no preço da tabela. */
 export type Classe = "A" | "B" | "C";
 export type Arredondamento = "dezena_5" | "noventa";
@@ -189,6 +192,7 @@ export function sugerirPrecos(
   }
   const comDesconto = (l: LinhaRegra) =>
     l.precoTabela > 0 &&
+    !categoriaDeLimpeza(l.categoria) &&
     (l.desconto === "sim" ||
       ((l.desconto ?? "auto") === "auto" && da.categorias.includes(l.categoria)));
   const validas = linhas.filter((l) => l.precoTabela > 0 && l.quantidade > 0);
@@ -203,6 +207,8 @@ export function sugerirPrecos(
   const unidades = new Map<string, number[]>();
   if (principal) unidades.set(principal.key, [ordem++]);
   for (const l of validas) {
+    // Tapete (m²) e persiana não entram na contagem de itens do desconto.
+    if (categoriaDeLimpeza(l.categoria)) continue;
     const qtd = Math.max(1, Math.round(l.quantidade));
     const ja = unidades.get(l.key) ?? [];
     while (ja.length < qtd) ja.push(ordem++);
@@ -313,7 +319,7 @@ export function calcularTotais(args: {
 }): Totais {
   const { regras } = args;
   const soma = (ls: LinhaValor[]) =>
-    r2(ls.reduce((s, l) => s + l.precoAplicado * Math.max(1, l.quantidade), 0));
+    r2(ls.reduce((s, l) => s + l.precoAplicado * (l.quantidade > 0 ? l.quantidade : 1), 0));
   const normais = args.linhas.filter((l) => !l.adicional);
   const subtotalItens = soma(args.linhas);
   // Adicional pós-fechamento entra pelo preço fixo: sem sujidade/distância e sem desconto.

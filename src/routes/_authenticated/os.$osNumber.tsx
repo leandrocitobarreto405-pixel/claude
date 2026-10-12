@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -86,7 +87,7 @@ const SELECT = `
     rescheduled_to_visit_id, original_scheduled_date, reschedule_reason,
     service_type:service_type_id ( name ), upholstery_type:upholstery_type_id ( name ),
     technician:technician_id ( name ),
-    service_items ( id, description, quantity, unit_price, subtotal, display_order, active,
+    service_items ( id, description, quantity, unit_price, subtotal, display_order, active, unidade,
       upholstery_type:upholstery_type_id ( name ) ) ),
   payments ( id, work_order_id, visit_id, payment_date, payment_channel, payment_type, installments,
     gross_amount, applied_rate, payment_fee_amount, net_amount, payment_status, notes, is_active,
@@ -97,6 +98,7 @@ type Item = {
   id: string;
   description: string | null;
   quantity: number;
+  unidade?: string | null;
   unit_price: number;
   subtotal: number;
   display_order: number;
@@ -608,7 +610,11 @@ function OsDetalhe() {
                                 <td className="px-3 py-2">
                                   {i.description || i.upholstery_type?.name || "—"}
                                 </td>
-                                <td className="px-3 py-2">{i.quantity}</td>
+                                <td className="px-3 py-2">
+                                  {i.unidade === "m2"
+                                    ? textoQuantidade(Number(i.quantity), "m2")
+                                    : i.quantity}
+                                </td>
                                 <td className="px-3 py-2">{brl(Number(i.unit_price ?? 0))}</td>
                                 <td className="px-3 py-2">{brl(Number(i.subtotal ?? 0))}</td>
                               </tr>

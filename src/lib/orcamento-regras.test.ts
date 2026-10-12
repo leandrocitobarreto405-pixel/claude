@@ -161,3 +161,38 @@ test("arredondamento ,90", () => {
   );
   assert.ok(v.pix >= 220);
 });
+
+test("tapete e persiana ficam fora do desconto do item adicional (nem à mão)", () => {
+  const regras = regrasDaLinha({
+    desconto_adicional_ligado: true,
+    desconto_adicional_pct: 40,
+    desconto_categorias: ["sofa", "colchao", "tapete", "persiana"],
+  });
+  assert.deepEqual(regras.descontoAdicional.categorias, ["sofa", "colchao"]);
+  const s = sugerirPrecos(
+    [
+      { key: "sofa", categoria: "sofa", precoTabela: 300, quantidade: 1 },
+      { key: "tap", categoria: "tapete", precoTabela: 62.4, quantidade: 3.68 },
+      { key: "per", categoria: "persiana", precoTabela: 150, quantidade: 2, desconto: "sim" },
+      { key: "col", categoria: "colchao", precoTabela: 250, quantidade: 1 },
+    ],
+    regras,
+  );
+  assert.equal(s.get("tap")!.descontoValor, 0);
+  assert.equal(s.get("per")!.descontoValor, 0);
+  assert.equal(s.get("per")!.precoSugerido, 150);
+  // O colchão continua sendo o 2º item (tapete e persiana não contam na ordem).
+  assert.equal(s.get("col")!.descontoTexto, "2º item: -40%");
+});
+
+test("tapete por m²: 3,68 m² x R$ 62,40 = R$ 229,63 no total", () => {
+  const t = calcularTotais({
+    linhas: [{ categoria: "tapete", precoAplicado: 62.4, quantidade: 3.68 }],
+    regras: REGRAS_DESLIGADAS,
+    muitoSujo: false,
+    distanciaKm: null,
+    desconto: 0,
+    clienteNovo: false,
+  });
+  assert.equal(t.subtotalItens, 229.63);
+});

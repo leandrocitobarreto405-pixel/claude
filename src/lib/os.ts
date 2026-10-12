@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { textoQuantidade } from "@/lib/unidade";
 import { brl, buildFullAddress, dateBR, timeBR, todayISO, weekdayPT } from "@/lib/format";
 import { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/data";
 import { effectiveVisitValue } from "@/lib/visit-value";
@@ -45,6 +46,8 @@ export type ServiceItemInput = {
   editado_por?: string | null;
   editado_em?: string | null;
   adicional_pos_fechamento?: boolean;
+  /** "m2": quantidade em m² (tapete); padrão: peças. */
+  unidade?: "un" | "m2";
 };
 
 export type VisitInput = {
@@ -155,11 +158,13 @@ function visitLegacyFields(v: VisitInput) {
   const ativos = v.items.filter((i) => i.quantity > 0);
   return {
     visit_value: visitTotal(ativos),
-    item_quantity: ativos.reduce((s, i) => s + i.quantity, 0) || 1,
+    // Item por m² conta como uma peça no total de itens do atendimento.
+    item_quantity:
+      Math.round(ativos.reduce((s, i) => s + (i.unidade === "m2" ? 1 : i.quantity), 0)) || 1,
     upholstery_type_id: ativos[0]?.upholstery_type_id ?? null,
     upholstery_description:
       ativos
-        .map((i) => `${i.quantity}x ${i.description || ""}`.trim())
+        .map((i) => `${textoQuantidade(i.quantity, i.unidade)} ${i.description || ""}`.trim())
         .filter(Boolean)
         .join(", ") || null,
   };
@@ -197,6 +202,7 @@ async function saveVisitItems(visitId: string, items: ServiceItemInput[]) {
       ...(i.adicional_pos_fechamento !== undefined
         ? { adicional_pos_fechamento: i.adicional_pos_fechamento }
         : {}),
+      ...(i.unidade !== undefined ? { unidade: i.unidade } : {}),
     };
     const existente = i.id && (atuais ?? []).some((a) => a.id === i.id) ? i.id : null;
     if (existente) {

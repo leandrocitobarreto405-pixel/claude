@@ -125,3 +125,44 @@ test("sem vitrine (Turbine): mensagem como antes, com preço por item", () => {
   assert.ok(m.includes("• 1x Sofá retrátil 2 lugares pequeno — Higienização: R$ 359,90"));
   assert.ok(m.includes("*Total: 5x de R$ 71,98 sem juros ou à vista por R$ 341,90*"));
 });
+
+test("tapete aparece em m² e como limpeza; persiana como limpeza", () => {
+  const m = quoteWhatsappMessage(
+    {
+      cliente_nome: "Teste",
+      subtotal: 379.63,
+      desconto: 0,
+      total: 379.63,
+      valor_a_vista: null,
+      cliente_novo: false,
+      valor_vitrine: null,
+      valor_cartao: null,
+      valor_pix: null,
+      acrescimo_sujidade: 0,
+      acrescimo_distancia: 0,
+      minimo_aplicado: 0,
+    },
+    [
+      {
+        quantidade: 3.68,
+        nome_snapshot: "Tapete comum – limpeza (por m²)",
+        tipo_servico: "higienizacao" as const,
+        subtotal: 229.63,
+        desconto_regra_texto: null,
+        categoria: "tapete",
+      },
+      {
+        quantidade: 1,
+        nome_snapshot: "Persiana rolo (até 2 m)",
+        tipo_servico: "higienizacao" as const,
+        subtotal: 150,
+        desconto_regra_texto: null,
+        categoria: "persiana",
+      },
+    ],
+    { ...t, regras: regrasDaLinha({}) },
+  );
+  assert.ok(m.includes("*Itens:*"), m);
+  assert.ok(m.includes("• Tapete comum – limpeza (por m²) (3,68 m²) — Limpeza: R$ 229,63"), m);
+  assert.ok(m.includes("• 1x Persiana rolo (até 2 m) — Limpeza: R$ 150,00"), m);
+});

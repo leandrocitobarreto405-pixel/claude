@@ -3,6 +3,7 @@
  * documento da OS no Google Docs (enviado ao cliente em PDF) e avisa a equipe.
  * Usa a chave de serviço: toda consulta e gravação leva o filtro/valor da empresa da tarefa.
  */
+import { textoQuantidade } from "@/lib/unidade";
 import { z } from "zod";
 import { buildFullAddress } from "@/lib/format";
 import { defaultCollectionRule } from "@/lib/collection";
@@ -217,7 +218,7 @@ async function orcamentosDaReserva(
   const { data: itens } = await ctx.admin
     .from("quote_items")
     .select(
-      "quote_id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_aplicado, quantidade, display_order",
+      "quote_id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_aplicado, quantidade, display_order, categoria",
     )
     .eq("empresa_id", ctx.empresaId)
     .in(
@@ -241,6 +242,7 @@ async function orcamentosDaReserva(
           : "higienizacao") as ServicoOrcamento,
         preco: Number(i["preco_aplicado"] ?? 0),
         quantidade: Number(i["quantidade"] ?? 1),
+        categoria: (i["categoria"] as string | null) ?? null,
       })),
   }));
 }
@@ -717,9 +719,13 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
         technician_id: slot.tecnicoId,
         status: "Agendado",
         visit_value: soma,
-        item_quantity: v.itens.reduce((s, i) => s + i.quantity, 0) || 1,
+        // Item por m² conta como uma peça.
+        item_quantity:
+          Math.round(v.itens.reduce((s, i) => s + (i.unidade === "m2" ? 1 : i.quantity), 0)) || 1,
         upholstery_description:
-          v.itens.map((i) => `${i.quantity}x ${i.description}`).join(", ") || null,
+          v.itens
+            .map((i) => `${textoQuantidade(i.quantity, i.unidade)} ${i.description}`)
+            .join(", ") || null,
       })
       .select("id")
       .single();
@@ -738,6 +744,7 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
           item_group_id: grupoIds.get(i.grupo)!,
           display_order: i.display_order,
           active: true,
+          unidade: i.unidade,
         };
       }),
     );

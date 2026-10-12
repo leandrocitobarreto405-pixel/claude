@@ -4920,6 +4920,7 @@ export type Database = {
           preco_tabela: number | null;
           quantity: number;
           subtotal: number;
+          unidade: string;
           unit_price: number;
           updated_at: string;
           upholstery_type_id: string | null;
@@ -4939,6 +4940,7 @@ export type Database = {
           preco_tabela?: number | null;
           quantity?: number;
           subtotal?: number;
+          unidade?: string;
           unit_price?: number;
           updated_at?: string;
           upholstery_type_id?: string | null;
@@ -4958,6 +4960,7 @@ export type Database = {
           preco_tabela?: number | null;
           quantity?: number;
           subtotal?: number;
+          unidade?: string;
           unit_price?: number;
           updated_at?: string;
           upholstery_type_id?: string | null;

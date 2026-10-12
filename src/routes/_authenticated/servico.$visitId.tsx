@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -236,7 +237,11 @@ function TelaServico() {
             {ex.itens.map((i, n) => (
               <li key={n} className="flex items-start justify-between gap-3 text-sm">
                 <span>
-                  {i.quantidade > 1 ? `${i.quantidade}× ` : ""}
+                  {i.unidade === "m2"
+                    ? `${textoQuantidade(i.quantidade, "m2")} · `
+                    : i.quantidade > 1
+                      ? `${i.quantidade}× `
+                      : ""}
                   {i.descricao}
                 </span>
                 <span className="shrink-0 tabular-nums">{brl(i.subtotal)}</span>

@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { DecimalInput, IntegerInput, MoneyInput } from "@/components/ui/numeric-input";
 import { brl } from "@/lib/format";
 import { CATEGORIA_LABEL } from "@/lib/precos";
+import { categoriaDeLimpeza } from "@/lib/unidade";
 import { usePapel } from "@/lib/tenant";
 import {
   CONFIG_PADRAO,
@@ -137,31 +138,33 @@ export function OrcamentoRegrasConfig() {
         <div className="sm:col-span-2">
           <Label className="text-xs">Categorias com desconto automático</Label>
           <div className="mt-1 flex flex-wrap gap-2">
-            {(Object.keys(CATEGORIA_LABEL) as Categoria[]).map((c) => {
-              const marcado = f.desconto_categorias.includes(c);
-              return (
-                <label
-                  key={c}
-                  className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5"
-                    checked={marcado}
-                    disabled={bloqueado}
-                    onChange={(e) =>
-                      set(
-                        "desconto_categorias",
-                        e.target.checked
-                          ? [...f.desconto_categorias, c]
-                          : f.desconto_categorias.filter((x) => x !== c),
-                      )
-                    }
-                  />
-                  {CATEGORIA_LABEL[c]}
-                </label>
-              );
-            })}
+            {(Object.keys(CATEGORIA_LABEL) as Categoria[])
+              .filter((c) => !categoriaDeLimpeza(c))
+              .map((c) => {
+                const marcado = f.desconto_categorias.includes(c);
+                return (
+                  <label
+                    key={c}
+                    className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5"
+                      checked={marcado}
+                      disabled={bloqueado}
+                      onChange={(e) =>
+                        set(
+                          "desconto_categorias",
+                          e.target.checked
+                            ? [...f.desconto_categorias, c]
+                            : f.desconto_categorias.filter((x) => x !== c),
+                        )
+                      }
+                    />
+                    {CATEGORIA_LABEL[c]}
+                  </label>
+                );
+              })}
           </div>
         </div>
       </Bloco>

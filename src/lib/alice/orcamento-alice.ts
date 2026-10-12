@@ -3,6 +3,7 @@
  * para o real de cima), desconto de campanha OU indicação e Pix por cima. A Alice nunca informa
  * preço: só item, quantidade, classe e as marcações. Função pura (ferramenta e testes).
  */
+import { normalizarQuantidade, unidadeDaCategoria } from "@/lib/unidade";
 import {
   acrescimoDoItem,
   descontoPorPct,
@@ -20,6 +21,8 @@ export type ItemTabela = {
   nome: string;
   preco_higienizacao: number;
   preco_impermeabilizacao: number | null;
+  /** tapete = cobrado por m²; tapete/persiana = limpeza. */
+  categoria?: string | null;
 };
 
 export type PedidoItem = {
@@ -65,7 +68,8 @@ export function precificar(
   const acrescimoPct = acrescimoDoItem(regras, marcas);
   return {
     item: pedido.item,
-    quantidade: pedido.quantidade,
+    // Tapete: m² com vírgula (até 2 casas); o resto: peças inteiras.
+    quantidade: normalizarQuantidade(pedido.quantidade, unidadeDaCategoria(pedido.item.categoria)),
     precoTabela,
     acrescimoPct,
     preco: precoComAcrescimo(precoTabela, acrescimoPct),

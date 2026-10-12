@@ -2,6 +2,8 @@
  * Ferramentas da Alice. Toda leitura/gravação é filtrada pela empresa da tarefa (o processador
  * usa a chave de serviço, então o filtro por empresa é obrigatório em cada consulta).
  */
+import { rotuloServico, textoQuantidade, unidadeDaCategoria } from "@/lib/unidade";
+import type { Categoria } from "@/lib/orcamento-regras";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -132,7 +134,8 @@ const CriarOrcamento = z.object({
     .array(
       z.object({
         item: z.string().trim().min(1).max(120),
-        quantidade: z.number().int().min(1).max(50).default(1),
+        // Peças (inteiro) ou m² no tapete (ex.: 3.68).
+        quantidade: z.number().positive().max(500).default(1),
         classe: CLASSE.optional(),
         almofadas_soltas: z.boolean().optional(),
         muito_encardido: z.boolean().optional(),
@@ -301,7 +304,12 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
               type: "object",
               properties: {
                 item: { type: "string", description: "Nome exato do item na tabela." },
-                quantidade: { type: "integer", minimum: 1 },
+                quantidade: {
+                  type: "number",
+                  exclusiveMinimum: 0,
+                  description:
+                    "Peças (número inteiro). Item cobrado por m² (tapete): a área em m², comprimento × largura (ex.: 1,6 × 2,3 = 3.68).",
+                },
                 classe: S_CLASSE,
                 almofadas_soltas: S_ALMOFADAS,
                 muito_encardido: S_ENCARDIDO,
@@ -800,7 +808,7 @@ async function consultarCep(ctx: ContextoFerramenta, input: z.infer<typeof Consu
 async function tabela(ctx: ContextoFerramenta): Promise<ItemTabela[]> {
   const { data } = await ctx.admin
     .from("tabela_precos_itens")
-    .select("id, nome, preco_higienizacao, preco_impermeabilizacao")
+    .select("id, nome, preco_higienizacao, preco_impermeabilizacao, categoria")
     .eq("empresa_id", ctx.empresaId)
     .eq("ativo", true)
     .order("ordem");
@@ -832,7 +840,10 @@ async function consultarTabela(ctx: ContextoFerramenta, input: z.infer<typeof Co
           ),
         )
         .filter((l): l is NonNullable<typeof l> => l !== null)
-        .map((l) => `- ${l.item.nome}: ${reais(l.preco)}`);
+        .map(
+          (l) =>
+            `- ${l.item.nome}: ${reais(l.preco)}${unidadeDaCategoria(l.item.categoria) === "m2" ? " por m²" : ""}`,
+        );
       return `${s === "higienizacao" ? "Higienização" : "Impermeabilização"}:\n${linhas.join("\n") || "(nenhum item)"}`;
     })
     .join("\n\n");
@@ -1008,6 +1019,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           preco_aplicado: e.preco,
           motivo_desconto: null,
           quantidade: e.quantidade,
+          categoria: (e.item.categoria ?? null) as Categoria | null,
           classe: e.classe,
           almofadas_soltas: e.almofadasSoltas,
           muito_encardido: e.muitoEncardido,
@@ -1019,7 +1031,11 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
 
   const linhas = escolhidos.map(
     (e) =>
-      `• ${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${e.item.nome} — ${reais(e.preco * e.quantidade)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
+      `• ${
+        unidadeDaCategoria(e.item.categoria) === "m2"
+          ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(e.preco)})`
+          : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${e.item.nome}`
+      } — ${reais(Math.round(e.preco * e.quantidade * 100) / 100)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
   );
   return {
     erro: false,
@@ -1027,7 +1043,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       existente
         ? `Este mesmo orçamento já existe (criado há pouco) — nº ${String(salvo.id).slice(0, 8)}; não criei outro. Use exatamente estes valores:`
         : `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — nº ${String(salvo.id).slice(0, 8)}. Use exatamente estes valores:`,
-      `Serviço: ${input.servico === "higienizacao" ? "Higienização" : "Impermeabilização"}`,
+      `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
       ...linhas,
       ...(desconto
         ? [

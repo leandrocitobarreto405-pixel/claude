@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { QuantidadeInput } from "@/components/quantidade-input";
+import { categoriaDeLimpeza, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { IntegerInput, MoneyInput } from "@/components/ui/numeric-input";
+import { MoneyInput } from "@/components/ui/numeric-input";
 import { PageHeader } from "@/components/app-shell";
 import { SugestaoDiasCep } from "@/components/sugestao-dias-cep";
 import { MargemOrcamento } from "@/components/margem-orcamento";
@@ -727,7 +729,9 @@ function OrcamentoDetalhe() {
                       }
                       className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9"
                     >
-                      <option value="higienizacao">{TIPO_LABEL.higienizacao}</option>
+                      <option value="higienizacao">
+                        {rotuloServico("higienizacao", l.categoria)}
+                      </option>
                       <option value="impermeabilizacao" disabled={semImper}>
                         {TIPO_LABEL.impermeabilizacao}
                         {semImper ? " (não disponível)" : ""}
@@ -740,11 +744,13 @@ function OrcamentoDetalhe() {
                     ) : null}
                   </div>
                   <div>
-                    <Label className="text-xs">Qtd</Label>
-                    <IntegerInput
+                    <Label className="text-xs">
+                      {unidadeDaCategoria(l.categoria) === "m2" ? "Área (m²)" : "Qtd"}
+                    </Label>
+                    <QuantidadeInput
                       value={l.quantidade}
-                      onValueChange={(v) => atualizar(l.key, { quantidade: Math.max(1, v) })}
-                      min={1}
+                      unidade={unidadeDaCategoria(l.categoria)}
+                      onValueChange={(v) => atualizar(l.key, { quantidade: v })}
                     />
                   </div>
                   <div>
@@ -785,7 +791,7 @@ function OrcamentoDetalhe() {
                   </div>
                   <div className="flex items-end justify-between gap-2">
                     <span className="text-sm font-semibold">
-                      {brl(final * Math.max(1, l.quantidade))}
+                      {brl(final * (l.quantidade > 0 ? l.quantidade : 1))}
                     </span>
                     <Button
                       variant="ghost"
@@ -877,7 +883,9 @@ function OrcamentoDetalhe() {
                     </label>
                   );
                 })()}
-                {regras.descontoAdicional.ligado && l.preco_tabela > 0 ? (
+                {regras.descontoAdicional.ligado &&
+                l.preco_tabela > 0 &&
+                !categoriaDeLimpeza(l.categoria) ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <button
                       type="button"

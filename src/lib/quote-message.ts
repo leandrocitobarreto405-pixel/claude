@@ -2,13 +2,27 @@
 import { brl } from "@/lib/format";
 import { preencherTexto } from "@/lib/modelos-mensagem";
 import type { RegrasOrcamento } from "@/lib/orcamento-regras";
-import { TIPO_LABEL, type Quote, type QuoteItem } from "@/lib/quotes";
+import type { Quote, QuoteItem } from "@/lib/quotes";
+import {
+  categoriaDeLimpeza,
+  rotuloServico,
+  textoQuantidade,
+  unidadeDaCategoria,
+} from "@/lib/unidade";
 
 type ItemMensagem = Pick<
   QuoteItem,
   "quantidade" | "nome_snapshot" | "tipo_servico" | "subtotal" | "desconto_regra_texto"
 > &
-  Partial<Pick<QuoteItem, "adicional_pos_fechamento">>;
+  Partial<Pick<QuoteItem, "adicional_pos_fechamento" | "categoria">>;
+
+/** "2x Sofá…" ou, no tapete, "Tapete… (3,68 m²)". */
+function quantidadeENome(it: ItemMensagem) {
+  const unidade = unidadeDaCategoria(it.categoria);
+  return unidade === "m2"
+    ? `${it.nome_snapshot} (${textoQuantidade(Number(it.quantidade), unidade)})`
+    : `${textoQuantidade(Number(it.quantidade), unidade)} ${it.nome_snapshot}`;
+}
 
 function listaEstofados(items: ItemMensagem[], comPreco: boolean) {
   return items
@@ -19,8 +33,8 @@ function listaEstofados(items: ItemMensagem[], comPreco: boolean) {
           ? ` (${it.desconto_regra_texto})`
           : "";
       return comPreco
-        ? `• ${it.quantidade}x ${it.nome_snapshot} — ${TIPO_LABEL[it.tipo_servico]}${regra}: ${brl(it.subtotal)}`
-        : `• ${it.quantidade}x ${it.nome_snapshot}${regra}`;
+        ? `• ${quantidadeENome(it)} — ${rotuloServico(it.tipo_servico, it.categoria)}${regra}: ${brl(it.subtotal)}`
+        : `• ${quantidadeENome(it)}${regra}`;
     })
     .join("\n");
 }
@@ -85,7 +99,7 @@ export function quoteWhatsappMessage(
     "",
     base,
     "",
-    "*Estofados:*",
+    items.some((it) => categoriaDeLimpeza(it.categoria)) ? "*Itens:*" : "*Estofados:*",
     listaEstofados(items, !vitrine),
   ];
 

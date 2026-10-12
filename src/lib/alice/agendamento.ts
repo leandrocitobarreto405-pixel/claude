@@ -1,5 +1,6 @@
 // Agendamento feito pela Alice: regras sem banco (número da OS, itens e valores a partir dos
 // orçamentos, vendedora, origem e textos do aviso à equipe), para poder testar.
+import { unidadeDaCategoria, type Unidade } from "@/lib/unidade";
 import { normalizarNome, reais } from "./regras";
 
 /** Próximo número de OS, como a Nova OS sugere: maior número + 1, com 4 dígitos no mínimo. */
@@ -20,6 +21,8 @@ export type ItemOrcamento = {
   servico: ServicoOrcamento;
   preco: number;
   quantidade: number;
+  /** Categoria da tabela (tapete = m²; tapete/persiana = limpeza). */
+  categoria?: string | null;
 };
 
 export type OrcamentoReserva = {
@@ -39,6 +42,7 @@ export type ItemVisita = {
   /** Mesmo grupo para o mesmo item da tabela nos dois serviços (o documento combinado junta). */
   grupo: string;
   display_order: number;
+  unidade: Unidade;
 };
 
 export type VisitaReserva = { servico: ServicoOrcamento; itens: ItemVisita[] };
@@ -68,6 +72,7 @@ export function visitasDosOrcamentos(orcamentos: OrcamentoReserva[]): VisitaRese
       itens: itens.map((i, idx) => ({
         description: i.nome,
         quantity: i.quantidade,
+        unidade: unidadeDaCategoria(i.categoria),
         unit_price: round2(i.preco),
         grupo: grupoDe(i),
         display_order: idx,

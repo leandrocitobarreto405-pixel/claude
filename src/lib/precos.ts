@@ -22,6 +22,8 @@ export const CATEGORIA_LABEL: Record<Categoria, string> = {
   colchao: "Colchão",
   cadeira: "Cadeira",
   outro: "Outro",
+  tapete: "Tapete (por m²)",
+  persiana: "Persiana",
 };
 
 export function useTabelaPrecos(onlyActive = false) {

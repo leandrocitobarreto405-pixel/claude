@@ -1,4 +1,5 @@
 import { brl } from "@/lib/format";
+import { textoQuantidade } from "@/lib/unidade";
 import {
   copyFile,
   deleteFile,
@@ -179,6 +180,8 @@ export async function testIntegration() {
 type ItemData = {
   description: string | null;
   quantity: number;
+  /** "m2": tapete cobrado por m². */
+  unidade?: string | null;
   unit_price: number;
   subtotal: number;
   item_group_id: string | null;
@@ -216,7 +219,7 @@ const SELECT = `
   customer:customer_id ( full_name, phone ),
   visits!visits_work_order_id_fkey ( status, visit_value, final_value, item_quantity, upholstery_description,
     service_type:service_type_id ( name ), upholstery_type:upholstery_type_id ( name ),
-    service_items ( description, quantity, unit_price, subtotal, item_group_id, display_order, active,
+    service_items ( description, quantity, unit_price, subtotal, item_group_id, display_order, active, unidade,
       upholstery_type:upholstery_type_id ( name ) ) )
 `;
 
@@ -263,7 +266,13 @@ function nomeItem(i: ItemData) {
 
 function valorUnitario(i: ItemData) {
   const unit = brl(Number(i.unit_price ?? 0));
+  if (i.unidade === "m2") return `${unit}/m²`;
   return Number(i.quantity) > 1 ? `${unit}/cada` : unit;
+}
+
+/** Quantidade no documento: "3,68 m²" no tapete; o número de peças no resto. */
+function qtdTexto(q: number, unidade?: string | null) {
+  return unidade === "m2" ? textoQuantidade(q, "m2") : String(q || 1);
 }
 
 function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
@@ -277,7 +286,7 @@ function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
         for (const i of itens) {
           linhas.push({
             item: nomeItem(i),
-            qty: String(i.quantity),
+            qty: qtdTexto(Number(i.quantity), i.unidade),
             value: valorUnitario(i),
             valueHig: "",
             valueImp: "",
@@ -296,16 +305,29 @@ function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
     return linhas;
   }
 
-  type Grupo = { item: string; qty: number; hig: number | null; imp: number | null };
+  type Grupo = {
+    item: string;
+    qty: number;
+    hig: number | null;
+    imp: number | null;
+    unidade?: string | null;
+  };
   const grupos = new Map<string, Grupo>();
   let avulso = 0;
 
   for (const v of ativos) {
     const nomeServico = v.service_type?.name ?? "";
     const itens = itemsOf(v);
-    const lista: Array<{ nome: string; qty: number; valor: number; grupo: string }> = itens.length
+    const lista: Array<{
+      nome: string;
+      qty: number;
+      valor: number;
+      grupo: string;
+      unidade?: string | null;
+    }> = itens.length
       ? itens.map((i, idx) => ({
           nome: nomeItem(i),
+          unidade: i.unidade ?? null,
           qty: Number(i.quantity) || 1,
           valor: Number(i.unit_price ?? 0),
           grupo: i.item_group_id || `avulso-${avulso++}-${idx}`,
@@ -320,7 +342,13 @@ function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
         ];
 
     for (const l of lista) {
-      const atual = grupos.get(l.grupo) ?? { item: l.nome, qty: l.qty, hig: null, imp: null };
+      const atual = grupos.get(l.grupo) ?? {
+        item: l.nome,
+        qty: l.qty,
+        hig: null,
+        imp: null,
+        unidade: l.unidade ?? null,
+      };
       atual.item = atual.item || l.nome;
       atual.qty = Math.max(atual.qty, l.qty);
       if (isHig(nomeServico)) atual.hig = (atual.hig ?? 0) + l.valor;
@@ -331,10 +359,10 @@ function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
 
   return [...grupos.values()].map((g) => {
     const total = (g.hig ?? 0) + (g.imp ?? 0);
-    const sufixo = g.qty > 1 ? "/cada" : "";
+    const sufixo = g.unidade === "m2" ? "/m²" : g.qty > 1 ? "/cada" : "";
     return {
       item: g.item,
-      qty: String(g.qty || 1),
+      qty: qtdTexto(g.qty, g.unidade),
       value: `${brl(total)}${sufixo}`,
       valueHig: g.hig === null ? "—" : `${brl(g.hig)}${sufixo}`,
       valueImp: g.imp === null ? "—" : `${brl(g.imp)}${sufixo}`,
@@ -666,7 +694,9 @@ function warrantyData(wo: WarrantyOrder) {
     if (itens.length) {
       for (const i of itens) {
         const nome = (i.description || i.upholstery_type?.name || "").trim();
-        if (nome) estofados.add(Number(i.quantity) > 1 ? `${i.quantity}x ${nome}` : nome);
+        // Só peças inteiras levam "2x" (tapete em m² aparece só com o nome).
+        const q = Number(i.quantity);
+        if (nome) estofados.add(Number.isInteger(q) && q > 1 ? `${q}x ${nome}` : nome);
       }
     } else {
       const nome = (v.upholstery_description || v.upholstery_type?.name || "").trim();

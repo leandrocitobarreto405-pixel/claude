@@ -120,3 +120,22 @@ test("colchão adicional: preço fixo, fora do desconto; Pix sobre o total", () 
   assert.equal(camp.desconto?.valor, 46.5);
   assert.deepEqual([camp.cond.total, camp.cond.pix], [463.4, 440.23]);
 });
+
+test("tapete por m² (Alice): 1,6 × 2,3 = 3,68 m² × R$ 62,40 = R$ 229,63; persiana por peça", () => {
+  const tapete: ItemTabela = {
+    ...item("Tapete comum – limpeza (por m²)", 62.4, 103),
+    categoria: "tapete",
+  };
+  const persiana: ItemTabela = {
+    ...item("Persiana rolo (até 2 m)", 150, null),
+    categoria: "persiana",
+  };
+  const lt = precificar({ item: tapete, quantidade: 3.684 }, "higienizacao", turbine)!;
+  assert.equal(lt.quantidade, 3.68);
+  assert.equal(lt.preco, 62.4);
+  const lp = precificar({ item: persiana, quantidade: 2.4 }, "higienizacao", turbine)!;
+  assert.equal(lp.quantidade, 2, "persiana é peça inteira");
+  assert.equal(precificar({ item: persiana, quantidade: 1 }, "impermeabilizacao", turbine), null);
+  const t = totalizar([lt, lp], null, 5, 5);
+  assert.equal(t.bruto, 529.63);
+});

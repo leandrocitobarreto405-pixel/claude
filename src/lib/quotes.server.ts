@@ -1,4 +1,5 @@
 /** Regras de orçamento: recálculo de totais, custos e margem. Server-only. */
+import { normalizarQuantidade, unidadeDaCategoria } from "./unidade";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAddress, drivingRoute, geocodeParts, type Coords } from "./geo.server";
@@ -224,7 +225,8 @@ export function computeQuote(
   const { custoKm, impostoPct, custoFixoPorServico } = params;
   const agora = params.agora ?? new Date().toISOString();
   const items = input.items.map((it, idx) => {
-    const qtd = Math.max(1, Math.round(Number(it.quantidade) || 1));
+    // Tapete: m² com casas decimais; o resto: peças inteiras.
+    const qtd = normalizarQuantidade(it.quantidade, unidadeDaCategoria(it.categoria));
     const preco = round(Number(it.preco_aplicado) || 0);
     const tabela = round(Number(it.preco_tabela) || 0);
     const sugerido =
