@@ -160,6 +160,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `tc_lead_site` em Modelos de mensagem (origem "Leads do site (13/10)") e as duas planilhas das
   LPs (ids só no banco, fora do repositório). Para parar a leitura sem mexer no código: "Pausar
   leitura" em Configurações → Leads do site (ou `ativa = false`).
+- "Leads do site: chave do cadastro" (`20261106120000`, aplicada em 13/10): só acrescenta
+  `leads_site.chave` (data/hora de São Paulo + telefone, preenchida nos 35 cadastros já lidos,
+  sem repetição) com índice único por planilha, `leads_site_planilhas.chaves_ignoradas` e troca
+  `leads_site_registrar` (confere a aba inteira pela chave; ignora nome começando com "teste" e as
+  chaves ignoradas). Saiu a restrição de linha única (a linha muda quando apagam linhas). Dados:
+  as chaves dos 4 cadastros de teste de 12/10 (20h27–20h34) na lista de ignorados; os rascunhos
+  `tc_confirmacao_servico` e `tc_pos_venda` recriados com o texto sem "amanhã"/"ontem" (origem
+  "Ajuste 13/10: sem amanhã/ontem"), como edição dos modelos já enviados à Meta.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -224,6 +232,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Aviso do colchão       | `c24f447`        | `4d77c77`                |
 | 13/10/2026 01:10 | Alice: pós-venda       | `88a35ff`        | `c70334a`                |
 | 13/10/2026       | Leads do site          | `330c885`        | `e4bd2b4`                |
+| 13/10/2026       | Modelos sem dia fixo   | `8dd3429`        | `3525b5b`                |
+| 13/10/2026       | Leads: chave/teste     | `cb57b45`        | `8dd3429`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
