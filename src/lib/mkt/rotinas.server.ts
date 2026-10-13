@@ -352,6 +352,8 @@ export async function processarAvisosWhatsapp() {
       .eq("empresa_id", cfg.empresa_id)
       .is("whatsapp_enviado_em", null)
       .is("whatsapp_erro", null)
+      // Avisos só no app (Leads do site) nunca vão para o WhatsApp da equipe.
+      .eq("so_no_app", false)
       .gte("created_at", desde.toISOString())
       .order("created_at")
       .limit(10);

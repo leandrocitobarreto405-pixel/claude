@@ -1107,6 +1107,174 @@ if (domingo) {
         WHERE normalized_phone LIKE '%8800001_'`);
 }
 
+// ---------------------------------------------------------------- 4j. leads do site
+// Planilha da LP (falsa, dados fictícios): só linhas novas, quem chamou antes/depois do cadastro,
+// 9º dígito, número inválido, repetido em 30 min, aviso só no app e envio automático (ligado só
+// aqui, para testar).
+{
+  const PLANILHA = "planilha-leads-teste-000000001";
+  const quando = (min) =>
+    new Date(Date.now() - min * 60_000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const tinhaGoogle =
+    sql(`SELECT count(*) FROM google_conexoes WHERE empresa_id = '${EMPRESA}'`) !== "0";
+  if (!tinhaGoogle) {
+    sql(
+      `INSERT INTO google_conexoes (empresa_id, email, escopos, situacao) VALUES ('${EMPRESA}', 'turbine@teste.dev', '{}', 'conectada')`,
+    );
+    sql(
+      `INSERT INTO google_conexao_segredos (empresa_id, refresh_token) VALUES ('${EMPRESA}', 'refresh-teste')`,
+    );
+  }
+  await fetch(`${CHATWOOT}/__planilha`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: PLANILHA,
+      aba: "Leads",
+      valores: [
+        [
+          "Data e Hora",
+          "Nome",
+          "WhatsApp",
+          "Serviço",
+          "utm_source",
+          "utm_medium",
+          "utm_campaign",
+          "utm_term",
+          "utm_content",
+          "gclid",
+          "gbraid",
+          "wbraid",
+          "fbclid",
+          "Página",
+        ],
+        [
+          quando(30),
+          "Lia Teste",
+          "11966000001",
+          "Sofá",
+          "google",
+          "cpc",
+          "lp",
+          "higienizar sofá",
+          "",
+          "gclid-lia",
+        ],
+        [quando(12), "Rui Teste", "11966000002", "Colchão"],
+        [quando(11), "Ivo Teste", "1196600"],
+        [quando(7), "Rui Teste", "11966000002", "Colchão"],
+        [quando(20), "Gil Teste", "11966000003", "Sofá"],
+        [quando(16), "Edu Teste", "11966000004", "Sofá"],
+      ],
+    }),
+  });
+  await fetch(`${CHATWOOT}/api/v1/accounts/187966/__modelos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      acrescentar: [
+        {
+          name: "tc_lead_site",
+          language: "pt_BR",
+          status: "APPROVED",
+          category: "UTILITY",
+          components: [
+            {
+              type: "BODY",
+              text: "Oi, {{1}}! Aqui é a Alice, da Turbine Clean 💙 Recebemos seu pedido de orçamento pelo nosso site. Pra eu te passar o valor, me manda uma foto do seu estofado e o seu CEP?",
+            },
+          ],
+        },
+      ],
+    }),
+  });
+  // Lia escreveu 25 min atrás (depois do cadastro); Gil, salvo sem o 9, escreveu 40 min atrás
+  // (antes do cadastro, dentro de 1 h).
+  sql(`WITH c AS (INSERT INTO whatsapp_contacts (empresa_id, normalized_phone) VALUES
+         ('${EMPRESA}', '5511966000001'), ('${EMPRESA}', '551166000003') RETURNING id, normalized_phone)
+       INSERT INTO whatsapp_messages (empresa_id, whatsapp_contact_id, direction, message_timestamp)
+       SELECT '${EMPRESA}', id, 'Recebida',
+              now() - CASE WHEN normalized_phone = '5511966000001' THEN interval '25 minutes' ELSE interval '40 minutes' END
+         FROM c`);
+  sql(`INSERT INTO crm_leads (empresa_id, lead_name, phone, normalized_phone, source_type)
+       VALUES ('${EMPRESA}', 'Lia Teste', '11966000001', '5511966000001', 'whatsapp')`);
+  sql(
+    `INSERT INTO leads_site_planilhas (empresa_id, nome, planilha_id) VALUES ('${EMPRESA}', 'LP Teste', '${PLANILHA}')`,
+  );
+  sql(`INSERT INTO leads_site_configuracoes (empresa_id, envio_ligado, envio_ativado_em, envio_hora_inicio, envio_hora_fim)
+       VALUES ('${EMPRESA}', true, now() - interval '1 minute', '00:00', '23:59')`);
+  const antesLeads = (await log(CHATWOOT)).length;
+  const varrer = () =>
+    fetch(`${APP}/api/public/hooks/alice-varredura`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}` },
+    }).then((x) => x.json());
+  const l1 = (await varrer()).leadsSite;
+  check(
+    "leads do site: 6 linhas lidas, 2 chamaram, 2 avisos, 1 modelo enviado",
+    l1?.lidos === 6 &&
+      l1?.chamaram === 2 &&
+      l1?.avisos === 2 &&
+      l1?.enviados === 1 &&
+      l1?.erros === 0,
+    l1,
+  );
+  const sit = (nome) =>
+    sql(`SELECT string_agg(situacao || CASE WHEN repetido_de IS NULL THEN '' ELSE '(repetido)' END, ',' ORDER BY linha)
+           FROM leads_site WHERE nome = '${nome}'`);
+  check("chamou depois do cadastro", sit("Lia Teste") === "chamou", sit("Lia Teste"));
+  check(
+    "chamou antes do cadastro, contato sem o 9",
+    sit("Gil Teste") === "chamou",
+    sit("Gil Teste"),
+  );
+  check(
+    "não chamou + repetido em 30 min",
+    sit("Rui Teste") === "nao_chamou,nao_chamou(repetido)",
+    sit("Rui Teste"),
+  );
+  check("número inválido", sit("Ivo Teste") === "invalido", sit("Ivo Teste"));
+  const avisosLeads = sql(
+    `SELECT count(*) || ':' || bool_and(so_no_app) || ':' || count(whatsapp_enviado_em) FROM mkt_avisos WHERE tipo = 'lead_site_sem_chamar'`,
+  );
+  check("aviso só no app para Rui e Edu (nunca WhatsApp)", avisosLeads === "2:true:0", avisosLeads);
+  const modelos = (await log(CHATWOOT))
+    .slice(antesLeads)
+    .filter((c) => c.body?.template_params?.name === "tc_lead_site");
+  check(
+    "modelo tc_lead_site só para o Edu (16 min), com o nome",
+    modelos.length === 1 &&
+      modelos[0].body.template_params.processed_params?.body?.["1"] === "Edu" &&
+      sql(`SELECT modelo_enviado_em IS NOT NULL FROM leads_site WHERE nome = 'Edu Teste'`) === "t",
+    modelos.map((m) => m.body?.template_params),
+  );
+  check(
+    "lead do CRM da Lia ganha LP e gclid, origem continua",
+    sql(
+      `SELECT lp_origem || '|' || gclid || '|' || source_type FROM crm_leads WHERE lead_name = 'Lia Teste'`,
+    ) === "LP Teste|gclid-lia|whatsapp",
+    sql(`SELECT lp_origem, gclid, source_type FROM crm_leads WHERE lead_name = 'Lia Teste'`),
+  );
+  const l2 = (await varrer()).leadsSite;
+  check(
+    "segunda leitura não repete nada",
+    l2?.lidos === 0 && l2?.avisos === 0 && l2?.enviados === 0,
+    l2,
+  );
+  // Desligado: o Rui completa 15 min mas nada sai.
+  sql(`UPDATE leads_site_configuracoes SET envio_ligado = false WHERE empresa_id = '${EMPRESA}'`);
+  sql(
+    `UPDATE leads_site SET cadastrado_em = now() - interval '20 minutes' WHERE nome = 'Rui Teste'`,
+  );
+  const l3 = (await varrer()).leadsSite;
+  check("envio desligado: nada sai", l3?.enviados === 0, l3);
+  sql(`UPDATE leads_site_planilhas SET ativa = false WHERE empresa_id = '${EMPRESA}'`);
+  if (!tinhaGoogle) {
+    sql(`DELETE FROM google_conexao_segredos WHERE empresa_id = '${EMPRESA}'`);
+    sql(`DELETE FROM google_conexoes WHERE empresa_id = '${EMPRESA}'`);
+  }
+}
+
 // ---------------------------------------------------------------- 4f. varredura da fila
 const varreduraSemChave = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
   method: "POST",

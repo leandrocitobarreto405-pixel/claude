@@ -522,7 +522,18 @@ servidor(PORTA_CHATWOOT, (req, body) => {
       planilhas.set(chave, body.values);
       return { corpo: { updatedRows: body.values.length } };
     }
-    return { corpo: { values: planilhas.get(chave) ?? [] } };
+    // Faixa "A8:Z" ou "A1:Z1": só as linhas pedidas (como o Google, sem linhas depois do fim).
+    const linhas = /![A-Z]+(\d+):[A-Z]+(\d*)$/.exec(faixa);
+    const todas = planilhas.get(chave) ?? [];
+    const valores = linhas
+      ? todas.slice(Number(linhas[1]) - 1, linhas[2] ? Number(linhas[2]) : undefined)
+      : todas;
+    return { corpo: valores.length ? { values: valores } : {} };
+  }
+  // Planilha de leads já preenchida (a LP grava; o app só lê).
+  if (req.method === "POST" && req.url === "/__planilha") {
+    planilhas.set(`${body.id}|${body.aba}`, body.valores);
+    return { corpo: { ok: true } };
   }
   if (req.method === "GET" && req.url === "/__planilhas")
     return {

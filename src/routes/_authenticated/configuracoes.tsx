@@ -40,6 +40,7 @@ import { OrcamentoRegrasConfig } from "@/components/orcamento-regras-config";
 import { ContaGoogle } from "@/components/conta-google";
 import { MensagensOrigem } from "@/components/mensagens-origem";
 import { AliceConfig } from "@/components/alice-config";
+import { LeadsSiteConfig } from "@/components/leads-site-config";
 
 const ABAS = [
   "meta",
@@ -54,6 +55,7 @@ const ABAS = [
   "documentos",
   "agenda",
   "alice",
+  "leads-site",
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -98,6 +100,7 @@ function Configuracoes() {
           <TabsTrigger value="documentos">Modelos de ordem de serviço</TabsTrigger>
           <TabsTrigger value="agenda">Google Agenda</TabsTrigger>
           <TabsTrigger value="alice">Alice (IA)</TabsTrigger>
+          <TabsTrigger value="leads-site">Leads do site</TabsTrigger>
         </TabsList>
         <TabsContent value="meta">
           <MetaCustos />
@@ -148,6 +151,9 @@ function Configuracoes() {
         </TabsContent>
         <TabsContent value="alice">
           <AliceConfig />
+        </TabsContent>
+        <TabsContent value="leads-site">
+          <LeadsSiteConfig />
         </TabsContent>
       </Tabs>
     </>

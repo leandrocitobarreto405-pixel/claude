@@ -278,6 +278,9 @@ check(
 // ---------------------------------------------------------------- 6. avisos no WhatsApp do dono
 sql(`UPDATE mkt_configuracoes SET aviso_whatsapp_ligado = true, aviso_telefone = '11955558888',
        aviso_template_nome = 'nexa_aviso' WHERE empresa_id = '${EMP}'`);
+// Aviso dos Leads do site: só no app, nunca vai para o WhatsApp da equipe.
+sql(`INSERT INTO mkt_avisos (empresa_id, tipo, titulo, mensagem, so_no_app)
+     VALUES ('${EMP}', 'lead_site_sem_chamar', 'Lead do site ainda não chamou', 'Teste só no app', true)`);
 const antes4 = (await logFake()).length;
 r = await rota("mkt-disparo", `?agora=${encodeURIComponent(agora1)}`);
 const avisos = (await logFake())
@@ -294,6 +297,12 @@ check(
       /Campanha para aprovar/.test(x.body.template_params.processed_params.body["1"]),
     ),
   { avisos: avisos.length, pendentes, avisosResultado: r.corpo?.avisos },
+);
+check(
+  "aviso dos Leads do site não vai para o WhatsApp da equipe",
+  !avisos.some((x) => /Lead do site/.test(x.body.template_params.processed_params.body["1"])) &&
+    sql(`SELECT count(*) FROM mkt_avisos WHERE so_no_app
+           AND (whatsapp_enviado_em IS NOT NULL OR whatsapp_erro IS NOT NULL)`) === "0",
 );
 const contatoDono = (await logFake())
   .slice(antes4)

@@ -47,6 +47,7 @@ import { Route as AuthenticatedCrmFunilRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCrmImportarRouteImport } from './routes/_authenticated/crm/importar'
 import { Route as AuthenticatedCrmIntegracoesRouteImport } from './routes/_authenticated/crm/integracoes'
 import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticated/crm/leads'
+import { Route as AuthenticatedCrmLeadsSiteRouteImport } from './routes/_authenticated/crm/leads-site'
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
@@ -273,6 +274,12 @@ const AuthenticatedCrmLeadsRoute = AuthenticatedCrmLeadsRouteImport.update({
   path: '/crm/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCrmLeadsSiteRoute =
+  AuthenticatedCrmLeadsSiteRouteImport.update({
+    id: '/crm/leads-site',
+    path: '/crm/leads-site',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCrmRepescagensRoute =
   AuthenticatedCrmRepescagensRouteImport.update({
     id: '/crm/repescagens',
@@ -456,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
+  '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
@@ -520,6 +528,7 @@ export interface FileRoutesByTo {
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
+  '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
@@ -586,6 +595,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/_authenticated/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
   '/_authenticated/crm/leads': typeof AuthenticatedCrmLeadsRoute
+  '/_authenticated/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
@@ -652,6 +662,7 @@ export interface FileRouteTypes {
     | '/crm/importar'
     | '/crm/integracoes'
     | '/crm/leads'
+    | '/crm/leads-site'
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
@@ -716,6 +727,7 @@ export interface FileRouteTypes {
     | '/crm/importar'
     | '/crm/integracoes'
     | '/crm/leads'
+    | '/crm/leads-site'
     | '/crm/repescagens'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
@@ -781,6 +793,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/importar'
     | '/_authenticated/crm/integracoes'
     | '/_authenticated/crm/leads'
+    | '/_authenticated/crm/leads-site'
     | '/_authenticated/crm/repescagens'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
@@ -1100,6 +1113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmLeadsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/crm/leads-site': {
+      id: '/_authenticated/crm/leads-site'
+      path: '/crm/leads-site'
+      fullPath: '/crm/leads-site'
+      preLoaderRoute: typeof AuthenticatedCrmLeadsSiteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/crm/repescagens': {
       id: '/_authenticated/crm/repescagens'
       path: '/crm/repescagens'
@@ -1310,6 +1330,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmImportarRoute: typeof AuthenticatedCrmImportarRoute
   AuthenticatedCrmIntegracoesRoute: typeof AuthenticatedCrmIntegracoesRoute
   AuthenticatedCrmLeadsRoute: typeof AuthenticatedCrmLeadsRoute
+  AuthenticatedCrmLeadsSiteRoute: typeof AuthenticatedCrmLeadsSiteRoute
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
@@ -1356,6 +1377,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmImportarRoute: AuthenticatedCrmImportarRoute,
   AuthenticatedCrmIntegracoesRoute: AuthenticatedCrmIntegracoesRoute,
   AuthenticatedCrmLeadsRoute: AuthenticatedCrmLeadsRoute,
+  AuthenticatedCrmLeadsSiteRoute: AuthenticatedCrmLeadsSiteRoute,
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,

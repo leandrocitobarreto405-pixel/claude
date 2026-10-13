@@ -49,6 +49,8 @@ function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
   if (tipo === "agendamento_alice")
     return /não foi gerado|não deu para saber/.test(mensagem) ? "atencao" : "sucesso";
   if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";
+  if (tipo === "lead_site_erro") return "problema";
+  if (tipo === "lead_site_sem_chamar") return "atencao";
   return "neutro";
 }
 
@@ -85,7 +87,11 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
       texto: m.mensagem,
       quando: m.criadoEm,
       novo: !m.lidoEm,
-      link: os ? { to: "/os/$osNumber", params: { osNumber: os } } : { to: "/marketing" },
+      link: os
+        ? { to: "/os/$osNumber", params: { osNumber: os } }
+        : m.tipo.startsWith("lead_site")
+          ? { to: "/crm/leads-site" }
+          : { to: "/marketing" },
       escritorio: true,
     });
   }

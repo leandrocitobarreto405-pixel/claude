@@ -1150,6 +1150,10 @@ export type Database = {
           upholstery_description: string | null;
           whatsapp_contact_id: string | null;
           etapa: string | null;
+          gbraid: string | null;
+          gclid: string | null;
+          lp_origem: string | null;
+          utm_term: string | null;
         };
         Insert: {
           ad_id?: string | null;
@@ -1200,6 +1204,10 @@ export type Database = {
           updated_at?: string;
           upholstery_description?: string | null;
           whatsapp_contact_id?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          lp_origem?: string | null;
+          utm_term?: string | null;
         };
         Update: {
           ad_id?: string | null;
@@ -1250,6 +1258,10 @@ export type Database = {
           updated_at?: string;
           upholstery_description?: string | null;
           whatsapp_contact_id?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          lp_origem?: string | null;
+          utm_term?: string | null;
         };
         Relationships: [
           {
@@ -2591,6 +2603,189 @@ export type Database = {
           },
         ];
       };
+      leads_site: {
+        Row: {
+          aviso_em: string | null;
+          cadastrado_em: string;
+          chamado_equipe_em: string | null;
+          chamado_por: string | null;
+          chamou_em: string | null;
+          conversa_id: string | null;
+          created_at: string;
+          crm_lead_id: string | null;
+          empresa_id: string;
+          fbclid: string | null;
+          gbraid: string | null;
+          gclid: string | null;
+          id: string;
+          linha: number;
+          lp: string;
+          modelo_enviado_em: string | null;
+          modelo_erro: string | null;
+          nome: string | null;
+          pagina: string | null;
+          planilha_id: string;
+          repetido_de: string | null;
+          servico: string | null;
+          situacao: string;
+          telefone: string | null;
+          telefone_digitado: string | null;
+          utm_campaign: string | null;
+          utm_content: string | null;
+          utm_medium: string | null;
+          utm_source: string | null;
+          utm_term: string | null;
+          wbraid: string | null;
+        };
+        Insert: {
+          aviso_em?: string | null;
+          cadastrado_em: string;
+          chamado_equipe_em?: string | null;
+          chamado_por?: string | null;
+          chamou_em?: string | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id: string;
+          fbclid?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          linha: number;
+          lp: string;
+          modelo_enviado_em?: string | null;
+          modelo_erro?: string | null;
+          nome?: string | null;
+          pagina?: string | null;
+          planilha_id: string;
+          repetido_de?: string | null;
+          servico?: string | null;
+          situacao: string;
+          telefone?: string | null;
+          telefone_digitado?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          wbraid?: string | null;
+        };
+        Update: {
+          aviso_em?: string | null;
+          cadastrado_em?: string;
+          chamado_equipe_em?: string | null;
+          chamado_por?: string | null;
+          chamou_em?: string | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          empresa_id?: string;
+          fbclid?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          linha?: number;
+          lp?: string;
+          modelo_enviado_em?: string | null;
+          modelo_erro?: string | null;
+          nome?: string | null;
+          pagina?: string | null;
+          planilha_id?: string;
+          repetido_de?: string | null;
+          servico?: string | null;
+          situacao?: string;
+          telefone?: string | null;
+          telefone_digitado?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          wbraid?: string | null;
+        };
+        Relationships: [];
+      };
+      leads_site_configuracoes: {
+        Row: {
+          aviso_minutos: number;
+          empresa_id: string;
+          envio_apos_minutos: number;
+          envio_ativado_em: string | null;
+          envio_hora_fim: string;
+          envio_hora_inicio: string;
+          envio_ligado: boolean;
+          envio_modelo: string;
+          updated_at: string;
+        };
+        Insert: {
+          aviso_minutos?: number;
+          empresa_id: string;
+          envio_apos_minutos?: number;
+          envio_ativado_em?: string | null;
+          envio_hora_fim?: string;
+          envio_hora_inicio?: string;
+          envio_ligado?: boolean;
+          envio_modelo?: string;
+          updated_at?: string;
+        };
+        Update: {
+          aviso_minutos?: number;
+          empresa_id?: string;
+          envio_apos_minutos?: number;
+          envio_ativado_em?: string | null;
+          envio_hora_fim?: string;
+          envio_hora_inicio?: string;
+          envio_ligado?: boolean;
+          envio_modelo?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      leads_site_planilhas: {
+        Row: {
+          aba: string;
+          ativa: boolean;
+          created_at: string;
+          empresa_id: string;
+          erro: string | null;
+          erro_em: string | null;
+          id: string;
+          lido_em: string | null;
+          nome: string;
+          planilha_id: string;
+          ultima_linha: number;
+          updated_at: string;
+        };
+        Insert: {
+          aba?: string;
+          ativa?: boolean;
+          created_at?: string;
+          empresa_id: string;
+          erro?: string | null;
+          erro_em?: string | null;
+          id?: string;
+          lido_em?: string | null;
+          nome: string;
+          planilha_id: string;
+          ultima_linha?: number;
+          updated_at?: string;
+        };
+        Update: {
+          aba?: string;
+          ativa?: boolean;
+          created_at?: string;
+          empresa_id?: string;
+          erro?: string | null;
+          erro_em?: string | null;
+          id?: string;
+          lido_em?: string | null;
+          nome?: string;
+          planilha_id?: string;
+          ultima_linha?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       mensagens_origem: {
         Row: {
           ativo: boolean;
@@ -2746,6 +2941,7 @@ export type Database = {
           lido_em: string | null;
           lote_id: string | null;
           mensagem: string;
+          so_no_app: boolean;
           tipo: string;
           titulo: string;
           whatsapp_enviado_em: string | null;
@@ -2760,6 +2956,7 @@ export type Database = {
           lido_em?: string | null;
           lote_id?: string | null;
           mensagem: string;
+          so_no_app?: boolean;
           tipo: string;
           titulo: string;
           whatsapp_enviado_em?: string | null;
@@ -2774,6 +2971,7 @@ export type Database = {
           lido_em?: string | null;
           lote_id?: string | null;
           mensagem?: string;
+          so_no_app?: boolean;
           tipo?: string;
           titulo?: string;
           whatsapp_enviado_em?: string | null;
