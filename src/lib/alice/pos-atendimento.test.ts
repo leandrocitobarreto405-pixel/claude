@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import {
   SEM_LINK,
   TEXTO_PADRAO,
-  ajustarDia,
   datasConfirmacao,
   datasPosVenda,
+  diaDoServico,
   decidirResposta,
   dentroDe24h,
   estofadoPossessivo,
@@ -65,7 +65,7 @@ test("pós-venda com e sem pasta (o lugar do link explica que a equipe manda dep
   ]);
   assert.ok(
     com.includes(
-      "antes e depois: https://drive.google.com/x Como foi o atendimento do Josué ontem?",
+      "antes e depois: https://drive.google.com/x Como foi o atendimento do Josué? Ficou",
     ),
   );
   assert.ok(com.endsWith("Ficou tudo certo com o seu sofá depois do serviço?"));
@@ -73,21 +73,20 @@ test("pós-venda com e sem pasta (o lugar do link explica que a equipe manda dep
   assert.ok(sem.includes("antes e depois: a equipe te manda o link em seguida. Como foi"));
 });
 
-test("sábado confirmando segunda: texto livre diz o dia; o modelo (fixo) não pode ir", () => {
-  const t = preencherCorpo(TEXTO_PADRAO.confirmacao, ["Ana", "10h e 11h"]);
-  assert.deepEqual(ajustarDia(t, "confirmacao", "2026-10-13", "2026-10-14"), {
-    texto: t,
-    diaCerto: true,
-  });
-  const seg = ajustarDia(t, "confirmacao", "2026-10-17", "2026-10-19");
-  assert.equal(seg.diaCerto, false);
-  assert.ok(
-    seg.texto.includes("o seu serviço de segunda-feira, com o técnico chegando entre 10h e 11h"),
+test("dia do serviço: amanhã ou dia da semana com data (sábado confirmando segunda)", () => {
+  assert.equal(diaDoServico("2026-10-13", "2026-10-14"), "amanhã");
+  assert.equal(diaDoServico("2026-10-17", "2026-10-18"), "amanhã");
+  assert.equal(diaDoServico("2026-10-17", "2026-10-19"), "segunda-feira, 19/10");
+  assert.equal(
+    preencherCorpo(TEXTO_PADRAO.confirmacao, ["Ana", "segunda-feira, 19/10", "10h e 11h"]),
+    "Oi, Ana, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de segunda-feira, 19/10, com o técnico chegando entre 10h e 11h. Está tudo certo para realizarmos o serviço?",
   );
-  const pv = preencherCorpo(TEXTO_PADRAO.pos_venda, ["Ana", SEM_LINK, "Josué", "o seu sofá"]);
-  const sab = ajustarDia(pv, "pos_venda", "2026-10-19", "2026-10-17");
-  assert.equal(sab.diaCerto, false);
-  assert.ok(sab.texto.includes("atendimento do Josué no sábado?"));
+  assert.equal(
+    preencherCorpo(TEXTO_PADRAO.confirmacao, ["Ana", "amanhã", "10h e 11h"]),
+    "Oi, Ana, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de amanhã, com o técnico chegando entre 10h e 11h. Está tudo certo para realizarmos o serviço?",
+  );
+  // Pós-venda sem "ontem": vale para o serviço de sábado mandado na segunda.
+  assert.ok(!TEXTO_PADRAO.pos_venda.includes("ontem"));
 });
 
 test("janela de 24 h: aberta → texto livre; fechada → modelo", () => {

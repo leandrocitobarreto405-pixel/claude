@@ -112,35 +112,25 @@ export function preencherCorpo(corpo: string, vars: string[]): string {
 /** Texto padrão (mesmo do modelo) quando a cliente escreveu nas últimas 24 h. */
 export const TEXTO_PADRAO: Record<TipoPos, string> = {
   confirmacao:
-    "Oi, {{1}}, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de amanhã, com o técnico chegando entre {{2}}. Está tudo certo para realizarmos o serviço?",
+    "Oi, {{1}}, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de {{2}}, com o técnico chegando entre {{3}}. Está tudo certo para realizarmos o serviço?",
   pos_venda:
-    "Bom dia, {{1}}, tudo bem? Alice aqui 💙 Separamos a pasta do seu serviço, com a OS e as fotos e vídeos de antes e depois: {{2}} Como foi o atendimento do {{3}} ontem? Ficou tudo certo com {{4}} depois do serviço?",
+    "Bom dia, {{1}}, tudo bem? Alice aqui 💙 Separamos a pasta do seu serviço, com a OS e as fotos e vídeos de antes e depois: {{2}} Como foi o atendimento do {{3}}? Ficou tudo certo com {{4}} depois do serviço?",
 };
+
+/** Quantas variáveis cada modelo precisa ter (confirmação: nome, dia, janela). */
+export const VARIAVEIS_MODELO: Record<TipoPos, number> = { confirmacao: 3, pos_venda: 4 };
 
 /** Sem pasta ou sem fotos: o lugar do link explica que a equipe manda depois. */
 export const SEM_LINK = "a equipe te manda o link em seguida.";
 
 /**
- * O serviço não é amanhã (sábado confirmando segunda) ou não foi ontem (segunda com o serviço de
- * sábado): o texto livre troca "amanhã"/"ontem" pelo dia; o modelo (texto fixo) não pode ir.
+ * Dia do serviço na confirmação: "amanhã" quando é o dia seguinte; senão, dia da semana e data
+ * ("segunda-feira, 13/10"), como no sábado confirmando a segunda.
  */
-export function ajustarDia(
-  texto: string,
-  tipo: TipoPos,
-  hoje: string,
-  dataServico: string,
-): { texto: string; diaCerto: boolean } {
-  const distancia = Math.round(
-    (Date.parse(`${dataServico}T12:00:00Z`) - Date.parse(`${hoje}T12:00:00Z`)) / 86400000,
-  );
-  if (tipo === "confirmacao") {
-    if (distancia === 1) return { texto, diaCerto: true };
-    return { texto: texto.replace(/de amanhã/g, `de ${nomeDoDia(dataServico)}`), diaCerto: false };
-  }
-  if (distancia === -1) return { texto, diaCerto: true };
-  const dia = nomeDoDia(dataServico);
-  const artigo = dia === "sábado" || dia === "domingo" ? "no" : "na";
-  return { texto: texto.replace(/ ontem\?/g, ` ${artigo} ${dia}?`), diaCerto: false };
+export function diaDoServico(hoje: string, dataServico: string): string {
+  if (dataServico === somarDias(hoje, 1)) return "amanhã";
+  const [, mm, dd] = dataServico.split("-");
+  return `${nomeDoDia(dataServico)}, ${dd}/${mm}`;
 }
 
 /** Janela de 24 h do WhatsApp: texto livre só se a cliente escreveu nas últimas 24 h. */
