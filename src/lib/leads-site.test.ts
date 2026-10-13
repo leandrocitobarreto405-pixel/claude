@@ -6,6 +6,7 @@ import {
   dentroDoHorario,
   lerDataHora,
   linhasNovas,
+  momentoDoAviso,
   primeiroNomeLead,
   telefoneDoLead,
   textoResumoLeads,
@@ -174,4 +175,48 @@ test("mesma chave mesmo depois de apagarem uma linha acima (a linha muda, a chav
   assert.equal(antes.linhas[1]!.linha, 3);
   assert.equal(depois.linhas[0]!.linha, 2);
   assert.equal(antes.linhas[1]!.chave, depois.linhas[0]!.chave);
+});
+
+test("aviso: 10 min depois da mensagem automática; sem ela, 10 min depois do cadastro", () => {
+  const cfg = {
+    aviso_minutos: 10,
+    envio_ligado: true,
+    envio_ativado_em: "2026-10-13T12:00:00Z",
+    envio_apos_minutos: 5,
+    envio_24h: true,
+    envio_hora_inicio: "08:00",
+    envio_hora_fim: "20:00",
+  };
+  const lead = {
+    cadastrado_em: "2026-10-13T13:00:00Z",
+    created_at: "2026-10-13T13:01:00Z",
+    telefone: "5511900000001",
+    modelo_enviado_em: null as string | null,
+    modelo_erro: null as string | null,
+  };
+  // Mensagem enviada às 13:05: aviso às 13:15.
+  assert.deepEqual(momentoDoAviso({ ...lead, modelo_enviado_em: "2026-10-13T13:05:30Z" }, cfg), {
+    quando: new Date("2026-10-13T13:15:30Z"),
+    depoisDaMensagem: true,
+  });
+  // Vai receber mas ainda não recebeu: espera (folga de 15 min depois do aviso previsto).
+  assert.deepEqual(momentoDoAviso(lead, cfg), {
+    quando: new Date("2026-10-13T13:30:00Z"),
+    depoisDaMensagem: false,
+  });
+  // Mensagem desligada, cadastro antes do "Ativar" ou envio com erro: 10 min depois do cadastro.
+  const dezMin = { quando: new Date("2026-10-13T13:10:00Z"), depoisDaMensagem: false };
+  assert.deepEqual(momentoDoAviso(lead, { ...cfg, envio_ligado: false }), dezMin);
+  assert.deepEqual(momentoDoAviso({ ...lead, created_at: "2026-10-13T11:00:00Z" }, cfg), dezMin);
+  assert.deepEqual(momentoDoAviso({ ...lead, modelo_erro: "modelo não aprovado" }, cfg), dezMin);
+  // Fora do horário escolhido (sem 24 h), a mensagem não sai: aviso 10 min depois do cadastro.
+  const noite = {
+    ...lead,
+    cadastrado_em: "2026-10-14T00:30:00Z",
+    created_at: "2026-10-14T00:31:00Z",
+  };
+  assert.deepEqual(momentoDoAviso(noite, { ...cfg, envio_24h: false }), {
+    quando: new Date("2026-10-14T00:40:00Z"),
+    depoisDaMensagem: false,
+  });
 });

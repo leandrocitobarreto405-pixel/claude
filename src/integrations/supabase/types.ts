@@ -2719,6 +2719,7 @@ export type Database = {
           envio_ligado: boolean;
           envio_modelo: string;
           updated_at: string;
+          envio_24h: boolean;
         };
         Insert: {
           aviso_minutos?: number;
@@ -2730,6 +2731,7 @@ export type Database = {
           envio_ligado?: boolean;
           envio_modelo?: string;
           updated_at?: string;
+          envio_24h?: boolean;
         };
         Update: {
           aviso_minutos?: number;
@@ -2741,6 +2743,7 @@ export type Database = {
           envio_ligado?: boolean;
           envio_modelo?: string;
           updated_at?: string;
+          envio_24h?: boolean;
         };
         Relationships: [];
       };

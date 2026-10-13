@@ -211,6 +211,66 @@ export function textoSemChamar(l: { nome: string | null; lp: string; cadastrado_
   return `${nome} (${l.lp}) se cadastrou às ${horarioSP(new Date(l.cadastrado_em)).hora} e ainda não chamou no WhatsApp. Ligue ou chame em Leads do site.`;
 }
 
+export function textoSemResposta(l: {
+  nome: string | null;
+  lp: string;
+  modelo_enviado_em: string;
+}) {
+  const nome = primeiroNomeLead(l.nome) || "Um lead";
+  return `${nome} (${l.lp}) recebeu a mensagem automática às ${horarioSP(new Date(l.modelo_enviado_em)).hora} e ainda não respondeu. Ligue ou chame em Leads do site.`;
+}
+
+export type ConfigAvisoLead = {
+  aviso_minutos: number;
+  envio_ligado: boolean;
+  envio_ativado_em: string | null;
+  envio_apos_minutos: number;
+  envio_24h: boolean;
+  envio_hora_inicio: string;
+  envio_hora_fim: string;
+};
+
+/** Folga para a mensagem automática sair (a varredura roda a cada 5 min). */
+const FOLGA_ENVIO_MIN = 15;
+
+/**
+ * Quando sai o aviso "não chamou" no sino: 10 min (configurável) depois da mensagem automática;
+ * sem mensagem automática para este lead, 10 min depois do cadastro. Se a mensagem deveria sair
+ * e não saiu (modelo não aprovado, falha), avisa mesmo assim depois de uma folga.
+ */
+export function momentoDoAviso(
+  l: {
+    cadastrado_em: string;
+    created_at: string;
+    telefone: string | null;
+    modelo_enviado_em: string | null;
+    modelo_erro: string | null;
+  },
+  cfg: ConfigAvisoLead,
+): { quando: Date; depoisDaMensagem: boolean } {
+  const min = 60_000;
+  if (l.modelo_enviado_em)
+    return {
+      quando: new Date(Date.parse(l.modelo_enviado_em) + cfg.aviso_minutos * min),
+      depoisDaMensagem: true,
+    };
+  const cadastro = Date.parse(l.cadastrado_em);
+  const envioPrevisto = new Date(cadastro + cfg.envio_apos_minutos * min);
+  const vaiReceber =
+    cfg.envio_ligado &&
+    Boolean(cfg.envio_ativado_em) &&
+    Boolean(l.telefone) &&
+    (!l.modelo_erro || l.modelo_erro === "enviando") &&
+    Date.parse(l.created_at) >= Date.parse(cfg.envio_ativado_em ?? "") &&
+    (cfg.envio_24h || dentroDoHorario(envioPrevisto, cfg.envio_hora_inicio, cfg.envio_hora_fim));
+  if (vaiReceber)
+    return {
+      quando: new Date(envioPrevisto.getTime() + (cfg.aviso_minutos + FOLGA_ENVIO_MIN) * min),
+      depoisDaMensagem: false,
+    };
+  return { quando: new Date(cadastro + cfg.aviso_minutos * min), depoisDaMensagem: false };
+}
+
 export type ContagemDia = {
   total: number;
   chamou: number;

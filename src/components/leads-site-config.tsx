@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LinhaSwitch } from "@/components/nexa";
 import { dateTimeBR } from "@/lib/format";
 import {
   ativarEnvioLeadsSite,
@@ -44,7 +45,8 @@ export function LeadsSiteConfig() {
   const [conferencia, setConferencia] = useState<string | null>(null);
   const [cfg, setCfg] = useState({
     avisoMinutos: "10",
-    envioAposMinutos: "15",
+    envioAposMinutos: "5",
+    envio24h: true,
     envioHoraInicio: "08:00",
     envioHoraFim: "20:00",
     envioModelo: "tc_lead_site",
@@ -54,6 +56,7 @@ export function LeadsSiteConfig() {
     setCfg({
       avisoMinutos: String(q.data.avisoMinutos),
       envioAposMinutos: String(q.data.envioAposMinutos),
+      envio24h: q.data.envio24h,
       envioHoraInicio: q.data.envioHoraInicio,
       envioHoraFim: q.data.envioHoraFim,
       envioModelo: q.data.envioModelo,
@@ -76,6 +79,7 @@ export function LeadsSiteConfig() {
   const dadosCfg = () => ({
     avisoMinutos: Number(cfg.avisoMinutos),
     envioAposMinutos: Number(cfg.envioAposMinutos),
+    envio24h: cfg.envio24h,
     envioHoraInicio: cfg.envioHoraInicio,
     envioHoraFim: cfg.envioHoraFim,
     envioModelo: cfg.envioModelo,
@@ -102,7 +106,8 @@ export function LeadsSiteConfig() {
 
   const d = q.data;
   if (!d) return null;
-  const campo = (k: keyof typeof cfg, v: string) => setCfg((c) => ({ ...c, [k]: v }));
+  const campo = (k: Exclude<keyof typeof cfg, "envio24h">, v: string) =>
+    setCfg((c) => ({ ...c, [k]: v }));
 
   return (
     <div className="grid gap-6">
@@ -269,11 +274,12 @@ export function LeadsSiteConfig() {
         <div>
           <h2 className="text-lg font-semibold">Avisos no app</h2>
           <p className="text-sm text-muted-foreground">
-            Só no sino do app, nunca no WhatsApp: lead que não chamou depois do tempo abaixo e o
+            Só no sino do app, nunca no WhatsApp: lead que não respondeu depois do tempo abaixo,
+            contado a partir da mensagem automática (ou do cadastro, se ela estiver desligada), e o
             resumo de ontem às 8h.
           </p>
         </div>
-        <Campo id="lp-aviso" rotulo="Avisar quem não chamou depois de (minutos)">
+        <Campo id="lp-aviso" rotulo="Avisar depois de (minutos)">
           <Input
             id="lp-aviso"
             type="number"
@@ -301,8 +307,8 @@ export function LeadsSiteConfig() {
             <h2 className="text-lg font-semibold">Mensagem automática para quem não chamou</h2>
             <p className="text-sm text-muted-foreground">
               Começa desligada. Ligada, manda o modelo uma vez para quem tem número válido e não
-              chamou depois do tempo abaixo, só no horário escolhido e só para cadastros que
-              chegarem depois de tocar em “Ativar”. Quando o lead responder, a Alice atende.
+              chamou depois do tempo abaixo (24 horas ou no horário escolhido) e só para cadastros
+              que chegarem depois de tocar em “Ativar”. Quando o lead responder, a Alice atende.
             </p>
           </div>
           <span
@@ -339,22 +345,34 @@ export function LeadsSiteConfig() {
               onChange={(e) => campo("envioAposMinutos", e.target.value)}
             />
           </Campo>
-          <Campo id="lp-inicio" rotulo="Das">
-            <Input
-              id="lp-inicio"
-              type="time"
-              value={cfg.envioHoraInicio}
-              onChange={(e) => campo("envioHoraInicio", e.target.value)}
-            />
-          </Campo>
-          <Campo id="lp-fim" rotulo="Até">
-            <Input
-              id="lp-fim"
-              type="time"
-              value={cfg.envioHoraFim}
-              onChange={(e) => campo("envioHoraFim", e.target.value)}
-            />
-          </Campo>
+          <LinhaSwitch
+            id="lp-24h"
+            className="sm:col-span-2"
+            titulo="24 horas"
+            descricao="Desligue para escolher o horário."
+            checked={cfg.envio24h}
+            onCheckedChange={(v) => setCfg((c) => ({ ...c, envio24h: v }))}
+          />
+          {!cfg.envio24h ? (
+            <>
+              <Campo id="lp-inicio" rotulo="Das">
+                <Input
+                  id="lp-inicio"
+                  type="time"
+                  value={cfg.envioHoraInicio}
+                  onChange={(e) => campo("envioHoraInicio", e.target.value)}
+                />
+              </Campo>
+              <Campo id="lp-fim" rotulo="Até">
+                <Input
+                  id="lp-fim"
+                  type="time"
+                  value={cfg.envioHoraFim}
+                  onChange={(e) => campo("envioHoraFim", e.target.value)}
+                />
+              </Campo>
+            </>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

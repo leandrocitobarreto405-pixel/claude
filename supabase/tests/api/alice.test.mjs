@@ -850,7 +850,7 @@ if (domingo) {
     body: JSON.stringify({
       acrescentar: [
         {
-          name: "tc_confirmacao_servico",
+          name: "tc_confirmacao_servico_v2",
           language: "pt_BR",
           status: "APPROVED",
           category: "UTILITY",
@@ -862,7 +862,7 @@ if (domingo) {
           ],
         },
         {
-          name: "tc_pos_venda",
+          name: "tc_pos_venda_v2",
           language: "pt_BR",
           status: "APPROVED",
           category: "UTILITY",
@@ -894,8 +894,8 @@ if (domingo) {
   sql(`INSERT INTO mkt_configuracoes (empresa_id, chatwoot_inbox_id) VALUES ('${EMPRESA}', 4242)
        ON CONFLICT (empresa_id) DO UPDATE SET chatwoot_inbox_id = 4242`);
   sql(`UPDATE ia_configuracoes SET confirmacao_ligada = true, confirmacao_hora = '00:00',
-         confirmacao_modelo = 'tc_confirmacao_servico', pos_venda_ligado = true, pos_venda_hora = '00:00',
-         pos_venda_modelo = 'tc_pos_venda', avaliacao_ligada = true,
+         confirmacao_modelo = 'tc_confirmacao_servico_v2', pos_venda_ligado = true, pos_venda_hora = '00:00',
+         pos_venda_modelo = 'tc_pos_venda_v2', avaliacao_ligada = true,
          avaliacao_link = 'https://g.page/r/teste/review' WHERE empresa_id = '${EMPRESA}'`);
   // 1) Cliente nova, sem conversa: janela fechada → modelo.
   osDaEquipe("PV-1", "Ana Teste", "11977000041", amanha, "Agendado", false);
@@ -928,7 +928,9 @@ if (domingo) {
   const enviados = (await log(CHATWOOT)).filter(
     (c) => c.method === "POST" && /\/messages$/.test(c.url),
   );
-  const modelo = enviados.find((c) => c.body?.template_params?.name === "tc_confirmacao_servico");
+  const modelo = enviados.find(
+    (c) => c.body?.template_params?.name === "tc_confirmacao_servico_v2",
+  );
   check(
     "janela fechada: modelo da confirmação com nome, dia e janela",
     modelo &&
@@ -1200,8 +1202,9 @@ if (domingo) {
   sql(
     `INSERT INTO leads_site_planilhas (empresa_id, nome, planilha_id) VALUES ('${EMPRESA}', 'LP Teste', '${PLANILHA}')`,
   );
-  sql(`INSERT INTO leads_site_configuracoes (empresa_id, envio_ligado, envio_ativado_em, envio_hora_inicio, envio_hora_fim)
-       VALUES ('${EMPRESA}', true, now() - interval '1 minute', '00:00', '23:59')`);
+  // Mensagem automática ligada (só aqui, para testar): padrão 5 min depois do cadastro, 24 h.
+  sql(`INSERT INTO leads_site_configuracoes (empresa_id, envio_ligado, envio_ativado_em)
+       VALUES ('${EMPRESA}', true, now() - interval '1 minute')`);
   const antesLeads = (await log(CHATWOOT)).length;
   const varrer = () =>
     fetch(`${APP}/api/public/hooks/alice-varredura`, {
@@ -1210,11 +1213,11 @@ if (domingo) {
     }).then((x) => x.json());
   const l1 = (await varrer()).leadsSite;
   check(
-    "leads do site: 6 linhas lidas, 2 chamaram, 2 avisos, 1 modelo enviado",
+    "leads do site: 6 linhas lidas, 2 chamaram, mensagem para os 2 que não chamaram, sem aviso ainda",
     l1?.lidos === 6 &&
       l1?.chamaram === 2 &&
-      l1?.avisos === 2 &&
-      l1?.enviados === 1 &&
+      l1?.avisos === 0 &&
+      l1?.enviados === 2 &&
       l1?.erros === 0,
     l1,
   );
@@ -1233,19 +1236,33 @@ if (domingo) {
     sit("Rui Teste"),
   );
   check("número inválido", sit("Ivo Teste") === "invalido", sit("Ivo Teste"));
-  const avisosLeads = sql(
-    `SELECT count(*) || ':' || bool_and(so_no_app) || ':' || count(whatsapp_enviado_em) FROM mkt_avisos WHERE tipo = 'lead_site_sem_chamar'`,
-  );
-  check("aviso só no app para Rui e Edu (nunca WhatsApp)", avisosLeads === "2:true:0", avisosLeads);
   const modelos = (await log(CHATWOOT))
     .slice(antesLeads)
     .filter((c) => c.body?.template_params?.name === "tc_lead_site");
   check(
-    "modelo tc_lead_site só para o Edu (16 min), com o nome",
-    modelos.length === 1 &&
-      modelos[0].body.template_params.processed_params?.body?.["1"] === "Edu" &&
-      sql(`SELECT modelo_enviado_em IS NOT NULL FROM leads_site WHERE nome = 'Edu Teste'`) === "t",
+    "tc_lead_site 5 min depois do cadastro para Rui e Edu (uma vez, com o nome; repetido não)",
+    modelos.length === 2 &&
+      modelos
+        .map((m) => m.body.template_params.processed_params?.body?.["1"])
+        .sort()
+        .join(",") === "Edu,Rui" &&
+      sql(`SELECT count(*) FROM leads_site WHERE modelo_enviado_em IS NOT NULL`) === "2",
     modelos.map((m) => m.body?.template_params),
+  );
+  // 11 min depois da mensagem, sem resposta: aviso no sino (só no app).
+  sql(`UPDATE leads_site SET modelo_enviado_em = now() - interval '11 minutes'
+        WHERE modelo_enviado_em IS NOT NULL`);
+  const lAviso = (await varrer()).leadsSite;
+  const avisosLeads = sql(
+    `SELECT count(*) || ':' || bool_and(so_no_app) || ':' || count(whatsapp_enviado_em) || ':' || min(titulo)
+       FROM mkt_avisos WHERE tipo = 'lead_site_sem_chamar'`,
+  );
+  check(
+    "10 min depois da mensagem sem resposta: aviso só no app para Rui e Edu",
+    lAviso?.avisos === 2 &&
+      lAviso?.enviados === 0 &&
+      avisosLeads === "2:true:0:Lead do site não respondeu",
+    { lAviso, avisosLeads },
   );
   check(
     "lead do CRM da Lia ganha LP e gclid, origem continua",
@@ -1260,13 +1277,7 @@ if (domingo) {
     l2?.lidos === 0 && l2?.avisos === 0 && l2?.enviados === 0,
     l2,
   );
-  // Desligado: o Rui completa 15 min mas nada sai.
   sql(`UPDATE leads_site_configuracoes SET envio_ligado = false WHERE empresa_id = '${EMPRESA}'`);
-  sql(
-    `UPDATE leads_site SET cadastrado_em = now() - interval '20 minutes' WHERE nome = 'Rui Teste'`,
-  );
-  const l3 = (await varrer()).leadsSite;
-  check("envio desligado: nada sai", l3?.enviados === 0, l3);
   // Alguém apagou linhas (a aba fica menor que a última lida) e entraram um cadastro novo e um de
   // teste: nada duplica, o novo entra e o de teste é ignorado.
   const antesApagar = sql(`SELECT count(*) FROM leads_site WHERE empresa_id = '${EMPRESA}'`);
@@ -1286,6 +1297,20 @@ if (domingo) {
       sql(`SELECT count(*) FROM leads_site WHERE nome = 'Teste'`) === "0" &&
       sql(`SELECT count(*) FROM leads_site WHERE nome = 'Bia Nova'`) === "1",
     { l4, antesApagar },
+  );
+  // Mensagem desligada: a Bia não recebe nada e o aviso sai 10 min depois do cadastro.
+  sql(
+    `UPDATE leads_site SET cadastrado_em = now() - interval '11 minutes' WHERE nome = 'Bia Nova'`,
+  );
+  const l5 = (await varrer()).leadsSite;
+  check(
+    "mensagem desligada: nada sai e o aviso vem 10 min depois do cadastro",
+    l5?.enviados === 0 &&
+      l5?.avisos === 1 &&
+      sql(
+        `SELECT titulo FROM mkt_avisos WHERE tipo = 'lead_site_sem_chamar' AND mensagem LIKE 'Bia%'`,
+      ) === "Lead do site ainda não chamou",
+    l5,
   );
   sql(`UPDATE leads_site_planilhas SET ativa = false WHERE empresa_id = '${EMPRESA}'`);
   if (!tinhaGoogle) {

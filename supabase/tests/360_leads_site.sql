@@ -25,10 +25,10 @@ END $$;
 
 -- Configuração: tudo desligado, 15 min, 8h às 20h, aviso em 10 min.
 INSERT INTO public.leads_site_configuracoes (empresa_id) VALUES ('11111111-1111-1111-1111-111111111111');
-SELECT pg_temp.ok((SELECT NOT envio_ligado AND envio_apos_minutos = 15 AND aviso_minutos = 10
+SELECT pg_temp.ok((SELECT NOT envio_ligado AND envio_apos_minutos = 5 AND envio_24h AND aviso_minutos = 10
                      AND envio_hora_inicio = '08:00' AND envio_hora_fim = '20:00'
                      AND envio_modelo = 'tc_lead_site' AND envio_ativado_em IS NULL
-                     FROM public.leads_site_configuracoes), 'envio começa desligado');
+                     FROM public.leads_site_configuracoes), 'envio começa desligado (5 min, 24 h)');
 
 INSERT INTO public.leads_site_planilhas (id, empresa_id, nome, planilha_id) VALUES
   ('a3600000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'LP Teste', 'planilha-teste-0000000000001');

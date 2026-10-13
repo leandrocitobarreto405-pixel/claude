@@ -213,6 +213,7 @@ export type ConfigLeadsSite = {
   avisoMinutos: number;
   envioLigado: boolean;
   envioAposMinutos: number;
+  envio24h: boolean;
   envioHoraInicio: string;
   envioHoraFim: string;
   envioModelo: string;
@@ -268,7 +269,8 @@ export const configLeadsSite = createServerFn({ method: "GET" })
       })),
       avisoMinutos: cfg?.aviso_minutos ?? 10,
       envioLigado: Boolean(cfg?.envio_ligado),
-      envioAposMinutos: cfg?.envio_apos_minutos ?? 15,
+      envioAposMinutos: cfg?.envio_apos_minutos ?? 5,
+      envio24h: cfg?.envio_24h ?? true,
       envioHoraInicio: String(cfg?.envio_hora_inicio ?? "08:00").slice(0, 5),
       envioHoraFim: String(cfg?.envio_hora_fim ?? "20:00").slice(0, 5),
       envioModelo: modelo,
@@ -364,6 +366,7 @@ export const salvarConfigLeadsSite = createServerFn({ method: "POST" })
     (input: {
       avisoMinutos: number;
       envioAposMinutos: number;
+      envio24h: boolean;
       envioHoraInicio: string;
       envioHoraFim: string;
       envioModelo: string;
@@ -397,6 +400,7 @@ export const salvarConfigLeadsSite = createServerFn({ method: "POST" })
         empresa_id: context.empresaId,
         aviso_minutos: data.avisoMinutos,
         envio_apos_minutos: data.envioAposMinutos,
+        envio_24h: data.envio24h,
         envio_hora_inicio: data.envioHoraInicio,
         envio_hora_fim: data.envioHoraFim,
         envio_modelo: data.envioModelo.trim(),

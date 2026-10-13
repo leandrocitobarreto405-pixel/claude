@@ -1,11 +1,12 @@
 /**
  * Leads do site (rotina a cada 5 min, dentro da varredura da Alice):
- *  1. lê só as linhas novas das planilhas das LPs (nunca grava nelas);
+ *  1. lê as planilhas das LPs e grava os cadastros novos pela chave (nunca grava nelas);
  *  2. confere quem chamou no WhatsApp (banco: leads_site_atualizar) e liga ao lead do CRM;
- *  3. avisos SÓ NO APP (sino): lead que não chamou em X min e o resumo das 8h de ontem. Nunca vão
- *     para o WhatsApp da equipe (so_no_app);
- *  4. envio do modelo ao lead depois de N min: DESLIGADO por padrão, só cadastros lidos depois
- *     de "Ativar", uma vez, das 8h às 20h, só número válido.
+ *  3. avisos SÓ NO APP (sino): lead que não respondeu 10 min depois da mensagem automática (ou,
+ *     sem ela, 10 min depois do cadastro) e o resumo das 8h de ontem. Nunca vão para o WhatsApp
+ *     da equipe (so_no_app);
+ *  4. envio do modelo ao lead depois de N min (padrão 5): DESLIGADO por padrão, só cadastros
+ *     lidos depois de "Ativar", uma vez, 24 h (ou no horário escolhido), só número válido.
  * Nada de telefone ou nome de lead nos logs.
  */
 import {
@@ -13,8 +14,11 @@ import {
   horarioSP,
   linhasNovas,
   primeiroNomeLead,
+  momentoDoAviso,
   textoResumoLeads,
   textoSemChamar,
+  textoSemResposta,
+  type ConfigAvisoLead,
   type ContagemDia,
 } from "./leads-site";
 import { dbServico, log, rpc, type Db } from "./mkt/contexto.server";
@@ -84,21 +88,26 @@ async function marcarErro(db: Db, p: Planilha, e: unknown, agora: Date) {
   log("WARNING", "leads_site.erro_planilha", { empresa: p.empresa_id, planilha: p.id, erro: msg });
 }
 
-/** Lead que não chamou depois de X min (só cadastros das últimas 2 h, uma vez cada). */
-async function avisosSemChamar(db: Db, empresaId: string, minutos: number, agora: Date) {
+/**
+ * Aviso no sino para quem não chamou: 10 min depois da mensagem automática (se ela foi para o
+ * lead) ou 10 min depois do cadastro (mensagem desligada). Só o que vence nas últimas 2 h; uma
+ * vez por lead.
+ */
+async function avisosSemChamar(db: Db, empresaId: string, cfg: ConfigAvisoLead, agora: Date) {
   const { data } = await db
     .from("leads_site")
-    .select("id, nome, lp, cadastrado_em")
+    .select("id, nome, lp, cadastrado_em, created_at, telefone, modelo_enviado_em, modelo_erro")
     .eq("empresa_id", empresaId)
     .eq("situacao", "nao_chamou")
     .is("repetido_de", null)
     .is("aviso_em", null)
-    .lte("cadastrado_em", new Date(agora.getTime() - minutos * 60_000).toISOString())
-    .gte("cadastrado_em", new Date(agora.getTime() - 2 * 3600_000).toISOString())
+    .gte("cadastrado_em", new Date(agora.getTime() - 6 * 3600_000).toISOString())
     .order("cadastrado_em")
-    .limit(20);
+    .limit(100);
   let n = 0;
   for (const l of data ?? []) {
+    const m = momentoDoAviso(l, cfg);
+    if (m.quando > agora || agora.getTime() - m.quando.getTime() > 2 * 3600_000) continue;
     // Marca antes de avisar: se a rotina rodar em dobro, não repete.
     const { data: marcado } = await db
       .from("leads_site")
@@ -111,8 +120,10 @@ async function avisosSemChamar(db: Db, empresaId: string, minutos: number, agora
       db,
       empresaId,
       "lead_site_sem_chamar",
-      "Lead do site ainda não chamou",
-      textoSemChamar(l),
+      m.depoisDaMensagem ? "Lead do site não respondeu" : "Lead do site ainda não chamou",
+      m.depoisDaMensagem && l.modelo_enviado_em
+        ? textoSemResposta({ ...l, modelo_enviado_em: l.modelo_enviado_em })
+        : textoSemChamar(l),
     );
     n++;
   }
@@ -244,15 +255,16 @@ type ConfigLeads = {
   envio_ligado: boolean;
   envio_ativado_em: string | null;
   envio_apos_minutos: number;
+  envio_24h: boolean;
   envio_hora_inicio: string;
   envio_hora_fim: string;
   envio_modelo: string;
 };
 
-/** Envio automático (só com "Ativar"): N min depois do cadastro, até 1 h depois, 8h às 20h. */
+/** Envio automático (só com "Ativar"): N min depois do cadastro, até 1 h depois; 24 h ou no horário escolhido. */
 async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
   if (!cfg.envio_ligado || !cfg.envio_ativado_em) return { enviados: 0, erros: 0 };
-  if (!dentroDoHorario(agora, cfg.envio_hora_inicio, cfg.envio_hora_fim))
+  if (!cfg.envio_24h && !dentroDoHorario(agora, cfg.envio_hora_inicio, cfg.envio_hora_fim))
     return { enviados: 0, erros: 0 };
   const ate = new Date(agora.getTime() - cfg.envio_apos_minutos * 60_000);
   const desde = new Date(ate.getTime() - 3600_000);
@@ -339,7 +351,20 @@ export async function rodarLeadsSite(agora = new Date()) {
         await rpc<{ chamaram: number }>(db, "leads_site_atualizar", { _emp: empresaId })
       ).chamaram;
       const cfg = (cfgs ?? []).find((c) => c.empresa_id === empresaId) as ConfigLeads | undefined;
-      r.avisos += await avisosSemChamar(db, empresaId, cfg?.aviso_minutos ?? 10, agora);
+      r.avisos += await avisosSemChamar(
+        db,
+        empresaId,
+        cfg ?? {
+          aviso_minutos: 10,
+          envio_ligado: false,
+          envio_ativado_em: null,
+          envio_apos_minutos: 5,
+          envio_24h: true,
+          envio_hora_inicio: "00:00",
+          envio_hora_fim: "23:59",
+        },
+        agora,
+      );
       if (await resumoDeOntem(db, empresaId, agora)) r.avisos++;
       if (cfg) {
         const e = await envioAutomatico(db, cfg, agora);
