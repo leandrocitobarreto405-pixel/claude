@@ -120,6 +120,25 @@ export const TEXTO_PADRAO: Record<TipoPos, string> = {
 /** Quantas variáveis cada modelo precisa ter (confirmação: nome, dia, janela). */
 export const VARIAVEIS_MODELO: Record<TipoPos, number> = { confirmacao: 3, pos_venda: 4 };
 
+/**
+ * Modelos antigos (texto com "amanhã"/"ontem" fixos, variáveis diferentes): nunca são usados.
+ * Os nomes em uso são tc_confirmacao_servico_v2 e tc_pos_venda_v2.
+ */
+export const MODELOS_ANTIGOS = ["tc_confirmacao_servico", "tc_pos_venda"];
+
+/** O texto do modelo serve para o código novo? (nada de "amanhã"/"ontem" fixos.) */
+export function problemaNoModelo(tipo: TipoPos, nome: string, corpo: string): string | null {
+  if (MODELOS_ANTIGOS.includes(nome))
+    return `o modelo ${nome} é o antigo (com "amanhã"/"ontem" fixos) e não é usado; use ${nome}_v2`;
+  const n = new Set([...corpo.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => m[1])).size;
+  if (n !== VARIAVEIS_MODELO[tipo])
+    return `o modelo ${nome} tem ${n} variáveis e precisa de ${VARIAVEIS_MODELO[tipo]}`;
+  const fixo = tipo === "confirmacao" ? /\bamanh[ãa]\b/i : /\bontem\b/i;
+  if (fixo.test(corpo))
+    return `o modelo ${nome} tem "${tipo === "confirmacao" ? "amanhã" : "ontem"}" fixo no texto`;
+  return null;
+}
+
 /** Sem pasta ou sem fotos: o lugar do link explica que a equipe manda depois. */
 export const SEM_LINK = "a equipe te manda o link em seguida.";
 

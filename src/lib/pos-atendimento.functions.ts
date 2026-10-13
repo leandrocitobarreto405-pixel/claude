@@ -4,6 +4,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import { MODELOS_ANTIGOS } from "@/lib/alice/pos-atendimento";
 
 export type ChavePos = "confirmacao" | "pos_venda" | "avaliacao";
 
@@ -141,6 +142,11 @@ export const salvarPosAtendimento = createServerFn({ method: "POST" })
       for (const m of [input.confirmacao_modelo, input.pos_venda_modelo])
         if (m.trim() && !NOME_MODELO.test(m.trim()))
           throw new Error("Nome do modelo: só letras minúsculas, números e _.");
+      for (const m of [input.confirmacao_modelo, input.pos_venda_modelo])
+        if (MODELOS_ANTIGOS.includes(m.trim()))
+          throw new Error(
+            `${m.trim()} é o modelo antigo (com "amanhã"/"ontem" fixos) e não é usado. Use ${m.trim()}_v2.`,
+          );
       const link = input.avaliacao_link.trim();
       if (link && !/^https:\/\/\S+$/.test(link))
         throw new Error("O link precisa começar com https://.");

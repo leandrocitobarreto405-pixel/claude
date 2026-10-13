@@ -13,6 +13,7 @@ import {
   janelaModelo,
   preencherCorpo,
   primeiroNome,
+  problemaNoModelo,
   textoAvaliacao,
 } from "./pos-atendimento";
 
@@ -156,4 +157,37 @@ test("texto da avaliação com nome, empresa e link", () => {
     "https://g.page/x",
   );
   assert.equal(t, "Que bom, Ana! ... ajuda demais a Turbine Clean ... https://g.page/x");
+});
+
+test("modelos antigos nunca são usados; os _v2 com o texto novo sim", () => {
+  assert.match(
+    problemaNoModelo("confirmacao", "tc_confirmacao_servico", TEXTO_PADRAO.confirmacao) ?? "",
+    /antigo/,
+  );
+  assert.match(
+    problemaNoModelo("pos_venda", "tc_pos_venda", TEXTO_PADRAO.pos_venda) ?? "",
+    /antigo/,
+  );
+  assert.equal(
+    problemaNoModelo("confirmacao", "tc_confirmacao_servico_v2", TEXTO_PADRAO.confirmacao),
+    null,
+  );
+  assert.equal(problemaNoModelo("pos_venda", "tc_pos_venda_v2", TEXTO_PADRAO.pos_venda), null);
+  // Texto antigo com outro nome também não vai.
+  assert.match(
+    problemaNoModelo(
+      "confirmacao",
+      "outro",
+      "Oi, {{1}}! Confirmando o serviço de amanhã, entre {{2}}.",
+    ) ?? "",
+    /variáveis/,
+  );
+  assert.match(
+    problemaNoModelo(
+      "pos_venda",
+      "outro",
+      "{{1}} {{2}} Como foi o atendimento do {{3}} ontem? {{4}}",
+    ) ?? "",
+    /ontem/,
+  );
 });

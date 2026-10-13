@@ -12,7 +12,7 @@ import { chaveTelefone } from "@/lib/mkt/chatwoot.server";
 import {
   SEM_LINK,
   TEXTO_PADRAO,
-  VARIAVEIS_MODELO,
+  problemaNoModelo,
   diaDoServico,
   datasConfirmacao,
   datasPosVenda,
@@ -348,19 +348,9 @@ async function enviarUm(
     const sit = situacaoModelo(modelos, nomeModelo, ctx.cfg.template_idioma);
     if (!sit.ok) throw new Error(sit.erro);
     const corpo = sit.modelo.components?.find((x) => x.type?.toUpperCase() === "BODY")?.text ?? "";
-    // Modelo antigo (com "amanhã"/"ontem" fixos e menos variáveis) não vai: a Meta recusaria.
-    const { variaveis } = await import("@/lib/mkt/modelos");
-    const n = variaveis(corpo).length;
-    if (n !== VARIAVEIS_MODELO[tipo])
-      throw new Error(
-        `o modelo ${nomeModelo} tem ${n} variáveis e precisa de ${VARIAVEIS_MODELO[tipo]} (use o texto novo, sem "amanhã"/"ontem" fixos)`,
-      );
-    // Modelo de pós-venda ainda com "ontem" fixo: só para o serviço de ontem.
-    const ontem = new Date(Date.parse(`${hoje}T12:00:00Z`) - 86400_000).toISOString().slice(0, 10);
-    if (tipo === "pos_venda" && /\bontem\b/i.test(corpo) && c.dataServico !== ontem)
-      throw new Error(
-        `o modelo ${nomeModelo} ainda diz "ontem" e o serviço foi em outro dia (aprove o texto novo, sem "ontem")`,
-      );
+    // Modelo antigo (com "amanhã"/"ontem" fixos ou outras variáveis) nunca é usado.
+    const problema = problemaNoModelo(tipo, nomeModelo, corpo);
+    if (problema) throw new Error(problema);
     const preenchido = preencherCorpo(corpo, vars);
     texto = preenchido;
     params = templateParams(
