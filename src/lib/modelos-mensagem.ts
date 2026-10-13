@@ -659,14 +659,22 @@ Primeiro fazemos a higienização profunda com extração a quente, removendo po
   {
     chave: "orcamento_fechamento",
     titulo: "Orçamento: total e validade",
-    quando: "Fim da mensagem de orçamento. Parcelas e validade vêm da configuração da Alice.",
+    quando:
+      "Fim da mensagem de orçamento (sem preço de vitrine). Parcelas, desconto do Pix e validade vêm da configuração da empresa.",
     variaveis: [
+      {
+        nome: "pagamento",
+        descricao: "total no cartão e, se houver desconto no Pix, a linha do Pix",
+        exemplo:
+          "*Total:* R$ 339,00 em até 5x de R$ 67,80 sem juros no cartão\n*No Pix (5% de desconto): R$ 322,05*",
+      },
+      { nome: "total", descricao: "valor total", exemplo: "R$ 339,00" },
       { nome: "parcelas", descricao: "número de parcelas", exemplo: "5" },
       { nome: "parcela", descricao: "valor de cada parcela", exemplo: "R$ 127,98" },
       { nome: "a_vista", descricao: "valor à vista", exemplo: "R$ 607,90" },
       { nome: "validade", descricao: "dias de validade", exemplo: "2" },
     ],
-    padrao: `*Total: {parcelas}x de {parcela} sem juros ou à vista por {a_vista}*
+    padrao: `{pagamento}
 
 _Orçamento válido por {validade} dias._`,
   },

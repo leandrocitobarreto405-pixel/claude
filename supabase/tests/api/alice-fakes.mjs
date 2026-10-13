@@ -92,7 +92,7 @@ servidor(PORTA_CLAUDE, (req, body) => {
       return resposta([texto("Vou chamar a equipe para te ajudar com isso.")], "end_turn");
     if (conteudo.includes("Orçamento criado")) {
       const total = /Total: (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
-      const pix = /Pix \(5% off\): (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
+      const pix = /No Pix \(5% de desconto\): (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
       return resposta(
         [
           ferramenta("toolu_orcmsg", "enviar_mensagem", {

@@ -116,14 +116,37 @@ function semRegras<T extends { regras?: unknown }>(o: T): Omit<T, "regras"> {
   return resto;
 }
 
-test("sem vitrine (Turbine): mensagem como antes, com preço por item", () => {
+test("sem vitrine (Turbine): total no cartão e Pix em linhas separadas", () => {
   const m = quoteWhatsappMessage(
-    { cliente_nome: "Rui", subtotal: 359.9, desconto: 0, total: 359.9, valor_a_vista: 341.9 },
-    [{ ...itens[0]!, subtotal: 359.9 }],
-    { ...semRegras(t), texto: (c: string) => textoOuPadrao(c, {}) ?? "" },
+    { cliente_nome: "Rui", subtotal: 339, desconto: 0, total: 339, valor_a_vista: 322.05 },
+    [{ ...itens[0]!, subtotal: 339 }],
+    { ...semRegras(t), pixPct: 5, texto: (c: string) => textoOuPadrao(c, {}) ?? "" },
   );
-  assert.ok(m.includes("• 1x Sofá retrátil 2 lugares pequeno — Higienização: R$ 359,90"));
-  assert.ok(m.includes("*Total: 5x de R$ 71,98 sem juros ou à vista por R$ 341,90*"));
+  assert.ok(m.includes("• 1x Sofá retrátil 2 lugares pequeno — Higienização: R$ 339,00"));
+  assert.ok(
+    m.endsWith(
+      [
+        "*Total:* R$ 339,00 em até 5x de R$ 67,80 sem juros no cartão",
+        "*No Pix (5% de desconto): R$ 322,05*",
+        "",
+        "_Orçamento válido por 2 dias._",
+      ].join("\n"),
+    ),
+    m,
+  );
+  assert.ok(!m.includes("à vista por"));
+});
+
+test("sem vitrine e sem desconto no Pix: só a linha do total no cartão", () => {
+  const m = quoteWhatsappMessage(
+    { cliente_nome: "Rui", subtotal: 339, desconto: 0, total: 339, valor_a_vista: null },
+    [{ ...itens[0]!, subtotal: 339 }],
+    { ...semRegras(t), pixPct: 0, texto: (c: string) => textoOuPadrao(c, {}) ?? "" },
+  );
+  assert.ok(
+    m.includes("*Total:* R$ 339,00 em até 5x de R$ 67,80 sem juros no cartão\n\n_Orçamento"),
+  );
+  assert.ok(!m.includes("Pix"));
 });
 
 test("tapete aparece em m² e como limpeza; persiana como limpeza", () => {

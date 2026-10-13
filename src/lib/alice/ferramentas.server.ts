@@ -2,6 +2,7 @@
  * Ferramentas da Alice. Toda leitura/gravação é filtrada pela empresa da tarefa (o processador
  * usa a chave de serviço, então o filtro por empresa é obrigatório em cada consulta).
  */
+import { linhasPagamento } from "@/lib/texto-pagamento";
 import { rotuloServico, textoQuantidade, unidadeDaCategoria } from "@/lib/unidade";
 import type { Categoria } from "@/lib/orcamento-regras";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -1086,8 +1087,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           ]
         : []),
       `Total${desconto ? " com desconto" : ""}: ${reais(cond.total)}`,
-      `Cartão: ${cond.parcelas}x de ${reais(cond.parcela)} sem juros`,
-      `Pix (${cond.descontoPixPercentual}% off): ${reais(cond.pix)}`,
+      "Pagamento para o cliente (copie exatamente assim, nestas linhas):",
+      linhasPagamento({
+        total: cond.total,
+        parcelas: cond.parcelas,
+        pix: cond.pix,
+        pixPct: cond.descontoPixPercentual,
+      }),
       `Válido até ${val.texto}`,
     ].join("\n"),
   };

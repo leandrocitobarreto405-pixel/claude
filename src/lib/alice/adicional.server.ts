@@ -3,6 +3,7 @@
  * só, depois que o cliente confirma; se ele aceitar, o item entra no mesmo orçamento (e na OS, se
  * já foi gerada) pelo preço de adicional da tabela, fora do desconto de campanha e de indicação.
  */
+import { linhasPagamento } from "@/lib/texto-pagamento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { condicoesPagamento, normalizarNome, reais } from "./regras";
@@ -197,8 +198,13 @@ export async function adicionalPosFechamento(
     texto: [
       `Incluído no pedido: ${quantidade > 1 ? `${quantidade}x ` : ""}${escolhido.nome} (adicional) — ${reais(subtotal)}.${os}`,
       `Novo total: ${reais(cond.total)}`,
-      `Cartão: ${cond.parcelas}x de ${reais(cond.parcela)} sem juros`,
-      `Pix (${cond.descontoPixPercentual}% off): ${reais(cond.pix)}`,
+      "Pagamento para o cliente (copie exatamente assim, nestas linhas):",
+      linhasPagamento({
+        total: cond.total,
+        parcelas: cond.parcelas,
+        pix: cond.pix,
+        pixPct: cond.descontoPixPercentual,
+      }),
     ].join("\n"),
   };
 }

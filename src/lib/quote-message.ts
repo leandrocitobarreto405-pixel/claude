@@ -1,6 +1,7 @@
 /** Monta a mensagem de WhatsApp do orçamento. Nunca inclui custos, km ou margem. */
 import { brl } from "@/lib/format";
 import { preencherTexto } from "@/lib/modelos-mensagem";
+import { linhasPagamento } from "@/lib/texto-pagamento";
 import type { RegrasOrcamento } from "@/lib/orcamento-regras";
 import type { Quote, QuoteItem } from "@/lib/quotes";
 import {
@@ -48,6 +49,8 @@ export type TextosOrcamento = {
   parcelasMax: number;
   validadeDias: number;
   texto: (chave: string) => string;
+  /** Desconto do Pix da empresa, em % (sem ele, a mensagem mostra só o total no cartão). */
+  pixPct?: number;
   /** Regras de orçamento da empresa (percentuais de boas-vindas e adicionais). */
   regras?: RegrasOrcamento;
 };
@@ -161,6 +164,8 @@ export function quoteWhatsappMessage(
   partes.push(
     "",
     preencherTexto(t.texto("orcamento_fechamento"), {
+      pagamento: linhasPagamento({ total, parcelas, pix: aVista, pixPct: t.pixPct ?? 0 }),
+      total: brl(total),
       parcelas: String(parcelas),
       parcela: brl(total / parcelas),
       a_vista: brl(aVista),
