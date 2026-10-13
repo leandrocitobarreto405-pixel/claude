@@ -143,6 +143,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   cliente fizer questão), "tapete" saiu da lista de transferência e entrou o parágrafo de tapete e
   persiana (md5 antes `ec62229f…`, depois `a634c188…`; trechos antigos em
   `docs/nexa-os/alice/turbine-colchao-tapete-ate-1310.md`).
+- "Alice depois do agendamento" (`20261104120000`, aplicada em 13/10): só acrescenta campos em
+  `ia_configuracoes` (confirmação na véspera, pós-venda e avaliação, todos desligados; horário
+  10:00) e a tabela `ia_pos_atendimento` (o que foi mandado e a resposta, com RLS por empresa).
+  Troca `mkt_gerar_gatilhos` só para o C1 do marketing pular quando o pós-venda da Alice estiver
+  ligado (desligado, nada muda). Para voltar a função: recriar a de `20261029120000`. Dados
+  (Turbine): nomes dos modelos `tc_confirmacao_servico` e `tc_pos_venda` na configuração e os
+  dois como rascunho em Modelos de mensagem (origem "Parte 2 (13/10)"), sem botões, para envio à
+  Meta pela própria equipe.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -205,6 +213,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/10/2026 08:35 | Alice: fila e remarcar | `3a187c2`        | `57b03a0`                |
 | 12/10/2026 21:00 | Tapete m² e persiana   | `fbc8359`        | `d333a88`                |
 | 13/10/2026       | Aviso do colchão       | `c24f447`        | `4d77c77`                |
+| 13/10/2026 01:10 | Alice: pós-venda       | `88a35ff`        | `c70334a`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
