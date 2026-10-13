@@ -188,8 +188,8 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   LP do colchão em `ads_clicks` (eventos `captacao`/`importado`), 10 ligados a leads. Exportação
   de 13/10 12h55: 3 conversões na planilha do Google Ads (OS 1671, 1673 e 1677) e
   `enviado_google_em` marcado.
-- "OS sem lead: vínculo automático" (`20261108140000`, **ainda não aplicada**: o MCP do Supabase
-  estava desconectado em 13/10): cria `crm_ligar_os_sem_lead` (só o servidor executa). Liga OS
+- "OS sem lead: vínculo automático" (`20261108140000`, aplicada em 13/10 e versão registrada;
+  conferido: função existe e a tela não executa): cria `crm_ligar_os_sem_lead` (só o servidor executa). Liga OS
   criada a partir de 13/10 14h ao único lead aberto com o mesmo telefone; nenhum ou vários só
   registram em `ads_eventos`. Para voltar: `DROP FUNCTION public.crm_ligar_os_sem_lead(uuid,
 timestamptz)` (a varredura só registra a falha e segue).
