@@ -39,6 +39,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Leads do site: falha", e instanceof Error ? e.message : e);
             return null;
           });
+          // OS criada sem lead: liga ao único lead aberto com o mesmo telefone (antes da exportação).
+          const { ligarOsSemLead } = await import("@/lib/crm-vinculo.server");
+          const vinculoOs = await ligarOsSemLead().catch((e) => {
+            console.error("CRM: falha no vínculo de OS", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Google Ads: exportação diária das vendas (uma vez por dia, a partir das 5h).
           const { exportacaoDiaria } = await import("@/lib/ads/exportar-google.server");
           const exportacaoGoogle = await exportacaoDiaria()
@@ -50,7 +56,15 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
               );
               return null;
             });
-          return json({ ok: true, ...fila, anuncios, posAtendimento, leadsSite, exportacaoGoogle });
+          return json({
+            ok: true,
+            ...fila,
+            anuncios,
+            posAtendimento,
+            leadsSite,
+            vinculoOs,
+            exportacaoGoogle,
+          });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);
           return json({ ok: false, error: "Falha temporária." }, 500);
