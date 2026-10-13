@@ -2,7 +2,7 @@
  * Exportação das vendas para o Google Ads (importação offline de conversões por planilha).
  *
  * Para cada empresa com planilha configurada (ads_configuracoes.google_planilha_id):
- *  1. lê as conversões pendentes (vw_conversoes_google_pendentes: venda faturada, com gclid,
+ *  1. lê as conversões pendentes (vw_conversoes_google_pendentes: OS agendada, com gclid,
  *     ainda não enviada);
  *  2. reescreve a primeira aba da planilha: na linha 1 os nomes das colunas (o fluxo novo do
  *     Google Ads, na Central de dados, lê a linha 1 como cabeçalho; o fuso vai no horário, -03:00)

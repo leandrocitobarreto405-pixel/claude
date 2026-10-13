@@ -74,17 +74,22 @@ O servidor relê a lista a cada minuto.
 Colunas exatas da importação offline: `Google Click ID`, `Conversion Name`, `Conversion Time`,
 `Conversion Value`, `Conversion Currency`. Só vendas com gclid ainda não enviadas.
 
-- **Venda** = `crm_leads.faturado_em` preenchido (primeiro pagamento "Pago" da OS do lead).
+- **Venda** = OS agendada: lead com `linked_work_order_id` apontando para uma OS não excluída
+  (`deleted_at IS NULL`) e com status diferente de "Cancelada". Pagamento não é necessário (a
+  equipe não lança pagamento nas OS; até 13/10/2026 a regra era `faturado_em`, e nenhuma
+  conversão saía).
 - **Nome**: "Venda Higienização" ou "Venda Impermeabilização", pelo `servico` do clique (sem
   serviço no clique, pelo serviço de interesse do lead; na dúvida, higienização).
-- **Horário**: `faturado_em` no horário de São Paulo, `yyyy-MM-dd HH:mm:ss-03:00`. O pagamento é
-  registrado por data (o sistema usa 12h); se cair antes do clique (pagamento no mesmo dia), usa
-  1 minuto depois do clique, porque o Google recusa conversão anterior ao clique.
+- **Horário**: `greatest(crm_leads.os_criada_em, clique + 1 minuto)` no horário de São Paulo,
+  `yyyy-MM-dd HH:mm:ss-03:00`. `os_criada_em` é a criação da OS; se a OS foi criada antes do
+  clique (no mesmo dia), usa 1 minuto depois do clique, porque o Google recusa conversão anterior
+  ao clique.
 - **Valor**: `work_orders.total_gross_value`, o total da OS (o valor fechado com o cliente, antes
   de taxas de cartão e descontos de recebimento). É o que o Google deve otimizar: receita da venda,
   não o líquido recebido. Venda sem OS ligada ao lead não entra.
 - **Uma conversão por venda**: o clique com gclid mais recente do lead, feito até 90 dias antes da
-  venda. Lead que já teve conversão enviada não volta, mesmo com clique novo.
+  OS e no máximo 1 dia depois dela. Lead que já teve conversão enviada não volta, mesmo com
+  clique novo.
 
 `vw_conversoes_google_pendentes` é a mesma consulta com os IDs (usada pela exportação).
 

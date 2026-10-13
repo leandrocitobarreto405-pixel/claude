@@ -112,7 +112,7 @@ SELECT pg_temp.clique('turbineclanhigenizacao.lovable.app', 'ip3', '{"telefone":
 SELECT pg_temp.ok((SELECT crm_lead_id FROM public.ads_clicks WHERE gclid = 'GCLID_B_111') = 'a2000000-0000-0000-0000-000000000001',
   'clique novo de lead existente');
 
--- 9. Conversões: só venda faturada com gclid, uma por lead, formato do Google.
+-- 9. Conversões: venda = OS ligada ao lead (não excluída, não cancelada), uma por lead, formato do Google.
 SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 0, 'sem venda, sem conversão');
 UPDATE public.ads_clicks SET created_at = now() - interval '3 days' WHERE gclid IN ('Cj0KCQ_abc-123', 'GCLID_B_000');
 UPDATE public.ads_clicks SET created_at = now() - interval '2 days' WHERE gclid = 'GCLID_B_111';
@@ -123,28 +123,43 @@ VALUES ('e2000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-1111111
         'c2000000-0000-0000-0000-000000000001', 459.90, current_date);
 UPDATE public.crm_leads SET linked_work_order_id = 'e2000000-0000-0000-0000-000000000001'
  WHERE id = 'a2000000-0000-0000-0000-000000000001';
-SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 0, 'OS sem pagamento não é venda');
-INSERT INTO public.payments (empresa_id, work_order_id, payment_channel, payment_date, gross_amount,
-  net_amount, payment_status, is_active)
-VALUES ('11111111-1111-1111-1111-111111111111', 'e2000000-0000-0000-0000-000000000001', 'Pix',
-        current_date - 1, 459.90, 459.90, 'Pago', true);
+-- OS ligada ao lead já é venda: pagamento não é mais necessário.
+SELECT pg_temp.ok((SELECT faturado_em IS NULL FROM public.crm_leads WHERE id = 'a2000000-0000-0000-0000-000000000001'),
+  'lead sem pagamento');
 SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 1,
-  'uma conversão por venda: ' || (SELECT count(*) FROM public.vw_conversoes_google));
+  'OS sem pagamento já é venda, uma conversão por lead: ' || (SELECT count(*) FROM public.vw_conversoes_google));
 SELECT pg_temp.ok((SELECT "Google Click ID" || '|' || "Conversion Name" || '|' || "Conversion Value" || '|' || "Conversion Currency"
     FROM public.vw_conversoes_google) = 'GCLID_B_111|Venda Higienização|459.90|BRL',
   'clique mais recente, nome, valor e moeda: ' || (SELECT row_to_json(v)::text FROM public.vw_conversoes_google v));
+-- Horário = criação da OS (os_criada_em), no fuso de São Paulo.
+UPDATE public.work_orders SET created_at = (current_date - 1 + time '12:00') AT TIME ZONE 'America/Sao_Paulo'
+ WHERE id = 'e2000000-0000-0000-0000-000000000001';
+UPDATE public.crm_leads SET linked_work_order_id = NULL WHERE id = 'a2000000-0000-0000-0000-000000000001';
+UPDATE public.crm_leads SET linked_work_order_id = 'e2000000-0000-0000-0000-000000000001'
+ WHERE id = 'a2000000-0000-0000-0000-000000000001';
 SELECT pg_temp.ok((SELECT "Conversion Time" FROM public.vw_conversoes_google)
     = to_char(current_date - 1, 'YYYY-MM-DD') || ' 12:00:00-03:00',
-  'horário do faturamento: ' || (SELECT "Conversion Time" FROM public.vw_conversoes_google));
+  'horário da criação da OS: ' || (SELECT "Conversion Time" FROM public.vw_conversoes_google));
 SELECT pg_temp.ok((SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'vw_conversoes_google')
   = 'Google Click ID,Conversion Name,Conversion Time,Conversion Value,Conversion Currency', 'colunas exatas');
 
--- Pagamento no mesmo dia, depois do clique: conversão 1 minuto depois do clique.
+-- OS criada antes do clique (no mesmo dia): conversão 1 minuto depois do clique.
 UPDATE public.ads_clicks SET created_at = (current_date - 1 + time '15:00') AT TIME ZONE 'America/Sao_Paulo'
  WHERE gclid = 'GCLID_B_111';
 SELECT pg_temp.ok((SELECT "Conversion Time" FROM public.vw_conversoes_google)
     = to_char(current_date - 1, 'YYYY-MM-DD') || ' 15:01:00-03:00', 'conversão depois do clique');
+
+-- Janela: clique mais de 1 dia depois da OS não conta; OS cancelada ou excluída não é venda.
+UPDATE public.ads_clicks SET created_at = (current_date - 1 + time '12:00') AT TIME ZONE 'America/Sao_Paulo' + interval '25 hours'
+ WHERE gclid IN ('GCLID_B_111', 'GCLID_B_000');
+SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 0, 'clique 25 h depois da OS não conta');
+UPDATE public.ads_clicks SET created_at = (current_date - 1 + time '15:00') AT TIME ZONE 'America/Sao_Paulo'
+ WHERE gclid = 'GCLID_B_111';
+UPDATE public.work_orders SET status = 'Cancelada' WHERE id = 'e2000000-0000-0000-0000-000000000001';
+SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 0, 'OS cancelada não é venda');
+UPDATE public.work_orders SET status = 'Agendada' WHERE id = 'e2000000-0000-0000-0000-000000000001';
+SELECT pg_temp.ok((SELECT count(*) FROM public.vw_conversoes_google) = 1, 'OS agendada volta a ser venda');
 
 -- 10. Enviada: sai da view; clique novo do mesmo lead não gera outra conversão.
 UPDATE public.ads_clicks SET enviado_google_em = now() WHERE gclid = 'GCLID_B_111';
