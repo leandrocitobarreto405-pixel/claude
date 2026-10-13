@@ -244,6 +244,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Modelos \_v2           | `726a216`        | `ff6838f`                |
 | 13/10/2026       | Leads: 5 min e 24 h    | `7f074bd`        | `726a216`                |
 | 13/10/2026       | Véspera todo dia       | `d9bfba9`        | `52468cd`                |
+| 13/10/2026       | Orçamento: Pix à parte | `35bd321`        | `aede577`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
