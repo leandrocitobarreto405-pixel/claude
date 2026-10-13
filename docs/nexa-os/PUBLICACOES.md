@@ -139,6 +139,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Turbine): impermeabilização de colchão 399,80 / 499,80 / 579,80 / 678,00 e 7 itens novos
   (3 tapetes por m², 4 persianas por peça, ordem 23 a 29). Para voltar os dados: colchões com
   `preco_impermeabilizacao = NULL` e os 7 itens com `ativo = false`.
+  Roteiro da Turbine em 13/10 (aprovado): colchão só higienização (impermeabilização só se o
+  cliente fizer questão), "tapete" saiu da lista de transferência e entrou o parágrafo de tapete e
+  persiana (md5 antes `ec62229f…`, depois `a634c188…`; trechos antigos em
+  `docs/nexa-os/alice/turbine-colchao-tapete-ate-1310.md`).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -200,6 +204,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 09/10/2026 00:40 | Colchão adicional      | `f9fd9d4`        | `4348cb9`                |
 | 12/10/2026 08:35 | Alice: fila e remarcar | `3a187c2`        | `57b03a0`                |
 | 12/10/2026 21:00 | Tapete m² e persiana   | `fbc8359`        | `d333a88`                |
+| 13/10/2026       | Aviso do colchão       | `c24f447`        | `4d77c77`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
