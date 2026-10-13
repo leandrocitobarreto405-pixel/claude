@@ -188,6 +188,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   LP do colchão em `ads_clicks` (eventos `captacao`/`importado`), 10 ligados a leads. Exportação
   de 13/10 12h55: 3 conversões na planilha do Google Ads (OS 1671, 1673 e 1677) e
   `enviado_google_em` marcado.
+- "OS sem lead: vínculo automático" (`20261108140000`, **ainda não aplicada**: o MCP do Supabase
+  estava desconectado em 13/10): cria `crm_ligar_os_sem_lead` (só o servidor executa). Liga OS
+  criada a partir de 13/10 14h ao único lead aberto com o mesmo telefone; nenhum ou vários só
+  registram em `ads_eventos`. Para voltar: `DROP FUNCTION public.crm_ligar_os_sem_lead(uuid,
+  timestamptz)` (a varredura só registra a falha e segue).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -261,6 +266,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Ads: venda pela OS     | `c2d5c6e`        | `a7324bc`                |
 | 13/10/2026       | Ads: LP do colchão     | `00d9199`        | `c2d5c6e`                |
 | 13/10/2026       | Ads: exportação diária | `80af6e0`        | `ed44911`                |
+| 13/10/2026       | OS → lead automático   | `8da17fb`        | `9fcb153`                |
+| 13/10/2026       | Ads: valor como número | `653c16c`        | `8da17fb`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
