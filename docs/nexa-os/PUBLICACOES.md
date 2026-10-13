@@ -192,7 +192,7 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   estava desconectado em 13/10): cria `crm_ligar_os_sem_lead` (só o servidor executa). Liga OS
   criada a partir de 13/10 14h ao único lead aberto com o mesmo telefone; nenhum ou vários só
   registram em `ads_eventos`. Para voltar: `DROP FUNCTION public.crm_ligar_os_sem_lead(uuid,
-  timestamptz)` (a varredura só registra a falha e segue).
+timestamptz)` (a varredura só registra a falha e segue).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
