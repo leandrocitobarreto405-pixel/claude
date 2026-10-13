@@ -151,6 +151,15 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   (Turbine): nomes dos modelos `tc_confirmacao_servico` e `tc_pos_venda` na configuração e os
   dois como rascunho em Modelos de mensagem (origem "Parte 2 (13/10)"), sem botões, para envio à
   Meta pela própria equipe.
+- "Leads do site" (`20261105120000`, aplicada em 13/10): só acrescenta. Tabelas
+  `leads_site_planilhas`, `leads_site` e `leads_site_configuracoes` (RLS por empresa; técnico
+  não vê; só o servidor grava), as funções `leads_site_registrar` e `leads_site_atualizar`,
+  `so_no_app` em `mkt_avisos` (com trava: aviso só no app não pode ser marcado como enviado no
+  WhatsApp) e `lp_origem`, `utm_term`, `gclid`, `gbraid` em `crm_leads` (preenchidos só quando
+  vazios). Dados (Turbine): configuração com o envio automático desligado, rascunho
+  `tc_lead_site` em Modelos de mensagem (origem "Leads do site (13/10)") e as duas planilhas das
+  LPs (ids só no banco, fora do repositório). Para parar a leitura sem mexer no código: "Pausar
+  leitura" em Configurações → Leads do site (ou `ativa = false`).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -214,6 +223,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/10/2026 21:00 | Tapete m² e persiana   | `fbc8359`        | `d333a88`                |
 | 13/10/2026       | Aviso do colchão       | `c24f447`        | `4d77c77`                |
 | 13/10/2026 01:10 | Alice: pós-venda       | `88a35ff`        | `c70334a`                |
+| 13/10/2026       | Leads do site          | `330c885`        | `e4bd2b4`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
