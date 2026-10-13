@@ -17,13 +17,16 @@ import {
   textoAvaliacao,
 } from "./pos-atendimento";
 
-test("datas: segunda a sexta confirma amanhã; sábado confirma domingo e segunda; domingo nada", () => {
+test("datas: confirmação sempre na véspera e pós-venda sempre no dia seguinte, inclusive domingo", () => {
   assert.deepEqual(datasConfirmacao("2026-10-13"), ["2026-10-14"]); // terça
-  assert.deepEqual(datasConfirmacao("2026-10-17"), ["2026-10-18", "2026-10-19"]); // sábado
-  assert.deepEqual(datasConfirmacao("2026-10-18"), []); // domingo
+  assert.deepEqual(datasConfirmacao("2026-10-17"), ["2026-10-18"]); // sábado confirma domingo
+  assert.deepEqual(datasConfirmacao("2026-10-18"), ["2026-10-19"]); // domingo confirma segunda
   assert.deepEqual(datasPosVenda("2026-10-14"), ["2026-10-13"]);
-  assert.deepEqual(datasPosVenda("2026-10-19"), ["2026-10-17", "2026-10-18"]); // segunda
-  assert.deepEqual(datasPosVenda("2026-10-18"), []);
+  assert.deepEqual(datasPosVenda("2026-10-18"), ["2026-10-17"]); // domingo: serviço de sábado
+  assert.deepEqual(datasPosVenda("2026-10-19"), ["2026-10-18"]); // segunda: serviço de domingo
+  // Na véspera o {{2}} da confirmação é sempre "amanhã".
+  for (const hoje of ["2026-10-17", "2026-10-18", "2026-10-13"])
+    assert.equal(diaDoServico(hoje, datasConfirmacao(hoje)[0]!), "amanhã");
 });
 
 test("nome, janela e estofado com possessivo (só o tipo)", () => {
@@ -74,7 +77,7 @@ test("pós-venda com e sem pasta (o lugar do link explica que a equipe manda dep
   assert.ok(sem.includes("antes e depois: a equipe te manda o link em seguida. Como foi"));
 });
 
-test("dia do serviço: amanhã ou dia da semana com data (sábado confirmando segunda)", () => {
+test("dia do serviço: amanhã ou dia da semana com data", () => {
   assert.equal(diaDoServico("2026-10-13", "2026-10-14"), "amanhã");
   assert.equal(diaDoServico("2026-10-17", "2026-10-18"), "amanhã");
   assert.equal(diaDoServico("2026-10-17", "2026-10-19"), "segunda-feira, 19/10");
@@ -86,7 +89,7 @@ test("dia do serviço: amanhã ou dia da semana com data (sábado confirmando se
     preencherCorpo(TEXTO_PADRAO.confirmacao, ["Ana", "amanhã", "10h e 11h"]),
     "Oi, Ana, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de amanhã, com o técnico chegando entre 10h e 11h. Está tudo certo para realizarmos o serviço?",
   );
-  // Pós-venda sem "ontem": vale para o serviço de sábado mandado na segunda.
+  // Pós-venda sem "ontem" fixo no texto.
   assert.ok(!TEXTO_PADRAO.pos_venda.includes("ontem"));
 });
 

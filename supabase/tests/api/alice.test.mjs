@@ -834,16 +834,11 @@ check(
 sql(`UPDATE ia_configuracoes SET agenda_automatica = false WHERE empresa_id = '${EMPRESA}'`);
 
 // ---------------------------------------------------------------- 4i. depois do agendamento
-// Confirmação na véspera e pós-venda (dados fictícios). Domingo não sai nada: o teste pula.
-const domingo =
-  sql(`SELECT extract(dow FROM (now() AT TIME ZONE 'America/Sao_Paulo'))::int`) === "0";
-if (domingo) {
-  console.log("PULADO depois do agendamento (domingo não tem envio)");
-} else {
+// Confirmação na véspera e pós-venda no dia seguinte, todos os dias (dados fictícios).
+{
   const amanha = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 1)::text`);
   const ontem = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date - 1)::text`);
   const hoje = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date)::text`);
-  // Segunda: o pós-venda de ontem (domingo) também sai (o texto não diz "ontem").
   await fetch(`${CHATWOOT}/api/v1/accounts/187966/__modelos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -25,22 +25,13 @@ function somarDias(data: string, n: number): string {
 const diaDaSemana = (data: string) => new Date(`${data}T12:00:00Z`).getUTCDay();
 export const nomeDoDia = (data: string) => DIAS[diaDaSemana(data)]!;
 
-/**
- * Dias de serviço a confirmar hoje (nada sai no domingo): de segunda a sexta, o dia seguinte; no
- * sábado, domingo e segunda.
- */
+/** Dia de serviço a confirmar hoje: sempre a véspera (todos os dias, inclusive domingo). */
 export function datasConfirmacao(hoje: string): string[] {
-  const dow = diaDaSemana(hoje);
-  if (dow === 0) return [];
-  if (dow === 6) return [somarDias(hoje, 1), somarDias(hoje, 2)];
   return [somarDias(hoje, 1)];
 }
 
-/** Dias de serviço concluído com pós-venda hoje (nada sai no domingo; na segunda, sábado e domingo). */
+/** Dia de serviço concluído com pós-venda hoje: sempre o dia anterior (inclusive domingo). */
 export function datasPosVenda(hoje: string): string[] {
-  const dow = diaDaSemana(hoje);
-  if (dow === 0) return [];
-  if (dow === 1) return [somarDias(hoje, -2), somarDias(hoje, -1)];
   return [somarDias(hoje, -1)];
 }
 
@@ -144,7 +135,7 @@ export const SEM_LINK = "a equipe te manda o link em seguida.";
 
 /**
  * Dia do serviço na confirmação: "amanhã" quando é o dia seguinte; senão, dia da semana e data
- * ("segunda-feira, 13/10"), como no sábado confirmando a segunda.
+ * ("segunda-feira, 13/10"), para quando o serviço não for no dia seguinte.
  */
 export function diaDoServico(hoje: string, dataServico: string): string {
   if (dataServico === somarDias(hoje, 1)) return "amanhã";

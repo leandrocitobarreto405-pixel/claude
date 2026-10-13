@@ -106,7 +106,7 @@ export function AlicePosAtendimento() {
 
       <Bloco
         titulo="Confirmação na véspera"
-        descricao="No dia anterior ao serviço (sábado confirma domingo e segunda). Cliente que escreveu nas últimas 24 h recebe texto livre; senão, o modelo."
+        descricao="Na véspera do serviço, todos os dias (inclusive domingo), no horário abaixo. Cliente que escreveu nas últimas 24 h recebe texto livre; senão, o modelo."
         ligada={d.confirmacao.ligada}
         situacao={d.confirmacao.situacao}
         ocupado={ocupado}
@@ -131,7 +131,7 @@ export function AlicePosAtendimento() {
 
       <Bloco
         titulo="Pós-venda"
-        descricao="No dia seguinte ao serviço concluído, com o link da pasta (fotos e vídeos), o nome do técnico e o estofado. Sem pasta: vai sem o link e a equipe recebe uma nota."
+        descricao="No dia seguinte ao serviço concluído (inclusive domingo), com o link da pasta (fotos e vídeos), o nome do técnico e o estofado. Sem pasta: vai sem o link e a equipe recebe uma nota."
         ligada={d.pos_venda.ligada}
         situacao={d.pos_venda.situacao}
         ocupado={ocupado}
