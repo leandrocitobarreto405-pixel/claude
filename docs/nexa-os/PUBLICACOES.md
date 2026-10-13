@@ -167,7 +167,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   chaves ignoradas). Saiu a restrição de linha única (a linha muda quando apagam linhas). Dados:
   as chaves dos 4 cadastros de teste de 12/10 (20h27–20h34) na lista de ignorados; os rascunhos
   `tc_confirmacao_servico` e `tc_pos_venda` recriados com o texto sem "amanhã"/"ontem" (origem
-  "Ajuste 13/10: sem amanhã/ontem"), como edição dos modelos já enviados à Meta.
+  "Ajuste 13/10: sem amanhã/ontem"); depois renomeados para `tc_confirmacao_servico_v2` e
+  `tc_pos_venda_v2` (os antigos, já enviados à Meta, ficam como estão e não são usados).
+- "Leads do site: 5 min e 24 h" (`20261107120000`, aplicada em 13/10): só acrescenta
+  `leads_site_configuracoes.envio_24h` (padrão ligado) e muda o padrão de `envio_apos_minutos`
+  para 5. Dados (Turbine): envio em 5 min (continua desligado) e `ia_configuracoes` apontando
+  para os modelos `_v2`. Para voltar os nomes: `confirmacao_modelo = 'tc_confirmacao_servico'`,
+  `pos_venda_modelo = 'tc_pos_venda'` (o código novo recusa os antigos; voltar exige também
+  reverter `726a216`).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -234,6 +241,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Leads do site          | `330c885`        | `e4bd2b4`                |
 | 13/10/2026       | Modelos sem dia fixo   | `8dd3429`        | `3525b5b`                |
 | 13/10/2026       | Leads: chave/teste     | `cb57b45`        | `8dd3429`                |
+| 13/10/2026       | Modelos \_v2           | `726a216`        | `ff6838f`                |
+| 13/10/2026       | Leads: 5 min e 24 h    | `7f074bd`        | `726a216`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
