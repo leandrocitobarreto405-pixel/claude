@@ -502,6 +502,17 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
   if (d.conversa.status !== "pending")
     return { situacao: "ignorada", detalhe: "conversa com atendente humano" };
+  // Dia do serviço: fica com a equipe (chegada do técnico, dúvidas); a Alice não manda nada.
+  const { servicoHoje } = await import("./pos-resposta.server");
+  const osHoje = await servicoHoje(db, tarefa.empresa_id, d.contato?.normalized_phone);
+  if (osHoje) {
+    await socorroHumano(
+      db,
+      tarefa,
+      `Hoje é o dia do serviço da OS ${osHoje}: a Alice não responde e a conversa fica com a equipe.`,
+    );
+    return { situacao: "concluida", detalhe: `dia do serviço (OS ${osHoje}): com a equipe` };
+  }
   return conversar(db, tarefa, cfg, d, null);
 }
 
@@ -705,7 +716,10 @@ async function conversar(
   }
 
   const etapas = await etapasAbertas(db, tarefa.empresa_id);
-  const ferramentas = ferramentasDisponiveis(cfg, etapas);
+  // Confirmação ou pós-venda da Alice esperando resposta nesta conversa.
+  const { posPendente, instrucoesPos } = await import("./pos-resposta.server");
+  const pos = ehFollowup ? null : await posPendente(db, tarefa.empresa_id, d.conversa);
+  const ferramentas = ferramentasDisponiveis(cfg, etapas, { posAtendimento: Boolean(pos) });
   const [empresa, { lead, salesperson }, hist] = await Promise.all([
     contextoEmpresa(
       db,
@@ -734,12 +748,15 @@ async function conversar(
     agendouFollowup: false,
     notas: [],
     midias: new Set(),
+    posAtendimento: pos,
   };
   const cliente = new Anthropic();
   // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
   // automático (top-level), que avança a cada rodada. A hora e os dados do lead mudam a cada
   // resposta, então ficam DEPOIS da conversa (mensagem de sistema no fim), para não quebrar o cache.
-  const momento = instrucoesDoMomento(new Date(), lead);
+  const momento = [instrucoesDoMomento(new Date(), lead), pos ? instrucoesPos(pos) : null]
+    .filter(Boolean)
+    .join("\n");
   const momentoNoMeio = !SEM_SISTEMA_NO_MEIO.includes(cfg.modelo);
   const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: instrucoesFixas(empresa), cache_control: { type: "ephemeral" } },
@@ -980,6 +997,12 @@ async function conversar(
     mensagens_enviadas: [...enviadas, ...retidos.map((t) => `[não enviado: texto interno] ${t}`)],
   });
   await enviarNotas(d, ctx, false);
+  // OS da equipe: a Alice tratou a resposta à mensagem dela e devolve a conversa para a equipe.
+  if (ctx.devolverEquipe && !ctx.passagem && d.tokenRobo) {
+    await enviarNota(d, ctx.devolverEquipe);
+    await mudarSituacao(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, "open");
+    await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
+  }
 
   if (d.conversa.crm_lead_id) {
     await db

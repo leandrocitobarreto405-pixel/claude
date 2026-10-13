@@ -833,6 +833,280 @@ check(
 );
 sql(`UPDATE ia_configuracoes SET agenda_automatica = false WHERE empresa_id = '${EMPRESA}'`);
 
+// ---------------------------------------------------------------- 4i. depois do agendamento
+// Confirmação na véspera e pós-venda (dados fictícios). Domingo não sai nada: o teste pula.
+const domingo =
+  sql(`SELECT extract(dow FROM (now() AT TIME ZONE 'America/Sao_Paulo'))::int`) === "0";
+if (domingo) {
+  console.log("PULADO depois do agendamento (domingo não tem envio)");
+} else {
+  const amanha = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 1)::text`);
+  const ontem = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date - 1)::text`);
+  const hoje = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date)::text`);
+  // Segunda: o pós-venda de ontem (domingo) também sai, mas o texto livre diz "no domingo".
+  await fetch(`${CHATWOOT}/api/v1/accounts/187966/__modelos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      acrescentar: [
+        {
+          name: "tc_confirmacao_servico",
+          language: "pt_BR",
+          status: "APPROVED",
+          category: "UTILITY",
+          components: [
+            {
+              type: "BODY",
+              text: "Oi, {{1}}, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de amanhã, com o técnico chegando entre {{2}}. Está tudo certo para realizarmos o serviço?",
+            },
+          ],
+        },
+        {
+          name: "tc_pos_venda",
+          language: "pt_BR",
+          status: "APPROVED",
+          category: "UTILITY",
+          components: [
+            {
+              type: "BODY",
+              text: "Bom dia, {{1}}, tudo bem? Alice aqui 💙 Separamos a pasta do seu serviço, com a OS e as fotos e vídeos de antes e depois: {{2}} Como foi o atendimento do {{3}} ontem? Ficou tudo certo com {{4}} depois do serviço?",
+            },
+          ],
+        },
+      ],
+    }),
+  });
+  const contato = (telefone, conversa) =>
+    fetch(`${CHATWOOT}/api/v1/accounts/187966/__contato`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefone, conversa }),
+    });
+  // OS da equipe (sem histórico da Alice): cliente, OS e atendimento.
+  const osDaEquipe = (n, nome, fone, data, status, concluido) =>
+    sql(`WITH c AS (INSERT INTO customers (empresa_id, full_name, phone) VALUES ('${EMPRESA}', '${nome}', '${fone}') RETURNING id),
+         w AS (INSERT INTO work_orders (empresa_id, os_number, customer_id, status, total_gross_value)
+               SELECT '${EMPRESA}', '${n}', id, '${status === "Concluído" ? "Concluída" : "Agendada"}', 300 FROM c RETURNING id),
+         v AS (INSERT INTO visits (empresa_id, work_order_id, scheduled_date, scheduled_time, status, technician_id, completion_date, visit_value)
+               SELECT '${EMPRESA}', id, '${data}', '10:00', '${status}', '${tecnico}', ${concluido ? `'${data}'` : "NULL"}, 300 FROM w RETURNING id)
+         INSERT INTO service_items (empresa_id, visit_id, description, quantity, unit_price, subtotal)
+         SELECT '${EMPRESA}', id, 'Sofá comum 3 lugares — Higienização', 1, 300, 300 FROM v RETURNING visit_id`);
+  sql(`INSERT INTO mkt_configuracoes (empresa_id, chatwoot_inbox_id) VALUES ('${EMPRESA}', 4242)
+       ON CONFLICT (empresa_id) DO UPDATE SET chatwoot_inbox_id = 4242`);
+  sql(`UPDATE ia_configuracoes SET confirmacao_ligada = true, confirmacao_hora = '00:00',
+         confirmacao_modelo = 'tc_confirmacao_servico', pos_venda_ligado = true, pos_venda_hora = '00:00',
+         pos_venda_modelo = 'tc_pos_venda', avaliacao_ligada = true,
+         avaliacao_link = 'https://g.page/r/teste/review' WHERE empresa_id = '${EMPRESA}'`);
+  // 1) Cliente nova, sem conversa: janela fechada → modelo.
+  osDaEquipe("PV-1", "Ana Teste", "11977000041", amanha, "Agendado", false);
+  // 2) Cliente da conversa 17 (a equipe escreveu nela; janela aberta) → texto livre e volta para a Alice.
+  await contato("+5511988000017", 967);
+  osDaEquipe("PV-2", "Bia Teste", "11988000017", amanha, "Agendado", false);
+  // 3) Pós-venda sem pasta para a cliente da conversa 18 (janela aberta) e 4) para a da 19.
+  await contato("+5511988000018", 968);
+  await contato("+5511988000019", 969);
+  osDaEquipe("PV-3", "Cris Teste", "11988000018", ontem, "Concluído", true);
+  osDaEquipe("PV-4", "Duda Teste", "11988000019", ontem, "Concluído", true);
+  // Mensagens recentes das clientes 17, 18 e 19 (janela de 24 h aberta).
+  for (const [id, n] of [
+    [9601, 17],
+    [9602, 18],
+    [9603, 19],
+  ])
+    await webhook(msg(id, n, "Oi, bom dia"));
+  await esperar(1500);
+  sql(
+    `UPDATE ia_tarefas SET situacao = 'ignorada' WHERE situacao = 'pendente' AND tipo = 'responder'`,
+  );
+  sql(`UPDATE conversas SET status = 'open' WHERE chatwoot_conversation_id IN (967, 968, 969)`);
+
+  const r = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}` },
+  }).then((x) => x.json());
+  check("pós-atendimento roda na varredura", r.posAtendimento?.enviados === 4, r.posAtendimento);
+  const enviados = (await log(CHATWOOT)).filter(
+    (c) => c.method === "POST" && /\/messages$/.test(c.url),
+  );
+  const modelo = enviados.find((c) => c.body?.template_params?.name === "tc_confirmacao_servico");
+  check(
+    "janela fechada: modelo da confirmação com nome e janela",
+    modelo &&
+      JSON.stringify(modelo.body.template_params.processed_params) ===
+        JSON.stringify({ body: { 1: "Ana", 2: "10h e 11h" } }),
+    modelo?.body,
+  );
+  const livre967 = enviados.find(
+    (c) =>
+      c.url.endsWith("/conversations/967/messages") &&
+      !c.body?.template_params &&
+      /Passando para confirmar/.test(c.body?.content ?? ""),
+  );
+  check(
+    "janela aberta: texto livre na conversa",
+    Boolean(livre967),
+    enviados.map((c) => c.body?.content),
+  );
+  check(
+    "a equipe tinha assumido e a conversa voltou para a Alice",
+    sql(
+      `SELECT status || '|' || (devolvida_para_alice_em IS NOT NULL) FROM conversas WHERE chatwoot_conversation_id = 967`,
+    ) === "pending|true",
+  );
+  const pv968 = enviados.find(
+    (c) =>
+      c.url.endsWith("/conversations/968/messages") &&
+      /Separamos a pasta/.test(c.body?.content ?? ""),
+  );
+  check(
+    "pós-venda sem pasta: sem link, técnico e estofado",
+    /antes e depois: a equipe te manda o link em seguida\. Como foi o atendimento do Josué/.test(
+      pv968?.body?.content ?? "",
+    ) && /Ficou tudo certo com o seu sofá depois do serviço\?/.test(pv968?.body?.content ?? ""),
+    pv968?.body?.content,
+  );
+  check(
+    "pós-venda sem pasta: nota para a equipe",
+    enviados.some(
+      (c) =>
+        c.url.endsWith("/conversations/968/messages") &&
+        c.body?.private &&
+        /sem o link da pasta/.test(c.body?.content ?? ""),
+    ),
+  );
+  const r2 = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}` },
+  }).then((x) => x.json());
+  check("não manda duas vezes", r2.posAtendimento?.enviados === 0, r2.posAtendimento);
+
+  // Respostas: confirmou (OS da equipe → registra e devolve para a equipe).
+  await webhook(msg(9611, 17, "Tudo certo, pode vir!"));
+  await ate(() => situacao(17).endsWith("responder:concluida"), 25000);
+  await ate(
+    () =>
+      sql(
+        `SELECT resposta FROM ia_pos_atendimento WHERE tipo = 'confirmacao' AND work_order_id = (SELECT id FROM work_orders WHERE os_number = 'PV-2')`,
+      ) === "confirmou",
+    15000,
+  );
+  check(
+    "confirmou: atendimento confirmado e histórico na OS",
+    sql(
+      `SELECT v.status FROM visits v JOIN work_orders w ON w.id = v.work_order_id WHERE w.os_number = 'PV-2'`,
+    ) === "Confirmado" &&
+      sql(
+        `SELECT count(*) FROM work_order_history h JOIN work_orders w ON w.id = h.work_order_id WHERE w.os_number = 'PV-2' AND h.description LIKE 'Cliente confirmou%'`,
+      ) === "1",
+  );
+  await ate(
+    () => sql(`SELECT status FROM conversas WHERE chatwoot_conversation_id = 967`) === "open",
+    10000,
+  );
+  check(
+    "OS da equipe: depois da resposta a conversa volta para a equipe",
+    sql(`SELECT status FROM conversas WHERE chatwoot_conversation_id = 967`) === "open",
+  );
+
+  // Elogio no pós-venda → pedido de avaliação com o link.
+  await webhook(msg(9612, 18, "Ficou ótimo, obrigada!"));
+  await ate(
+    () => sql(`SELECT count(*) FROM ia_pos_atendimento WHERE tipo = 'avaliacao'`) === "1",
+    25000,
+  );
+  const aval = (await log(CHATWOOT)).filter(
+    (c) =>
+      c.method === "POST" &&
+      c.url.endsWith("/conversations/968/messages") &&
+      /g\.page\/r\/teste\/review/.test(c.body?.content ?? ""),
+  );
+  check(
+    "elogio: pedido de avaliação com o link, uma vez",
+    aval.length === 1,
+    aval.map((c) => c.body?.content),
+  );
+
+  // Problema no pós-venda → garantia (transferência), sem avaliação.
+  await webhook(msg(9613, 19, "Tive um problema, ficou uma marca"));
+  await ate(
+    async () =>
+      (await log(CHATWOOT)).some(
+        (c) =>
+          c.url.endsWith("/conversations/969/messages") &&
+          c.body?.private &&
+          /garantia/.test(c.body?.content ?? ""),
+      ),
+    25000,
+  );
+  check(
+    "problema: transferido como garantia e sem avaliação",
+    sql(
+      `SELECT resposta FROM ia_pos_atendimento WHERE tipo = 'pos_venda' AND work_order_id = (SELECT id FROM work_orders WHERE os_number = 'PV-4')`,
+    ) === "problema" &&
+      !(await log(CHATWOOT)).some(
+        (c) =>
+          c.url.endsWith("/conversations/969/messages") && /g\.page/.test(c.body?.content ?? ""),
+      ) &&
+      (await log(CHATWOOT)).some(
+        (c) =>
+          c.url.endsWith("/conversations/969/messages") &&
+          c.body?.private &&
+          /garantia/.test(c.body?.content ?? ""),
+      ),
+  );
+
+  // Dia do serviço: a cliente escreve e a Alice não responde (fica com a equipe).
+  osDaEquipe("PV-5", "Eva Teste", "11988000016", hoje, "Agendado", false);
+  sql(`UPDATE conversas SET status = 'pending' WHERE chatwoot_conversation_id = 966`);
+  sql(
+    `UPDATE ia_tarefas SET situacao = 'concluida' WHERE situacao = 'pendente' AND conversa_id = (SELECT id FROM conversas WHERE chatwoot_conversation_id = 966)`,
+  );
+  const antes966 = (await log(CHATWOOT)).filter((c) =>
+    c.url.endsWith("/conversations/966/messages"),
+  ).length;
+  await webhook(msg(9614, 16, "O técnico já está chegando?"));
+  await ate(
+    () => sql(`SELECT status FROM conversas WHERE chatwoot_conversation_id = 966`) === "open",
+    20000,
+  );
+  const novas966 = (await log(CHATWOOT))
+    .filter((c) => c.url.endsWith("/conversations/966/messages"))
+    .slice(antes966);
+  check(
+    "dia do serviço: só nota para a equipe, nada para a cliente",
+    novas966.length > 0 &&
+      novas966.every((c) => c.body?.private) &&
+      novas966.some((c) => /dia do serviço/.test(c.body?.content ?? "")),
+    novas966.map((c) => c.body?.content),
+  );
+
+  // "Tirar a Alice desta cliente": nada sai para ela (nova OS para amanhã, cliente com IA desligada).
+  sql(`UPDATE whatsapp_contacts SET ia_desligada = true WHERE normalized_phone LIKE '%88000019'`);
+  osDaEquipe("PV-6", "Duda Teste", "11988000019", amanha, "Agendado", false);
+  const r3 = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.NEXA_TAREFAS_SEGREDO}` },
+  }).then((x) => x.json());
+  check(
+    "Alice tirada da cliente: confirmação não sai",
+    r3.posAtendimento?.enviados === 0 &&
+      sql(
+        `SELECT situacao || ':' || motivo FROM ia_pos_atendimento WHERE work_order_id = (SELECT id FROM work_orders WHERE os_number = 'PV-6')`,
+      ) === "ignorado:Alice tirada desta cliente",
+    r3.posAtendimento,
+  );
+  sql(
+    `UPDATE ia_configuracoes SET confirmacao_ligada = false, pos_venda_ligado = false, avaliacao_ligada = false WHERE empresa_id = '${EMPRESA}'`,
+  );
+  // Não deixa rastro para os testes seguintes (marketing e notificações usam o mesmo banco).
+  sql(`UPDATE visits SET status = 'Cancelado', technician_id = NULL
+        WHERE work_order_id IN (SELECT id FROM work_orders WHERE os_number LIKE 'PV-%')`);
+  sql(`DELETE FROM mkt_tarefas WHERE empresa_id = '${EMPRESA}' AND conversa_id IN
+        (SELECT id FROM conversas WHERE chatwoot_conversation_id BETWEEN 966 AND 969)`);
+  sql(`UPDATE whatsapp_contacts SET ia_desligada = false, sem_pos_venda = false
+        WHERE normalized_phone LIKE '%8800001_'`);
+}
+
 // ---------------------------------------------------------------- 4f. varredura da fila
 const varreduraSemChave = await fetch(`${APP}/api/public/hooks/alice-varredura`, {
   method: "POST",

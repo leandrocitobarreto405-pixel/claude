@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlicePosAtendimento } from "@/components/alice-pos-atendimento";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -543,6 +544,8 @@ export function AliceConfig() {
           })}
         </ul>
       </section>
+
+      <AlicePosAtendimento />
 
       <section className="card-surface p-5">
         <h2 className="mb-3 text-lg font-semibold">Últimas respostas da {form.nome || "Alice"}</h2>

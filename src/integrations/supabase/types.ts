@@ -1955,6 +1955,15 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          avaliacao_ligada: boolean;
+          avaliacao_link: string | null;
+          avaliacao_texto: string;
+          confirmacao_hora: string;
+          confirmacao_ligada: boolean;
+          confirmacao_modelo: string | null;
+          pos_venda_hora: string;
+          pos_venda_ligado: boolean;
+          pos_venda_modelo: string | null;
           agenda_automatica: boolean;
           ativo: boolean;
           audio_higienizacao: string | null;
@@ -1982,6 +1991,15 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          avaliacao_ligada?: boolean;
+          avaliacao_link?: string | null;
+          avaliacao_texto?: string;
+          confirmacao_hora?: string;
+          confirmacao_ligada?: boolean;
+          confirmacao_modelo?: string | null;
+          pos_venda_hora?: string;
+          pos_venda_ligado?: boolean;
+          pos_venda_modelo?: string | null;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
@@ -2009,6 +2027,15 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          avaliacao_ligada?: boolean;
+          avaliacao_link?: string | null;
+          avaliacao_texto?: string;
+          confirmacao_hora?: string;
+          confirmacao_ligada?: boolean;
+          confirmacao_modelo?: string | null;
+          pos_venda_hora?: string;
+          pos_venda_ligado?: boolean;
+          pos_venda_modelo?: string | null;
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
@@ -2043,6 +2070,60 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      ia_pos_atendimento: {
+        Row: {
+          chatwoot_conversation_id: number | null;
+          conversa_id: string | null;
+          created_at: string;
+          data_servico: string;
+          empresa_id: string;
+          enviado_em: string | null;
+          id: string;
+          mensagem: string | null;
+          motivo: string | null;
+          respondido_em: string | null;
+          resposta: string | null;
+          situacao: string;
+          tipo: string;
+          via: string | null;
+          work_order_id: string;
+        };
+        Insert: {
+          chatwoot_conversation_id?: number | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          data_servico: string;
+          empresa_id: string;
+          enviado_em?: string | null;
+          id?: string;
+          mensagem?: string | null;
+          motivo?: string | null;
+          respondido_em?: string | null;
+          resposta?: string | null;
+          situacao: string;
+          tipo: string;
+          via?: string | null;
+          work_order_id: string;
+        };
+        Update: {
+          chatwoot_conversation_id?: number | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          data_servico?: string;
+          empresa_id?: string;
+          enviado_em?: string | null;
+          id?: string;
+          mensagem?: string | null;
+          motivo?: string | null;
+          respondido_em?: string | null;
+          resposta?: string | null;
+          situacao?: string;
+          tipo?: string;
+          via?: string | null;
+          work_order_id?: string;
+        };
+        Relationships: [];
       };
       ia_execucoes: {
         Row: {

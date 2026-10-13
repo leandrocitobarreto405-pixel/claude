@@ -322,6 +322,16 @@ SELECT pg_temp.ok((SELECT status || ':' || template_nome FROM public.mkt_envios 
   = 'manual:tc_posvenda_resultado', 'flag desligada: fica para envio manual');
 SELECT public.mkt_gerar_gatilhos('11111111-1111-1111-1111-111111111111', '2026-10-09');
 SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_envios WHERE gatilho_ref LIKE 'C1:%') = 1, 'gatilho não repete');
+-- Pós-venda da Alice ligado: o C1 do marketing pula (a cliente não recebe dois).
+SAVEPOINT pos_alice;
+DELETE FROM public.mkt_envios WHERE gatilho_ref LIKE 'C1:%';
+INSERT INTO public.ia_configuracoes (empresa_id, ativo, pos_venda_ligado)
+VALUES ('11111111-1111-1111-1111-111111111111', true, true)
+ON CONFLICT (empresa_id) DO UPDATE SET ativo = true, pos_venda_ligado = true;
+SELECT public.mkt_gerar_gatilhos('11111111-1111-1111-1111-111111111111', '2026-10-09');
+SELECT pg_temp.ok((SELECT count(*) FROM public.mkt_envios WHERE gatilho_ref LIKE 'C1:%') = 0,
+  'pós-venda da Alice ligado: C1 não gera');
+ROLLBACK TO SAVEPOINT pos_alice;
 -- C3: Bia (imper em 20/09/2025) está na janela (05/10 a 20/10/2026): em 09/10, com a flag desligada, ficou manual.
 SELECT pg_temp.ok((SELECT status || ':' || template_nome FROM public.mkt_envios WHERE gatilho_ref LIKE 'C3:%')
   = 'manual:tc_imper_13meses', 'C3 com a flag desligada fica manual');

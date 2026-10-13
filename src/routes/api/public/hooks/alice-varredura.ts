@@ -27,7 +27,13 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("[ads] alice_contato.falha", e);
             return null;
           });
-          return json({ ok: true, ...fila, anuncios });
+          // Confirmação na véspera e pós-venda (cada chave começa desligada por empresa).
+          const { rodarPosAtendimento } = await import("@/lib/alice/pos-atendimento.server");
+          const posAtendimento = await rodarPosAtendimento().catch((e) => {
+            console.error("Alice: falha no pós-atendimento", e);
+            return null;
+          });
+          return json({ ok: true, ...fila, anuncios, posAtendimento });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);
           return json({ ok: false, error: "Falha temporária." }, 500);

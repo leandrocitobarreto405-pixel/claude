@@ -84,6 +84,10 @@ export type ContextoFerramenta = {
   notas?: Array<{ texto: string; sempre: boolean }>;
   /** Mídias já postas na resposta (foto do técnico, PDF da OS): não vão duas vezes. */
   midias?: Set<string>;
+  /** Confirmação ou pós-venda da Alice esperando a resposta da cliente nesta conversa. */
+  posAtendimento?: import("./pos-resposta.server").PosPendente | null;
+  /** OS da equipe: depois de responder, a conversa volta para a equipe com esta nota. */
+  devolverEquipe?: string;
 };
 
 /** Nota privada para a equipe (enviada pelo processador depois da resposta). */
@@ -226,7 +230,11 @@ const S_ENCARDIDO = {
 } as const;
 
 /** Ferramentas liberadas para a empresa (a ordem é fixa, para aproveitar o cache). */
-export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthropic.Beta.BetaTool[] {
+export function ferramentasDisponiveis(
+  cfg: ConfigIa,
+  etapas: string[],
+  extras: { posAtendimento?: boolean } = {},
+): Anthropic.Beta.BetaTool[] {
   const lista: Anthropic.Beta.BetaTool[] = [
     {
       name: "atualizar_lead",
@@ -588,6 +596,32 @@ export function ferramentasDisponiveis(cfg: ConfigIa, etapas: string[]): Anthrop
         additionalProperties: false,
       },
     },
+    ...(extras.posAtendimento
+      ? [
+          {
+            name: "resposta_pos_atendimento",
+            description:
+              "Classifica a resposta da cliente à confirmação ou ao pós-venda que você mandou e faz o que a regra manda (registra a confirmação na OS, transfere remarcação/garantia/outro assunto, manda o pedido de avaliação). Use antes de escrever a resposta e siga a orientação devolvida.",
+            input_schema: {
+              type: "object" as const,
+              properties: {
+                acao: {
+                  type: "string",
+                  enum: ["confirmou", "remarcar", "elogio", "problema", "outro"],
+                  description:
+                    "confirmou: está tudo certo; remarcar: quer outro dia/horário; elogio: disse que ficou bom; problema: relatou algo errado com o serviço; outro: qualquer outro assunto.",
+                },
+                detalhe: {
+                  type: "string",
+                  description: "O que a cliente disse, em poucas palavras.",
+                },
+              },
+              required: ["acao"],
+              additionalProperties: false,
+            },
+          },
+        ]
+      : []),
     {
       name: "avisar_equipe",
       description:
@@ -1508,6 +1542,12 @@ export async function executarFerramenta(
       case "atualizar_etapa": {
         const p = AtualizarEtapa.safeParse(entrada);
         return p.success ? r(await atualizarEtapa(ctx, p.data)) : invalida(p.error);
+      }
+      case "resposta_pos_atendimento": {
+        const { RespostaPosAtendimento, respostaPosAtendimento } =
+          await import("./pos-resposta.server");
+        const p = RespostaPosAtendimento.safeParse(entrada);
+        return p.success ? r(await respostaPosAtendimento(ctx, p.data)) : invalida(p.error);
       }
       case "avisar_equipe": {
         const p = AvisarEquipe.safeParse(entrada);

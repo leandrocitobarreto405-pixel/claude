@@ -81,6 +81,15 @@ servidor(PORTA_CLAUDE, (req, body) => {
   // Rodadas seguintes: reage ao resultado da ferramenta.
   if (resultados.length) {
     const conteudo = resultados.map((r) => String(r.content)).join("\n");
+    // Resposta à confirmação/pós-venda (resposta_pos_atendimento).
+    if (conteudo.includes("Registrado. Agradeça"))
+      return resposta([texto("Obrigada! Até amanhã 💙")], "end_turn");
+    if (conteudo.includes("pedido de avaliação vai junto"))
+      return resposta([texto("Que alegria saber disso! 💙")], "end_turn");
+    if (conteudo.includes("visita técnica gratuita"))
+      return resposta([texto("Sinto muito! A equipe já vai falar com você.")], "end_turn");
+    if (conteudo.includes("vai chamar a equipe para te ajudar"))
+      return resposta([texto("Vou chamar a equipe para te ajudar com isso.")], "end_turn");
     if (conteudo.includes("Orçamento criado")) {
       const total = /Total: (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
       const pix = /Pix \(5% off\): (R\$\s?[\d.,]+)/.exec(conteudo)?.[1] ?? "?";
@@ -142,6 +151,20 @@ servidor(PORTA_CLAUDE, (req, body) => {
   }
 
   const pedido = JSON.stringify(blocos);
+  // A cliente respondeu à confirmação ou ao pós-venda da Alice.
+  if ((body.tools ?? []).some((t) => t.name === "resposta_pos_atendimento")) {
+    const acao = /tudo certo/i.test(pedido)
+      ? "confirmou"
+      : /ficou ótimo/i.test(pedido)
+        ? "elogio"
+        : /tive um problema/i.test(pedido)
+          ? "problema"
+          : "outro";
+    return resposta(
+      [ferramenta("toolu_pos", "resposta_pos_atendimento", { acao, detalhe: "resposta de teste" })],
+      "tool_use",
+    );
+  }
   if (pedido.includes("Hora do follow-up")) {
     return resposta([texto("Conseguiu dar uma olhadinha no orçamento, Cliente?")], "end_turn");
   }
@@ -359,7 +382,26 @@ function chatwootMarketing(req, body) {
   const p = url.pathname.replace(/^\/api\/v1\/accounts\/\d+/, "");
   const token = req.headers["api_access_token"];
   if (p === "/__modelos" && req.method === "POST") {
-    mktModelos.lista = body;
+    if (body?.acrescentar) mktModelos.lista.push(...body.acrescentar);
+    else mktModelos.lista = body;
+    return { corpo: {} };
+  }
+  // Contato que já tem conversa (a conversa criada pelo webhook nos testes da Alice).
+  if (p === "/__contato" && req.method === "POST") {
+    const c = {
+      id: ++mktId,
+      name: body.nome ?? null,
+      phone_number: body.telefone,
+      contact_inboxes: [{ source_id: digitos(body.telefone), inbox: { id: 4242 } }],
+    };
+    mktContatos.push(c);
+    mktConversas.push({
+      id: body.conversa,
+      inbox_id: 4242,
+      contact_id: c.id,
+      status: "open",
+      last_activity_at: Date.now(),
+    });
     return { corpo: {} };
   }
   if (p === "/inboxes/4242" && req.method === "GET") {

@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { TirarAlice } from "@/components/tirar-alice";
 import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -525,6 +526,7 @@ function OsDetalhe() {
             >
               <Pencil className="mr-2 size-4" /> Editar OS
             </Button>
+            <TirarAlice workOrderId={os.id} />
           </div>
         }
       />

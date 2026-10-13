@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { TirarAlice } from "@/components/tirar-alice";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CabecalhoDeTela, Card } from "@/components/nexa";
@@ -76,6 +77,9 @@ function Conversa() {
           </div>
         ) : null}
         <AcoesConversa c={c} onMudou={mudou} />
+        <div className="self-start">
+          <TirarAlice conversaId={c.id} />
+        </div>
         {podeEncerrar && c.grupo !== "finalizadas" ? (
           <BotaoEncerrar
             id={c.id}
