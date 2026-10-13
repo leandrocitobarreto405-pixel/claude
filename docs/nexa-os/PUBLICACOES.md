@@ -175,6 +175,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   para os modelos `_v2`. Para voltar os nomes: `confirmacao_modelo = 'tc_confirmacao_servico'`,
   `pos_venda_modelo = 'tc_pos_venda'` (o código novo recusa os antigos; voltar exige também
   reverter `726a216`).
+  Roteiro da Turbine em 13/10 (aprovado): a linha do total nos modelos de Higienização e
+  Impermeabilização virou duas (total no cartão com [parcelas]; Pix com [X]% da ferramenta) e o
+  passo 3 pede para copiar as duas linhas exatamente como a ferramenta devolver (md5 antes
+  `a634c188…`, depois `42608b8f…`; trecho antigo em `docs/nexa-os/alice/turbine-total-pix-ate-1310.md`).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
