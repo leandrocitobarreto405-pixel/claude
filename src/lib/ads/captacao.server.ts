@@ -145,6 +145,47 @@ export async function dominioPermitido(host: string | null): Promise<boolean> {
   return dominios.lista.has(host);
 }
 
+/**
+ * Domínio não liberado: o navegador recusa o envio já no pré-voo (OPTIONS) e o POST nem chega.
+ * Registra a tentativa em ads_eventos uma vez por domínio a cada hora (por instância e no banco),
+ * para aparecer no app sem encher o log.
+ */
+const avisados = new Map<string, number>();
+const INTERVALO_AVISO_MS = 3600_000;
+
+export function deveRegistrarDesconhecido(
+  host: string,
+  agora: number,
+  memoria: Map<string, number> = avisados,
+): boolean {
+  if ((memoria.get(host) ?? 0) > agora - INTERVALO_AVISO_MS) return false;
+  if (memoria.size > 500) memoria.clear();
+  memoria.set(host, agora);
+  return true;
+}
+
+export async function registrarDominioDesconhecido(request: Request): Promise<void> {
+  const host = (hostDe(request) ?? "").slice(0, 200);
+  if (!deveRegistrarDesconhecido(host, Date.now())) return;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const desde = new Date(Date.now() - INTERVALO_AVISO_MS).toISOString();
+  const { count } = await supabaseAdmin
+    .from("ads_eventos")
+    .select("id", { count: "exact", head: true })
+    .eq("tipo", "captacao")
+    .eq("resultado", "dominio_desconhecido")
+    .eq("detalhe->>host", host)
+    .gte("created_at", desde);
+  if (count) return;
+  const { error } = await supabaseAdmin.from("ads_eventos").insert({
+    tipo: "captacao",
+    resultado: "dominio_desconhecido",
+    ip_hash: hashIp(ipDe(request)),
+    detalhe: { host, etapa: "cors" },
+  });
+  if (error) log("ERROR", "cors.falha_registro", { host, erro: error.message });
+}
+
 export function cabecalhosCors(origem: string | null): Record<string, string> {
   return origem
     ? {

@@ -74,3 +74,16 @@ test("planilha: formato da importação (cabeçalho na linha 1)", () => {
   assert.equal(formatoCerto([[...CABECALHO, "x"]]), false);
   assert.equal(formatoCerto([["Google Click ID", "Conversion Name"]]), false);
 });
+
+test("domínio não liberado: registra uma vez por domínio a cada hora", async () => {
+  const { deveRegistrarDesconhecido } = await import("./captacao.server");
+  const memoria = new Map<string, number>();
+  const t0 = Date.parse("2026-10-13T10:00:00Z");
+  assert.equal(deveRegistrarDesconhecido("site-novo.lovable.app", t0, memoria), true);
+  assert.equal(
+    deveRegistrarDesconhecido("site-novo.lovable.app", t0 + 30 * 60_000, memoria),
+    false,
+  );
+  assert.equal(deveRegistrarDesconhecido("outro.com", t0 + 30 * 60_000, memoria), true);
+  assert.equal(deveRegistrarDesconhecido("site-novo.lovable.app", t0 + 61 * 60_000, memoria), true);
+});

@@ -3,17 +3,26 @@ import { createFileRoute } from "@tanstack/react-router";
 /**
  * Captação do pop-up das landing pages (Google Ads). POST com JSON, formulário ou sendBeacon.
  * CORS só para os domínios em ads_dominios. Responde sempre 200 (o front nunca trava): o
- * resultado vem em { ok, resultado } e o motivo de qualquer recusa vai para o log.
+ * resultado vem em { ok, resultado } e o motivo de qualquer recusa vai para o log. Domínio não
+ * liberado também fica em ads_eventos (no pré-voo, porque o navegador não manda o envio).
  */
 export const Route = createFileRoute("/api/public/ads/lead")({
   server: {
     handlers: {
       OPTIONS: async ({ request }) => {
-        const { cabecalhosCors, dominioPermitido, hostDe, log } =
+        const { cabecalhosCors, dominioPermitido, hostDe, log, registrarDominioDesconhecido } =
           await import("@/lib/ads/captacao.server");
         const origem = request.headers.get("origin");
         const permitido = await dominioPermitido(hostDe(request));
-        if (!permitido) log("WARNING", "cors.recusado", { origem });
+        if (!permitido) {
+          log("WARNING", "cors.recusado", { origem });
+          // O navegador não manda o envio depois disso: registra a tentativa no banco.
+          await registrarDominioDesconhecido(request).catch((e) =>
+            log("ERROR", "cors.falha_registro", {
+              erro: e instanceof Error ? e.message : String(e),
+            }),
+          );
+        }
         return new Response(null, {
           status: 204,
           headers: cabecalhosCors(permitido ? origem : null),
