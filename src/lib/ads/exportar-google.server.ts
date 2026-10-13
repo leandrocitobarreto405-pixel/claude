@@ -78,11 +78,29 @@ export function linhasRecentes(valores: unknown[][], agora = new Date()): Linha[
       String(v[0]),
       String(v[1]),
       String(v[2]),
-      Number(v[3]) || 0,
+      valorNumerico(v[3]),
       String(v[4] || "BRL"),
     ]);
   }
   return linhas;
+}
+
+/** Conversion Value como número; aceita texto "295,8" ou "295.8" que alguém tenha digitado. */
+export function valorNumerico(v: unknown): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  let t = String(v ?? "").replace(/\s/g, "");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  const n = Number(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Linhas de conversão (lidas com UNFORMATTED_VALUE) cujo Conversion Value está como texto.
+ * Número aparece como número; "295,8" digitado vira texto e o Google Ads pode recusar.
+ */
+export function valoresComoTexto(valores: unknown[][]): number {
+  return valores.slice(1).filter((v) => v[0] && v[3] !== undefined && typeof v[3] !== "number")
+    .length;
 }
 
 /** Linha 1 = exatamente os nomes das colunas. */
@@ -149,15 +167,21 @@ async function exportarEmpresa(
   };
   const valores = atual.values ?? [];
 
-  // Nada novo e a planilha já no formato: não mexe.
-  if (!novas.length && formatoCerto(valores)) {
+  // Nada novo, planilha no formato e valores como número: não mexe. Valor como texto é regravado.
+  const comoTextoAntes = valoresComoTexto(valores);
+  if (!novas.length && formatoCerto(valores) && !comoTextoAntes) {
     log("INFO", "exportacao.nada_novo", { empresa_id: empresaId, planilha, aba });
     // Registra toda execução (antes o "nada novo" não deixava rastro no banco).
     await supabaseAdmin.from("ads_eventos").insert({
       empresa_id: empresaId,
       tipo: "exportacao_google",
       resultado: "nada_novo",
-      detalhe: { planilha, aba, na_planilha: Math.max(0, valores.length - 1) },
+      detalhe: {
+        planilha,
+        aba,
+        na_planilha: Math.max(0, valores.length - 1),
+        valores_como_texto: 0,
+      },
     });
     return { ...base, na_planilha: 0, situacao: "nada_novo" };
   }
@@ -182,6 +206,14 @@ async function exportarEmpresa(
       `a planilha não ficou no formato esperado: ${JSON.stringify(primeirasLinhas).slice(0, 300)}`,
     );
   }
+  // Confere o tipo da célula (sem formatação): o Conversion Value tem de estar como número.
+  const gravado = (await sheets(
+    token,
+    `${id}/values/${faixa}?valueRenderOption=UNFORMATTED_VALUE`,
+  )) as { values?: unknown[][] };
+  const comoTexto = valoresComoTexto(gravado.values ?? []);
+  if (comoTexto)
+    log("WARNING", "exportacao.valor_como_texto", { empresa_id: empresaId, comoTexto });
 
   // Só depois de gravar a planilha: marca todos os cliques com gclid dos leads exportados.
   const leads = [
@@ -214,6 +246,8 @@ async function exportarEmpresa(
       na_planilha: linhas.length,
       cliques_marcados: marcados,
       primeiras_linhas: primeirasLinhas,
+      valores_como_texto: comoTexto,
+      valores_como_texto_antes: comoTextoAntes,
     },
   });
   log("INFO", `exportacao.${situacao}`, {

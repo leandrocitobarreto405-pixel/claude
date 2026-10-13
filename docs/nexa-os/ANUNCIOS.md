@@ -156,6 +156,17 @@ Reserva sem depender do Scheduler: a varredura da Alice (de 5 em 5 minutos) roda
 vez por dia por empresa, a partir das 5h de São Paulo, se ainda não houve exportação no dia. Se o
 job das 5h também rodar, a segunda chamada não acha nada pendente.
 
+Conversion Value é gravado como **número** (`valueInputOption=RAW`, JSON numérico). Numa planilha
+em português ele aparece como "295,8", mas a célula é número. A exportação confere lendo sem
+formatação: o evento traz `valores_como_texto` (depois de gravar, tem de ser 0) e
+`valores_como_texto_antes`. Se alguém digitar o valor como texto, a próxima exportação regrava a
+planilha com o número.
+
+Vínculo automático (desde 13/10/2026): a varredura liga a OS criada sem partir de um lead ao lead
+aberto do CRM com o mesmo telefone (DDD + 8 dígitos), 10 min depois da OS, só se houver exatamente
+um. Nenhum ou vários: não liga e registra em `ads_eventos` (`vinculo` / `os_sem_lead` ou
+`os_varios_leads`); ligado: `os_ligada_auto`. OS que já tem lead não é mexida.
+
 No Google Ads: crie as ações de conversão "Venda Higienização" e "Venda Impermeabilização"
 (Metas → Conversões → Nova → Importar → Outras fontes de dados ou CRMs → Rastrear conversões de
 cliques) e agende a importação em Metas → Conversões → Uploads → Programações → Google Sheets,

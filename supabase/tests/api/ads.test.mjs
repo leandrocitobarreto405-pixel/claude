@@ -299,6 +299,33 @@ check(
   ) !== "0",
 );
 
+// Conversion Value digitado como texto ("295,8"): a exportação regrava como número.
+{
+  const atual = await planilha();
+  atual[1][3] = "295,8";
+  await fetch(`${FAKE}/v4/spreadsheets/${PLANILHA}/values/A1`, {
+    method: "PUT",
+    headers: { Authorization: "Bearer token-oauth-empresa", "Content-Type": "application/json" },
+    body: JSON.stringify({ values: atual }),
+  });
+  r = await exportar();
+  corpo = await r.json();
+  const depois = await planilha();
+  check(
+    "valor como texto é regravado como número",
+    corpo.resultados?.[0]?.situacao === "formatada" &&
+      depois.length === 2 &&
+      depois[1][3] === 295.8,
+    [corpo, depois[1]],
+  );
+  check(
+    "evento conta valores como texto antes (1) e depois (0)",
+    sql(`SELECT detalhe->>'valores_como_texto_antes' || '|' || (detalhe->>'valores_como_texto')
+           FROM ads_eventos WHERE tipo = 'exportacao_google' AND resultado = 'formatada'
+          ORDER BY created_at DESC LIMIT 1`) === "1|0",
+  );
+}
+
 // Falha no Google: nada é marcado, erro registrado.
 sql(`UPDATE ads_configuracoes SET google_planilha_id = 'planilha-sem-acesso-0000000000'`);
 sql(`INSERT INTO work_orders (id, empresa_id, os_number, customer_id, total_gross_value, sale_date)

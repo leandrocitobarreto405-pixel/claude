@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dadosDoPopup, hostDe, lerCorpo } from "./captacao.server";
-import { CABECALHO, formatoCerto, juntarLinhas, linhasRecentes } from "./exportar-google.server";
+import {
+  CABECALHO,
+  formatoCerto,
+  juntarLinhas,
+  linhasRecentes,
+  valorNumerico,
+  valoresComoTexto,
+} from "./exportar-google.server";
 
 test("pop-up: JSON, formulário e nomes alternativos", () => {
   assert.deepEqual(lerCorpo('{"nome":"Ana"}'), { nome: "Ana" });
@@ -73,6 +80,29 @@ test("planilha: formato da importação (cabeçalho na linha 1)", () => {
   assert.equal(formatoCerto([["Parameters:TimeZone=America/Sao_Paulo"], [...CABECALHO]]), false);
   assert.equal(formatoCerto([[...CABECALHO, "x"]]), false);
   assert.equal(formatoCerto([["Google Click ID", "Conversion Name"]]), false);
+});
+
+test("planilha: Conversion Value como número (texto com vírgula é detectado e corrigido)", () => {
+  const agora = new Date("2026-10-14T05:00:00-03:00");
+  const texto = [
+    [...CABECALHO],
+    ["G1", "Venda Higienização", "2026-10-13 10:00:00-03:00", "295,8", "BRL"],
+    ["G2", "Venda Higienização", "2026-10-13 11:00:00-03:00", 308, "BRL"],
+  ];
+  assert.equal(valoresComoTexto(texto), 1, "só a célula de texto conta");
+  assert.equal(valoresComoTexto([[...CABECALHO], ["G2", "V", "x", 249.9, "BRL"]]), 0);
+  // Regravada, a linha antiga sai como número (295.8), não como "295,8".
+  assert.deepEqual(
+    linhasRecentes(texto, agora).map((l) => l[3]),
+    [295.8, 308],
+  );
+  assert.equal(valorNumerico("295.8"), 295.8);
+  assert.equal(valorNumerico(" 1.249,90 "), 1249.9);
+  assert.equal(valorNumerico("abc"), 0);
+  // O que vai para a planilha (valueInputOption=RAW) é número no JSON, nunca texto.
+  const corpo = JSON.stringify({ values: linhasRecentes(texto, agora) });
+  assert.match(corpo, /,295\.8,"BRL"/);
+  assert.doesNotMatch(corpo, /"295,8"/);
 });
 
 test("domínio não liberado: registra uma vez por domínio a cada hora", async () => {
