@@ -128,6 +128,17 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   do mesmo lead, são cancelados; follow-up feito à mão no CRM não é tocado). Para voltar a regra
   antiga do cliente antigo sem apagar nada: recriar `ia_agendar_por_mensagem` como em
   `20261027120000_alice_saudacao_automatica.sql`.
+  Dados em 12/10 (aprovados): roteiro da Turbine com a Etapa 6 nova (janela de chegada, encaixe,
+  troca de data com `remarcar_horario`, upsell com `avisar_equipe`), a linha do desconto da
+  Etapa 5 e a linha da véspera (md5 antes `d623b742…`, depois `ec62229f…`; trechos antigos em
+  `docs/nexa-os/alice/turbine-etapa6-ate-1210.md`); 4 lembretes duplicados de uma cliente
+  marcados como "Cancelada" (nada apagado).
+- "Tapete por m² e persiana" (`20261103120000`, aplicada em 12/10): categorias `tapete` e
+  `persiana` na tabela de preços, `quote_items.quantidade` e `service_items.quantity` em
+  numeric(10,2) (valores existentes iguais) e `service_items.unidade` ('un' / 'm2'). Dados (só
+  Turbine): impermeabilização de colchão 399,80 / 499,80 / 579,80 / 678,00 e 7 itens novos
+  (3 tapetes por m², 4 persianas por peça, ordem 23 a 29). Para voltar os dados: colchões com
+  `preco_impermeabilizacao = NULL` e os 7 itens com `ativo = false`.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -188,6 +199,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 08/10/2026 23:55 | Classe e acréscimos    | `460cd55`        | `3b7a39b`                |
 | 09/10/2026 00:40 | Colchão adicional      | `f9fd9d4`        | `4348cb9`                |
 | 12/10/2026 08:35 | Alice: fila e remarcar | `3a187c2`        | `57b03a0`                |
+| 12/10/2026 21:00 | Tapete m² e persiana   | `fbc8359`        | `d333a88`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
