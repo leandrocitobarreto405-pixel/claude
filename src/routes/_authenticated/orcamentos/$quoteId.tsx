@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AvisoColchao } from "@/components/aviso-colchao";
 import { QuantidadeInput } from "@/components/quantidade-input";
 import { categoriaDeLimpeza, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { useServerFn } from "@tanstack/react-start";
@@ -804,6 +805,9 @@ function OrcamentoDetalhe() {
                     </Button>
                   </div>
                 </div>
+                {l.categoria === "colchao" && l.tipo_servico === "impermeabilizacao" ? (
+                  <AvisoColchao className="mt-2" />
+                ) : null}
                 {(regras.classe.ligada || regras.acrescimos.ligado) &&
                 l.preco_tabela > 0 &&
                 !l.adicional ? (

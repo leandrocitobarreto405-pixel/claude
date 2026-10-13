@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AvisoColchao } from "@/components/aviso-colchao";
+import { colchaoComImper } from "@/lib/aviso-colchao";
 import { normalizarQuantidade, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { useContextoTenant } from "@/lib/tenant";
 import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
@@ -1385,6 +1387,15 @@ function NovaOS() {
                             </Button>
                           ) : null}
                         </div>
+                        {colchaoComImper(
+                          [
+                            it.description,
+                            estofados?.find((s) => s.id === it.upholstery_type_id)?.name,
+                          ],
+                          servicos?.find((s) => s.id === v.service_type_id)?.name,
+                        ) ? (
+                          <AvisoColchao className="sm:col-span-2 xl:col-span-5" />
+                        ) : null}
                       </div>
                     ))}
                   </div>
