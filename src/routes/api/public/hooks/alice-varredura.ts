@@ -39,7 +39,18 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Leads do site: falha", e instanceof Error ? e.message : e);
             return null;
           });
-          return json({ ok: true, ...fila, anuncios, posAtendimento, leadsSite });
+          // Google Ads: exportação diária das vendas (uma vez por dia, a partir das 5h).
+          const { exportacaoDiaria } = await import("@/lib/ads/exportar-google.server");
+          const exportacaoGoogle = await exportacaoDiaria()
+            .then((r) => r.map(({ linhas: _l, ...x }) => x))
+            .catch((e) => {
+              console.error(
+                "Google Ads: falha na exportação diária",
+                e instanceof Error ? e.message : e,
+              );
+              return null;
+            });
+          return json({ ok: true, ...fila, anuncios, posAtendimento, leadsSite, exportacaoGoogle });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);
           return json({ ok: false, error: "Falha temporária." }, 500);

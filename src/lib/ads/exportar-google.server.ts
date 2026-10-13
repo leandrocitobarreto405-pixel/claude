@@ -152,6 +152,13 @@ async function exportarEmpresa(
   // Nada novo e a planilha já no formato: não mexe.
   if (!novas.length && formatoCerto(valores)) {
     log("INFO", "exportacao.nada_novo", { empresa_id: empresaId, planilha, aba });
+    // Registra toda execução (antes o "nada novo" não deixava rastro no banco).
+    await supabaseAdmin.from("ads_eventos").insert({
+      empresa_id: empresaId,
+      tipo: "exportacao_google",
+      resultado: "nada_novo",
+      detalhe: { planilha, aba, na_planilha: Math.max(0, valores.length - 1) },
+    });
     return { ...base, na_planilha: 0, situacao: "nada_novo" };
   }
 
@@ -218,6 +225,70 @@ async function exportarEmpresa(
     cliques_marcados: marcados,
   });
   return { ...base, na_planilha: linhas.length, situacao };
+}
+
+/** Como veio a autorização recusada (sem guardar o conteúdo). */
+export function tipoDeAutorizacao(
+  cabecalho: string | null,
+): "nenhuma" | "oidc" | "bearer" | "outra" {
+  const v = (cabecalho ?? "").trim();
+  if (!v) return "nenhuma";
+  const token = v.replace(/^Bearer\s+/i, "");
+  if (/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(token)) return "oidc";
+  return /^Bearer\s+/i.test(v) ? "bearer" : "outra";
+}
+
+let ultimaRecusa = 0;
+
+/** Chamada da exportação com autenticação errada: registra (uma vez por hora por instância). */
+export async function registrarExportacaoRecusada(request: Request) {
+  const agora = Date.now();
+  const autorizacao = tipoDeAutorizacao(request.headers.get("authorization"));
+  const agente = (request.headers.get("user-agent") ?? "").slice(0, 120);
+  log("WARNING", "exportacao.nao_autorizado", { autorizacao, agente });
+  if (agora - ultimaRecusa < 3600_000) return;
+  ultimaRecusa = agora;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("ads_eventos").insert({
+    tipo: "exportacao_google",
+    resultado: "nao_autorizado",
+    detalhe: { autorizacao, agente },
+  });
+}
+
+/** Já houve exportação hoje (São Paulo) para a empresa? */
+async function exportouHoje(empresaId: string, hojeSP: string): Promise<boolean> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { count } = await supabaseAdmin
+    .from("ads_eventos")
+    .select("id", { count: "exact", head: true })
+    .eq("empresa_id", empresaId)
+    .eq("tipo", "exportacao_google")
+    .in("resultado", ["enviado", "formatada", "nada_novo", "sem_planilha"])
+    .gte("created_at", `${hojeSP}T00:00:00-03:00`);
+  return (count ?? 0) > 0;
+}
+
+/**
+ * Exportação diária sem depender do Cloud Scheduler: chamada pela varredura (de 5 em 5 min),
+ * roda uma vez por dia por empresa, a partir das 5h de São Paulo. Se o job das 5h também rodar,
+ * a segunda chamada não acha nada pendente (os cliques já ficam marcados).
+ */
+export async function exportacaoDiaria(agora = new Date()) {
+  const s = agora.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const hoje = s.slice(0, 10);
+  if (s.slice(11, 16) < "05:00") return [];
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: configs } = await supabaseAdmin
+    .from("ads_configuracoes")
+    .select("empresa_id")
+    .not("google_planilha_id", "is", null);
+  const resultados: ResultadoEmpresa[] = [];
+  for (const c of configs ?? []) {
+    if (await exportouHoje(c.empresa_id, hoje)) continue;
+    resultados.push(...(await exportarConversoesGoogle({ empresaId: c.empresa_id })));
+  }
+  return resultados;
 }
 
 /** Exporta todas as empresas (ou uma). Erro numa empresa não impede as outras. */

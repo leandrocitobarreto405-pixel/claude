@@ -146,6 +146,16 @@ gcloud scheduler jobs create http ads-exportar-google --location southamerica-ea
   --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=nexa-tarefas-segredo)"
 ```
 
+O job precisa mandar o cabeçalho `Authorization: Bearer <segredo>` (como acima). **Não use
+autenticação OIDC** no job: a rota não aceita token OIDC e responde 401. Desde 13/10/2026 toda
+chamada recusada fica em `ads_eventos` (`exportacao_google` / `nao_autorizado`, com
+`detalhe.autorizacao` = `oidc`, `bearer`, `outra` ou `nenhuma`), e toda execução fica registrada,
+inclusive quando não há nada novo (`nada_novo`).
+
+Reserva sem depender do Scheduler: a varredura da Alice (de 5 em 5 minutos) roda a exportação uma
+vez por dia por empresa, a partir das 5h de São Paulo, se ainda não houve exportação no dia. Se o
+job das 5h também rodar, a segunda chamada não acha nada pendente.
+
 No Google Ads: crie as ações de conversão "Venda Higienização" e "Venda Impermeabilização"
 (Metas → Conversões → Nova → Importar → Outras fontes de dados ou CRMs → Rastrear conversões de
 cliques) e agende a importação em Metas → Conversões → Uploads → Programações → Google Sheets,

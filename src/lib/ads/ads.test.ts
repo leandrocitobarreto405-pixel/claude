@@ -87,3 +87,14 @@ test("domínio não liberado: registra uma vez por domínio a cada hora", async 
   assert.equal(deveRegistrarDesconhecido("outro.com", t0 + 30 * 60_000, memoria), true);
   assert.equal(deveRegistrarDesconhecido("site-novo.lovable.app", t0 + 61 * 60_000, memoria), true);
 });
+
+test("exportação recusada: identifica OIDC, Bearer errado ou sem autorização", async () => {
+  const { tipoDeAutorizacao } = await import("./exportar-google.server");
+  assert.equal(tipoDeAutorizacao(null), "nenhuma");
+  assert.equal(
+    tipoDeAutorizacao("Bearer eyJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJ4In0.assinatura-abc"),
+    "oidc",
+  );
+  assert.equal(tipoDeAutorizacao("Bearer segredo-errado"), "bearer");
+  assert.equal(tipoDeAutorizacao("Basic abc"), "outra");
+});

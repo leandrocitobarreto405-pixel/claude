@@ -231,18 +231,23 @@ sql(
 );
 sql(`INSERT INTO customers (id, empresa_id, full_name, phone)
      VALUES ('c9000000-0000-0000-0000-000000000001', '${EMPRESA}', 'Leandro', '11977776666')`);
-sql(`INSERT INTO work_orders (id, empresa_id, os_number, customer_id, total_gross_value, sale_date)
+// Venda = OS agendada ligada ao lead (sem pagamento). OS criada ontem às 12h (São Paulo).
+sql(`INSERT INTO work_orders (id, empresa_id, os_number, customer_id, total_gross_value, sale_date, created_at)
      VALUES ('e9000000-0000-0000-0000-000000000001', '${EMPRESA}', '9901',
-             'c9000000-0000-0000-0000-000000000001', 649.90, current_date)`);
+             'c9000000-0000-0000-0000-000000000001', 649.90, current_date,
+             (current_date - 1 + time '12:00') AT TIME ZONE 'America/Sao_Paulo')`);
 sql(
   `UPDATE crm_leads SET linked_work_order_id = 'e9000000-0000-0000-0000-000000000001' WHERE id = '${lead}'`,
 );
-sql(`INSERT INTO payments (empresa_id, work_order_id, payment_channel, payment_date, gross_amount, net_amount,
-       payment_status, is_active)
-     VALUES ('${EMPRESA}', 'e9000000-0000-0000-0000-000000000001', 'Pix', current_date - 1, 649.90, 649.90, 'Pago', true)`);
 
 r = await exportar("", "chave-errada-com-mais-de-32-caracteres-0000");
 check("exportação sem chave → 401", r.status === 401);
+check(
+  "chamada recusada fica registrada (com o tipo de autorização)",
+  sql(`SELECT detalhe->>'autorizacao' FROM ads_eventos
+        WHERE tipo = 'exportacao_google' AND resultado = 'nao_autorizado' ORDER BY created_at DESC LIMIT 1`) ===
+    "bearer",
+);
 
 r = await exportar("?simular=1");
 corpo = await r.json();
@@ -286,6 +291,12 @@ check(
   "segunda exportação: nada novo, planilha mantida",
   corpo.resultados?.[0]?.situacao === "nada_novo" && (await planilha()).length === 2,
   corpo,
+);
+check(
+  'o "nada novo" também fica registrado',
+  sql(
+    `SELECT count(*) FROM ads_eventos WHERE tipo = 'exportacao_google' AND resultado = 'nada_novo'`,
+  ) !== "0",
 );
 
 // Falha no Google: nada é marcado, erro registrado.
