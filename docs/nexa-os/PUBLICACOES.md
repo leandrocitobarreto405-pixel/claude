@@ -179,6 +179,15 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Impermeabilização virou duas (total no cartão com [parcelas]; Pix com [X]% da ferramenta) e o
   passo 3 pede para copiar as duas linhas exatamente como a ferramenta devolver (md5 antes
   `a634c188…`, depois `42608b8f…`; trecho antigo em `docs/nexa-os/alice/turbine-total-pix-ate-1310.md`).
+- "Google Ads: venda = OS agendada" (`20261108120000`, aplicada em 13/10): troca só a view
+  `vw_conversoes_google_pendentes` (mesmas colunas). Para voltar: recriar a view de
+  `20261007120000` (venda por `faturado_em`).
+- "Google Ads: LP do colchão" (`20261108130000`, aplicada em 13/10): insere
+  `turbinecleancolchao.lovable.app` em `ads_dominios` (Turbine). Para voltar: apagar a linha.
+  Dados (13/10, script único `scripts/ads/importar-cliques-colchao.sql`): 12 cliques da planilha da
+  LP do colchão em `ads_clicks` (eventos `captacao`/`importado`), 10 ligados a leads. Exportação
+  de 13/10 12h55: 3 conversões na planilha do Google Ads (OS 1671, 1673 e 1677) e
+  `enviado_google_em` marcado.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -249,6 +258,9 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Leads: 5 min e 24 h    | `7f074bd`        | `726a216`                |
 | 13/10/2026       | Véspera todo dia       | `d9bfba9`        | `52468cd`                |
 | 13/10/2026       | Orçamento: Pix à parte | `35bd321`        | `aede577`                |
+| 13/10/2026       | Ads: venda pela OS     | `c2d5c6e`        | `a7324bc`                |
+| 13/10/2026       | Ads: LP do colchão     | `00d9199`        | `c2d5c6e`                |
+| 13/10/2026       | Ads: exportação diária | `80af6e0`        | `ed44911`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
