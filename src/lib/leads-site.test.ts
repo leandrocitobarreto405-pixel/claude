@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  cadastroDeTeste,
+  chaveDoCadastro,
   dentroDoHorario,
   lerDataHora,
   linhasNovas,
@@ -76,6 +78,7 @@ test("linhas novas pelo cabeçalho, pulando linhas vazias", () => {
     { ...r.linhas[0], pagina: r.linhas[0]!.pagina },
     {
       linha: 5,
+      chave: "13/10/2026 10:00:00|11987650001",
       cadastrado_em: "2026-10-13T13:00:00.000Z",
       nome: "Pessoa Teste",
       telefone_digitado: "11987650001",
@@ -125,4 +128,50 @@ test("horário de envio e textos dos avisos", () => {
     }),
     "5 cadastros nas LPs em 12/10/2026, 3 chamaram no WhatsApp, 1 não chamou, 1 com número inválido. Veja em Leads do site.",
   );
+});
+
+test("chave do cadastro: data/hora de São Paulo + telefone; sem data, o texto da célula", () => {
+  assert.equal(
+    chaveDoCadastro("2026-10-13T17:05:33.000Z", "13/10/2026, 14:05:33", "(11) 98765-0001", "Ana"),
+    "13/10/2026 14:05:33|11987650001",
+  );
+  assert.equal(
+    chaveDoCadastro(null, "ontem à tarde", "11987650001", "Ana"),
+    "sem-data:ontem à tarde|11987650001",
+  );
+  assert.equal(
+    chaveDoCadastro("2026-10-13T17:05:33.000Z", null, null, "Ana"),
+    "13/10/2026 14:05:33|nome:Ana",
+  );
+});
+
+test("cadastro de teste (nome começando com teste) é ignorado", () => {
+  assert.equal(cadastroDeTeste("Teste"), true);
+  assert.equal(cadastroDeTeste("  TESTE da LP"), true);
+  assert.equal(cadastroDeTeste("Maria Teste"), false);
+  const r = linhasNovas(
+    ["Data e Hora", "Nome", "WhatsApp"],
+    [
+      ["13/10/2026, 10:00:00", "teste", "11900000001"],
+      ["13/10/2026, 10:01:00", "Pessoa Real", "11900000002"],
+    ],
+    2,
+    new Date(),
+  );
+  assert.deepEqual(
+    r.linhas.map((l) => [l.linha, l.nome]),
+    [[3, "Pessoa Real"]],
+  );
+  assert.equal(r.ultima, 3, "a linha de teste conta como lida");
+});
+
+test("mesma chave mesmo depois de apagarem uma linha acima (a linha muda, a chave não)", () => {
+  const cab = ["Data e Hora", "Nome", "WhatsApp"];
+  const a = ["13/10/2026, 10:00:00", "Pessoa A", "11900000001"];
+  const b = ["13/10/2026, 11:00:00", "Pessoa B", "11900000002"];
+  const antes = linhasNovas(cab, [a, b], 2, new Date());
+  const depois = linhasNovas(cab, [b], 2, new Date());
+  assert.equal(antes.linhas[1]!.linha, 3);
+  assert.equal(depois.linhas[0]!.linha, 2);
+  assert.equal(antes.linhas[1]!.chave, depois.linhas[0]!.chave);
 });

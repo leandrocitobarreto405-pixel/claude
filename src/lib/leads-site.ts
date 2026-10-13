@@ -5,6 +5,8 @@
 
 export type LinhaLeadSite = {
   linha: number;
+  /** Identifica o cadastro (data/hora + telefone), mesmo se apagarem ou inserirem linhas. */
+  chave: string;
   cadastrado_em: string;
   nome: string | null;
   telefone_digitado: string | null;
@@ -23,7 +25,8 @@ export type LinhaLeadSite = {
   pagina: string | null;
 };
 
-type Campo = Exclude<keyof LinhaLeadSite, "linha" | "cadastrado_em" | "telefone"> | "data_hora";
+type Campo =
+  Exclude<keyof LinhaLeadSite, "linha" | "chave" | "cadastrado_em" | "telefone"> | "data_hora";
 
 const sem = (s: string) =>
   s
@@ -106,10 +109,36 @@ const texto = (v: unknown, max = 300): string | null => {
   return s ? s.slice(0, max) : null;
 };
 
+/** Cadastro de teste (nome começando com "teste"): ignorado. */
+export function cadastroDeTeste(nome: string | null | undefined): boolean {
+  return /^\s*teste/i.test(nome ?? "");
+}
+
 /**
- * Linhas novas da aba. `valores` começa na linha `primeiraLinha` da planilha (1 = cabeçalho, que
- * vem à parte). Linhas sem nome e sem telefone são puladas (mas contam como lidas). Data que não
- * dá para ler usa `agora`.
+ * Chave do cadastro: data e hora de São Paulo ("13/10/2026 14:05:33") + dígitos do telefone
+ * digitado (sem telefone, o nome). Sem data legível, usa o texto da célula. Igual à do banco.
+ */
+export function chaveDoCadastro(
+  cadastradoEm: string | null,
+  dataBruta: string | null,
+  digitado: string | null,
+  nome: string | null,
+): string {
+  let quando: string;
+  if (cadastradoEm) {
+    const s = new Date(cadastradoEm).toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" });
+    const [d, h] = s.split(" ");
+    const [a, m, dia] = d!.split("-");
+    quando = `${dia}/${m}/${a} ${h}`;
+  } else quando = `sem-data:${dataBruta ?? ""}`;
+  const digitos = (digitado ?? "").replace(/\D/g, "");
+  return `${quando}|${digitos || `nome:${nome ?? ""}`}`;
+}
+
+/**
+ * Cadastros da aba. `valores` começa na linha `primeiraLinha` da planilha (1 = cabeçalho, que vem
+ * à parte). Linhas sem nome e sem telefone, e cadastros de teste, são pulados. Data que não dá
+ * para ler usa `agora` (a chave usa o texto da célula, então não duplica na próxima leitura).
  */
 export function linhasNovas(
   cabecalho: unknown[],
@@ -131,9 +160,13 @@ export function linhasNovas(
     const digitado = pega(row, "telefone_digitado", 40);
     const nome = pega(row, "nome", 120);
     if (!digitado && !nome) return;
+    if (cadastroDeTeste(nome)) return;
+    const dataBruta = pega(row, "data_hora");
+    const quando = lerDataHora(dataBruta);
     linhas.push({
       linha: primeiraLinha + i,
-      cadastrado_em: lerDataHora(pega(row, "data_hora")) ?? agora.toISOString(),
+      chave: chaveDoCadastro(quando, dataBruta, digitado, nome),
+      cadastrado_em: quando ?? agora.toISOString(),
       nome,
       telefone_digitado: digitado,
       telefone: telefoneDoLead(digitado),

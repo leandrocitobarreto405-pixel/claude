@@ -2636,6 +2636,7 @@ export type Database = {
           utm_source: string | null;
           utm_term: string | null;
           wbraid: string | null;
+          chave: string;
         };
         Insert: {
           aviso_em?: string | null;
@@ -2669,6 +2670,7 @@ export type Database = {
           utm_source?: string | null;
           utm_term?: string | null;
           wbraid?: string | null;
+          chave: string;
         };
         Update: {
           aviso_em?: string | null;
@@ -2702,6 +2704,7 @@ export type Database = {
           utm_source?: string | null;
           utm_term?: string | null;
           wbraid?: string | null;
+          chave?: string;
         };
         Relationships: [];
       };
@@ -2755,6 +2758,7 @@ export type Database = {
           planilha_id: string;
           ultima_linha: number;
           updated_at: string;
+          chaves_ignoradas: string[];
         };
         Insert: {
           aba?: string;
@@ -2769,6 +2773,7 @@ export type Database = {
           planilha_id: string;
           ultima_linha?: number;
           updated_at?: string;
+          chaves_ignoradas?: string[];
         };
         Update: {
           aba?: string;
@@ -2783,6 +2788,7 @@ export type Database = {
           planilha_id?: string;
           ultima_linha?: number;
           updated_at?: string;
+          chaves_ignoradas?: string[];
         };
         Relationships: [];
       };

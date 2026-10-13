@@ -843,7 +843,7 @@ if (domingo) {
   const amanha = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 1)::text`);
   const ontem = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date - 1)::text`);
   const hoje = sql(`SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date)::text`);
-  // Segunda: o pós-venda de ontem (domingo) também sai, mas o texto livre diz "no domingo".
+  // Segunda: o pós-venda de ontem (domingo) também sai (o texto não diz "ontem").
   await fetch(`${CHATWOOT}/api/v1/accounts/187966/__modelos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -857,7 +857,7 @@ if (domingo) {
           components: [
             {
               type: "BODY",
-              text: "Oi, {{1}}, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de amanhã, com o técnico chegando entre {{2}}. Está tudo certo para realizarmos o serviço?",
+              text: "Oi, {{1}}, tudo bem? Alice aqui 💙 Passando para confirmar o seu serviço de {{2}}, com o técnico chegando entre {{3}}. Está tudo certo para realizarmos o serviço?",
             },
           ],
         },
@@ -869,7 +869,7 @@ if (domingo) {
           components: [
             {
               type: "BODY",
-              text: "Bom dia, {{1}}, tudo bem? Alice aqui 💙 Separamos a pasta do seu serviço, com a OS e as fotos e vídeos de antes e depois: {{2}} Como foi o atendimento do {{3}} ontem? Ficou tudo certo com {{4}} depois do serviço?",
+              text: "Bom dia, {{1}}, tudo bem? Alice aqui 💙 Separamos a pasta do seu serviço, com a OS e as fotos e vídeos de antes e depois: {{2}} Como foi o atendimento do {{3}}? Ficou tudo certo com {{4}} depois do serviço?",
             },
           ],
         },
@@ -930,10 +930,10 @@ if (domingo) {
   );
   const modelo = enviados.find((c) => c.body?.template_params?.name === "tc_confirmacao_servico");
   check(
-    "janela fechada: modelo da confirmação com nome e janela",
+    "janela fechada: modelo da confirmação com nome, dia e janela",
     modelo &&
       JSON.stringify(modelo.body.template_params.processed_params) ===
-        JSON.stringify({ body: { 1: "Ana", 2: "10h e 11h" } }),
+        JSON.stringify({ body: { 1: "Ana", 2: "amanhã", 3: "10h e 11h" } }),
     modelo?.body,
   );
   const livre967 = enviados.find(
@@ -1125,49 +1125,48 @@ if (domingo) {
       `INSERT INTO google_conexao_segredos (empresa_id, refresh_token) VALUES ('${EMPRESA}', 'refresh-teste')`,
     );
   }
-  await fetch(`${CHATWOOT}/__planilha`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id: PLANILHA,
-      aba: "Leads",
-      valores: [
-        [
-          "Data e Hora",
-          "Nome",
-          "WhatsApp",
-          "Serviço",
-          "utm_source",
-          "utm_medium",
-          "utm_campaign",
-          "utm_term",
-          "utm_content",
-          "gclid",
-          "gbraid",
-          "wbraid",
-          "fbclid",
-          "Página",
-        ],
-        [
-          quando(30),
-          "Lia Teste",
-          "11966000001",
-          "Sofá",
-          "google",
-          "cpc",
-          "lp",
-          "higienizar sofá",
-          "",
-          "gclid-lia",
-        ],
-        [quando(12), "Rui Teste", "11966000002", "Colchão"],
-        [quando(11), "Ivo Teste", "1196600"],
-        [quando(7), "Rui Teste", "11966000002", "Colchão"],
-        [quando(20), "Gil Teste", "11966000003", "Sofá"],
-        [quando(16), "Edu Teste", "11966000004", "Sofá"],
-      ],
-    }),
-  });
+  const abaLP = [
+    [
+      "Data e Hora",
+      "Nome",
+      "WhatsApp",
+      "Serviço",
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "gclid",
+      "gbraid",
+      "wbraid",
+      "fbclid",
+      "Página",
+    ],
+    [
+      quando(30),
+      "Lia Teste",
+      "11966000001",
+      "Sofá",
+      "google",
+      "cpc",
+      "lp",
+      "higienizar sofá",
+      "",
+      "gclid-lia",
+    ],
+    [quando(12), "Rui Teste", "11966000002", "Colchão"],
+    [quando(11), "Ivo Teste", "1196600"],
+    [quando(7), "Rui Teste", "11966000002", "Colchão"],
+    [quando(20), "Gil Teste", "11966000003", "Sofá"],
+    [quando(16), "Edu Teste", "11966000004", "Sofá"],
+  ];
+  const gravarAba = (valores) =>
+    fetch(`${CHATWOOT}/__planilha`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: PLANILHA, aba: "Leads", valores }),
+    });
+  await gravarAba(abaLP);
   await fetch(`${CHATWOOT}/api/v1/accounts/187966/__modelos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1268,6 +1267,26 @@ if (domingo) {
   );
   const l3 = (await varrer()).leadsSite;
   check("envio desligado: nada sai", l3?.enviados === 0, l3);
+  // Alguém apagou linhas (a aba fica menor que a última lida) e entraram um cadastro novo e um de
+  // teste: nada duplica, o novo entra e o de teste é ignorado.
+  const antesApagar = sql(`SELECT count(*) FROM leads_site WHERE empresa_id = '${EMPRESA}'`);
+  await gravarAba([
+    abaLP[0],
+    abaLP[1],
+    abaLP[5],
+    [quando(3), "Teste", "11912345678", "Sofá"],
+    [quando(2), "Bia Nova", "11966000005", "Sofá"],
+  ]);
+  const l4 = (await varrer()).leadsSite;
+  check(
+    "linhas apagadas: só o cadastro novo entra, sem duplicar nem perder",
+    l4?.lidos === 1 &&
+      Number(sql(`SELECT count(*) FROM leads_site WHERE empresa_id = '${EMPRESA}'`)) ===
+        Number(antesApagar) + 1 &&
+      sql(`SELECT count(*) FROM leads_site WHERE nome = 'Teste'`) === "0" &&
+      sql(`SELECT count(*) FROM leads_site WHERE nome = 'Bia Nova'`) === "1",
+    { l4, antesApagar },
+  );
   sql(`UPDATE leads_site_planilhas SET ativa = false WHERE empresa_id = '${EMPRESA}'`);
   if (!tinhaGoogle) {
     sql(`DELETE FROM google_conexao_segredos WHERE empresa_id = '${EMPRESA}'`);

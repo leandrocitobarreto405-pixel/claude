@@ -67,7 +67,7 @@ SELECT pg_temp.ok((SELECT ultima_linha FROM public.leads_site_planilhas) = 7, 'g
 -- Ler de novo as mesmas linhas não duplica.
 SELECT pg_temp.ok(
   (SELECT (public.leads_site_registrar('a3600000-0000-0000-0000-000000000001',
-     pg_temp.j('[{"linha": 2, "cadastrado_em": "@0@", "telefone": "5511987650001"}]'), 7))->>'novos')::int = 0,
+     pg_temp.j('[{"linha": 2, "cadastrado_em": "@0@", "telefone_digitado": "11987650001", "telefone": "5511987650001"}]'), 7))->>'novos')::int = 0,
   'linha já lida não entra de novo');
 SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 3) = 'invalido', 'número inválido');
 SELECT pg_temp.ok((SELECT repetido_de = (SELECT id FROM public.leads_site WHERE linha = 2)
@@ -89,6 +89,39 @@ SELECT pg_temp.ok((SELECT lp_origem = 'LP Teste' AND utm_term = 'termo antigo' A
                      FROM public.crm_leads WHERE id = 'c3600000-0000-0000-0000-00000000000a'),
   'CRM: LP e gclid preenchidos, utm_term e origem que já existiam ficaram');
 
+-- Alguém apagou as linhas 3 a 6 e entrou um cadastro novo: a aba agora tem 4 linhas (menos que
+-- as 7 lidas). A leitura confere tudo pela chave: nada duplica e o novo entra.
+SELECT pg_temp.ok(
+  (SELECT (public.leads_site_registrar('a3600000-0000-0000-0000-000000000001', pg_temp.j('[
+    {"linha": 2, "cadastrado_em": "@0@", "nome": "Pessoa A", "telefone_digitado": "11987650001", "telefone": "5511987650001"},
+    {"linha": 3, "cadastrado_em": "@15@", "nome": "Pessoa G", "telefone_digitado": "11987650007", "telefone": "5511987650007"},
+    {"linha": 4, "cadastrado_em": "@90@", "nome": "Pessoa H", "telefone_digitado": "11987650008", "telefone": "5511987650008"},
+    {"linha": 5, "cadastrado_em": "@95@", "nome": "TESTE da LP", "telefone_digitado": "11912345678", "telefone": "5511912345678"}
+  ]'), 5))->>'novos')::int = 1, 'aba encurtada: só o cadastro novo entra (teste ignorado)');
+SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site) = 7, 'nenhum duplicado');
+SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site WHERE nome ILIKE 'teste%') = 0, 'cadastro de teste ignorado');
+SELECT pg_temp.ok((SELECT ultima_linha FROM public.leads_site_planilhas) = 5, 'tamanho atual da aba');
+-- Linha inserida no meio (a linha antiga muda de número; a chave não).
+SELECT pg_temp.ok(
+  (SELECT (public.leads_site_registrar('a3600000-0000-0000-0000-000000000001', pg_temp.j('[
+    {"linha": 2, "cadastrado_em": "@0@", "nome": "Pessoa A", "telefone_digitado": "11987650001", "telefone": "5511987650001"},
+    {"linha": 3, "cadastrado_em": "@50@", "nome": "Pessoa I", "telefone_digitado": "11987650009", "telefone": "5511987650009"},
+    {"linha": 4, "cadastrado_em": "@15@", "nome": "Pessoa G", "telefone_digitado": "11987650007", "telefone": "5511987650007"},
+    {"linha": 5, "cadastrado_em": "@90@", "nome": "Pessoa H", "telefone_digitado": "11987650008", "telefone": "5511987650008"}
+  ]'), 5))->>'novos')::int = 1, 'linha inserida no meio entra; as outras não duplicam');
+
+-- Cadastro apagado do app (chave na lista de ignorados) não volta na próxima leitura.
+UPDATE public.leads_site_planilhas
+   SET chaves_ignoradas = ARRAY[(SELECT chave FROM public.leads_site WHERE nome = 'Pessoa H')];
+SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site WHERE nome = 'Pessoa H') = 1, 'Pessoa H existe');
+CREATE TEMP TABLE apagados AS SELECT id FROM public.leads_site WHERE nome = 'Pessoa H';
+UPDATE public.leads_site SET repetido_de = NULL WHERE repetido_de IN (SELECT id FROM apagados);
+DELETE FROM public.leads_site WHERE id IN (SELECT id FROM apagados);
+SELECT pg_temp.ok(
+  (SELECT (public.leads_site_registrar('a3600000-0000-0000-0000-000000000001', pg_temp.j('[
+    {"linha": 5, "cadastrado_em": "@90@", "nome": "Pessoa H", "telefone_digitado": "11987650008", "telefone": "5511987650008"}
+  ]'), 5))->>'novos')::int = 0, 'cadastro apagado do app não volta');
+
 -- Aviso só no app: o envio para o WhatsApp não consegue marcar como enviado.
 INSERT INTO public.mkt_avisos (id, empresa_id, tipo, titulo, mensagem, so_no_app)
 VALUES ('d3600000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'lead_site_sem_chamar', 'Lead do site', 'teste', true);
@@ -109,7 +142,7 @@ SELECT pg_temp.ok(NOT has_function_privilege('authenticated', 'public.leads_site
 
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000361","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
-SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site) = 6, 'atendente vê os leads do site');
+SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site) = 7, 'atendente vê os leads do site');
 SELECT pg_temp.ok((SELECT count(*) FROM public.leads_site_planilhas) = 1, 'atendente vê as planilhas');
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000362","role":"authenticated"}', true);

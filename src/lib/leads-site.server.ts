@@ -46,25 +46,21 @@ type Planilha = {
   erro_em: string | null;
 };
 
-/** Lê as linhas novas de uma planilha e grava. Erro fica na planilha (e um aviso por dia). */
+/**
+ * Lê a aba inteira e grava só os cadastros que ainda não existem (pela chave data/hora +
+ * telefone). Assim, linha apagada, inserida no meio ou aba encurtada não fazem perder nem
+ * duplicar lead. Erro fica na planilha (e um aviso por dia).
+ */
 async function lerPlanilha(db: Db, p: Planilha, token: string, agora: Date) {
   const { lerAba } = await import("./google-planilhas.server");
-  const [cabecalho] = await lerAba(token, p.planilha_id, p.aba, "A1:Z1");
-  const inicio = p.ultima_linha + 1;
-  const valores = await lerAba(token, p.planilha_id, p.aba, `A${inicio}:Z`);
-  const r = linhasNovas(cabecalho ?? [], valores, inicio, agora);
+  const valores = await lerAba(token, p.planilha_id, p.aba, "A1:Z");
+  const [cabecalho, ...linhas] = valores;
+  const r = linhasNovas(cabecalho ?? [], linhas, 2, agora);
   if (r.erro) throw new Error(r.erro);
-  if (!valores.length) {
-    await db
-      .from("leads_site_planilhas")
-      .update({ lido_em: agora.toISOString(), erro: null, erro_em: null })
-      .eq("id", p.id);
-    return { novos: 0, repetidos: 0 };
-  }
   return rpc<{ novos: number; repetidos: number }>(db, "leads_site_registrar", {
     _planilha: p.id,
     _linhas: r.linhas,
-    _ultima: r.ultima,
+    _ultima: Math.max(1, valores.length),
   });
 }
 
