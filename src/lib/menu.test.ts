@@ -9,7 +9,7 @@ const rotas = (g: ReturnType<typeof menuDoPapel>) =>
 test("admin: Dia a dia, Vendas, Financeiro e Empresa (sem Nexa)", () => {
   assert.deepEqual(rotas(menuDoPapel("admin")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
-    Vendas: ["/crm/funil", "/crm/leads", "/crm/retornos", "/marketing"],
+    Vendas: ["/crm/funil", "/crm/retornos", "/marketing"],
     Financeiro: ["/financeiro", "/notas", "/exportacoes"],
     Empresa: ["/configuracoes"],
   });
@@ -35,7 +35,7 @@ test("Primeiros passos só enquanto faltar etapa, com o progresso no rótulo", (
 test("atendente: no Financeiro só A receber, sem Empresa; técnico: só Agenda e Serviços", () => {
   assert.deepEqual(rotas(menuDoPapel("atendente")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
-    Vendas: ["/crm/funil", "/crm/leads", "/crm/retornos", "/marketing"],
+    Vendas: ["/crm/funil", "/crm/retornos", "/marketing"],
     Financeiro: ["/a-receber"],
   });
   assert.deepEqual(rotas(menuDoPapel("tecnico")), { "Dia a dia": ["/agenda", "/servicos"] });

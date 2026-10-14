@@ -241,6 +241,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `linked_work_order_id = NULL`, `is_open = true`, status anterior pelo `crm_status_history`
   ("Vínculo automático") e `sales_origin_id = NULL` onde `origem_automatica`; apagar os 4
   `invoice_tasks` (status Pendente, sem nota emitida).
+- "Repaginada fase 3: indicadores sem OS de teste" (`20261111120000`, aplicada em 14/10):
+  `public.indicadores_funil` passa a ignorar OS de teste (conversão, vendas por origem, OS e
+  recebimentos do período) e `public.crm_ligar_os_sem_lead` não liga OS de teste a lead. Mesmas
+  assinaturas; nenhuma tabela ou dado alterado. Para voltar: recriar as duas funções com o texto
+  de `20261004120000` e `20261108140000`.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`

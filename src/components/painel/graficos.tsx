@@ -126,7 +126,11 @@ export function GraficoVendasPorOrigem({ dados }: { dados: ResumoPainel["vendido
 }
 
 /** Leads que chamaram → com orçamento → viraram OS (entrada receptiva do funil). */
-export function FunilMini({ c }: { c: ResumoPainel["conversao"] }) {
+export function FunilMini({
+  c,
+}: {
+  c: Pick<ResumoPainel["conversao"], "leads" | "orcamentos" | "os">;
+}) {
   const etapas = [
     { rotulo: "Leads que chamaram", n: c.leads },
     { rotulo: "Com orçamento", n: c.orcamentos },

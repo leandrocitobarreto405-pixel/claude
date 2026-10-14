@@ -79,10 +79,10 @@ function LeadsDoSite() {
   return (
     <>
       <PageHeader
-        title="Leads"
+        title="Leads e funil"
         description="Cadastros das landing pages e se a pessoa já chamou no WhatsApp."
       />
-      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads" className="mb-4" />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads e funil" className="mb-4" />
       {comErro.map((p) => (
         <p
           key={p.nome}

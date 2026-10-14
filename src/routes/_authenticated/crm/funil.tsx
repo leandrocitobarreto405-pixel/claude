@@ -76,10 +76,10 @@ function Funil() {
   return (
     <>
       <PageHeader
-        title="Funil"
+        title="Leads e funil"
         description="Arraste os cartões para mudar a etapa. Cada movimento fica registrado no histórico."
       />
-      <AbasDeRota abas={ABAS_DE_TELA.funil} rotulo="Funil" className="mb-6" />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads e funil" className="mb-6" />
 
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando funil...</p>

@@ -55,12 +55,11 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     id: "vendas",
     rotulo: "Vendas",
     itens: [
-      { to: "/crm/funil", rotulo: "Funil", icone: Filter, ativoEm: ["/indicadores"] },
       {
-        to: "/crm/leads",
-        rotulo: "Leads",
-        icone: UserPlus,
-        ativoEm: ["/crm/leads-site", "/crm/lead"],
+        to: "/crm/funil",
+        rotulo: "Leads e funil",
+        icone: Filter,
+        ativoEm: ["/crm/leads", "/crm/leads-site", "/crm/lead", "/indicadores"],
       },
       { to: "/crm/retornos", rotulo: "Retornos", icone: Undo2 },
       { to: "/marketing", rotulo: "Marketing WhatsApp", icone: Send, ativoEm: ["/listas"] },
@@ -171,13 +170,11 @@ export const ABAS_DE_TELA = {
     { to: "/oss", rotulo: "OS" },
     { to: "/orcamentos", rotulo: "Orçamentos" },
   ],
-  funil: [
-    { to: "/crm/funil", rotulo: "Quadro" },
-    { to: "/indicadores", rotulo: "Indicadores" },
-  ],
   leads: [
-    { to: "/crm/leads", rotulo: "Todos" },
+    { to: "/crm/funil", rotulo: "Quadro" },
+    { to: "/crm/leads", rotulo: "Lista" },
     { to: "/crm/leads-site", rotulo: "Do site" },
+    { to: "/indicadores", rotulo: "Indicadores" },
   ],
   financeiro: [
     { to: "/financeiro", rotulo: "Resumo" },
