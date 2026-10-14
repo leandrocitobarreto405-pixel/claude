@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AbasDeRota, BadgeAlerta, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
+import { JanelaNovaOs } from "@/components/nova-os/janela";
 import { ABAS_DE_TELA } from "@/lib/menu";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -50,8 +51,15 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/oss")({
-  validateSearch: (s: Record<string, unknown>): { chip?: ChipOs } =>
-    CHIPS_OS.some((c) => c.id === s["chip"]) ? { chip: s["chip"] as ChipOs } : {},
+  validateSearch: (s: Record<string, unknown>): BuscaOss => {
+    const r: BuscaOss = {};
+    if (CHIPS_OS.some((c) => c.id === s["chip"])) r.chip = s["chip"] as ChipOs;
+    if (s["nova"]) r.nova = 1;
+    for (const k of ["lead", "orcamento", "cotacao"] as const) {
+      if (typeof s[k] === "string" && s[k]) r[k] = s[k] as string;
+    }
+    return r;
+  },
   head: () => ({
     meta: [
       { title: "OS e orçamentos — Nexa OS" },
@@ -82,9 +90,19 @@ const SELECT = `
   work_order_documents ( is_active, generation_status )
 `;
 
+type BuscaOss = { chip?: ChipOs; nova?: 1; lead?: string; orcamento?: string; cotacao?: string };
+
 function OssCriadas() {
   const navigate = useNavigate();
-  const { chip: chipInicial } = Route.useSearch();
+  const { chip: chipInicial, nova, lead, orcamento, cotacao } = Route.useSearch();
+  const origemDaJanela = useMemo(
+    () => ({
+      ...(lead ? { lead } : {}),
+      ...(orcamento ? { orcamento } : {}),
+      ...(cotacao ? { cotacao } : {}),
+    }),
+    [lead, orcamento, cotacao],
+  );
   const hoje = todayISO();
   const mes = currentMonth();
   const [chip, setChip] = useState<ChipOs>(chipInicial ?? "todas");
@@ -273,7 +291,7 @@ function OssCriadas() {
           </Botao>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
-          <DropdownMenuItem onSelect={() => void navigate({ to: "/nova-os", search: {} })}>
+          <DropdownMenuItem onSelect={() => void navigate({ to: "/oss", search: { nova: 1 } })}>
             <ClipboardPlus className="size-4" /> Nova OS
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -285,6 +303,14 @@ function OssCriadas() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <JanelaNovaOs
+        aberta={nova === 1}
+        origem={origemDaJanela}
+        aoFechar={() =>
+          void navigate({ to: "/oss", search: chip === "todas" ? {} : { chip }, replace: true })
+        }
+      />
 
       <Sheet open={filtros} onOpenChange={setFiltros}>
         <SheetContent

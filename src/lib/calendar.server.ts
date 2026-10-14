@@ -68,6 +68,8 @@ export async function testIntegration() {
 }
 
 type EventoDados = {
+  /** OS de teste: não cria nem atualiza evento na Agenda. */
+  teste?: boolean;
   summary: string;
   description: string;
   location: string | null;
@@ -107,7 +109,7 @@ async function dadosDoAtendimento(visitId: string): Promise<EventoDados | null> 
        technician:technician_id ( name, email ),
        service_type:service_type_id ( name ),
        work_order:work_order_id (
-         os_number,
+         os_number, eh_teste,
          customer:customer_id ( full_name, phone, full_address, street, street_number, complement,
            neighborhood, city, state, postal_code )
        )`,
@@ -121,6 +123,7 @@ async function dadosDoAtendimento(visitId: string): Promise<EventoDados | null> 
   const nome = (cliente?.["full_name"] as string | null) ?? "Cliente";
   const local = endereco(cliente);
   return {
+    teste: wo?.["eh_teste"] === true,
     summary: `OS ${wo?.["os_number"] ?? ""} - ${nome}`.trim(),
     description: descricao([
       ["Endereço", local],
@@ -196,6 +199,8 @@ export async function syncEvent(kind: VisitKind, visitId: string): Promise<SyncR
     if (!s.enabled) return { ok: true, skipped: true };
     const d = await dados(kind, visitId);
     if (!d || !d.date) return { ok: true, skipped: true };
+    // OS de teste não vai para a agenda da equipe.
+    if (d.teste) return { ok: true, skipped: true, message: "OS de teste: sem evento na agenda." };
 
     const payload = {
       calendarId: s.calendarId,
