@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Droplets, Inbox, LogOut, X } from "lucide-react";
+import { ChevronLeft, Droplets, Inbox, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -319,14 +319,26 @@ export function PageHeader({
   title,
   description,
   actions,
+  voltarPara,
 }: {
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  /** Tela que abriu esta (ex.: um grupo das Configurações): mostra a seta de voltar. */
+  voltarPara?: string;
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
+        {voltarPara ? (
+          <Link
+            to={voltarPara as never}
+            className="-ml-2 mb-1 inline-flex min-h-11 w-fit items-center gap-1 rounded-botao px-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="size-5" aria-hidden />
+            Voltar
+          </Link>
+        ) : null}
         <h1 className="text-2xl font-semibold tracking-tight text-navy md:text-3xl">{title}</h1>
         {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>

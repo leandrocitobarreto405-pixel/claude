@@ -1077,8 +1077,7 @@ function NovaOS() {
                   Nenhuma vendedora cadastrada nesta empresa.{" "}
                   {ehAdmin ? (
                     <Link
-                      to="/configuracoes"
-                      search={{ aba: "equipe" } as never}
+                      to="/configuracoes/equipe"
                       className="font-semibold text-marca underline underline-offset-2"
                     >
                       Cadastrar em Configurações → Equipe

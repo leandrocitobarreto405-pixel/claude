@@ -121,7 +121,7 @@ const DEFS: Def[] = [
     titulo: "Usuários convidados",
     responsavel: "empresa",
     obrigatoria: true,
-    resolver: { rotulo: "Convidar", para: "/usuarios" },
+    resolver: { rotulo: "Convidar", para: "/configuracoes/equipe" },
     podeRevisar: false,
     podeNaoSeAplica: false,
     avaliar: ({ usuarios: u }) => {
@@ -145,7 +145,7 @@ const DEFS: Def[] = [
     titulo: "Tabela de preços",
     responsavel: "empresa",
     obrigatoria: true,
-    resolver: { rotulo: "Abrir tabela", para: "/configuracoes?aba=precos" },
+    resolver: { rotulo: "Abrir tabela", para: "/configuracoes/vendas" },
     podeRevisar: false,
     podeNaoSeAplica: false,
     avaliar: ({ precos }) =>
@@ -156,7 +156,7 @@ const DEFS: Def[] = [
     titulo: "Taxas de pagamento e Pix",
     responsavel: "empresa",
     obrigatoria: true,
-    resolver: { rotulo: "Abrir taxas", para: "/configuracoes?aba=taxas" },
+    resolver: { rotulo: "Abrir taxas", para: "/configuracoes/vendas" },
     podeRevisar: true,
     podeNaoSeAplica: false,
     avaliar: ({ taxas, marcadas }) =>
@@ -173,7 +173,7 @@ const DEFS: Def[] = [
     titulo: "Modelos de orçamento e OS",
     responsavel: "empresa",
     obrigatoria: true,
-    resolver: { rotulo: "Abrir mensagens", para: "/configuracoes?aba=mensagem" },
+    resolver: { rotulo: "Abrir mensagens", para: "/configuracoes/mensagens" },
     podeRevisar: true,
     podeNaoSeAplica: false,
     avaliar: ({ textosSalvos, marcadas }) =>
@@ -244,7 +244,7 @@ const DEFS: Def[] = [
     titulo: "Alice configurada",
     responsavel: "nexa",
     obrigatoria: true,
-    resolver: { rotulo: "Abrir Alice", para: "/configuracoes?aba=alice" },
+    resolver: { rotulo: "Abrir Alice", para: "/configuracoes/alice-leads" },
     podeRevisar: false,
     podeNaoSeAplica: false,
     avaliar: ({ alice: a }) => {
@@ -300,7 +300,7 @@ const DEFS: Def[] = [
     titulo: "Google Drive e Agenda",
     responsavel: "empresa",
     obrigatoria: false,
-    resolver: { rotulo: "Conectar", para: "/configuracoes?aba=documentos" },
+    resolver: { rotulo: "Conectar", para: "/configuracoes/mensagens" },
     podeRevisar: false,
     podeNaoSeAplica: true,
     avaliar: ({ google }) =>

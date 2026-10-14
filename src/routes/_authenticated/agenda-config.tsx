@@ -50,6 +50,7 @@ function AgendaConfig() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
+        voltarPara="/configuracoes/agenda"
         titulo="Agenda e promoção"
         descricao="Técnicos, veículos, horários base, rodízio, promoção para agenda vazia e contatos internos da equipe."
       />

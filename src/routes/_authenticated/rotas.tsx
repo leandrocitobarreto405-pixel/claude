@@ -255,6 +255,7 @@ function Rotas() {
   return (
     <>
       <PageHeader
+        voltarPara="/configuracoes/outros"
         title="Rotas e quilometragem"
         description={`${dateBR(dia)} · ${visitas.length} parada(s) · custo por km ${custoKm > 0 ? brl(custoKm) : "não configurado"}`}
       />
