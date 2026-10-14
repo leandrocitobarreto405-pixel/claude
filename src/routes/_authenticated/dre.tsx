@@ -92,6 +92,12 @@ function DRE() {
               <Line label="(-) Comissões de vendas" value={-(r?.commissionsOthers ?? 0)} />
             ) : null}
             <Line label="(-) Custo de deslocamento" value={-(r?.mileage ?? 0)} />
+            {(r?.mileageExpensesPaid ?? 0) > 0 ? (
+              <p className="pb-1 text-xs text-muted-foreground">
+                Quilometragem paga ao técnico no mês: {brl(r?.mileageExpensesPaid)} (já está no
+                custo de deslocamento, não entra de novo nas despesas).
+              </p>
+            ) : null}
             {(r?.cmv ?? 0) > 0 ? (
               <Line label="(-) Produtos usados nos serviços" value={-(r?.cmv ?? 0)} />
             ) : null}

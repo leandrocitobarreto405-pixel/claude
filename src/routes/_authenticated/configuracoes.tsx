@@ -287,7 +287,8 @@ function Recorrentes() {
 function MetaCustos() {
   const [mes, setMes] = useState(currentMonth());
   const [meta, setMeta] = useState("0,00");
-  const { data: custoKm } = useSetting<number>("cost_per_km", 0.57);
+  // Sem valor salvo o servidor usa 0 (rotas ficam "Aguardando custo por km"): nada de padrão aqui.
+  const { data: custoKm } = useSetting<number | null>("cost_per_km", null);
   const [km, setKm] = useState("");
 
   const metaQuery = useQuery({
@@ -371,6 +372,11 @@ function MetaCustos() {
         <div className="space-y-2">
           <Label htmlFor="km">Valor por km (R$)</Label>
           <Input id="km" value={km} onChange={(e) => setKm(e.target.value)} />
+          {!(Number(custoKm) > 0) && (
+            <p className="text-sm text-muted-foreground">
+              Não configurado: as rotas ficam em "Aguardando custo por km" até salvar um valor.
+            </p>
+          )}
         </div>
         <Button className="mt-4" onClick={salvarKm}>
           Salvar custo por km

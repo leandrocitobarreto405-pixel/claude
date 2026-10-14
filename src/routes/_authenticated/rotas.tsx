@@ -68,7 +68,9 @@ function Rotas() {
   const sincronizar = useServerFn(sincronizarRotaDoDia);
   const fechar = useServerFn(fecharQuilometragemDoMes);
   const { data: tecnicos } = useTechnicians(false);
-  const { data: custoKm } = useSetting<number>("cost_per_km", 0.57);
+  // Sem valor salvo, 0 (igual ao servidor): a rota fica "Aguardando custo por km".
+  const { data: custoSalvo } = useSetting<number | null>("cost_per_km", null);
+  const custoKm = Number(custoSalvo) > 0 ? Number(custoSalvo) : 0;
   const calcular = useServerFn(calcularRotaDoDia);
   const reprocessar = useServerFn(reprocessarRotasComErro);
   const [reprocessando, setReprocessando] = useState(false);
@@ -254,7 +256,7 @@ function Rotas() {
     <>
       <PageHeader
         title="Rotas e quilometragem"
-        description={`${dateBR(dia)} · ${visitas.length} parada(s) · custo por km ${brl(custoKm)}`}
+        description={`${dateBR(dia)} · ${visitas.length} parada(s) · custo por km ${custoKm > 0 ? brl(custoKm) : "não configurado"}`}
       />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
@@ -418,7 +420,7 @@ function Rotas() {
         <Card
           label="Combustível a pagar ao técnico"
           value={brl(custoTotal)}
-          hint={`${brl(custoKm)} por km`}
+          hint={custoKm > 0 ? `${brl(custoKm)} por km` : "Custo por km não configurado"}
         />
         <Card label="Custo rateado por serviço" value={brl(rateio)} />
         <Card

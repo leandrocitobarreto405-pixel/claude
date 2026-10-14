@@ -4,6 +4,7 @@ import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
 import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
 import { monthEnd, monthStart } from "@/lib/format";
 import { cashPaidAmount } from "@/lib/expenses";
+import { despesaDeRota } from "@/lib/dre-quilometragem";
 import { fetchReceivables } from "@/lib/receivables";
 import { effectiveVisitValue } from "@/lib/visit-value";
 
@@ -706,6 +707,8 @@ export type MonthSummary = {
   commissionsOthers: number;
   commissionsOthersBySalesperson: Record<string, number>;
   mileage: number;
+  /** Despesas de quilometragem das rotas pagas no mês (já contadas em `mileage`, fora do DRE). */
+  mileageExpensesPaid: number;
   cmv: number;
   variableCosts: number;
   fixedCosts: number;
@@ -814,7 +817,17 @@ export function useMonthSummary(month: string) {
 
       // DRE: competência do mês da despesa, mas só o que foi efetivamente pago.
       // Uma despesa de agosto paga em setembro entra no DRE de agosto assim que for paga.
-      const validExpenses = expenses.filter((e) => e.status !== "Cancelado" && !e.deleted_at);
+      // A despesa "Quilometragem" das rotas (reference_key "mileage:...") paga o mesmo km que já
+      // entra acima como custo de deslocamento (rateio nos serviços): fica fora daqui para o DRE
+      // não contar duas vezes. O pagamento continua no caixa.
+      const mileageExpensesPaid = round2(
+        expenses
+          .filter((e) => e.status !== "Cancelado" && !e.deleted_at && despesaDeRota(e))
+          .reduce((s, e) => s + cashPaidAmount(e), 0),
+      );
+      const validExpenses = expenses.filter(
+        (e) => e.status !== "Cancelado" && !e.deleted_at && !despesaDeRota(e),
+      );
       const expensesPaidList = validExpenses
         .map((e) => ({ expense: e, paid: round2(cashPaidAmount(e)) }))
         .filter((r) => r.paid > 0)
@@ -868,6 +881,7 @@ export function useMonthSummary(month: string) {
           Object.entries(commissionsBySalesperson).filter(([k]) => !(k in nexa.porVendedora)),
         ),
         mileage,
+        mileageExpensesPaid,
         cmv,
         variableCosts,
         fixedCosts,
