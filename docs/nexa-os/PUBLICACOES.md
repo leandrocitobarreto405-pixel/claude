@@ -192,7 +192,15 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   conferido: função existe e a tela não executa): cria `crm_ligar_os_sem_lead` (só o servidor executa). Liga OS
   criada a partir de 13/10 14h ao único lead aberto com o mesmo telefone; nenhum ou vários só
   registram em `ads_eventos`. Para voltar: `DROP FUNCTION public.crm_ligar_os_sem_lead(uuid,
-timestamptz)` (a varredura só registra a falha e segue).
+- Dados da Turbine (14/10, sem migração; scripts únicos `scripts/crm/origem-lp-colchao.sql` e
+  `scripts/rotas/aplicar-custo-km.sql`): mensagem pronta da LP do colchão como origem Google
+  (`mensagens_origem` 42e9a0f1); 13 leads sem origem marcados como Google (`origem_automatica`):
+  12 da LP do colchão e 1 com gclid das LPs de higienização/impermeabilização; `cost_per_km` =
+  0,57 em `app_settings`; rotas de 07 a 10/10 com custo gerado (R$ 54,95, 7 serviços rateados,
+  sem despesa: ela sai no fechamento de 01/11). Para voltar: origem nula nos 13 leads (IDs no
+  relatório de 14/10), apagar os rateios dessas 4 rotas e voltar status/custos, apagar a
+  mensagem pronta e a configuração.
+  timestamptz)` (a varredura só registra a falha e segue).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -268,6 +276,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Ads: exportação diária | `80af6e0`        | `ed44911`                |
 | 13/10/2026       | OS → lead automático   | `8da17fb`        | `9fcb153`                |
 | 13/10/2026       | Ads: valor como número | `653c16c`        | `8da17fb`                |
+| 14/10/2026       | Custo km tela + DRE    | `10cdec4`        | `19b6aac`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
