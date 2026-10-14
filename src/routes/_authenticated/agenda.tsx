@@ -63,6 +63,8 @@ import {
 } from "@/lib/format";
 import { dataPorExtenso } from "@/lib/inicio";
 import { podeAcessar, usePapel } from "@/lib/tenant";
+import { useSession } from "@/lib/session";
+import { filtroDeTecnico, mostraValores, rotuloDoTecnico, tecnicoDoLogin } from "@/lib/meu-tecnico";
 import { ABAS_DE_TELA } from "@/lib/menu";
 import { cn } from "@/lib/utils";
 
@@ -142,6 +144,12 @@ function Agenda() {
   const [novoOrcamento, setNovoOrcamento] = useState(false);
   const { data: tecnicos } = useTechnicians(true);
   const { papel } = usePapel();
+  const { user } = useSession();
+  // Técnico: só o técnico ligado ao login (sem cadastro ligado, nada) e sem valores em R$.
+  // Admin que também é técnico ganha o chip "Meus serviços".
+  const meuTecnico = tecnicoDoLogin(tecnicos, user?.id);
+  const tecnicoVisto = filtroDeTecnico(papel, meuTecnico?.id ?? null, tecnico);
+  const comValores = mostraValores(papel);
 
   const especial = modo === "atrasados" || modo === "sem-tecnico";
   const semana = useMemo(() => semanaDe(ref), [ref]);
@@ -210,14 +218,16 @@ function Agenda() {
   const doTecnico = useMemo(() => {
     const todos = [
       ...(query.data ?? [])
-        .filter((v) => tecnico === "todos" || v.technician?.id === tecnico)
+        .filter((v) => tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto)
         .map(deVisita),
       ...(orcamentosQuery.data ?? [])
-        .filter((b) => tecnico === "todos" || b.technician?.id === tecnico)
+        .filter((b) => tecnicoVisto === "todos" || b.technician?.id === tecnicoVisto)
         .map(deOrcamento),
     ];
-    return todos.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
-  }, [query.data, orcamentosQuery.data, tecnico]);
+    return todos
+      .map((i) => (comValores ? i : { ...i, valor: null }))
+      .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  }, [query.data, orcamentosQuery.data, tecnicoVisto, comValores]);
 
   const filtrados = useMemo(
     () => doTecnico.filter((i) => status === "todos" || i.status === status),
@@ -249,8 +259,11 @@ function Agenda() {
       .filter((i) => i.tipo === "os")
       .reduce((s, i) => s + (i.valor ?? 0), 0);
   const km = (rotaQuery.data ?? [])
-    .filter((r) => tecnico === "todos" || r.technician_id === tecnico)
+    .filter((r) => tecnicoVisto === "todos" || r.technician_id === tecnicoVisto)
     .reduce((s, r) => s + Number(r.real_km ?? r.calculated_km ?? 0), 0);
+  const colunasDoDia = (["grid-cols-1", "grid-cols-2", "grid-cols-3"] as const)[
+    (comValores ? 1 : 0) + (km > 0 ? 1 : 0)
+  ];
 
   const podeNovaOs = papel ? podeAcessar(papel, "/nova-os") : false;
   const filtrosAtivos = status !== "todos" ? 1 : 0;
@@ -321,6 +334,13 @@ function Agenda() {
       />
 
       <AbasDeRota abas={ABAS_DE_TELA.agenda} rotulo="Agenda" />
+
+      {papel === "tecnico" && tecnicos && !meuTecnico ? (
+        <Card className="text-sm">
+          Seu login ainda não está ligado a um cadastro de técnico, por isso a agenda está vazia.
+          Peça ao administrador para ligar em Configurações › Equipe e acessos.
+        </Card>
+      ) : null}
 
       {papel && podeAcessar(papel, "/promocao") ? <FaixaHorariosLivres /> : null}
 
@@ -408,13 +428,17 @@ function Agenda() {
         </div>
       ) : null}
 
-      {(tecnicos ?? []).length > 1 ? (
+      {papel !== "tecnico" && (tecnicos ?? []).length > 1 ? (
         <div
           className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]"
           role="group"
           aria-label="Técnico"
         >
-          {[{ id: "todos", name: "Todos" }, ...(tecnicos ?? [])].map((t) => {
+          {[
+            { id: "todos", name: "Todos" },
+            ...(meuTecnico ? [meuTecnico] : []),
+            ...(tecnicos ?? []).filter((t) => t.id !== meuTecnico?.id),
+          ].map((t) => {
             const sel = tecnico === t.id;
             return (
               <button
@@ -429,7 +453,7 @@ function Agenda() {
                     : "border-border bg-card text-foreground hover:border-marca/40",
                 )}
               >
-                {t.name}
+                {rotuloDoTecnico(t.name, t.id, meuTecnico?.id ?? null)}
               </button>
             );
           })}
@@ -438,17 +462,19 @@ function Agenda() {
 
       {modo === "dia" ? (
         <>
-          <Card className={cn("grid gap-3", km > 0 ? "grid-cols-3" : "grid-cols-2")}>
+          <Card className={cn("grid gap-3", colunasDoDia)}>
             <NumeroGrande
               tamanho="pequeno"
               valor={ativos(doDia).length}
               legenda={ativos(doDia).length === 1 ? "atendimento" : "atendimentos"}
             />
-            <NumeroGrande
-              tamanho="pequeno"
-              valor={reaisSemCentavos(previsto(doDia))}
-              legenda="previsto"
-            />
+            {comValores ? (
+              <NumeroGrande
+                tamanho="pequeno"
+                valor={reaisSemCentavos(previsto(doDia))}
+                legenda="previsto"
+              />
+            ) : null}
             {km > 0 ? (
               <NumeroGrande tamanho="pequeno" valor={`${Math.round(km)} km`} legenda="de rota" />
             ) : null}
@@ -492,7 +518,8 @@ function Agenda() {
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-muted-foreground">
-            {ativos(filtrados).length} atendimento(s) · {brl(previsto(filtrados))} em serviços
+            {ativos(filtrados).length} atendimento(s)
+            {comValores ? ` · ${brl(previsto(filtrados))} em serviços` : ""}
           </p>
           {grupos.map(([dia, lista]) => (
             <section key={dia} className="flex flex-col gap-2.5">

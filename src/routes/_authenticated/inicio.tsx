@@ -261,7 +261,9 @@ function Inicio() {
     { label: "Rotas pendentes de cálculo", valor: pend?.rotasPend ?? 0, to: "/rotas" },
     { label: "Rotas alteradas após o pagamento", valor: pend?.rotasDif ?? 0, to: "/rotas" },
   ];
-  const totalPendencias = pendencias.reduce((s, p) => s + Number(p.valor), 0);
+  // Só o que a pessoa pode abrir: a atendente não vê despesas, lucro nem rotas.
+  const pendenciasVisiveis = pendencias.filter((p) => pode(p.to));
+  const totalPendencias = pendenciasVisiveis.reduce((s, p) => s + Number(p.valor), 0);
 
   const numeros: ItemLink[] = [
     { label: "Serviços concluídos no mês", valor: resumo?.completedCount ?? 0, to: "/servicos" },
@@ -413,22 +415,19 @@ function Inicio() {
       {/* Pendências e números do mês: recolhidos, para não tomar a tela. */}
       <Recolhido titulo="Pendências" contagem={totalPendencias}>
         <ul className="flex flex-col divide-y divide-border px-4">
-          {pendencias.map((p) => (
-            <LinhaLink
-              key={p.label}
-              item={p}
-              liberado={pode(p.to)}
-              destaque={Number(p.valor) > 0}
-            />
+          {pendenciasVisiveis.map((p) => (
+            <LinhaLink key={p.label} item={p} liberado destaque={Number(p.valor) > 0} />
           ))}
         </ul>
       </Recolhido>
 
       <Recolhido titulo="Números do mês">
         <ul className="flex flex-col divide-y divide-border px-4">
-          {numeros.map((n) => (
-            <LinhaLink key={n.label} item={n} liberado={pode(n.to)} />
-          ))}
+          {numeros
+            .filter((n) => pode(n.to))
+            .map((n) => (
+              <LinhaLink key={n.label} item={n} liberado />
+            ))}
         </ul>
       </Recolhido>
 

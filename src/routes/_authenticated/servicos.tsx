@@ -18,6 +18,10 @@ import { StatusBadge, VisitDialog } from "@/components/visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { useSalespeople, useTechnicians } from "@/lib/data";
+import { usePapel } from "@/lib/tenant";
+import { useSession } from "@/lib/session";
+import { filtroDeTecnico, mostraValores, tecnicoDoLogin } from "@/lib/meu-tecnico";
+import { Card } from "@/components/nexa";
 import {
   brl,
   currentMonth,
@@ -54,6 +58,12 @@ function Servicos() {
   const [selecionada, setSelecionada] = useState<VisitRow | null>(null);
   const { data: tecnicos } = useTechnicians(false);
   const { data: vendedoras } = useSalespeople(false);
+  const { papel } = usePapel();
+  const { user } = useSession();
+  // Técnico: só os serviços dele e sem valores em R$.
+  const meuTecnico = tecnicoDoLogin(tecnicos, user?.id);
+  const tecnicoVisto = filtroDeTecnico(papel, meuTecnico?.id ?? null, tecnico);
+  const comValores = mostraValores(papel);
 
   const query = useQuery({
     queryKey: ["servicos", mes],
@@ -74,13 +84,13 @@ function Servicos() {
     const termo = busca.trim().toLowerCase();
     return (query.data ?? []).filter(
       (v) =>
-        (tecnico === "todos" || v.technician?.id === tecnico) &&
+        (tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto) &&
         (vendedora === "todos" || v.work_order?.salesperson?.id === vendedora) &&
         (!termo ||
           v.work_order?.customer?.full_name.toLowerCase().includes(termo) ||
           v.work_order?.os_number.toLowerCase().includes(termo)),
     );
-  }, [query.data, tecnico, vendedora, busca]);
+  }, [query.data, tecnicoVisto, vendedora, busca]);
 
   const total = lista.reduce((s, v) => s + Number(v.final_value ?? v.visit_value ?? 0), 0);
 
@@ -88,9 +98,15 @@ function Servicos() {
     <>
       <PageHeader
         title="Agenda"
-        description={`Serviços realizados · ${monthLabelPT(mes)} · ${lista.length} serviço(s) · ${brl(total)}`}
+        description={`Serviços realizados · ${monthLabelPT(mes)} · ${lista.length} serviço(s)${comValores ? ` · ${brl(total)}` : ""}`}
       />
       <AbasDeRota abas={ABAS_DE_TELA.agenda} rotulo="Agenda" className="mb-6" />
+      {papel === "tecnico" && tecnicos && !meuTecnico ? (
+        <Card className="mb-6 text-sm">
+          Seu login ainda não está ligado a um cadastro de técnico, por isso a lista está vazia.
+          Peça ao administrador para ligar em Configurações › Equipe e acessos.
+        </Card>
+      ) : null}
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
@@ -103,38 +119,42 @@ function Servicos() {
             className="w-[170px]"
           />
         </div>
-        <div className="space-y-1">
-          <Label>Técnico</Label>
-          <Select value={tecnico} onValueChange={setTecnico}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {(tecnicos ?? []).map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Vendedora</Label>
-          <Select value={vendedora} onValueChange={setVendedora}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas</SelectItem>
-              {(vendedoras ?? []).map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {papel !== "tecnico" ? (
+          <>
+            <div className="space-y-1">
+              <Label>Técnico</Label>
+              <Select value={tecnico} onValueChange={setTecnico}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {(tecnicos ?? []).map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Vendedora</Label>
+              <Select value={vendedora} onValueChange={setVendedora}>
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {(vendedoras ?? []).map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        ) : null}
         <div className="space-y-1">
           <Label htmlFor="busca">Buscar cliente ou OS</Label>
           <Input
@@ -158,8 +178,8 @@ function Servicos() {
                 <Th>Cliente</Th>
                 <Th>Serviço</Th>
                 <Th>Técnico</Th>
-                <Th>Vendedora</Th>
-                <Th>Valor</Th>
+                {comValores ? <Th>Vendedora</Th> : null}
+                {comValores ? <Th>Valor</Th> : null}
                 <Th>Status</Th>
               </tr>
             </thead>
@@ -187,8 +207,8 @@ function Servicos() {
                     {v.service_type?.name} — {v.upholstery_description || v.upholstery_type?.name}
                   </Td>
                   <Td>{v.technician?.name ?? "—"}</Td>
-                  <Td>{v.work_order?.salesperson?.name ?? "—"}</Td>
-                  <Td>{brl(v.final_value ?? v.visit_value)}</Td>
+                  {comValores ? <Td>{v.work_order?.salesperson?.name ?? "—"}</Td> : null}
+                  {comValores ? <Td>{brl(v.final_value ?? v.visit_value)}</Td> : null}
                   <Td>
                     <StatusBadge status={v.status} />
                   </Td>
