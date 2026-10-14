@@ -17,12 +17,12 @@ export function AbasDeRota({
   className?: string;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (abas.length < 2) return null;
   return (
     <nav
       role="tablist"
       aria-label={rotulo}
-      className={cn("grid gap-1 rounded-botao bg-muted p-1", className)}
-      style={{ gridTemplateColumns: `repeat(${abas.length}, minmax(0, 1fr))` }}
+      className={cn("flex gap-1 overflow-x-auto rounded-botao bg-muted p-1", className)}
     >
       {abas.map((a) => {
         const ativa = pathname === a.to || pathname.startsWith(`${a.to}/`);
@@ -33,7 +33,7 @@ export function AbasDeRota({
             role="tab"
             aria-selected={ativa}
             className={cn(
-              "flex min-h-11 items-center justify-center rounded-botao px-3 text-sm transition-colors",
+              "flex min-h-11 flex-1 items-center justify-center rounded-botao px-1.5 text-[13px] whitespace-nowrap transition-colors sm:px-3 sm:text-sm",
               ativa
                 ? "bg-card font-bold text-foreground shadow-card"
                 : "font-medium text-muted-foreground",

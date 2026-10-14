@@ -2,7 +2,6 @@
 // Sem acesso a banco, para poder testar. Quem monta a barra de baixo está em navegacao.ts.
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3,
   Building2,
   CalendarDays,
   ClipboardList,
@@ -71,21 +70,16 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     id: "financeiro",
     rotulo: "Financeiro",
     itens: [
+      // Admin: Financeiro (Resumo, A receber, Recebidos, Despesas e DRE em abas).
+      // Atendente: só A receber (a única aba que ela abre).
       {
-        to: "/a-receber",
-        rotulo: "Recebimentos",
+        to: "/financeiro",
+        rotulo: "Financeiro",
         icone: HandCoins,
-        ativoEm: ["/pagamentos"],
+        ativoEm: ["/a-receber", "/pagamentos", "/despesas", "/dre", "/origens"],
         papeis: ["admin"],
       },
-      { to: "/despesas", rotulo: "Despesas", icone: Coins, papeis: ["admin"] },
-      {
-        to: "/dre",
-        rotulo: "Relatórios",
-        icone: BarChart3,
-        ativoEm: ["/origens"],
-        papeis: ["admin"],
-      },
+      { to: "/a-receber", rotulo: "A receber", icone: HandCoins, papeis: ["atendente"] },
       { to: "/notas", rotulo: "Notas fiscais", icone: Receipt, papeis: ["admin"] },
       { to: "/exportacoes", rotulo: "Exportações", icone: FileSpreadsheet, papeis: ["admin"] },
     ],
@@ -185,12 +179,20 @@ export const ABAS_DE_TELA = {
     { to: "/crm/leads", rotulo: "Todos" },
     { to: "/crm/leads-site", rotulo: "Do site" },
   ],
-  recebimentos: [
+  financeiro: [
+    { to: "/financeiro", rotulo: "Resumo" },
     { to: "/a-receber", rotulo: "A receber" },
     { to: "/pagamentos", rotulo: "Recebidos" },
-  ],
-  relatorios: [
+    { to: "/despesas", rotulo: "Despesas" },
     { to: "/dre", rotulo: "DRE" },
-    { to: "/origens", rotulo: "Origens" },
   ],
 } as const;
+
+/** Só as abas que a pessoa pode abrir (a atendente vê só "A receber" no Financeiro). */
+export function abasPermitidas<T extends { to: string }>(
+  abas: readonly T[],
+  papel: Papel | null,
+  souNexa = false,
+): T[] {
+  return abas.filter((a) => podeAcessar(papel, a.to, souNexa));
+}

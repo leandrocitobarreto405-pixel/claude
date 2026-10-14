@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ABAS_DE_TELA, itemAtivo, menuDoPapel, REDIRECIONAMENTOS } from "./menu";
+import { ABAS_DE_TELA, abasPermitidas, itemAtivo, menuDoPapel, REDIRECIONAMENTOS } from "./menu";
 import { podeAcessar } from "./tenant";
 
 const rotas = (g: ReturnType<typeof menuDoPapel>) =>
@@ -10,7 +10,7 @@ test("admin: Dia a dia, Vendas, Financeiro e Empresa (sem Nexa)", () => {
   assert.deepEqual(rotas(menuDoPapel("admin")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
     Vendas: ["/crm/funil", "/crm/leads", "/crm/retornos", "/marketing"],
-    Financeiro: ["/a-receber", "/despesas", "/dre", "/notas", "/exportacoes"],
+    Financeiro: ["/financeiro", "/notas", "/exportacoes"],
     Empresa: ["/configuracoes"],
   });
 });
@@ -32,10 +32,11 @@ test("Primeiros passos só enquanto faltar etapa, com o progresso no rótulo", (
   );
 });
 
-test("atendente: sem Financeiro nem Empresa; técnico: só Agenda e Serviços", () => {
+test("atendente: no Financeiro só A receber, sem Empresa; técnico: só Agenda e Serviços", () => {
   assert.deepEqual(rotas(menuDoPapel("atendente")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
     Vendas: ["/crm/funil", "/crm/leads", "/crm/retornos", "/marketing"],
+    Financeiro: ["/a-receber"],
   });
   assert.deepEqual(rotas(menuDoPapel("tecnico")), { "Dia a dia": ["/agenda", "/servicos"] });
   assert.deepEqual(menuDoPapel(null), []);
@@ -79,4 +80,15 @@ test("endereços antigos têm destino", () => {
   assert.equal(REDIRECIONAMENTOS["/crm/visao-geral"]?.to, "/indicadores");
   assert.equal(REDIRECIONAMENTOS["/usuarios"]?.to, "/configuracoes/equipe");
   for (const r of Object.values(REDIRECIONAMENTOS)) assert.ok(podeAcessar("admin", r.to), r.to);
+});
+
+test("abas do Financeiro: admin vê as cinco; atendente só A receber", () => {
+  assert.deepEqual(
+    abasPermitidas(ABAS_DE_TELA.financeiro, "admin").map((a) => a.to),
+    ["/financeiro", "/a-receber", "/pagamentos", "/despesas", "/dre"],
+  );
+  assert.deepEqual(
+    abasPermitidas(ABAS_DE_TELA.financeiro, "atendente").map((a) => a.to),
+    ["/a-receber"],
+  );
 });

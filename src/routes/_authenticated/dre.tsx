@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
-import { AbasDeRota, Botao } from "@/components/nexa";
-import { ABAS_DE_TELA } from "@/lib/menu";
+import { AbasDeRota, Botao, Recolhido } from "@/components/nexa";
+import { OrigensDaVenda } from "@/components/financeiro/origens";
+import { ABAS_DE_TELA, abasPermitidas } from "@/lib/menu";
+import { useContextoTenant } from "@/lib/tenant";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +14,9 @@ import { textoPercentuais } from "@/lib/comissao-nexa";
 import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dre")({
+  // `?bloco=origens` abre o bloco Origens da venda (endereço antigo /origens).
+  validateSearch: (s: Record<string, unknown>): { bloco?: "origens" } =>
+    s["bloco"] === "origens" ? { bloco: "origens" } : {},
   head: () => ({
     meta: [
       { title: "Relatórios: DRE — Nexa OS" },
@@ -30,8 +35,12 @@ export const Route = createFileRoute("/_authenticated/dre")({
 });
 
 function DRE() {
+  const { bloco } = Route.useSearch();
   const [mes, setMes] = useState(currentMonth());
   const { data: r } = useMonthSummary(mes);
+  const { data: tenant } = useContextoTenant();
+  const papel = tenant?.ativa?.papel ?? null;
+  const souNexa = tenant?.souNexa === true;
   // Vendas das atendentes da Nexa: a comissão delas é paga à Nexa e aparece separada.
   const temNexa = (r?.nexa.recebido ?? 0) > 0;
   const pctNexa = r?.nexa.percentuais.length ? ` (${textoPercentuais(r.nexa.percentuais)})` : "";
@@ -39,10 +48,14 @@ function DRE() {
   return (
     <>
       <PageHeader
-        title="Relatórios"
+        title="Financeiro"
         description={`DRE gerencial · competência de ${monthLabelPT(mes)}`}
       />
-      <AbasDeRota abas={ABAS_DE_TELA.relatorios} rotulo="Relatórios" className="mb-6" />
+      <AbasDeRota
+        abas={abasPermitidas(ABAS_DE_TELA.financeiro, papel, souNexa)}
+        rotulo="Financeiro"
+        className="mb-6"
+      />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
@@ -257,6 +270,12 @@ function DRE() {
           </table>
         </section>
       </div>
+
+      <Recolhido titulo="Origens da venda" abertoInicial={bloco === "origens"} className="mb-6">
+        <div className="p-4">
+          <OrigensDaVenda />
+        </div>
+      </Recolhido>
     </>
   );
 }

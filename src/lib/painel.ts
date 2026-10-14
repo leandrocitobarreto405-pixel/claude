@@ -160,7 +160,13 @@ export type Atalho = {
 };
 
 export const ATALHOS: Atalho[] = [
-  { id: "financeiro", rotulo: "Financeiro", to: "/a-receber", icone: HandCoins, papeis: ["admin"] },
+  {
+    id: "financeiro",
+    rotulo: "Financeiro",
+    to: "/financeiro",
+    icone: HandCoins,
+    papeis: ["admin"],
+  },
   { id: "os", rotulo: "OS", to: "/oss", icone: ClipboardList },
   { id: "agenda", rotulo: "Agenda", to: "/agenda", icone: CalendarDays },
   { id: "conversas", rotulo: "Conversas", to: "/conversas", icone: MessageCircle },
