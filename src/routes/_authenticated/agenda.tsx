@@ -72,7 +72,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   validateSearch: (search: Record<string, unknown>) => {
     const modo = String(search["modo"] ?? "dia");
     return {
-      modo: (["dia", "semana", "mes", "atrasados", "sem-tecnico"] as const).includes(modo as Modo)
+      modo: (["dia", "semana", "mes", "sem-tecnico"] as const).includes(modo as Modo)
         ? (modo as Modo)
         : ("dia" as const),
       tecnico: search["tecnico"] ? String(search["tecnico"]) : undefined,
@@ -88,12 +88,12 @@ export const Route = createFileRoute("/_authenticated/agenda")({
       { title: "Agenda — Nexa OS" },
       {
         name: "description",
-        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+        content: "Agenda de serviços por dia, semana e mês, com os serviços sem técnico.",
       },
       { property: "og:title", content: "Agenda — Nexa OS" },
       {
         property: "og:description",
-        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+        content: "Agenda de serviços por dia, semana e mês, com os serviços sem técnico.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -102,21 +102,15 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   component: Agenda,
 });
 
-type Modo = "dia" | "semana" | "mes" | "atrasados" | "sem-tecnico";
+// "Atrasados" saiu daqui: fica em Serviços › Para concluir (atrasados e de hoje).
+type Modo = "dia" | "semana" | "mes" | "sem-tecnico";
 
 const NOME_MODO: Record<Modo, string> = {
   dia: "Dia",
   semana: "Semana",
   mes: "Mês",
-  atrasados: "Atrasados",
   "sem-tecnico": "Sem técnico",
 };
-
-/** Serviços considerados em aberto (mesmo critério das pendências do início). */
-const ATRASADOS_STATUSES = ["Agendado", "Em execução", "Reagendado"];
-
-/** Visitas de orçamento ainda em aberto. */
-const ORCAMENTOS_ABERTOS = ["Agendado", "Confirmado", "Em deslocamento", "Reagendado"];
 
 /** "R$ 2.400" (sem centavos, para caber no resumo do dia). */
 function reaisSemCentavos(valor: number) {
@@ -151,7 +145,7 @@ function Agenda() {
   const tecnicoVisto = filtroDeTecnico(papel, meuTecnico?.id ?? null, tecnico);
   const comValores = mostraValores(papel);
 
-  const especial = modo === "atrasados" || modo === "sem-tecnico";
+  const especial = modo === "sem-tecnico";
   const semana = useMemo(() => semanaDe(ref), [ref]);
   // No modo dia busca a semana inteira, para a faixa de dias mostrar onde há serviço.
   const from = modo === "mes" ? monthStart(ref.slice(0, 7)) : semana[0]!.iso;
@@ -162,9 +156,7 @@ function Agenda() {
     queryKey: ["agenda", chave],
     queryFn: async () => {
       let q = supabase.from("visits").select(VISIT_SELECT);
-      if (modo === "atrasados") {
-        q = q.lt("scheduled_date", todayISO()).in("status", ATRASADOS_STATUSES);
-      } else if (modo === "sem-tecnico") {
+      if (modo === "sem-tecnico") {
         q = q.is("technician_id", null).neq("status", "Cancelado");
       } else {
         q = q.gte("scheduled_date", from).lte("scheduled_date", to);
@@ -179,9 +171,7 @@ function Agenda() {
     queryKey: ["orcamentos", "agenda", chave],
     queryFn: async () => {
       let q = supabase.from("budget_visits").select(BUDGET_VISIT_SELECT);
-      if (modo === "atrasados") {
-        q = q.lt("scheduled_date", todayISO()).in("status", ORCAMENTOS_ABERTOS);
-      } else if (modo === "sem-tecnico") {
+      if (modo === "sem-tecnico") {
         q = q.is("technician_id", null).neq("status", "Cancelado");
       } else {
         q = q.gte("scheduled_date", from).lte("scheduled_date", to);
@@ -559,7 +549,7 @@ function Agenda() {
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
             <section className="flex flex-col gap-2">
               <h3 className="text-sm font-bold">Ver</h3>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(Object.keys(NOME_MODO) as Modo[]).map((m) => (
                   <Botao
                     key={m}

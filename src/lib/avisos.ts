@@ -104,10 +104,10 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
         f.atrasados === 1
           ? "1 serviço atrasado sem conclusão"
           : `${f.atrasados} serviços atrasados sem conclusão`,
-      texto: "Conclua ou reagende na Agenda.",
+      texto: "Conclua ou reagende em Serviços › Para concluir.",
       quando: null,
       novo: true,
-      link: { to: "/agenda", search: { modo: "atrasados" } },
+      link: { to: "/servicos", search: { aba: "para-concluir" } },
       escritorio: false,
     });
   }
