@@ -228,9 +228,19 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `DROP TRIGGER trg_crm_leads_origem_por_clique ON public.crm_leads`, recriar
   `private.converter_lead_em_os` com o texto de `20260929120000` e `sales_origin_id = NULL` nos
   3 leads (`origem_automatica` marca quais foram).
-- Fase 2, scripts que esperam o ok do dono (lista conferida antes): `scripts/crm/ligar-os-antigas.sql`
-  (13 OS da Turbine ligadas ao único lead pelo telefone), `scripts/notas/criar-pedidos-os-concluidas.sql`
-  (pedidos de nota das OS concluídas com CPF/CNPJ) e marcar `eh_teste` nas OS de teste.
+- Fase 2, dados da Turbine (scripts únicos, aprovados e rodados em 14/10 à tarde, nesta ordem):
+  `eh_teste` marcado nas OS `TESTE-GARANTIA` e `1672` (a 1672 saiu da exportação do Google Ads:
+  não está em `vw_conversoes_google_pendentes` e não foi ligada a lead);
+  `scripts/crm/ligar-os-antigas.sql`: 12 OS ligadas ao único lead pelo telefone (1615, 1620,
+  1623, 1624, 1625, 1626, 1627, 1628, 1667, 1669, 1670, 1676), leads fechados como "Agendado",
+  7 receberam a origem da OS, nenhum retorno pendente mexido, nenhuma mensagem enviada,
+  registro em `ads_eventos` (`detalhe.origem = correcao_fase2`);
+  `scripts/notas/criar-pedidos-os-concluidas.sql`: 4 pedidos de nota Pendente (1615 R$ 339,90,
+  1628 R$ 479,80, 1668 R$ 400,00, 1674 R$ 249,90); a 1670 ficou sem pedido por decisão do dono.
+  Para voltar: `eh_teste = false` nas 2 OS; nos 12 leads (IDs em `ads_eventos`),
+  `linked_work_order_id = NULL`, `is_open = true`, status anterior pelo `crm_status_history`
+  ("Vínculo automático") e `sales_origin_id = NULL` onde `origem_automatica`; apagar os 4
+  `invoice_tasks` (status Pendente, sem nota emitida).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
