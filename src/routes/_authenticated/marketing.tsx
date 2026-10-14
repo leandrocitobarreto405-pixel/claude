@@ -28,6 +28,7 @@ import { ConfigMarketing } from "@/components/marketing/config-marketing";
 import { NovaCampanha } from "@/components/marketing/nova-campanha";
 import { repetirCampanha, type InicialNovaCampanha } from "@/lib/campanha-nova";
 import { CartaoPromocao } from "@/components/promocao/cartao-promocao";
+import { LembretesParaAprovar } from "@/components/avisos/lembretes-aprovacao";
 import { ligarDisparoFn, resumoIndicacoesFn, situacaoMarketing } from "@/lib/marketing.functions";
 import { diaMesCurto, proximasCampanhas, resultadosDoMes } from "@/lib/marketing-tela";
 import { haQuanto } from "@/lib/conversas";
@@ -182,6 +183,9 @@ function Marketing() {
         }
       />
 
+      {/* Lembretes do dia (6 meses / 13º mês) esperando aprovação: vieram da antiga tela Avisos. */}
+      <LembretesParaAprovar />
+
       {!d.config?.disparo_ligado && (
         <EnvioDesligado
           aprovadas={d.campanhas.filter(
@@ -255,7 +259,8 @@ function Marketing() {
 
       {naoLidos > 0 ? (
         <Link
-          to="/avisos"
+          to="/inicio"
+          search={{ avisos: "1" }}
           className="flex min-h-12 items-center gap-3 rounded-card border border-border bg-card px-4 py-3 text-sm hover:border-marca/40"
         >
           <Bell className="size-5 text-atencao-foreground" aria-hidden />

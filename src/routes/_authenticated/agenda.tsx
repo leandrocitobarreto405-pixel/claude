@@ -26,7 +26,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BadgeAlerta, Botao, CabecalhoDeTela, Card, NumeroGrande } from "@/components/nexa";
+import {
+  BadgeAlerta,
+  Botao,
+  CabecalhoDeTela,
+  Card,
+  NumeroGrande,
+  AbasDeRota,
+} from "@/components/nexa";
 import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
@@ -56,6 +63,7 @@ import {
 } from "@/lib/format";
 import { dataPorExtenso } from "@/lib/inicio";
 import { podeAcessar, usePapel } from "@/lib/tenant";
+import { ABAS_DE_TELA } from "@/lib/menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
@@ -311,6 +319,8 @@ function Agenda() {
           )
         }
       />
+
+      <AbasDeRota abas={ABAS_DE_TELA.agenda} rotulo="Agenda" />
 
       {papel && podeAcessar(papel, "/promocao") ? <FaixaHorariosLivres /> : null}
 

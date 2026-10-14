@@ -21,12 +21,12 @@ import { dateBR, timeBR, tomorrowISO, weekdayPT, whatsappLink } from "@/lib/form
 export const Route = createFileRoute("/_authenticated/mensagens")({
   head: () => ({
     meta: [
-      { title: "Mensagens de amanhã — Nexa OS" },
+      { title: "Confirmar amanhã — Nexa OS" },
       {
         name: "description",
         content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",
       },
-      { property: "og:title", content: "Mensagens de amanhã — Nexa OS" },
+      { property: "og:title", content: "Confirmar amanhã — Nexa OS" },
       {
         property: "og:description",
         content: "Copie as mensagens de confirmação dos serviços do dia seguinte.",
@@ -110,7 +110,7 @@ function Mensagens() {
   return (
     <>
       <PageHeader
-        title="Mensagens de confirmação"
+        title="Confirmar amanhã"
         description={`${weekdayPT(dia)}, ${dateBR(dia)} · ${cartoes.length} atendimento(s)`}
         actions={
           cartoes.length ? (

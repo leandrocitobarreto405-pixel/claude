@@ -19,7 +19,6 @@ import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { resumoAliceHoje } from "@/lib/alice.functions";
 import { deOrcamento, deVisita, idAtual } from "@/lib/agenda";
 import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import {
@@ -45,6 +44,9 @@ import { podeAcessar, usePapel } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/inicio")({
+  // `?avisos=1` abre o painel de avisos (links antigos de /avisos e notificações).
+  validateSearch: (s: Record<string, unknown>): { avisos?: string } =>
+    s["avisos"] === "1" ? { avisos: "1" } : {},
   head: () => ({
     meta: [
       { title: "Início — Nexa OS" },
@@ -194,12 +196,6 @@ function Inicio() {
   const visitasHoje = useVisitsBetween(hoje, hoje);
   const visitasAmanha = useVisitsBetween(amanha, amanha);
   const orcamentosHoje = useOrcamentosDoDia(hoje);
-  const resumoFn = useServerFn(resumoAliceHoje);
-  const alice = useQuery({
-    queryKey: ["alice_resumo_hoje"],
-    queryFn: () => resumoFn(),
-    refetchInterval: 60_000,
-  });
   const [aberto, setAberto] = useState<string | null | undefined>(undefined);
   const [selecionada, setSelecionada] = useState<VisitRow | null>(null);
   const [orcamento, setOrcamento] = useState<BudgetVisitRow | null>(null);
@@ -299,8 +295,6 @@ function Inicio() {
     void orcamentosHoje.refetch();
   }
 
-  const a = alice.data;
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
       <CabecalhoDeTela
@@ -318,71 +312,6 @@ function Inicio() {
       />
 
       {pode("/promocao") ? <FaixaHorariosLivres /> : null}
-
-      {/* Alice: o que ela está fazendo agora e o que precisa da equipe. */}
-      <CardEscuro aria-label="Alice">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-sm font-semibold">
-            <span
-              aria-hidden
-              className={cn("size-2 rounded-full", a?.ligada ? "bg-destaque" : "bg-desligado")}
-            />
-            {a ? (a.ligada ? "Alice online" : "Alice desligada") : "Alice"}
-          </span>
-        </div>
-        <NumeroGrande
-          tamanho="grande"
-          disposicao="ao-lado"
-          valor={a?.comAlice ?? "–"}
-          legenda={a?.comAlice === 1 ? "conversa com a Alice agora" : "conversas com a Alice agora"}
-          sobreEscuro
-        />
-        <div className="grid grid-cols-3 gap-2">
-          <BlocoEscuro>
-            <NumeroGrande
-              tamanho="pequeno"
-              valor={a?.respostasHoje ?? "–"}
-              legenda="respostas hoje"
-              sobreEscuro
-            />
-          </BlocoEscuro>
-          <BlocoEscuro>
-            <NumeroGrande
-              tamanho="pequeno"
-              valor={a?.passagensHoje ?? "–"}
-              legenda="passou para a equipe"
-              sobreEscuro
-            />
-          </BlocoEscuro>
-          <BlocoEscuro>
-            <NumeroGrande
-              tamanho="pequeno"
-              valor={doDia.filter((i) => i.status !== "Cancelado").length}
-              legenda="serviços hoje"
-              sobreEscuro
-            />
-          </BlocoEscuro>
-        </div>
-        <Botao asChild variante="claro" tamanho="grande" larguraTotal>
-          <Link
-            to="/conversas"
-            search={{ aba: a && a.esperandoEquipe > 0 ? "precisam" : undefined }}
-          >
-            {a && a.esperandoEquipe > 0 ? (
-              <>
-                <BadgeAlerta numero={a.esperandoEquipe} />
-                {a.esperandoEquipe === 1
-                  ? "1 conversa precisa de você"
-                  : `${a.esperandoEquipe} conversas precisam de você`}
-              </>
-            ) : (
-              <>
-                <MessageCircle /> Ver conversas
-              </>
-            )}
-          </Link>
-        </Botao>
-      </CardEscuro>
 
       {/* Hoje: o próximo serviço já aberto, com rota e contato. */}
       <section className="flex flex-col gap-2.5" aria-labelledby="inicio-hoje">

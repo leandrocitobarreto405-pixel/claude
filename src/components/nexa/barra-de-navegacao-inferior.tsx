@@ -14,6 +14,8 @@ export type ItemDeNavegacao = {
   ponto?: boolean;
   /** Outras rotas que também deixam esta aba ativa. */
   ativoEm?: string[];
+  /** Aba que não é um endereço (ex.: "Mais" abre o menu): o toque chama isto. */
+  aoTocar?: () => void;
 };
 
 function ativa(pathname: string, item: ItemDeNavegacao) {
@@ -49,18 +51,14 @@ export function BarraDeNavegacaoInferior({
       style={{ gridTemplateColumns: `repeat(${itens.length}, minmax(0, 1fr))` }}
     >
       {itens.map((item) => {
-        const atual = ativa(pathname, item);
+        const atual = !item.aoTocar && ativa(pathname, item);
         const Icone = item.icone;
-        return (
-          <Link
-            key={item.to}
-            to={item.to}
-            aria-current={atual ? "page" : undefined}
-            className={cn(
-              "flex min-h-[52px] flex-col items-center justify-center gap-[3px] rounded-botao text-xs",
-              atual ? "font-bold text-marca" : "font-medium text-muted-foreground",
-            )}
-          >
+        const classe = cn(
+          "flex min-h-[52px] flex-col items-center justify-center gap-[3px] rounded-botao text-xs",
+          atual ? "font-bold text-marca" : "font-medium text-muted-foreground",
+        );
+        const conteudo = (
+          <>
             <span
               className={cn(
                 "relative flex h-[30px] w-[52px] items-center justify-center rounded-full",
@@ -79,6 +77,22 @@ export function BarraDeNavegacaoInferior({
               ) : null}
             </span>
             <span className="max-w-full truncate px-0.5">{item.rotulo}</span>
+          </>
+        );
+        if (item.aoTocar)
+          return (
+            <button key={item.to} type="button" onClick={item.aoTocar} className={classe}>
+              {conteudo}
+            </button>
+          );
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            aria-current={atual ? "page" : undefined}
+            className={classe}
+          >
+            {conteudo}
           </Link>
         );
       })}

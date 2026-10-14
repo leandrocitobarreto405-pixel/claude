@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMonthSummary } from "@/lib/reports";
@@ -10,12 +13,12 @@ import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/dre")({
   head: () => ({
     meta: [
-      { title: "DRE gerencial — Nexa OS" },
+      { title: "Relatórios: DRE — Nexa OS" },
       {
         name: "description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
       },
-      { property: "og:title", content: "DRE gerencial — Nexa OS" },
+      { property: "og:title", content: "Relatórios: DRE — Nexa OS" },
       {
         property: "og:description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
@@ -34,7 +37,11 @@ function DRE() {
 
   return (
     <>
-      <PageHeader title="DRE gerencial" description={`Competência de ${monthLabelPT(mes)}`} />
+      <PageHeader
+        title="Relatórios"
+        description={`DRE gerencial · competência de ${monthLabelPT(mes)}`}
+      />
+      <AbasDeRota abas={ABAS_DE_TELA.relatorios} rotulo="Relatórios" className="mb-6" />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">

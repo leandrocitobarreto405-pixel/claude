@@ -1,56 +1,15 @@
 import { useState } from "react";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import {
-  HandCoins,
-  BarChart3,
-  Bell,
-  PieChart,
-  CalendarClock,
-  CalendarCog,
-  CalendarDays,
-  Percent,
-  ScrollText,
-  ListChecks,
-  ClipboardList,
-  Columns3,
-  Gauge,
-  Link2,
-  Megaphone,
-  Send,
-  Upload,
-  UserPlus,
-  Globe,
-  ClipboardPlus,
-  Coins,
-  FileSpreadsheet,
-  FileText,
-  Filter,
-  Home,
-  Inbox,
-  LogOut,
-  Menu,
-  MessageCircle,
-  MessageSquareText,
-  MessagesSquare,
-  Receipt,
-  Route as RouteIcon,
-  Settings,
-  Droplets,
-  Building2,
-  Users,
-  Wallet,
-  X,
-} from "lucide-react";
+import { Droplets, Inbox, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { resumoAliceHoje } from "@/lib/alice.functions";
-import { temAvisoImportante } from "@/lib/avisos";
-import { listarAvisos } from "@/lib/avisos.functions";
+import { SinoDeAvisos } from "@/components/avisos/painel-avisos";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { podeAcessar, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
@@ -63,104 +22,49 @@ import {
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
 import { BarraDeNavegacaoInferior } from "@/components/nexa";
-import { abasDoPapel } from "@/lib/navegacao";
+import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
+import { itemAtivo, menuDoPapel } from "@/lib/menu";
+import { minhaImplantacaoFn } from "@/lib/implantacao.functions";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
-
-const NAV_GROUPS = [
-  {
-    label: "Operação",
-    items: [
-      { to: "/inicio", label: "Início", icon: Home },
-      { to: "/conversas", label: "Conversas", icon: MessageCircle },
-      { to: "/avisos", label: "Avisos", icon: Bell },
-      { to: "/nova-os", label: "Nova OS", icon: ClipboardPlus },
-      { to: "/oss", label: "OSs criadas", icon: ClipboardList },
-      { to: "/orcamentos", label: "Orçamentos", icon: FileText },
-      { to: "/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/promocao", label: "Promoção da agenda", icon: Percent },
-      { to: "/mensagens", label: "Mensagens de amanhã", icon: MessageSquareText },
-      { to: "/servicos", label: "Serviços realizados", icon: FileText },
-    ],
-  },
-  {
-    label: "CRM WhatsApp",
-    items: [
-      { to: "/indicadores", label: "Funil e indicadores", icon: Filter },
-      { to: "/crm/visao-geral", label: "Visão geral", icon: Gauge },
-      { to: "/crm/leads", label: "Leads", icon: UserPlus },
-      { to: "/crm/leads-site", label: "Leads do site", icon: Globe },
-      { to: "/crm/funil", label: "Funil", icon: Columns3 },
-      { to: "/crm/repescagens", label: "Repescagens", icon: CalendarClock },
-      { to: "/crm/campanhas", label: "Campanhas", icon: Megaphone },
-      { to: "/marketing", label: "Campanhas WhatsApp", icon: Send },
-      { to: "/crm/importar", label: "Importar histórico", icon: Upload },
-      { to: "/crm/integracoes", label: "Integrações de Leads", icon: Link2 },
-    ],
-  },
-  {
-    label: "Financeiro",
-    items: [
-      { to: "/a-receber", label: "A receber", icon: HandCoins },
-      { to: "/pagamentos", label: "Pagamentos", icon: Wallet },
-
-      { to: "/despesas", label: "Custos e despesas", icon: Coins },
-      { to: "/origens", label: "Origens", icon: PieChart },
-      { to: "/dre", label: "DRE", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Logística",
-    items: [{ to: "/rotas", label: "Rotas e quilometragem", icon: RouteIcon }],
-  },
-  {
-    label: "Administração",
-    items: [
-      { to: "/notas", label: "Notas a emitir", icon: Receipt },
-      { to: "/exportacoes", label: "Exportações", icon: FileSpreadsheet },
-      { to: "/implantacao", label: "Configuração da empresa", icon: ListChecks },
-      { to: "/configuracoes", label: "Configurações", icon: Settings },
-      { to: "/agenda-config", label: "Agenda e promoção", icon: CalendarCog },
-      { to: "/modelos-mensagem", label: "Modelos de mensagem", icon: ScrollText },
-      { to: "/usuarios", label: "Usuários", icon: Users },
-    ],
-  },
-  {
-    label: "Nexa",
-    items: [
-      { to: "/nexa/empresas", label: "Empresas e comissões", icon: Building2 },
-      { to: "/nexa/comissoes", label: "Comissão da Nexa", icon: HandCoins },
-      { to: "/nexa/chatwoot", label: "Chatwoot", icon: MessagesSquare },
-    ],
-  },
-] as const;
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: ctx } = useContextoTenant();
   const papel = ctx?.ativa?.papel ?? null;
   const souNexa = ctx?.souNexa ?? false;
-  const temEmpresa = Boolean(ctx?.ativa);
-  const grupos = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) => (temEmpresa || item.to.startsWith("/nexa")) && podeAcessar(papel, item.to, souNexa),
-    ),
-  })).filter((group) => group.items.length > 0);
+  // "Primeiros passos" fica no menu só enquanto faltar etapa (admin).
+  const implantacaoFn = useServerFn(minhaImplantacaoFn);
+  const implantacao = useQuery({
+    queryKey: ["implantacao"],
+    queryFn: () => implantacaoFn(),
+    enabled: papel === "admin",
+    staleTime: 5 * 60_000,
+  });
+  const resumo = implantacao.data?.resumo;
+  const primeirosPassos = resumo
+    ? {
+        faltam:
+          resumo.obrigatorias.prontas + resumo.opcionais.prontas <
+          resumo.obrigatorias.total + resumo.opcionais.total,
+        progresso: `${resumo.obrigatorias.prontas + resumo.opcionais.prontas} de ${resumo.obrigatorias.total + resumo.opcionais.total}`,
+      }
+    : null;
+  const grupos = menuDoPapel(papel, souNexa, primeirosPassos);
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
       {grupos.map((group) => (
-        <div key={group.label} className="flex flex-col gap-1">
+        <div key={group.id} className="flex flex-col gap-1">
           <p className="px-3 pb-1 text-[0.7rem] font-semibold uppercase tracking-widest text-navy-foreground/45">
-            {group.label}
+            {group.rotulo}
           </p>
-          {group.items.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.to;
+          {group.itens.map((item) => {
+            const Icon = item.icone;
+            const active = itemAtivo(item, pathname);
             return (
               <Link
                 key={item.to}
-                to={item.to}
+                to={item.to as never}
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -177,7 +81,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   />
                 ) : null}
                 <Icon className={cn("size-4 shrink-0", active && "text-destaque")} />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{item.rotulo}</span>
               </Link>
             );
           })}
@@ -234,21 +138,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refetchInterval: 60_000,
   });
   const esperando = resumoAlice.data?.esperandoEquipe ?? 0;
-  // Ponto na aba Avisos quando há algo que pede atenção.
-  const temAvisos = abasBase.some((a) => a.to === "/avisos");
-  const avisosFn = useServerFn(listarAvisos);
-  const avisos = useQuery({
-    queryKey: ["avisos"],
-    queryFn: () => avisosFn(),
-    enabled: temAvisos,
-    refetchInterval: 60_000,
-  });
-  const pontoAvisos = temAvisoImportante(avisos.data ?? []);
   const abas = abasBase.map((a) =>
     a.to === "/conversas"
       ? { ...a, badge: esperando }
-      : a.to === "/avisos"
-        ? { ...a, ponto: pontoAvisos }
+      : a.to === ABA_MAIS
+        ? { ...a, aoTocar: () => setOpen(true) }
         : a,
   );
   const nome = displayName(profile, user?.email);
@@ -294,6 +188,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
 
+            <SinoDeAvisos ligado={Boolean(vinculo)} />
+
             <Button
               variant="ghost"
               size="sm"
@@ -304,14 +200,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Sair
             </Button>
 
-            {/* Celular: o menu completo (CRM, financeiro, configurações...) fica no "Mais". */}
+            {/* Celular: o menu completo abre pela aba "Mais" da barra de baixo. */}
             <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="h-11 gap-2 rounded-botao px-3.5 lg:hidden">
-                  <Menu className="size-5" />
-                  Mais
-                </Button>
-              </SheetTrigger>
               <SheetContent
                 side="right"
                 className="flex w-[86vw] max-w-80 flex-col gap-0 border-0 bg-navy-deep p-0 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-navy-foreground [&>button:first-child]:hidden"

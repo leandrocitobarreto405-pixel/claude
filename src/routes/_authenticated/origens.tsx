@@ -4,6 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { useOriginBreakdown, type OriginStat } from "@/lib/reports";
 import {
   brl,
@@ -20,12 +23,12 @@ import {
 export const Route = createFileRoute("/_authenticated/origens")({
   head: () => ({
     meta: [
-      { title: "Origens da venda — Nexa OS" },
+      { title: "Relatórios: origens da venda — Nexa OS" },
       {
         name: "description",
         content: "Faturamento e clientes por origem da venda e por recorrência de cliente.",
       },
-      { property: "og:title", content: "Origens da venda — Nexa OS" },
+      { property: "og:title", content: "Relatórios: origens da venda — Nexa OS" },
       {
         property: "og:description",
         content: "Faturamento e clientes por origem da venda e por recorrência de cliente.",
@@ -88,9 +91,10 @@ function Origens() {
   return (
     <>
       <PageHeader
-        title="Origens da venda"
-        description={`${periodoLabel} · ${data?.totalServices ?? 0} serviço(s) concluído(s)`}
+        title="Relatórios"
+        description={`Origens da venda · ${periodoLabel} · ${data?.totalServices ?? 0} serviço(s) concluído(s)`}
       />
+      <AbasDeRota abas={ABAS_DE_TELA.relatorios} rotulo="Relatórios" className="mb-6" />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">

@@ -75,8 +75,8 @@ test("textos e telas certas", () => {
   assert.equal(horaDoResumo(9), true);
   assert.equal(horaDoResumo(11), false);
   assert.equal(urlSegura("/os/1234"), "/os/1234");
-  assert.equal(urlSegura("https://ruim.com"), "/avisos");
-  assert.equal(urlSegura("//ruim.com"), "/avisos");
+  assert.equal(urlSegura("https://ruim.com"), "/inicio");
+  assert.equal(urlSegura("//ruim.com"), "/inicio");
 });
 
 test("resumo do técnico: só os serviços dele, em ordem", () => {

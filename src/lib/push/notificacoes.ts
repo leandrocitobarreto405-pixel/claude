@@ -246,5 +246,5 @@ export function horaDoResumo(horaSP: number): boolean {
 
 /** Só caminhos internos do app (nada de link para fora). */
 export function urlSegura(url: string): string {
-  return /^\/(?!\/)[\w\-/?=&.%]*$/.test(url) ? url : "/avisos";
+  return /^\/(?!\/)[\w\-/?=&.%]*$/.test(url) ? url : "/inicio";
 }

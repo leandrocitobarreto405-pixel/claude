@@ -132,9 +132,19 @@ const ROTAS_ATENDENTE = [
   "/avisos",
   "/promocao",
   "/servico",
+  "/indicadores",
+  "/notificacoes",
 ];
 
-const ROTAS_TECNICO = ["/agenda", "/mensagens", "/servicos", "/os", "/avisos", "/servico"];
+const ROTAS_TECNICO = [
+  "/agenda",
+  "/mensagens",
+  "/servicos",
+  "/os",
+  "/avisos",
+  "/servico",
+  "/notificacoes",
+];
 
 const ROTAS_NEXA = ["/nexa"];
 

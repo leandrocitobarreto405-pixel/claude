@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { MessageCircle } from "lucide-react";
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
+import { CartaoAlice } from "@/components/conversas/cartao-alice";
 import { CartaoConversa } from "@/components/conversas/cartao-conversa";
 import { EncerrarParadas } from "@/components/conversas/encerrar-paradas";
 import { useEncerrarConversas } from "@/lib/conversas-encerrar";
@@ -94,25 +95,16 @@ function Conversas() {
       <CabecalhoDeTela
         titulo="Conversas"
         descricao="Para responder, abra no WhatsApp ou no Chatwoot."
-        acao={
-          a ? (
-            <Chip tom={a.ligada ? "sucesso" : "neutro"}>
-              <span
-                aria-hidden
-                className={cn("size-2 rounded-full", a.ligada ? "bg-dado" : "bg-desligado")}
-              />
-              {a.ligada ? "Alice ligada" : "Alice desligada"}
-            </Chip>
-          ) : null
-        }
       />
 
-      {a ? (
-        <p className="text-sm text-muted-foreground">
-          Hoje: {a.respostasHoje} {a.respostasHoje === 1 ? "resposta" : "respostas"} da Alice ·{" "}
-          {a.passagensHoje} {a.passagensHoje === 1 ? "passada" : "passadas"} para a equipe
-        </p>
-      ) : null}
+      {/* A Alice: veio do Início. */}
+      <CartaoAlice
+        a={a}
+        aoVerPrecisam={() => {
+          setAba("precisam");
+          sairDaSelecao();
+        }}
+      />
 
       {papel === "admin" ? <EncerrarParadas /> : null}
 

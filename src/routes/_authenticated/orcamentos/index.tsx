@@ -4,6 +4,9 @@ import { FileText, PlusCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { brl, dateBR, pct } from "@/lib/format";
 import { STATUS_CLASS, STATUS_LABEL, resumoDoMes, useQuotes, type QuoteStatus } from "@/lib/quotes";
 
@@ -62,17 +65,17 @@ function Orcamentos() {
   return (
     <>
       <PageHeader
-        title="Orçamentos"
+        title="OS e orçamentos"
         description="Monte o orçamento, envie pelo WhatsApp e transforme em OS quando o cliente aprovar."
+        actions={
+          <Button asChild>
+            <Link to="/orcamentos/$quoteId" params={{ quoteId: "novo" }}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Novo orçamento
+            </Link>
+          </Button>
+        }
       />
-
-      <div className="mb-4">
-        <Button asChild size="lg">
-          <Link to="/orcamentos/$quoteId" params={{ quoteId: "novo" }}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Novo orçamento
-          </Link>
-        </Button>
-      </div>
+      <AbasDeRota abas={ABAS_DE_TELA.os} rotulo="OS e orçamentos" className="mb-6" />
 
       <section className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
         <div className="card-surface p-4">

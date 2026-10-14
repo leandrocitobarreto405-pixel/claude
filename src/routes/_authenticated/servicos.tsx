@@ -11,6 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { StatusBadge, VisitDialog } from "@/components/visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
@@ -28,12 +31,12 @@ import {
 export const Route = createFileRoute("/_authenticated/servicos")({
   head: () => ({
     meta: [
-      { title: "Serviços realizados — Nexa OS" },
+      { title: "Agenda: serviços realizados — Nexa OS" },
       {
         name: "description",
         content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",
       },
-      { property: "og:title", content: "Serviços realizados — Nexa OS" },
+      { property: "og:title", content: "Agenda: serviços realizados — Nexa OS" },
       {
         property: "og:description",
         content: "Histórico de serviços concluídos com valores, técnicos e vendedoras.",
@@ -84,9 +87,10 @@ function Servicos() {
   return (
     <>
       <PageHeader
-        title="Serviços realizados"
-        description={`${monthLabelPT(mes)} · ${lista.length} serviço(s) · ${brl(total)}`}
+        title="Agenda"
+        description={`Serviços realizados · ${monthLabelPT(mes)} · ${lista.length} serviço(s) · ${brl(total)}`}
       />
+      <AbasDeRota abas={ABAS_DE_TELA.agenda} rotulo="Agenda" className="mb-6" />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">

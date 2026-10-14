@@ -32,6 +32,7 @@ import { Route as AuthenticatedMarketingRouteImport } from './routes/_authentica
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedModelosMensagemRouteImport } from './routes/_authenticated/modelos-mensagem'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
+import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated/nova-os'
 import { Route as AuthenticatedOrigensRouteImport } from './routes/_authenticated/origens'
 import { Route as AuthenticatedOssRouteImport } from './routes/_authenticated/oss'
@@ -49,6 +50,7 @@ import { Route as AuthenticatedCrmIntegracoesRouteImport } from './routes/_authe
 import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticated/crm/leads'
 import { Route as AuthenticatedCrmLeadsSiteRouteImport } from './routes/_authenticated/crm/leads-site'
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
+import { Route as AuthenticatedCrmRetornosRouteImport } from './routes/_authenticated/crm/retornos'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
@@ -194,6 +196,12 @@ const AuthenticatedNotasRoute = AuthenticatedNotasRouteImport.update({
   path: '/notas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotificacoesRoute =
+  AuthenticatedNotificacoesRouteImport.update({
+    id: '/notificacoes',
+    path: '/notificacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNovaOsRoute = AuthenticatedNovaOsRouteImport.update({
   id: '/nova-os',
   path: '/nova-os',
@@ -284,6 +292,12 @@ const AuthenticatedCrmRepescagensRoute =
   AuthenticatedCrmRepescagensRouteImport.update({
     id: '/crm/repescagens',
     path: '/crm/repescagens',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCrmRetornosRoute =
+  AuthenticatedCrmRetornosRouteImport.update({
+    id: '/crm/retornos',
+    path: '/crm/retornos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCrmVisaoGeralRoute =
@@ -449,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
@@ -465,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -514,6 +530,7 @@ export interface FileRoutesByTo {
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
@@ -530,6 +547,7 @@ export interface FileRoutesByTo {
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -581,6 +599,7 @@ export interface FileRoutesById {
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
+  '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/nova-os': typeof AuthenticatedNovaOsRoute
   '/_authenticated/origens': typeof AuthenticatedOrigensRoute
   '/_authenticated/oss': typeof AuthenticatedOssRoute
@@ -597,6 +616,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/_authenticated/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/_authenticated/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -648,6 +668,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/modelos-mensagem'
     | '/notas'
+    | '/notificacoes'
     | '/nova-os'
     | '/origens'
     | '/oss'
@@ -664,6 +685,7 @@ export interface FileRouteTypes {
     | '/crm/leads'
     | '/crm/leads-site'
     | '/crm/repescagens'
+    | '/crm/retornos'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
@@ -713,6 +735,7 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/modelos-mensagem'
     | '/notas'
+    | '/notificacoes'
     | '/nova-os'
     | '/origens'
     | '/oss'
@@ -729,6 +752,7 @@ export interface FileRouteTypes {
     | '/crm/leads'
     | '/crm/leads-site'
     | '/crm/repescagens'
+    | '/crm/retornos'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
@@ -779,6 +803,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mensagens'
     | '/_authenticated/modelos-mensagem'
     | '/_authenticated/notas'
+    | '/_authenticated/notificacoes'
     | '/_authenticated/nova-os'
     | '/_authenticated/origens'
     | '/_authenticated/oss'
@@ -795,6 +820,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/leads'
     | '/_authenticated/crm/leads-site'
     | '/_authenticated/crm/repescagens'
+    | '/_authenticated/crm/retornos'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
     | '/_authenticated/nexa/chatwoot'
@@ -1008,6 +1034,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notificacoes': {
+      id: '/_authenticated/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/notificacoes'
+      preLoaderRoute: typeof AuthenticatedNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nova-os': {
       id: '/_authenticated/nova-os'
       path: '/nova-os'
@@ -1125,6 +1158,13 @@ declare module '@tanstack/react-router' {
       path: '/crm/repescagens'
       fullPath: '/crm/repescagens'
       preLoaderRoute: typeof AuthenticatedCrmRepescagensRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/crm/retornos': {
+      id: '/_authenticated/crm/retornos'
+      path: '/crm/retornos'
+      fullPath: '/crm/retornos'
+      preLoaderRoute: typeof AuthenticatedCrmRetornosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/crm/visao-geral': {
@@ -1316,6 +1356,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedModelosMensagemRoute: typeof AuthenticatedModelosMensagemRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
+  AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedNovaOsRoute: typeof AuthenticatedNovaOsRoute
   AuthenticatedOrigensRoute: typeof AuthenticatedOrigensRoute
   AuthenticatedOssRoute: typeof AuthenticatedOssRoute
@@ -1332,6 +1373,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmLeadsRoute: typeof AuthenticatedCrmLeadsRoute
   AuthenticatedCrmLeadsSiteRoute: typeof AuthenticatedCrmLeadsSiteRoute
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
+  AuthenticatedCrmRetornosRoute: typeof AuthenticatedCrmRetornosRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
@@ -1363,6 +1405,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedModelosMensagemRoute: AuthenticatedModelosMensagemRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
+  AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedNovaOsRoute: AuthenticatedNovaOsRoute,
   AuthenticatedOrigensRoute: AuthenticatedOrigensRoute,
   AuthenticatedOssRoute: AuthenticatedOssRoute,
@@ -1379,6 +1422,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmLeadsRoute: AuthenticatedCrmLeadsRoute,
   AuthenticatedCrmLeadsSiteRoute: AuthenticatedCrmLeadsSiteRoute,
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
+  AuthenticatedCrmRetornosRoute: AuthenticatedCrmRetornosRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,

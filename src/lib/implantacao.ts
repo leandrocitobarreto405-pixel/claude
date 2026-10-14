@@ -341,7 +341,7 @@ const DEFS: Def[] = [
     titulo: "Notificações no celular",
     responsavel: "empresa",
     obrigatoria: false,
-    resolver: { rotulo: "Ativar", para: "/avisos" },
+    resolver: { rotulo: "Ativar", para: "/notificacoes" },
     podeRevisar: false,
     podeNaoSeAplica: true,
     avaliar: ({ notificacoes }) =>

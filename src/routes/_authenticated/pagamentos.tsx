@@ -19,6 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { StatusBadge } from "@/components/visit-dialog";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { PAYMENT_CHANNELS, PAYMENT_STATUSES } from "@/lib/data";
@@ -43,12 +46,12 @@ export const Route = createFileRoute("/_authenticated/pagamentos")({
   }),
   head: () => ({
     meta: [
-      { title: "Pagamentos — Nexa OS" },
+      { title: "Recebimentos: recebidos — Nexa OS" },
       {
         name: "description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",
       },
-      { property: "og:title", content: "Pagamentos — Nexa OS" },
+      { property: "og:title", content: "Recebimentos: recebidos — Nexa OS" },
       {
         property: "og:description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",
@@ -146,9 +149,10 @@ function Pagamentos() {
   return (
     <>
       <PageHeader
-        title="Pagamentos"
-        description={`${periodoLabel} · ${lista.length} lançamento(s) · ${pagos.length} pago(s)`}
+        title="Recebimentos"
+        description={`Recebidos · ${periodoLabel} · ${lista.length} lançamento(s) · ${pagos.length} pago(s)`}
       />
+      <AbasDeRota abas={ABAS_DE_TELA.recebimentos} rotulo="Recebimentos" className="mb-6" />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card label="Total bruto recebido" value={brl(bruto)} />

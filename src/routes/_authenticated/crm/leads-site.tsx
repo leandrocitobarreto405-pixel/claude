@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { MessageCircle, Phone, Send, UserCheck, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { Chip, type TomChip } from "@/components/nexa";
 import { formatPhoneBR } from "@/lib/crm";
 import { dateTimeBR } from "@/lib/format";
@@ -76,9 +79,10 @@ function LeadsDoSite() {
   return (
     <>
       <PageHeader
-        title="Leads do site"
+        title="Leads"
         description="Cadastros das landing pages e se a pessoa já chamou no WhatsApp."
       />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads" className="mb-4" />
       {comErro.map((p) => (
         <p
           key={p.nome}

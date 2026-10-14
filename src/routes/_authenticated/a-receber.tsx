@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { PaymentDialog } from "@/components/payment-dialog";
 import { DiscountDialog } from "@/components/discount-dialog";
 import { useReceivables, type ReceivableItem } from "@/lib/receivables";
@@ -22,12 +25,12 @@ export const Route = createFileRoute("/_authenticated/a-receber")({
   }),
   head: () => ({
     meta: [
-      { title: "A receber — Nexa OS" },
+      { title: "Recebimentos: a receber — Nexa OS" },
       {
         name: "description",
         content: "Serviços agendados e concluídos que ainda não foram pagos, com saldo por OS.",
       },
-      { property: "og:title", content: "A receber — Nexa OS" },
+      { property: "og:title", content: "Recebimentos: a receber — Nexa OS" },
       {
         property: "og:description",
         content: "Serviços agendados e concluídos que ainda não foram pagos, com saldo por OS.",
@@ -63,13 +66,14 @@ function AReceber() {
   return (
     <>
       <PageHeader
-        title="A receber"
+        title="Recebimentos"
         description={
           data
             ? `Total ${brl(data.total)} · concluídos ${brl(data.completed)} · agendados ${brl(data.scheduled)}`
             : "Carregando..."
         }
       />
+      <AbasDeRota abas={ABAS_DE_TELA.recebimentos} rotulo="Recebimentos" className="mb-6" />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="flex flex-wrap gap-2">

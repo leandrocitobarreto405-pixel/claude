@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader, SectionCard } from "@/components/app-shell";
+import { VisaoGeralCrm } from "@/components/crm/visao-geral";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { KpiCard } from "@/components/crm-ui";
 import { brl, currentMonth, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
 import { duracaoMin, taxa, useIndicadores, type Entrada, type Indicadores } from "@/lib/funil";
@@ -13,7 +17,7 @@ import { useMinhaEmpresa } from "@/lib/tenant";
 export const Route = createFileRoute("/_authenticated/indicadores")({
   head: () => ({
     meta: [
-      { title: "Funil e indicadores — Nexa OS" },
+      { title: "Funil: indicadores — Nexa OS" },
       {
         name: "description",
         content: "Funil de vendas, tempo de resposta, conversão, faturamento e origem dos leads.",
@@ -54,9 +58,10 @@ function IndicadoresPage() {
   return (
     <>
       <PageHeader
-        title="Funil e indicadores"
+        title="Funil"
         description="Leads que chegaram no período e até onde cada um avançou, além dos números de vendas e recebimentos."
       />
+      <AbasDeRota abas={ABAS_DE_TELA.funil} rotulo="Funil" className="mb-6" />
 
       <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de lead">
         {(
@@ -141,6 +146,7 @@ function IndicadoresPage() {
       ) : (
         <Conteudo d={data} />
       )}
+      <VisaoGeralCrm />
     </>
   );
 }

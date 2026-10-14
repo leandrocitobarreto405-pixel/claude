@@ -14,6 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { LeadLink, NativeSelect, StatusPill, TemperatureBadge } from "@/components/crm-ui";
 import { useConfigOptions, useSalespeople } from "@/lib/data";
 import {
@@ -88,6 +91,7 @@ function Leads() {
           </Button>
         }
       />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads" className="mb-4" />
 
       <div className="card-surface mb-4 p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

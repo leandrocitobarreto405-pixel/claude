@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR, onlyDigits } from "@/lib/format";
 import { OS_STATUSES } from "@/lib/data";
@@ -14,13 +17,13 @@ import { useSalespeople, useTechnicians } from "@/lib/data";
 export const Route = createFileRoute("/_authenticated/oss")({
   head: () => ({
     meta: [
-      { title: "OSs criadas — Nexa OS" },
+      { title: "OS e orçamentos — Nexa OS" },
       {
         name: "description",
         content:
           "Lista completa das ordens de serviço criadas, com busca por cliente, número e estofado.",
       },
-      { property: "og:title", content: "OSs criadas — Nexa OS" },
+      { property: "og:title", content: "OS e orçamentos — Nexa OS" },
       {
         property: "og:description",
         content:
@@ -156,16 +159,17 @@ function OssCriadas() {
   return (
     <>
       <PageHeader
-        title="OSs criadas"
+        title="OS e orçamentos"
         description="Todas as ordens de serviço registradas, independentemente da agenda."
         actions={
           <Button asChild>
             <Link to="/nova-os">
-              <ClipboardPlus className="mr-2 size-4" /> Nova OS
+              <ClipboardPlus className="mr-2 size-4" /> Nova
             </Link>
           </Button>
         }
       />
+      <AbasDeRota abas={ABAS_DE_TELA.os} rotulo="OS e orçamentos" className="mb-6" />
 
       <section className="card-surface mb-6 p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

@@ -152,8 +152,8 @@ export const testarPushFn = createServerFn({ method: "POST" })
     const { enviarParaPessoa } = await import("@/lib/push/notificacoes.server");
     const r = await enviarParaPessoa(db, celulares, {
       titulo: "Teste da Nexa",
-      corpo: "Notificações funcionando neste celular. Toque para abrir os Avisos.",
-      url: "/avisos",
+      corpo: "Notificações funcionando neste celular. Toque para abrir os avisos.",
+      url: "/inicio?avisos=1",
     });
     await db.from("push_envios").insert({
       empresa_id: context.empresaId,
