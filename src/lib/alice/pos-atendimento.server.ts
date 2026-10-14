@@ -11,7 +11,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chaveTelefone } from "@/lib/mkt/chatwoot.server";
 import {
   SEM_LINK,
+  STATUS_CONFIRMACAO,
   TEXTO_PADRAO,
+  osElegivel,
   problemaNoModelo,
   diaDoServico,
   datasConfirmacao,
@@ -96,15 +98,16 @@ type Visita = {
     os_number: string;
     status: string | null;
     deleted_at: string | null;
+    eh_teste: boolean | null;
     customer: { full_name: string | null; phone: string | null } | null;
   } | null;
 };
 
 const SELECT_VISITA =
-  "id, work_order_id, scheduled_date, scheduled_time, completion_date, status, technician_id, work_order:work_order_id ( id, os_number, status, deleted_at, customer:customer_id ( full_name, phone ) )";
+  "id, work_order_id, scheduled_date, scheduled_time, completion_date, status, technician_id, work_order:work_order_id ( id, os_number, status, deleted_at, eh_teste, customer:customer_id ( full_name, phone ) )";
 
-const osAtiva = (v: Visita) =>
-  Boolean(v.work_order && !v.work_order.deleted_at && !/cancel/i.test(v.work_order.status ?? ""));
+// OS excluída, cancelada ou de teste não recebe confirmação nem pós-venda.
+const osAtiva = (v: Visita) => osElegivel(v.work_order);
 
 /** OS com serviço amanhã (confirmação) ou concluídas ontem (pós-venda), uma por OS e dia. */
 async function candidatos(
@@ -122,7 +125,8 @@ async function candidatos(
       .select(SELECT_VISITA)
       .eq("empresa_id", empresaId)
       .in("scheduled_date", datas)
-      .eq("status", "Agendado")
+      // "Reagendado" também: a visita remarcada precisa da confirmação na véspera.
+      .in("status", STATUS_CONFIRMACAO)
       .order("scheduled_time");
     for (const v of (data ?? []) as unknown as Visita[]) {
       if (!osAtiva(v)) continue;

@@ -5,6 +5,25 @@
 import { janelaChegada } from "./agendamento";
 
 export type TipoPos = "confirmacao" | "pos_venda";
+
+/** Visitas que recebem a confirmação na véspera: a remarcada fica "Reagendado" e também conta. */
+export const STATUS_CONFIRMACAO = ["Agendado", "Reagendado"];
+
+/**
+ * OS que pode receber mensagem: existe, não foi excluída nem cancelada e não é de teste
+ * (uma OS de teste criada no endereço de teste lê o mesmo banco e mandaria mensagem de verdade).
+ */
+export function osElegivel(
+  wo:
+    | { deleted_at?: string | null; status?: string | null; eh_teste?: boolean | null }
+    | null
+    | undefined,
+): boolean {
+  if (!wo) return false;
+  if (wo.deleted_at) return false;
+  if (wo.eh_teste) return false;
+  return !/cancel/i.test(wo.status ?? "");
+}
 export type RespostaPos = "confirmou" | "remarcar" | "elogio" | "problema" | "outro";
 
 const DIAS = [

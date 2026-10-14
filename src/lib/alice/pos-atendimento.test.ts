@@ -3,7 +3,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   SEM_LINK,
+  STATUS_CONFIRMACAO,
   TEXTO_PADRAO,
+  osElegivel,
   datasConfirmacao,
   datasPosVenda,
   diaDoServico,
@@ -193,4 +195,21 @@ test("modelos antigos nunca são usados; os _v2 com o texto novo sim", () => {
     ) ?? "",
     /ontem/,
   );
+});
+
+test("confirmação pega visita agendada e remarcada; nunca concluída nem cancelada", () => {
+  assert.deepEqual(STATUS_CONFIRMACAO, ["Agendado", "Reagendado"]);
+  assert.ok(!STATUS_CONFIRMACAO.includes("Concluído"));
+  assert.ok(!STATUS_CONFIRMACAO.includes("Cancelado"));
+});
+
+test("OS de teste, excluída ou cancelada não recebe confirmação nem pós-venda", () => {
+  const base = { deleted_at: null, status: "Agendada", eh_teste: false };
+  assert.equal(osElegivel(base), true);
+  assert.equal(osElegivel({ ...base, eh_teste: true }), false);
+  assert.equal(osElegivel({ ...base, deleted_at: "2026-10-14T10:00:00Z" }), false);
+  assert.equal(osElegivel({ ...base, status: "Cancelada" }), false);
+  assert.equal(osElegivel(null), false);
+  // OS antiga sem o campo (banco anterior à coluna) continua elegível.
+  assert.equal(osElegivel({ deleted_at: null, status: "Agendada" }), true);
 });
