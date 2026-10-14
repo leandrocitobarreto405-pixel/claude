@@ -28,7 +28,7 @@ import { PageHeader } from "@/components/app-shell";
 import { LinhaSwitch } from "@/components/nexa";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { NotaFiscalDaOs } from "@/components/nota-fiscal";
-import type { PaymentFull } from "@/lib/payments";
+import { recebido as pagamentoRecebido, type PaymentFull } from "@/lib/payments";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
@@ -495,13 +495,13 @@ function OsDetalhe() {
       : null;
 
   const pagoTotal = os.payments
-    .filter((p) => p.is_active !== false && p.payment_status === "Pago")
+    .filter(pagamentoRecebido)
     .reduce((s, p) => s + Number(p.gross_amount ?? 0), 0);
   const saldoPendente = Math.max(0, Math.round((combinado - pagoTotal) * 100) / 100);
 
   /** Custo e margem real desta OS. */
   const margem = (() => {
-    const pagos = os.payments.filter((p) => p.is_active !== false && p.payment_status === "Pago");
+    const pagos = os.payments.filter(pagamentoRecebido);
     const r2 = (n: number) => Math.round(n * 100) / 100;
     const recebido = r2(pagos.reduce((s, p) => s + Number(p.gross_amount ?? 0), 0));
     const taxas = r2(pagos.reduce((s, p) => s + Number(p.payment_fee_amount ?? 0), 0));
@@ -846,7 +846,7 @@ function OsDetalhe() {
                   size="sm"
                   onClick={() => setDialogoPagamento({ payment: null, mode: "criar" })}
                 >
-                  Lançar pagamento
+                  Registrar recebimento
                 </Button>
               ) : null}
             </div>
@@ -854,7 +854,7 @@ function OsDetalhe() {
               <p className="text-sm text-muted-foreground">
                 Nenhum pagamento lançado.{" "}
                 {podeLancarPagamento
-                  ? `Use “Lançar pagamento” para registrar o que o cliente já pagou (saldo em aberto: ${brl(saldoPendente)}).`
+                  ? `Use “Registrar recebimento” para registrar o que o cliente já pagou (saldo em aberto: ${brl(saldoPendente)}).`
                   : "Os pagamentos são registrados ao concluir cada serviço."}
               </p>
             ) : (

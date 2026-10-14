@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { textoQuantidade } from "@/lib/unidade";
 import { brl, buildFullAddress, dateBR, timeBR, todayISO, weekdayPT } from "@/lib/format";
 import { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/data";
+import { STATUS_DA_LINHA } from "@/lib/conclusao-pagamento";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { syncRecurringMonth } from "@/lib/recurring-core";
 import { sincronizarRotaDoDia } from "@/lib/routes.functions";
@@ -565,7 +566,7 @@ export async function completeVisit(args: {
   completionDate: string;
   completionTime: string;
   finalNotes: string | null;
-  paymentStatus: string;
+  /** Cada parte é dinheiro recebido: a linha nasce "Pago" (a situação parcial é da OS). */
   payments: PaymentPart[];
   invoiceNeeded: boolean;
   invoiceIssued: boolean;
@@ -599,7 +600,7 @@ export async function completeVisit(args: {
         applied_rate: p.applied_rate,
         payment_fee_amount: fee,
         net_amount: Math.round((p.gross_amount - fee) * 100) / 100,
-        payment_status: args.paymentStatus,
+        payment_status: STATUS_DA_LINHA,
         notes: p.notes ?? null,
       };
     });

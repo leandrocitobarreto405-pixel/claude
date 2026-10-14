@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader } from "@/components/app-shell";
-import { AbasDeRota } from "@/components/nexa";
+import { AbasDeRota, Botao } from "@/components/nexa";
 import { ABAS_DE_TELA } from "@/lib/menu";
 
 import { PaymentDialog } from "@/components/payment-dialog";
@@ -147,12 +147,12 @@ function AReceber() {
                   <Td className="font-semibold">{brl(i.balance)}</Td>
                   <Td>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setPagamento(i)}>
-                        Registrar pagamento
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDesconto(i)}>
+                      <Botao variante="contorno" onClick={() => setPagamento(i)}>
+                        Registrar recebimento
+                      </Botao>
+                      <Botao variante="neutro" onClick={() => setDesconto(i)}>
                         Dispensar saldo
-                      </Button>
+                      </Botao>
                     </div>
                   </Td>
                 </tr>

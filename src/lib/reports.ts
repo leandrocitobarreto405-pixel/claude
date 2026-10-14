@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Banco } from "@/lib/banco";
+import { STATUS_RECEBIDOS } from "@/lib/payments";
 import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
 import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
 import { monthEnd, monthStart } from "@/lib/format";
@@ -204,7 +205,7 @@ export async function fetchPaymentsByServiceMonth(
         .from("payments")
         .select(PAY_SELECT)
         .eq("is_active", true)
-        .eq("payment_status", "Pago")
+        .in("payment_status", STATUS_RECEBIDOS)
         .gte("payment_date", from)
         .lte("payment_date", to),
       empresaId,
@@ -217,7 +218,7 @@ export async function fetchPaymentsByServiceMonth(
           .from("payments")
           .select(PAY_SELECT)
           .eq("is_active", true)
-          .eq("payment_status", "Pago")
+          .in("payment_status", STATUS_RECEBIDOS)
           .in("work_order_id", monthOrderIds),
         empresaId,
       ),
@@ -384,7 +385,7 @@ export async function fetchServiceMonthRevenue(
         .from("payments")
         .select("work_order_id, gross_amount")
         .eq("is_active", true)
-        .eq("payment_status", "Pago")
+        .in("payment_status", STATUS_RECEBIDOS)
         .in("work_order_id", orderIds),
       empresaId,
     );

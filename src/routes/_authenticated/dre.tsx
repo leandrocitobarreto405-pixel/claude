@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
-import { AbasDeRota } from "@/components/nexa";
+import { AbasDeRota, Botao } from "@/components/nexa";
 import { ABAS_DE_TELA } from "@/lib/menu";
 
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,24 @@ function DRE() {
           />
         </div>
       </div>
+
+      {(r?.receivableCompleted ?? 0) > 0 ? (
+        <div
+          role="status"
+          className="mb-6 flex items-center gap-3 rounded-card border border-atencao-foreground/30 bg-atencao p-4 text-atencao-foreground"
+        >
+          <AlertTriangle className="size-5 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm">
+            <strong>{brl(r?.receivableCompleted)}</strong> em serviços concluídos sem recebimento.
+            Eles não entram na receita até o pagamento ser registrado.
+          </p>
+          <Botao asChild variante="claro" className="shrink-0">
+            <Link to="/a-receber" search={{ aba: "concluido" }}>
+              Registrar
+            </Link>
+          </Botao>
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card

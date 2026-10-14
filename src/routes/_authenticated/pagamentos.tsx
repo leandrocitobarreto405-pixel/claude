@@ -26,6 +26,7 @@ import { StatusBadge } from "@/components/visit-dialog";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { PAYMENT_CHANNELS, PAYMENT_STATUSES } from "@/lib/data";
 import { fetchPayments, fetchPaymentsByServiceMonth, type PaymentRow } from "@/lib/reports";
+import { recebido } from "@/lib/payments";
 import { fetchPaymentHistory, type PaymentFull } from "@/lib/payments";
 import {
   brl,
@@ -125,7 +126,7 @@ function Pagamentos() {
   const duplicadas = useMemo(() => {
     const count = new Map<string, number>();
     for (const p of query.data ?? []) {
-      if (p.is_active === false || p.payment_status !== "Pago") continue;
+      if (!recebido(p)) continue;
       const key = `${p.work_order_id}|${p.payment_date}|${Number(p.gross_amount).toFixed(2)}`;
       count.set(key, (count.get(key) ?? 0) + 1);
     }
@@ -133,11 +134,10 @@ function Pagamentos() {
   }, [query.data]);
 
   const isDuplicada = (p: PaymentRow) =>
-    p.is_active !== false &&
-    p.payment_status === "Pago" &&
+    recebido(p) &&
     duplicadas.has(`${p.work_order_id}|${p.payment_date}|${Number(p.gross_amount).toFixed(2)}`);
 
-  const pagos = lista.filter((p) => p.is_active !== false && p.payment_status === "Pago");
+  const pagos = lista.filter(recebido);
   const bruto = pagos.reduce((s, p) => s + Number(p.gross_amount), 0);
   const taxas = pagos.reduce((s, p) => s + Number(p.payment_fee_amount), 0);
   const liquido = pagos.reduce((s, p) => s + Number(p.net_amount), 0);

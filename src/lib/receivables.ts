@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Banco } from "@/lib/banco";
+import { STATUS_RECEBIDOS } from "@/lib/payments";
 import { effectiveVisitValue } from "@/lib/visit-value";
 
 /** Serviços ainda em aberto na agenda (contam como a receber futuro). */
@@ -90,7 +91,7 @@ export async function fetchReceivables(db: Banco = supabase): Promise<Receivable
       .from("payments")
       .select("work_order_id, gross_amount")
       .eq("is_active", true)
-      .eq("payment_status", "Pago"),
+      .in("payment_status", STATUS_RECEBIDOS),
   ]);
   if (visitsRes.error) throw visitsRes.error;
   if (paymentsRes.error) throw paymentsRes.error;

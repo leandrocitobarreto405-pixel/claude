@@ -24,6 +24,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import {
+  ESCOLHAS,
+  erroDoPagamento,
+  valorInicialDaParte,
+  type EscolhaPagamento,
+} from "@/lib/conclusao-pagamento";
 import { brl, dateBR, mapsLink, parseNumberBR, timeBR, todayISO, whatsappLink } from "@/lib/format";
 import {
   PAYMENT_CHANNELS,
@@ -595,8 +602,8 @@ export function CompletionDialog({
   const [integral, setIntegral] = useState(true);
   const [valorFinal, setValorFinal] = useState(String(valorPrevisto).replace(".", ","));
   const [motivo, setMotivo] = useState("");
-  const [clientePagou, setClientePagou] = useState(true);
-  const [statusPagamento, setStatusPagamento] = useState<string>("Pago");
+  /** Pago · Pago em parte · Ainda não pagou. Nada vem marcado: sem escolha, não conclui. */
+  const [escolha, setEscolha] = useState<EscolhaPagamento | null>(null);
   const [dataConclusao, setDataConclusao] = useState(todayISO());
   const [horaConclusao, setHoraConclusao] = useState(timeBR(visit.scheduled_time));
   const [precisaNota, setPrecisaNota] = useState(false);
@@ -609,7 +616,8 @@ export function CompletionDialog({
       payment_channel: "Pix direto",
       payment_type: "Pix",
       installments: 1,
-      gross_amount: String(valorPrevisto).replace(".", ","),
+      // Vazio até a pessoa escolher "Pago" (aí vem o valor do serviço).
+      gross_amount: "",
       payment_date: todayISO(),
     },
   ]);
@@ -689,21 +697,9 @@ export function CompletionDialog({
   const semCobranca = !cobranca.valorACobrar && maisDeUmaVisita;
 
   useEffect(() => {
-    if (!open || !irmasQuery.data) return;
-    if (semCobranca) {
-      setClientePagou(false);
-      setStatusPagamento("Não pago");
-      return;
-    }
-    if (cobrarTotal) {
-      setPartes((prev) =>
-        prev.length === 1
-          ? [{ ...prev[0]!, gross_amount: String(totalOs).replace(".", ",") }]
-          : prev,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, irmasQuery.data, semCobranca, cobrarTotal, totalOs]);
+    // Visita que não cobra (a cobrança é em outra visita da OS): já vem "Ainda não pagou".
+    if (open && irmasQuery.data && semCobranca) setEscolha("nao");
+  }, [open, irmasQuery.data, semCobranca]);
 
   const valorFinalNum = parseNumberBR(valorFinal);
   const alterou = Math.abs(valorFinalNum - valorPrevisto) > 0.001;
@@ -711,6 +707,19 @@ export function CompletionDialog({
   const limiteRecebimento = cobranca.isCollectionVisit
     ? Math.max(valorFinalNum, totalOs)
     : valorFinalNum;
+  /** O que este serviço cobra: na última visita de uma OS combinada, o total da OS. */
+  const valorACobrar = cobrarTotal ? totalOs : valorFinalNum;
+  const clientePagou = escolha === "pago" || escolha === "parte";
+
+  function escolher(e: EscolhaPagamento) {
+    setEscolha(e);
+    // Só em "Pago" o valor do serviço vem preenchido; nas outras a pessoa digita.
+    setPartes((prev) =>
+      prev.length === 1
+        ? [{ ...prev[0]!, gross_amount: valorInicialDaParte(e, valorACobrar) }]
+        : prev,
+    );
+  }
 
   const partesCalculadas = useMemo(
     () =>
@@ -740,20 +749,14 @@ export function CompletionDialog({
       toast.error("Informe o motivo da alteração do valor.");
       return;
     }
-    if (!statusPagamento) {
-      toast.error("Informe o status do pagamento.");
-      return;
-    }
-    if (clientePagou && somaPartes <= 0) {
-      toast.error("Informe pelo menos um valor recebido.");
-      return;
-    }
-    if (clientePagou && somaPartes - limiteRecebimento > 0.01) {
-      toast.error(
-        cobranca.isCollectionVisit
-          ? `A soma dos pagamentos ultrapassa o valor total da OS (${brl(limiteRecebimento)}).`
-          : "A soma dos pagamentos ultrapassa o valor final do serviço. Ajuste os valores ou o valor final.",
-      );
+    const erroPagamento = erroDoPagamento({
+      escolha,
+      soma: somaPartes,
+      valor: valorACobrar,
+      limite: limiteRecebimento,
+    });
+    if (erroPagamento) {
+      toast.error(erroPagamento);
       return;
     }
     for (const p of partesCalculadas) {
@@ -790,7 +793,6 @@ export function CompletionDialog({
         completionDate: dataConclusao,
         completionTime: horaConclusao,
         finalNotes: observacoes.trim() || null,
-        paymentStatus: statusPagamento,
         payments,
         invoiceNeeded: precisaNota,
         invoiceIssued: notaEmitida,
@@ -1069,33 +1071,57 @@ export function CompletionDialog({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <p className="font-medium">Cliente pagou?</p>
-              <Switch
-                checked={clientePagou}
-                onCheckedChange={(v) => {
-                  setClientePagou(v);
-                  setStatusPagamento(v ? "Pago" : "Não pago");
-                }}
-              />
+          <fieldset className="space-y-2">
+            <legend className="font-medium">
+              Cliente pagou?{" "}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({brl(valorACobrar)}
+                {cobrarTotal ? ", total da OS" : ""})
+              </span>
+            </legend>
+            <div
+              className="grid gap-2 sm:grid-cols-3"
+              role="radiogroup"
+              aria-label="Cliente pagou?"
+            >
+              {ESCOLHAS.map((e) => {
+                const ativo = escolha === e.id;
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={ativo}
+                    onClick={() => escolher(e.id)}
+                    className={cn(
+                      "flex min-h-14 flex-col items-start justify-center gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                      ativo
+                        ? "border-marca bg-marca-claro text-marca"
+                        : "border-border bg-card hover:border-marca/40",
+                    )}
+                  >
+                    <span className="text-sm font-bold">{e.rotulo}</span>
+                    <span
+                      className={cn("text-xs", ativo ? "text-marca/80" : "text-muted-foreground")}
+                    >
+                      {e.descricao}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-2">
-              <Label>Status do pagamento</Label>
-              <Select value={statusPagamento} onValueChange={setStatusPagamento}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            {semCobranca ? (
+              <p className="text-xs text-muted-foreground">
+                Este atendimento não cobra: o pagamento é registrado na visita que cobra a OS.
+              </p>
+            ) : null}
+            {escolha === "nao" && !semCobranca ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum recebimento será registrado agora. O serviço fica em A receber › Concluídos,
+                e o recebimento pode ser registrado depois pela OS ou por Serviços › Realizados.
+              </p>
+            ) : null}
+          </fieldset>
 
           {clientePagou ? (
             <div className="space-y-3">
