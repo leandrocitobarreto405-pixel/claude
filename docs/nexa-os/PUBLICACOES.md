@@ -324,6 +324,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 14/10/2026       | Custo km tela + DRE                                 | `10cdec4`           | `19b6aac`                |
 | 14/10/2026       | Repaginada fase 1 (só na `redesign`/`nexaos-teste`) | `dcdcee3`…`5e5664c` | `ec181d0`                |
 | 14/10/2026       | Repaginada fase 2 (só na `redesign`/`nexaos-teste`) | `2608685`…`9c8ebbd` | `99f7a88`                |
+| 14/10/2026 22:19 | Alice: Reagendado e OS de teste (produção)          | `8b85f6d`           | `ec181d0`                |
+| 14/10/2026       | Repaginada fase 3 (só na `redesign`/`nexaos-teste`) | `d2ab520`…`a2b7099` | `ce3ff5d`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
