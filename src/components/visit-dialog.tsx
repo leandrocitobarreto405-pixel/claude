@@ -24,6 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  CHAVE_REGRA_NOTA,
+  REGRA_NOTA_PADRAO,
+  precisaNotaPorRegra,
+  regraNota,
+} from "@/lib/nota-fiscal-regra";
 import { cn } from "@/lib/utils";
 import {
   ESCOLHAS,
@@ -34,13 +40,13 @@ import {
 import { brl, dateBR, mapsLink, parseNumberBR, timeBR, todayISO, whatsappLink } from "@/lib/format";
 import {
   PAYMENT_CHANNELS,
-  PAYMENT_STATUSES,
   PAYMENT_TYPES,
   RESCHEDULE_REASONS,
   VISIT_STATUSES,
   findRate,
   useConfigOptions,
   usePaymentRates,
+  useSetting,
   useTechnicians,
 } from "@/lib/data";
 import {
@@ -606,7 +612,17 @@ export function CompletionDialog({
   const [escolha, setEscolha] = useState<EscolhaPagamento | null>(null);
   const [dataConclusao, setDataConclusao] = useState(todayISO());
   const [horaConclusao, setHoraConclusao] = useState(timeBR(visit.scheduled_time));
+  // "Precisa de nota fiscal?" já vem marcado pela regra da empresa (Configurações › Vendas).
+  const { data: regraSalva } = useSetting<unknown>(CHAVE_REGRA_NOTA, REGRA_NOTA_PADRAO);
   const [precisaNota, setPrecisaNota] = useState(false);
+  useEffect(() => {
+    if (open && regraSalva !== undefined) {
+      setPrecisaNota(
+        precisaNotaPorRegra(regraNota(regraSalva), visit.work_order?.customer?.document_number),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, regraSalva]);
   const [notaEmitida, setNotaEmitida] = useState(false);
   const [numeroNota, setNumeroNota] = useState("");
   const [observacoes, setObservacoes] = useState("");

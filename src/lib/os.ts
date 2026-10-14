@@ -3,6 +3,7 @@ import { textoQuantidade } from "@/lib/unidade";
 import { brl, buildFullAddress, dateBR, timeBR, todayISO, weekdayPT } from "@/lib/format";
 import { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/data";
 import { STATUS_DA_LINHA } from "@/lib/conclusao-pagamento";
+import { valorDaNota } from "@/lib/nota-fiscal-regra";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { syncRecurringMonth } from "@/lib/recurring-core";
 import { sincronizarRotaDoDia } from "@/lib/routes.functions";
@@ -610,10 +611,11 @@ export async function completeVisit(args: {
 
   await recalcWorkOrder(args.workOrderId, args.userId);
 
+  // Pedido de nota: um por OS, pelo total da OS (não pelo valor desta visita).
   if (args.invoiceNeeded && !args.invoiceIssued) {
     const { data: wo } = await supabase
       .from("work_orders")
-      .select("id, customer_id, customers(document_number)")
+      .select("id, customer_id, total_gross_value, customers(document_number)")
       .eq("id", args.workOrderId)
       .single();
     const { data: existing } = await supabase
@@ -629,7 +631,7 @@ export async function completeVisit(args: {
           (wo as { customers?: { document_number?: string | null } } | null)?.customers
             ?.document_number ?? null,
         service_date: args.completionDate,
-        invoice_amount: args.finalValue,
+        invoice_amount: valorDaNota(wo?.total_gross_value, args.finalValue),
         status: "Pendente",
       });
     }
@@ -649,10 +651,15 @@ export async function completeVisit(args: {
         })
         .eq("id", existing.id);
     } else {
+      const { data: wo } = await supabase
+        .from("work_orders")
+        .select("total_gross_value")
+        .eq("id", args.workOrderId)
+        .maybeSingle();
       await supabase.from("invoice_tasks").insert({
         work_order_id: args.workOrderId,
         service_date: args.completionDate,
-        invoice_amount: args.finalValue,
+        invoice_amount: valorDaNota(wo?.total_gross_value, args.finalValue),
         status: "Emitida",
         invoice_number: args.invoiceNumber,
         issue_date: args.completionDate,
