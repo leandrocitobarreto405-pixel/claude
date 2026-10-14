@@ -84,6 +84,8 @@ export type WorkOrderInput = {
   collection_rule?: string | null;
   collection_visit_index?: number | null;
   payment_instruction?: string | null;
+  /** OS de teste: não conta nos números nem vai para o Google Ads. */
+  eh_teste?: boolean;
 };
 
 export async function osNumberExists(osNumber: string): Promise<boolean> {
@@ -246,6 +248,7 @@ function orderPayload(order: WorkOrderInput, itemsSum: number) {
     general_notes: order.general_notes,
     collection_rule: order.collection_rule ?? null,
     payment_instruction: order.payment_instruction ?? null,
+    eh_teste: order.eh_teste ?? false,
     collection_configuration_updated_at: new Date().toISOString(),
   };
 }

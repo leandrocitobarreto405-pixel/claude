@@ -134,6 +134,7 @@ const ROTAS_ATENDENTE = [
   "/servico",
   "/indicadores",
   "/notificacoes",
+  "/google",
 ];
 
 const ROTAS_TECNICO = [

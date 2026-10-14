@@ -19,6 +19,7 @@ const FINANCE_KEYS = [
   "work_orders",
   "rotas",
   "goal",
+  "painel",
 ];
 
 export function invalidateFinanceQueries(qc: QueryClient) {

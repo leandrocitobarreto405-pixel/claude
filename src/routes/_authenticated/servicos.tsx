@@ -33,6 +33,9 @@ import {
 } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/servicos")({
+  // `?aba=para-concluir` (atrasados e de hoje) ou `realizados`.
+  validateSearch: (s: Record<string, unknown>): { aba?: "para-concluir" | "realizados" } =>
+    s["aba"] === "para-concluir" || s["aba"] === "realizados" ? { aba: s["aba"] } : {},
   head: () => ({
     meta: [
       { title: "Agenda: serviços realizados — Nexa OS" },

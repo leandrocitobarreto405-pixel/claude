@@ -7,6 +7,7 @@ import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
 import { toast } from "sonner";
 import { Copy, PlusCircle, Trash2 } from "lucide-react";
+import { LinhaSwitch } from "@/components/nexa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IntegerInput } from "@/components/ui/numeric-input";
@@ -215,6 +216,8 @@ function NovaOS() {
   const [parcelas, setParcelas] = useState(1);
   const [obsPagamento, setObsPagamento] = useState("");
   const [obsGerais, setObsGerais] = useState("");
+  /** OS de teste: fica fora de todos os números e da exportação para o Google Ads. */
+  const [ehTeste, setEhTeste] = useState(false);
   const [regraCobranca, setRegraCobranca] = useState("");
   const [visitaCobranca, setVisitaCobranca] = useState<number>(-1);
   const [instrucaoManual, setInstrucaoManual] = useState("");
@@ -246,7 +249,7 @@ function NovaOS() {
         .select(
           `id, os_number, sale_date, sales_origin_id, salesperson_id, total_gross_value, os_value_text,
            adjustment_reason, manual_total_reason, negotiated_payment_method, negotiated_installments,
-           payment_notes, general_notes, customer_id,
+           payment_notes, general_notes, eh_teste, customer_id,
            customer:customer_id ( * ),
            visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status,
              service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em, adicional_pos_fechamento, unidade ) )`,
@@ -272,6 +275,7 @@ function NovaOS() {
         negotiated_installments: number | null;
         payment_notes: string | null;
         general_notes: string | null;
+        eh_teste: boolean | null;
         collection_rule: string | null;
         collection_visit_id: string | null;
         payment_instruction: string | null;
@@ -314,6 +318,7 @@ function NovaOS() {
       setParcelas(Number(wo.negotiated_installments ?? 1) || 1);
       setObsPagamento(wo.payment_notes ?? "");
       setObsGerais(wo.general_notes ?? "");
+      setEhTeste(wo.eh_teste === true);
       setRegraCobranca(wo.collection_rule ?? "");
       setInstrucaoManual(wo.payment_instruction ?? "");
       setVisitaCobranca(
@@ -894,6 +899,7 @@ function NovaOS() {
       negotiated_payment_method: formaPagamento,
       negotiated_installments: parcelas,
       general_notes: obsGerais.trim() || null,
+      eh_teste: ehTeste,
       payment_notes: obsPagamento.trim() || null,
       collection_rule: regraCobranca || regraSugerida,
       collection_visit_index:
@@ -1545,6 +1551,16 @@ function NovaOS() {
                 id="obs-gerais"
                 value={obsGerais}
                 onChange={(e) => setObsGerais(e.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2 xl:col-span-3">
+              <LinhaSwitch
+                id="os-teste"
+                titulo="OS de teste"
+                descricao="Não conta nos números (Início, DRE, Origens, A receber) nem vai para o Google Ads."
+                checked={ehTeste}
+                onCheckedChange={setEhTeste}
+                className="rounded-lg border border-border px-3"
               />
             </div>
           </div>

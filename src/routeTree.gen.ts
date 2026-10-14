@@ -23,6 +23,7 @@ import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
+import { Route as AuthenticatedGoogleRouteImport } from './routes/_authenticated/google'
 import { Route as AuthenticatedImplantacaoRouteImport } from './routes/_authenticated/implantacao'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
@@ -33,6 +34,7 @@ import { Route as AuthenticatedModelosMensagemRouteImport } from './routes/_auth
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
 import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated/nova-os'
+import { Route as AuthenticatedOperacaoRouteImport } from './routes/_authenticated/operacao'
 import { Route as AuthenticatedOrigensRouteImport } from './routes/_authenticated/origens'
 import { Route as AuthenticatedOssRouteImport } from './routes/_authenticated/oss'
 import { Route as AuthenticatedPagamentosRouteImport } from './routes/_authenticated/pagamentos'
@@ -154,6 +156,11 @@ const AuthenticatedExportacoesRoute =
     path: '/exportacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGoogleRoute = AuthenticatedGoogleRouteImport.update({
+  id: '/google',
+  path: '/google',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedImplantacaoRoute =
   AuthenticatedImplantacaoRouteImport.update({
     id: '/implantacao',
@@ -206,6 +213,11 @@ const AuthenticatedNotificacoesRoute =
 const AuthenticatedNovaOsRoute = AuthenticatedNovaOsRouteImport.update({
   id: '/nova-os',
   path: '/nova-os',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOperacaoRoute = AuthenticatedOperacaoRouteImport.update({
+  id: '/operacao',
+  path: '/operacao',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedOrigensRoute = AuthenticatedOrigensRouteImport.update({
@@ -503,6 +515,7 @@ export interface FileRoutesByFullPath {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
@@ -513,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/notas': typeof AuthenticatedNotasRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
+  '/operacao': typeof AuthenticatedOperacaoRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -577,6 +591,7 @@ export interface FileRoutesByTo {
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
@@ -587,6 +602,7 @@ export interface FileRoutesByTo {
   '/notas': typeof AuthenticatedNotasRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
+  '/operacao': typeof AuthenticatedOperacaoRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -653,6 +669,7 @@ export interface FileRoutesById {
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/_authenticated/google': typeof AuthenticatedGoogleRoute
   '/_authenticated/implantacao': typeof AuthenticatedImplantacaoRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
@@ -663,6 +680,7 @@ export interface FileRoutesById {
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/nova-os': typeof AuthenticatedNovaOsRoute
+  '/_authenticated/operacao': typeof AuthenticatedOperacaoRoute
   '/_authenticated/origens': typeof AuthenticatedOrigensRoute
   '/_authenticated/oss': typeof AuthenticatedOssRoute
   '/_authenticated/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -729,6 +747,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/google'
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
@@ -739,6 +758,7 @@ export interface FileRouteTypes {
     | '/notas'
     | '/notificacoes'
     | '/nova-os'
+    | '/operacao'
     | '/origens'
     | '/oss'
     | '/pagamentos'
@@ -803,6 +823,7 @@ export interface FileRouteTypes {
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/google'
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
@@ -813,6 +834,7 @@ export interface FileRouteTypes {
     | '/notas'
     | '/notificacoes'
     | '/nova-os'
+    | '/operacao'
     | '/origens'
     | '/oss'
     | '/pagamentos'
@@ -878,6 +900,7 @@ export interface FileRouteTypes {
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
     | '/_authenticated/exportacoes'
+    | '/_authenticated/google'
     | '/_authenticated/implantacao'
     | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
@@ -888,6 +911,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notas'
     | '/_authenticated/notificacoes'
     | '/_authenticated/nova-os'
+    | '/_authenticated/operacao'
     | '/_authenticated/origens'
     | '/_authenticated/oss'
     | '/_authenticated/pagamentos'
@@ -1062,6 +1086,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExportacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/google': {
+      id: '/_authenticated/google'
+      path: '/google'
+      fullPath: '/google'
+      preLoaderRoute: typeof AuthenticatedGoogleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/implantacao': {
       id: '/_authenticated/implantacao'
       path: '/implantacao'
@@ -1130,6 +1161,13 @@ declare module '@tanstack/react-router' {
       path: '/nova-os'
       fullPath: '/nova-os'
       preLoaderRoute: typeof AuthenticatedNovaOsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/operacao': {
+      id: '/_authenticated/operacao'
+      path: '/operacao'
+      fullPath: '/operacao'
+      preLoaderRoute: typeof AuthenticatedOperacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/origens': {
@@ -1487,6 +1525,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
+  AuthenticatedGoogleRoute: typeof AuthenticatedGoogleRoute
   AuthenticatedImplantacaoRoute: typeof AuthenticatedImplantacaoRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
@@ -1497,6 +1536,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
   AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedNovaOsRoute: typeof AuthenticatedNovaOsRoute
+  AuthenticatedOperacaoRoute: typeof AuthenticatedOperacaoRoute
   AuthenticatedOrigensRoute: typeof AuthenticatedOrigensRoute
   AuthenticatedOssRoute: typeof AuthenticatedOssRoute
   AuthenticatedPagamentosRoute: typeof AuthenticatedPagamentosRoute
@@ -1543,6 +1583,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
+  AuthenticatedGoogleRoute: AuthenticatedGoogleRoute,
   AuthenticatedImplantacaoRoute: AuthenticatedImplantacaoRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
@@ -1553,6 +1594,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
   AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedNovaOsRoute: AuthenticatedNovaOsRoute,
+  AuthenticatedOperacaoRoute: AuthenticatedOperacaoRoute,
   AuthenticatedOrigensRoute: AuthenticatedOrigensRoute,
   AuthenticatedOssRoute: AuthenticatedOssRoute,
   AuthenticatedPagamentosRoute: AuthenticatedPagamentosRoute,

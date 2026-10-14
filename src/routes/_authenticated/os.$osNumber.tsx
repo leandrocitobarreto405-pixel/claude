@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/app-shell";
+import { LinhaSwitch } from "@/components/nexa";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { NotaFiscalDaOs } from "@/components/nota-fiscal";
 import type { PaymentFull } from "@/lib/payments";
@@ -79,7 +80,7 @@ const SELECT = `
   id, os_number, sale_date, status, total_gross_value, items_sum, os_value_text,
   negotiated_payment_method, negotiated_installments, payment_notes, adjustment_reason,
   collection_rule, collection_visit_id, payment_instruction, commission_realized,
-  general_notes, cancelled_at, cancellation_reason, deleted_at, deletion_reason,
+  general_notes, eh_teste, cancelled_at, cancellation_reason, deleted_at, deletion_reason,
   customer:customer_id ( id, full_name, phone, full_address, document_number, email ),
   salesperson:salesperson_id ( name ),
   visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, visit_value, final_value, item_quantity, mileage_cost_allocated,
@@ -151,6 +152,7 @@ type Os = {
   commission_realized: number | null;
 
   general_notes: string | null;
+  eh_teste: boolean | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
   deleted_at: string | null;
@@ -188,6 +190,7 @@ function OsDetalhe() {
   const [motivoCancelar, setMotivoCancelar] = useState("");
   const [motivoExcluir, setMotivoExcluir] = useState("");
   const [acaoAberta, setAcaoAberta] = useState<"cancelar" | "excluir" | null>(null);
+  const [salvandoTeste, setSalvandoTeste] = useState(false);
   const [copiandoPasta, setCopiandoPasta] = useState(false);
   const gerar = useServerFn(generateOsDocument);
   const buscarDoc = useServerFn(getOsDocument);
@@ -342,6 +345,28 @@ function OsDetalhe() {
     toast.success("Momento da cobrança atualizado. As mensagens já usam a nova regra.");
     osQuery.refetch();
     invalidateFinanceQueries(queryClient);
+  }
+
+  /** OS de teste: sai (ou volta) dos números e da exportação para o Google Ads. */
+  async function marcarTeste(valor: boolean) {
+    if (!workOrderId) return;
+    setSalvandoTeste(true);
+    try {
+      const { error } = await supabase
+        .from("work_orders")
+        .update({ eh_teste: valor })
+        .eq("id", workOrderId);
+      if (error) throw error;
+      toast.success(
+        valor ? "OS marcada como teste: não conta nos números." : "OS volta a contar nos números.",
+      );
+      osQuery.refetch();
+      invalidateFinanceQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setSalvandoTeste(false);
+    }
   }
 
   async function desfazerDesconto(visitId: string) {
@@ -515,7 +540,7 @@ function OsDetalhe() {
         title={`OS ${os.os_number}`}
         description={`${os.customer?.full_name ?? "Cliente"} · ${
           os.deleted_at ? "Excluída" : os.cancelled_at ? "Cancelada" : os.status
-        } · venda em ${dateBR(os.sale_date)}`}
+        } · venda em ${dateBR(os.sale_date)}${os.eh_teste ? " · OS DE TESTE (não conta nos números)" : ""}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
@@ -1163,6 +1188,15 @@ function OsDetalhe() {
 
           <section className="card-surface p-5">
             <h2 className="mb-3 text-lg font-semibold">Ações da OS</h2>
+            <LinhaSwitch
+              id="os-teste"
+              titulo="OS de teste"
+              descricao="Não conta nos números (Início, DRE, Origens, A receber) nem vai para o Google Ads."
+              checked={os.eh_teste === true}
+              disabled={salvandoTeste}
+              onCheckedChange={(v) => void marcarTeste(v)}
+              className="mb-3 rounded-lg border border-border px-3"
+            />
             <div className="flex flex-col gap-2">
               {!os.cancelled_at ? (
                 <Button variant="outline" onClick={() => setAcaoAberta("cancelar")}>
