@@ -73,9 +73,32 @@ gcloud scheduler jobs create http chatwoot-reprocessar --location "$REGIAO" \
 echo "$URL"
 ```
 
-As tarefas mensais (despesas recorrentes e fechamento de quilometragem) entram quando o
-usuário-robô for criado (`ETAPA-2-ISOLAMENTO.md`, passo 4), com as variáveis `NEXA_ROBO_EMAIL` e
-`NEXA_ROBO_SENHA`.
+### Tarefas mensais: fechamento de quilometragem e despesas recorrentes (dia 1º às 6h)
+
+As duas rotinas já existem e exigem o mesmo segredo de tarefas. Rode uma vez no Cloud Shell
+(mesmo projeto do serviço `nexaos`; nada aponta para o `nexaos-teste`):
+
+```bash
+REGIAO=southamerica-east1
+URL=$(gcloud run services describe nexaos --region "$REGIAO" --format='value(status.url)')
+SEGREDO=$(gcloud secrets versions access latest --secret nexa-tarefas-segredo)
+# Fecha a quilometragem do mês anterior (rateio já está nos serviços; a despesa "Quilometragem"
+# nasce pendente e o DRE não conta o km duas vezes).
+gcloud scheduler jobs create http fechamento-quilometragem --location "$REGIAO" \
+  --schedule "0 6 1 * *" --time-zone America/Sao_Paulo --http-method POST \
+  --uri "$URL/api/public/hooks/monthly-mileage-closing" \
+  --headers "Authorization=Bearer $SEGREDO" --attempt-deadline 300s
+# Gera as despesas recorrentes do mês que começa.
+gcloud scheduler jobs create http despesas-recorrentes --location "$REGIAO" \
+  --schedule "0 6 1 * *" --time-zone America/Sao_Paulo --http-method POST \
+  --uri "$URL/api/public/hooks/recurring-expenses" \
+  --headers "Authorization=Bearer $SEGREDO" --attempt-deadline 300s
+gcloud scheduler jobs list --location "$REGIAO" --format='table(name, schedule, state)'
+```
+
+Para testar sem esperar o dia 1º: `gcloud scheduler jobs run fechamento-quilometragem --location
+"$REGIAO"` (fecha o mês anterior) e o mesmo para `despesas-recorrentes`. As duas rotinas são
+idempotentes: rodar de novo não duplica despesa.
 
 ## Parte D — Supabase e primeiro acesso
 
