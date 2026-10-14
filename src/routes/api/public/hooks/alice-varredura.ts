@@ -39,6 +39,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Leads do site: falha", e instanceof Error ? e.message : e);
             return null;
           });
+          // Retornos da equipe vencidos há mais de 3 dias saem da lista.
+          const { expirarRetornos } = await import("@/lib/retornos.server");
+          const retornosExpirados = await expirarRetornos().catch((e) => {
+            console.error("CRM: falha ao expirar retornos", e instanceof Error ? e.message : e);
+            return null;
+          });
           // OS criada sem lead: liga ao único lead aberto com o mesmo telefone (antes da exportação).
           const { ligarOsSemLead } = await import("@/lib/crm-vinculo.server");
           const vinculoOs = await ligarOsSemLead().catch((e) => {
@@ -63,6 +69,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             posAtendimento,
             leadsSite,
             vinculoOs,
+            retornosExpirados,
             exportacaoGoogle,
           });
         } catch (erro) {

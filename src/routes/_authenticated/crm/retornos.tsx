@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { Recolhido } from "@/components/nexa";
+import { agruparRetornos, filtrarRetornos, type FiltroRetornos } from "@/lib/retornos";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CalendarClock, MessageCircle } from "lucide-react";
@@ -25,13 +27,13 @@ import { AliceAgora } from "@/components/alice-agora";
 export const Route = createFileRoute("/_authenticated/crm/retornos")({
   head: () => ({
     meta: [
-      { title: "Repescagens do CRM — Nexa OS" },
+      { title: "Retornos — Nexa OS" },
       {
         name: "description",
         content:
-          "Retornos vencidos, de hoje e próximos, com registro do que aconteceu em cada contato.",
+          "Retornos de hoje, vencidos e próximos, com registro do que aconteceu em cada contato.",
       },
-      { property: "og:title", content: "Repescagens do CRM — Nexa OS" },
+      { property: "og:title", content: "Retornos — Nexa OS" },
       {
         property: "og:description",
         content:
@@ -39,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/crm/retornos")({
       },
     ],
   }),
-  component: Repescagens,
+  component: Retornos,
 });
 
 type FollowupRow = {
@@ -63,12 +65,13 @@ type FollowupRow = {
   } | null;
 };
 
-function Repescagens() {
+function Retornos() {
   const invalidate = useCrmInvalidate();
   const { data: resultados } = useCrmCatalog(CRM_RESULT_KIND);
   const [resultado, setResultado] = useState<Record<string, string>>({});
   const [obs, setObs] = useState<Record<string, string>>({});
-  const [de, setDe] = useState<"todas" | "equipe" | "alice">("todas");
+  // Filtro padrão: os da equipe (os da Alice saem sozinhos no horário).
+  const [de, setDe] = useState<FiltroRetornos>("equipe");
 
   const query = useQuery({
     queryKey: ["crm_followups", "pendentes"],
@@ -124,16 +127,12 @@ function Repescagens() {
     },
   });
 
-  const grupos = useMemo(() => {
-    const rows = (query.data ?? []).filter((f) => de === "todas" || f.responsavel === de);
-    const hoje = todayISO();
-    const agora = new Date().toISOString();
-    return {
-      vencidas: rows.filter((f) => f.scheduled_at < agora && f.scheduled_at.slice(0, 10) < hoje),
-      hoje: rows.filter((f) => f.scheduled_at.slice(0, 10) === hoje),
-      proximas: rows.filter((f) => f.scheduled_at.slice(0, 10) > hoje),
-    };
-  }, [query.data, de]);
+  // Dia de São Paulo (não UTC); equipe primeiro, Alice por último; vencido há mais de 3 dias
+  // já saiu (o banco expira) e, por garantia, também fica fora aqui.
+  const grupos = useMemo(
+    () => agruparRetornos(filtrarRetornos(query.data ?? [], de), new Date()),
+    [query.data, de],
+  );
 
   async function registrar(f: FollowupRow) {
     const res = resultado[f.id];
@@ -236,13 +235,13 @@ function Repescagens() {
   }
 
   const nada =
-    grupos.vencidas.length === 0 && grupos.hoje.length === 0 && grupos.proximas.length === 0;
+    grupos.vencidos.length === 0 && grupos.hoje.length === 0 && grupos.proximos.length === 0;
 
   return (
     <>
       <PageHeader
-        title="Repescagens e follow-ups"
-        description="Retornos combinados com o cliente: os da equipe (envio manual) e os que a Alice faz sozinha."
+        title="Retornos"
+        description="Quem combinou de receber um retorno: os da equipe (você manda) e os que a Alice faz sozinha. Respondeu na conversa, virou OS ou encerrou? O retorno fecha sozinho."
       />
 
       <AliceAgora />
@@ -251,9 +250,9 @@ function Repescagens() {
         <span className="text-muted-foreground">Mostrar:</span>
         {(
           [
-            ["todas", "Todas"],
-            ["equipe", "Da equipe"],
-            ["alice", "Da Alice"],
+            ["equipe", "Equipe"],
+            ["alice", "Alice"],
+            ["todas", "Todos"],
           ] as const
         ).map(([v, rotulo]) => (
           <Button
@@ -298,26 +297,17 @@ function Repescagens() {
       ) : null}
 
       {query.isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando repescagens...</p>
+        <p className="text-sm text-muted-foreground">Carregando retornos...</p>
       ) : nada ? (
         <EmptyState
           icon={CalendarClock}
-          title="Nenhuma repescagem pendente"
+          title="Nenhum retorno pendente"
           description="Agende retornos na tela do lead para acompanhar quem ainda não respondeu."
         />
       ) : (
         <div className="grid gap-4">
-          {grupos.vencidas.length > 0 ? (
-            <SectionCard title={`Vencidas (${grupos.vencidas.length})`} accent="danger">
-              <div className="grid gap-3">
-                {grupos.vencidas.map((f) => (
-                  <Cartao key={f.id} f={f} />
-                ))}
-              </div>
-            </SectionCard>
-          ) : null}
           {grupos.hoje.length > 0 ? (
-            <SectionCard title={`De hoje (${grupos.hoje.length})`} accent="warning">
+            <SectionCard title={`Hoje (${grupos.hoje.length})`} accent="warning">
               <div className="grid gap-3">
                 {grupos.hoje.map((f) => (
                   <Cartao key={f.id} f={f} />
@@ -325,10 +315,23 @@ function Repescagens() {
               </div>
             </SectionCard>
           ) : null}
-          {grupos.proximas.length > 0 ? (
-            <SectionCard title={`Próximas (${grupos.proximas.length})`}>
+          {grupos.vencidos.length > 0 ? (
+            <Recolhido titulo="Vencidos" contagem={grupos.vencidos.length}>
+              <div className="grid gap-3 p-4">
+                <p className="text-xs text-muted-foreground">
+                  Passaram do horário nos últimos 3 dias. Depois disso saem daqui e o lead vai para
+                  "Sem resposta há mais de 3 dias".
+                </p>
+                {grupos.vencidos.map((f) => (
+                  <Cartao key={f.id} f={f} />
+                ))}
+              </div>
+            </Recolhido>
+          ) : null}
+          {grupos.proximos.length > 0 ? (
+            <SectionCard title={`Próximos (${grupos.proximos.length})`}>
               <div className="grid gap-3">
-                {grupos.proximas.map((f) => (
+                {grupos.proximos.map((f) => (
                   <Cartao key={f.id} f={f} />
                 ))}
               </div>
@@ -340,7 +343,7 @@ function Repescagens() {
       <div className="mt-4">
         <SectionCard
           title={`Sem resposta há mais de 3 dias (${(semResposta.data ?? []).length})`}
-          description="Sugestão de repescagem. Nada é marcado como perdido automaticamente."
+          description="Sugestão de retorno. Nada é marcado como perdido automaticamente."
           accent="navy"
         >
           {(semResposta.data ?? []).length === 0 ? (
@@ -365,16 +368,16 @@ function Repescagens() {
                     onClick={async () => {
                       try {
                         await scheduleFollowup(l.id, suggestFollowupAt(24));
-                        toast.success("Repescagem agendada para 24h.");
+                        toast.success("Retorno agendado para 24h.");
                         invalidate();
                         void query.refetch();
                         void semResposta.refetch();
                       } catch {
-                        toast.error("Não foi possível agendar a repescagem.");
+                        toast.error("Não foi possível agendar o retorno.");
                       }
                     }}
                   >
-                    Criar repescagem
+                    Criar retorno
                   </Button>
                 </div>
               ))}
@@ -384,7 +387,7 @@ function Repescagens() {
       </div>
 
       <div className="mt-4">
-        <SectionCard title="Agendar repescagem manual" description="Para um lead específico.">
+        <SectionCard title="Agendar retorno" description="Para um lead específico.">
           <AgendarManual onDone={() => void query.refetch()} />
         </SectionCard>
       </div>
@@ -442,13 +445,13 @@ function AgendarManual({ onDone }: { onDone: () => void }) {
           }
           try {
             await scheduleFollowup(leadId, new Date(quando).toISOString());
-            toast.success("Repescagem agendada.");
+            toast.success("Retorno agendado.");
             setLeadId("");
             setQuando("");
             invalidate();
             onDone();
           } catch {
-            toast.error("Não foi possível agendar a repescagem.");
+            toast.error("Não foi possível agendar o retorno.");
           }
         }}
       >
