@@ -215,6 +215,22 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `DROP FUNCTION public.crm_expirar_retornos()`; os 16 retornos voltam a "Pendente" pelo
   `notes` que marca a correção.
   timestamptz)` (a varredura só registra a falha e segue).
+- "Repaginada fase 2: OS de teste" (`20261110120000`, aplicada em 14/10): coluna
+  `work_orders.eh_teste` (padrão falso) e a view `vw_conversoes_google_pendentes` passa a ignorar
+  OS de teste. Nenhuma OS foi marcada; nada muda até alguém marcar. Para voltar: recriar a view
+  com o texto de `20261108120000` e `ALTER TABLE public.work_orders DROP COLUMN eh_teste`.
+- "Repaginada fase 2: origem certa" (`20261110120001`, aplicada em 14/10): gatilho
+  `trg_crm_leads_origem_por_clique` (lead sem origem com gclid/gbraid vira Google automático) e
+  `private.converter_lead_em_os` copia a origem para o lado vazio ao ligar lead e OS. Dados
+  (idempotentes, nas duas empresas): 1 lead com gclid virou Google e 2 leads ligados a OS
+  receberam a origem da OS. Script único só Turbine (`scripts/crm/renomear-site-organico.sql`,
+  aplicado em 14/10): origem "Site" virou "Site (orgânico)" (a Ecoprime não mudou). Para voltar:
+  `DROP TRIGGER trg_crm_leads_origem_por_clique ON public.crm_leads`, recriar
+  `private.converter_lead_em_os` com o texto de `20260929120000` e `sales_origin_id = NULL` nos
+  3 leads (`origem_automatica` marca quais foram).
+- Fase 2, scripts que esperam o ok do dono (lista conferida antes): `scripts/crm/ligar-os-antigas.sql`
+  (13 OS da Turbine ligadas ao único lead pelo telefone), `scripts/notas/criar-pedidos-os-concluidas.sql`
+  (pedidos de nota das OS concluídas com CPF/CNPJ) e marcar `eh_teste` nas OS de teste.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -292,6 +308,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/10/2026       | Ads: valor como número                              | `653c16c`           | `8da17fb`                |
 | 14/10/2026       | Custo km tela + DRE                                 | `10cdec4`           | `19b6aac`                |
 | 14/10/2026       | Repaginada fase 1 (só na `redesign`/`nexaos-teste`) | `dcdcee3`…`5e5664c` | `ec181d0`                |
+| 14/10/2026       | Repaginada fase 2 (só na `redesign`/`nexaos-teste`) | `2608685`…`9c8ebbd` | `99f7a88`                |
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
