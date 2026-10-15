@@ -326,6 +326,11 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 14/10/2026       | Repaginada fase 2 (só na `redesign`/`nexaos-teste`) | `2608685`…`9c8ebbd` | `99f7a88`                |
 | 14/10/2026 22:19 | Alice: Reagendado e OS de teste (produção)          | `8b85f6d`           | `ec181d0`                |
 | 14/10/2026       | Repaginada fase 3 (só na `redesign`/`nexaos-teste`) | `d2ab520`…`a2b7099` | `ce3ff5d`                |
+| 15/10/2026 02:00 | Repaginada fases 1, 2 e 3 (merge da `redesign`)     | `db7a286`           | `8b85f6d`                |
+
+Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
+`git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
+voltar: as migrações das fases 1, 2 e 3 só acrescentam campos e funções que o app anterior ignora.
 
 ## Voltar rápido (cerca de 1 minuto, sem mexer no código)
 
