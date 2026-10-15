@@ -26,7 +26,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BadgeAlerta, Botao, CabecalhoDeTela, Card, NumeroGrande } from "@/components/nexa";
+import {
+  BadgeAlerta,
+  Botao,
+  CabecalhoDeTela,
+  Card,
+  NumeroGrande,
+  AbasDeRota,
+} from "@/components/nexa";
 import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
@@ -56,13 +63,16 @@ import {
 } from "@/lib/format";
 import { dataPorExtenso } from "@/lib/inicio";
 import { podeAcessar, usePapel } from "@/lib/tenant";
+import { useSession } from "@/lib/session";
+import { filtroDeTecnico, mostraValores, rotuloDoTecnico, tecnicoDoLogin } from "@/lib/meu-tecnico";
+import { ABAS_DE_TELA } from "@/lib/menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   validateSearch: (search: Record<string, unknown>) => {
     const modo = String(search["modo"] ?? "dia");
     return {
-      modo: (["dia", "semana", "mes", "atrasados", "sem-tecnico"] as const).includes(modo as Modo)
+      modo: (["dia", "semana", "mes", "sem-tecnico"] as const).includes(modo as Modo)
         ? (modo as Modo)
         : ("dia" as const),
       tecnico: search["tecnico"] ? String(search["tecnico"]) : undefined,
@@ -78,12 +88,12 @@ export const Route = createFileRoute("/_authenticated/agenda")({
       { title: "Agenda — Nexa OS" },
       {
         name: "description",
-        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+        content: "Agenda de serviços por dia, semana e mês, com os serviços sem técnico.",
       },
       { property: "og:title", content: "Agenda — Nexa OS" },
       {
         property: "og:description",
-        content: "Agenda de serviços por dia, semana e mês, com atrasados e serviços sem técnico.",
+        content: "Agenda de serviços por dia, semana e mês, com os serviços sem técnico.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -92,21 +102,15 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   component: Agenda,
 });
 
-type Modo = "dia" | "semana" | "mes" | "atrasados" | "sem-tecnico";
+// "Atrasados" saiu daqui: fica em Serviços › Para concluir (atrasados e de hoje).
+type Modo = "dia" | "semana" | "mes" | "sem-tecnico";
 
 const NOME_MODO: Record<Modo, string> = {
   dia: "Dia",
   semana: "Semana",
   mes: "Mês",
-  atrasados: "Atrasados",
   "sem-tecnico": "Sem técnico",
 };
-
-/** Serviços considerados em aberto (mesmo critério das pendências do início). */
-const ATRASADOS_STATUSES = ["Agendado", "Em execução", "Reagendado"];
-
-/** Visitas de orçamento ainda em aberto. */
-const ORCAMENTOS_ABERTOS = ["Agendado", "Confirmado", "Em deslocamento", "Reagendado"];
 
 /** "R$ 2.400" (sem centavos, para caber no resumo do dia). */
 function reaisSemCentavos(valor: number) {
@@ -134,8 +138,14 @@ function Agenda() {
   const [novoOrcamento, setNovoOrcamento] = useState(false);
   const { data: tecnicos } = useTechnicians(true);
   const { papel } = usePapel();
+  const { user } = useSession();
+  // Técnico: só o técnico ligado ao login (sem cadastro ligado, nada) e sem valores em R$.
+  // Admin que também é técnico ganha o chip "Meus serviços".
+  const meuTecnico = tecnicoDoLogin(tecnicos, user?.id);
+  const tecnicoVisto = filtroDeTecnico(papel, meuTecnico?.id ?? null, tecnico);
+  const comValores = mostraValores(papel);
 
-  const especial = modo === "atrasados" || modo === "sem-tecnico";
+  const especial = modo === "sem-tecnico";
   const semana = useMemo(() => semanaDe(ref), [ref]);
   // No modo dia busca a semana inteira, para a faixa de dias mostrar onde há serviço.
   const from = modo === "mes" ? monthStart(ref.slice(0, 7)) : semana[0]!.iso;
@@ -146,9 +156,7 @@ function Agenda() {
     queryKey: ["agenda", chave],
     queryFn: async () => {
       let q = supabase.from("visits").select(VISIT_SELECT);
-      if (modo === "atrasados") {
-        q = q.lt("scheduled_date", todayISO()).in("status", ATRASADOS_STATUSES);
-      } else if (modo === "sem-tecnico") {
+      if (modo === "sem-tecnico") {
         q = q.is("technician_id", null).neq("status", "Cancelado");
       } else {
         q = q.gte("scheduled_date", from).lte("scheduled_date", to);
@@ -163,9 +171,7 @@ function Agenda() {
     queryKey: ["orcamentos", "agenda", chave],
     queryFn: async () => {
       let q = supabase.from("budget_visits").select(BUDGET_VISIT_SELECT);
-      if (modo === "atrasados") {
-        q = q.lt("scheduled_date", todayISO()).in("status", ORCAMENTOS_ABERTOS);
-      } else if (modo === "sem-tecnico") {
+      if (modo === "sem-tecnico") {
         q = q.is("technician_id", null).neq("status", "Cancelado");
       } else {
         q = q.gte("scheduled_date", from).lte("scheduled_date", to);
@@ -202,14 +208,16 @@ function Agenda() {
   const doTecnico = useMemo(() => {
     const todos = [
       ...(query.data ?? [])
-        .filter((v) => tecnico === "todos" || v.technician?.id === tecnico)
+        .filter((v) => tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto)
         .map(deVisita),
       ...(orcamentosQuery.data ?? [])
-        .filter((b) => tecnico === "todos" || b.technician?.id === tecnico)
+        .filter((b) => tecnicoVisto === "todos" || b.technician?.id === tecnicoVisto)
         .map(deOrcamento),
     ];
-    return todos.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
-  }, [query.data, orcamentosQuery.data, tecnico]);
+    return todos
+      .map((i) => (comValores ? i : { ...i, valor: null }))
+      .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  }, [query.data, orcamentosQuery.data, tecnicoVisto, comValores]);
 
   const filtrados = useMemo(
     () => doTecnico.filter((i) => status === "todos" || i.status === status),
@@ -241,8 +249,11 @@ function Agenda() {
       .filter((i) => i.tipo === "os")
       .reduce((s, i) => s + (i.valor ?? 0), 0);
   const km = (rotaQuery.data ?? [])
-    .filter((r) => tecnico === "todos" || r.technician_id === tecnico)
+    .filter((r) => tecnicoVisto === "todos" || r.technician_id === tecnicoVisto)
     .reduce((s, r) => s + Number(r.real_km ?? r.calculated_km ?? 0), 0);
+  const colunasDoDia = (["grid-cols-1", "grid-cols-2", "grid-cols-3"] as const)[
+    (comValores ? 1 : 0) + (km > 0 ? 1 : 0)
+  ];
 
   const podeNovaOs = papel ? podeAcessar(papel, "/nova-os") : false;
   const filtrosAtivos = status !== "todos" ? 1 : 0;
@@ -311,6 +322,15 @@ function Agenda() {
           )
         }
       />
+
+      <AbasDeRota abas={ABAS_DE_TELA.agenda} rotulo="Agenda" />
+
+      {papel === "tecnico" && tecnicos && !meuTecnico ? (
+        <Card className="text-sm">
+          Seu login ainda não está ligado a um cadastro de técnico, por isso a agenda está vazia.
+          Peça ao administrador para ligar em Configurações › Equipe e acessos.
+        </Card>
+      ) : null}
 
       {papel && podeAcessar(papel, "/promocao") ? <FaixaHorariosLivres /> : null}
 
@@ -398,13 +418,17 @@ function Agenda() {
         </div>
       ) : null}
 
-      {(tecnicos ?? []).length > 1 ? (
+      {papel !== "tecnico" && (tecnicos ?? []).length > 1 ? (
         <div
           className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]"
           role="group"
           aria-label="Técnico"
         >
-          {[{ id: "todos", name: "Todos" }, ...(tecnicos ?? [])].map((t) => {
+          {[
+            { id: "todos", name: "Todos" },
+            ...(meuTecnico ? [meuTecnico] : []),
+            ...(tecnicos ?? []).filter((t) => t.id !== meuTecnico?.id),
+          ].map((t) => {
             const sel = tecnico === t.id;
             return (
               <button
@@ -419,7 +443,7 @@ function Agenda() {
                     : "border-border bg-card text-foreground hover:border-marca/40",
                 )}
               >
-                {t.name}
+                {rotuloDoTecnico(t.name, t.id, meuTecnico?.id ?? null)}
               </button>
             );
           })}
@@ -428,17 +452,19 @@ function Agenda() {
 
       {modo === "dia" ? (
         <>
-          <Card className={cn("grid gap-3", km > 0 ? "grid-cols-3" : "grid-cols-2")}>
+          <Card className={cn("grid gap-3", colunasDoDia)}>
             <NumeroGrande
               tamanho="pequeno"
               valor={ativos(doDia).length}
               legenda={ativos(doDia).length === 1 ? "atendimento" : "atendimentos"}
             />
-            <NumeroGrande
-              tamanho="pequeno"
-              valor={reaisSemCentavos(previsto(doDia))}
-              legenda="previsto"
-            />
+            {comValores ? (
+              <NumeroGrande
+                tamanho="pequeno"
+                valor={reaisSemCentavos(previsto(doDia))}
+                legenda="previsto"
+              />
+            ) : null}
             {km > 0 ? (
               <NumeroGrande tamanho="pequeno" valor={`${Math.round(km)} km`} legenda="de rota" />
             ) : null}
@@ -482,7 +508,8 @@ function Agenda() {
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-muted-foreground">
-            {ativos(filtrados).length} atendimento(s) · {brl(previsto(filtrados))} em serviços
+            {ativos(filtrados).length} atendimento(s)
+            {comValores ? ` · ${brl(previsto(filtrados))} em serviços` : ""}
           </p>
           {grupos.map(([dia, lista]) => (
             <section key={dia} className="flex flex-col gap-2.5">
@@ -522,7 +549,7 @@ function Agenda() {
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pt-4">
             <section className="flex flex-col gap-2">
               <h3 className="text-sm font-bold">Ver</h3>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(Object.keys(NOME_MODO) as Modo[]).map((m) => (
                   <Botao
                     key={m}

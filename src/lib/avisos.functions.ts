@@ -72,7 +72,8 @@ export const listarAvisos = createServerFn({ method: "GET" })
           ? db
               .from("payments")
               .select("id", { count: "exact", head: true })
-              .in("payment_status", ["Não pago", "Parcialmente pago"])
+              // Só o que foi reaberto: "Parcialmente pago" é dinheiro recebido, não pendência.
+              .eq("payment_status", "Não pago")
           : Promise.resolve(vazio),
       ]);
 

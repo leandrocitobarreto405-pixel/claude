@@ -217,6 +217,7 @@ function ImportarCrm() {
   return (
     <>
       <PageHeader
+        voltarPara="/configuracoes/alice-leads"
         title="Importar histórico"
         description="Traga suas planilhas antigas de leads. Nada é sobrescrito sem correspondência de telefone."
       />

@@ -569,11 +569,18 @@ export async function linkLeadToWorkOrder(leadId: string, workOrderId: string) {
     return meta.closed && !meta.lost;
   });
 
-  const { data: lead } = await supabase
-    .from("crm_leads")
-    .select("id, status_id")
-    .eq("id", leadId)
-    .maybeSingle();
+  const [{ data: lead }, { data: os }] = await Promise.all([
+    supabase
+      .from("crm_leads")
+      .select("id, status_id, sales_origin_id")
+      .eq("id", leadId)
+      .maybeSingle(),
+    supabase.from("work_orders").select("sales_origin_id").eq("id", workOrderId).maybeSingle(),
+  ]);
+
+  // Origem: o lado vazio recebe a do outro (a mesma regra de private.converter_lead_em_os).
+  const origemLead = lead?.sales_origin_id ?? null;
+  const origemOs = os?.sales_origin_id ?? null;
 
   const nowIso = new Date().toISOString();
   const { error } = await supabase
@@ -585,9 +592,17 @@ export async function linkLeadToWorkOrder(leadId: string, workOrderId: string) {
       last_interaction_at: nowIso,
       next_follow_up_at: null,
       ...(convertido ? { status_id: convertido.id } : {}),
+      ...(!origemLead && origemOs ? { sales_origin_id: origemOs, origem_automatica: true } : {}),
     } as never)
     .eq("id", leadId);
   if (error) throw error;
+  if (!origemOs && origemLead) {
+    const { error: osErr } = await supabase
+      .from("work_orders")
+      .update({ sales_origin_id: origemLead })
+      .eq("id", workOrderId);
+    if (osErr) console.error("Origem da OS não copiada do lead:", osErr.message);
+  }
 
   if (convertido && lead?.status_id !== convertido.id) {
     const anterior = (statuses ?? []).find((s) => s.id === lead?.status_id);

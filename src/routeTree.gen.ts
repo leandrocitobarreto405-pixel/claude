@@ -19,11 +19,12 @@ import { Route as AuthenticatedAReceberRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedAgendaConfigRouteImport } from './routes/_authenticated/agenda-config'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
-import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
+import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
+import { Route as AuthenticatedGoogleRouteImport } from './routes/_authenticated/google'
 import { Route as AuthenticatedImplantacaoRouteImport } from './routes/_authenticated/implantacao'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
@@ -32,7 +33,9 @@ import { Route as AuthenticatedMarketingRouteImport } from './routes/_authentica
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedModelosMensagemRouteImport } from './routes/_authenticated/modelos-mensagem'
 import { Route as AuthenticatedNotasRouteImport } from './routes/_authenticated/notas'
+import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedNovaOsRouteImport } from './routes/_authenticated/nova-os'
+import { Route as AuthenticatedOperacaoRouteImport } from './routes/_authenticated/operacao'
 import { Route as AuthenticatedOrigensRouteImport } from './routes/_authenticated/origens'
 import { Route as AuthenticatedOssRouteImport } from './routes/_authenticated/oss'
 import { Route as AuthenticatedPagamentosRouteImport } from './routes/_authenticated/pagamentos'
@@ -40,6 +43,14 @@ import { Route as AuthenticatedPromocaoRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedConfiguracoesIndexRouteImport } from './routes/_authenticated/configuracoes/index'
+import { Route as AuthenticatedConfiguracoesAgendaRouteImport } from './routes/_authenticated/configuracoes/agenda'
+import { Route as AuthenticatedConfiguracoesAliceLeadsRouteImport } from './routes/_authenticated/configuracoes/alice-leads'
+import { Route as AuthenticatedConfiguracoesEmpresaRouteImport } from './routes/_authenticated/configuracoes/empresa'
+import { Route as AuthenticatedConfiguracoesEquipeRouteImport } from './routes/_authenticated/configuracoes/equipe'
+import { Route as AuthenticatedConfiguracoesMensagensRouteImport } from './routes/_authenticated/configuracoes/mensagens'
+import { Route as AuthenticatedConfiguracoesOutrosRouteImport } from './routes/_authenticated/configuracoes/outros'
+import { Route as AuthenticatedConfiguracoesVendasRouteImport } from './routes/_authenticated/configuracoes/vendas'
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasConversaIdRouteImport } from './routes/_authenticated/conversas.$conversaId'
 import { Route as AuthenticatedCrmCampanhasRouteImport } from './routes/_authenticated/crm/campanhas'
@@ -49,6 +60,7 @@ import { Route as AuthenticatedCrmIntegracoesRouteImport } from './routes/_authe
 import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticated/crm/leads'
 import { Route as AuthenticatedCrmLeadsSiteRouteImport } from './routes/_authenticated/crm/leads-site'
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
+import { Route as AuthenticatedCrmRetornosRouteImport } from './routes/_authenticated/crm/retornos'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
@@ -124,12 +136,6 @@ const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
   path: '/avisos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedConfiguracoesRoute =
-  AuthenticatedConfiguracoesRouteImport.update({
-    id: '/configuracoes',
-    path: '/configuracoes',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
   id: '/design',
   path: '/design',
@@ -151,6 +157,16 @@ const AuthenticatedExportacoesRoute =
     path: '/exportacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGoogleRoute = AuthenticatedGoogleRouteImport.update({
+  id: '/google',
+  path: '/google',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedImplantacaoRoute =
   AuthenticatedImplantacaoRouteImport.update({
     id: '/implantacao',
@@ -194,9 +210,20 @@ const AuthenticatedNotasRoute = AuthenticatedNotasRouteImport.update({
   path: '/notas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotificacoesRoute =
+  AuthenticatedNotificacoesRouteImport.update({
+    id: '/notificacoes',
+    path: '/notificacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNovaOsRoute = AuthenticatedNovaOsRouteImport.update({
   id: '/nova-os',
   path: '/nova-os',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOperacaoRoute = AuthenticatedOperacaoRouteImport.update({
+  id: '/operacao',
+  path: '/operacao',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedOrigensRoute = AuthenticatedOrigensRouteImport.update({
@@ -234,6 +261,54 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConfiguracoesIndexRoute =
+  AuthenticatedConfiguracoesIndexRouteImport.update({
+    id: '/configuracoes/',
+    path: '/configuracoes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesAgendaRoute =
+  AuthenticatedConfiguracoesAgendaRouteImport.update({
+    id: '/configuracoes/agenda',
+    path: '/configuracoes/agenda',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesAliceLeadsRoute =
+  AuthenticatedConfiguracoesAliceLeadsRouteImport.update({
+    id: '/configuracoes/alice-leads',
+    path: '/configuracoes/alice-leads',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesEmpresaRoute =
+  AuthenticatedConfiguracoesEmpresaRouteImport.update({
+    id: '/configuracoes/empresa',
+    path: '/configuracoes/empresa',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesEquipeRoute =
+  AuthenticatedConfiguracoesEquipeRouteImport.update({
+    id: '/configuracoes/equipe',
+    path: '/configuracoes/equipe',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesMensagensRoute =
+  AuthenticatedConfiguracoesMensagensRouteImport.update({
+    id: '/configuracoes/mensagens',
+    path: '/configuracoes/mensagens',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesOutrosRoute =
+  AuthenticatedConfiguracoesOutrosRouteImport.update({
+    id: '/configuracoes/outros',
+    path: '/configuracoes/outros',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesVendasRoute =
+  AuthenticatedConfiguracoesVendasRouteImport.update({
+    id: '/configuracoes/vendas',
+    path: '/configuracoes/vendas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConversasIndexRoute =
   AuthenticatedConversasIndexRouteImport.update({
     id: '/conversas/',
@@ -284,6 +359,12 @@ const AuthenticatedCrmRepescagensRoute =
   AuthenticatedCrmRepescagensRouteImport.update({
     id: '/crm/repescagens',
     path: '/crm/repescagens',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCrmRetornosRoute =
+  AuthenticatedCrmRetornosRouteImport.update({
+    id: '/crm/retornos',
+    path: '/crm/retornos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCrmVisaoGeralRoute =
@@ -436,11 +517,12 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
@@ -449,7 +531,9 @@ export interface FileRoutesByFullPath {
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
+  '/operacao': typeof AuthenticatedOperacaoRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -457,6 +541,13 @@ export interface FileRoutesByFullPath {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
+  '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
+  '/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
+  '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
+  '/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
+  '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
@@ -465,6 +556,7 @@ export interface FileRoutesByFullPath {
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -473,6 +565,7 @@ export interface FileRoutesByFullPath {
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/configuracoes/': typeof AuthenticatedConfiguracoesIndexRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -501,11 +594,12 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
-  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
   '/inicio': typeof AuthenticatedInicioRoute
@@ -514,7 +608,9 @@ export interface FileRoutesByTo {
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/notas': typeof AuthenticatedNotasRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/nova-os': typeof AuthenticatedNovaOsRoute
+  '/operacao': typeof AuthenticatedOperacaoRoute
   '/origens': typeof AuthenticatedOrigensRoute
   '/oss': typeof AuthenticatedOssRoute
   '/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -522,6 +618,13 @@ export interface FileRoutesByTo {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
+  '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
+  '/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
+  '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
+  '/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
+  '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
@@ -530,6 +633,7 @@ export interface FileRoutesByTo {
   '/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -538,6 +642,7 @@ export interface FileRoutesByTo {
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesIndexRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
   '/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -568,11 +673,12 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
-  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
+  '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/_authenticated/google': typeof AuthenticatedGoogleRoute
   '/_authenticated/implantacao': typeof AuthenticatedImplantacaoRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
@@ -581,7 +687,9 @@ export interface FileRoutesById {
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/modelos-mensagem': typeof AuthenticatedModelosMensagemRoute
   '/_authenticated/notas': typeof AuthenticatedNotasRoute
+  '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/nova-os': typeof AuthenticatedNovaOsRoute
+  '/_authenticated/operacao': typeof AuthenticatedOperacaoRoute
   '/_authenticated/origens': typeof AuthenticatedOrigensRoute
   '/_authenticated/oss': typeof AuthenticatedOssRoute
   '/_authenticated/pagamentos': typeof AuthenticatedPagamentosRoute
@@ -589,6 +697,13 @@ export interface FileRoutesById {
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
+  '/_authenticated/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/_authenticated/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
+  '/_authenticated/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
+  '/_authenticated/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
+  '/_authenticated/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
+  '/_authenticated/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/_authenticated/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/_authenticated/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/_authenticated/crm/funil': typeof AuthenticatedCrmFunilRoute
@@ -597,6 +712,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/leads': typeof AuthenticatedCrmLeadsRoute
   '/_authenticated/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
+  '/_authenticated/crm/retornos': typeof AuthenticatedCrmRetornosRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
@@ -605,6 +721,7 @@ export interface FileRoutesById {
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/_authenticated/configuracoes/': typeof AuthenticatedConfiguracoesIndexRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
   '/_authenticated/crm/lead/$leadId': typeof AuthenticatedCrmLeadLeadIdRoute
@@ -635,11 +752,12 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-config'
     | '/avisos'
-    | '/configuracoes'
     | '/design'
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/financeiro'
+    | '/google'
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
@@ -648,7 +766,9 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/modelos-mensagem'
     | '/notas'
+    | '/notificacoes'
     | '/nova-os'
+    | '/operacao'
     | '/origens'
     | '/oss'
     | '/pagamentos'
@@ -656,6 +776,13 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/configuracoes/agenda'
+    | '/configuracoes/alice-leads'
+    | '/configuracoes/empresa'
+    | '/configuracoes/equipe'
+    | '/configuracoes/mensagens'
+    | '/configuracoes/outros'
+    | '/configuracoes/vendas'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/funil'
@@ -664,6 +791,7 @@ export interface FileRouteTypes {
     | '/crm/leads'
     | '/crm/leads-site'
     | '/crm/repescagens'
+    | '/crm/retornos'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
@@ -672,6 +800,7 @@ export interface FileRouteTypes {
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
+    | '/configuracoes/'
     | '/conversas/'
     | '/orcamentos/'
     | '/crm/lead/$leadId'
@@ -700,11 +829,12 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-config'
     | '/avisos'
-    | '/configuracoes'
     | '/design'
     | '/despesas'
     | '/dre'
     | '/exportacoes'
+    | '/financeiro'
+    | '/google'
     | '/implantacao'
     | '/indicadores'
     | '/inicio'
@@ -713,7 +843,9 @@ export interface FileRouteTypes {
     | '/mensagens'
     | '/modelos-mensagem'
     | '/notas'
+    | '/notificacoes'
     | '/nova-os'
+    | '/operacao'
     | '/origens'
     | '/oss'
     | '/pagamentos'
@@ -721,6 +853,13 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/configuracoes/agenda'
+    | '/configuracoes/alice-leads'
+    | '/configuracoes/empresa'
+    | '/configuracoes/equipe'
+    | '/configuracoes/mensagens'
+    | '/configuracoes/outros'
+    | '/configuracoes/vendas'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/funil'
@@ -729,6 +868,7 @@ export interface FileRouteTypes {
     | '/crm/leads'
     | '/crm/leads-site'
     | '/crm/repescagens'
+    | '/crm/retornos'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/chatwoot'
@@ -737,6 +877,7 @@ export interface FileRouteTypes {
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
+    | '/configuracoes'
     | '/conversas'
     | '/orcamentos'
     | '/crm/lead/$leadId'
@@ -766,11 +907,12 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/agenda-config'
     | '/_authenticated/avisos'
-    | '/_authenticated/configuracoes'
     | '/_authenticated/design'
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
     | '/_authenticated/exportacoes'
+    | '/_authenticated/financeiro'
+    | '/_authenticated/google'
     | '/_authenticated/implantacao'
     | '/_authenticated/indicadores'
     | '/_authenticated/inicio'
@@ -779,7 +921,9 @@ export interface FileRouteTypes {
     | '/_authenticated/mensagens'
     | '/_authenticated/modelos-mensagem'
     | '/_authenticated/notas'
+    | '/_authenticated/notificacoes'
     | '/_authenticated/nova-os'
+    | '/_authenticated/operacao'
     | '/_authenticated/origens'
     | '/_authenticated/oss'
     | '/_authenticated/pagamentos'
@@ -787,6 +931,13 @@ export interface FileRouteTypes {
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
+    | '/_authenticated/configuracoes/agenda'
+    | '/_authenticated/configuracoes/alice-leads'
+    | '/_authenticated/configuracoes/empresa'
+    | '/_authenticated/configuracoes/equipe'
+    | '/_authenticated/configuracoes/mensagens'
+    | '/_authenticated/configuracoes/outros'
+    | '/_authenticated/configuracoes/vendas'
     | '/_authenticated/conversas/$conversaId'
     | '/_authenticated/crm/campanhas'
     | '/_authenticated/crm/funil'
@@ -795,6 +946,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/leads'
     | '/_authenticated/crm/leads-site'
     | '/_authenticated/crm/repescagens'
+    | '/_authenticated/crm/retornos'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
     | '/_authenticated/nexa/chatwoot'
@@ -803,6 +955,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/servico/$visitId'
+    | '/_authenticated/configuracoes/'
     | '/_authenticated/conversas/'
     | '/_authenticated/orcamentos/'
     | '/_authenticated/crm/lead/$leadId'
@@ -917,13 +1070,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAvisosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/design': {
       id: '/_authenticated/design'
       path: '/design'
@@ -950,6 +1096,20 @@ declare module '@tanstack/react-router' {
       path: '/exportacoes'
       fullPath: '/exportacoes'
       preLoaderRoute: typeof AuthenticatedExportacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/financeiro': {
+      id: '/_authenticated/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof AuthenticatedFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/google': {
+      id: '/_authenticated/google'
+      path: '/google'
+      fullPath: '/google'
+      preLoaderRoute: typeof AuthenticatedGoogleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/implantacao': {
@@ -1008,11 +1168,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notificacoes': {
+      id: '/_authenticated/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/notificacoes'
+      preLoaderRoute: typeof AuthenticatedNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nova-os': {
       id: '/_authenticated/nova-os'
       path: '/nova-os'
       fullPath: '/nova-os'
       preLoaderRoute: typeof AuthenticatedNovaOsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/operacao': {
+      id: '/_authenticated/operacao'
+      path: '/operacao'
+      fullPath: '/operacao'
+      preLoaderRoute: typeof AuthenticatedOperacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/origens': {
@@ -1062,6 +1236,62 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/': {
+      id: '/_authenticated/configuracoes/'
+      path: '/configuracoes'
+      fullPath: '/configuracoes/'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/agenda': {
+      id: '/_authenticated/configuracoes/agenda'
+      path: '/configuracoes/agenda'
+      fullPath: '/configuracoes/agenda'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/alice-leads': {
+      id: '/_authenticated/configuracoes/alice-leads'
+      path: '/configuracoes/alice-leads'
+      fullPath: '/configuracoes/alice-leads'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesAliceLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/empresa': {
+      id: '/_authenticated/configuracoes/empresa'
+      path: '/configuracoes/empresa'
+      fullPath: '/configuracoes/empresa'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesEmpresaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/equipe': {
+      id: '/_authenticated/configuracoes/equipe'
+      path: '/configuracoes/equipe'
+      fullPath: '/configuracoes/equipe'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesEquipeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/mensagens': {
+      id: '/_authenticated/configuracoes/mensagens'
+      path: '/configuracoes/mensagens'
+      fullPath: '/configuracoes/mensagens'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesMensagensRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/outros': {
+      id: '/_authenticated/configuracoes/outros'
+      path: '/configuracoes/outros'
+      fullPath: '/configuracoes/outros'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesOutrosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes/vendas': {
+      id: '/_authenticated/configuracoes/vendas'
+      path: '/configuracoes/vendas'
+      fullPath: '/configuracoes/vendas'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesVendasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/conversas/': {
@@ -1125,6 +1355,13 @@ declare module '@tanstack/react-router' {
       path: '/crm/repescagens'
       fullPath: '/crm/repescagens'
       preLoaderRoute: typeof AuthenticatedCrmRepescagensRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/crm/retornos': {
+      id: '/_authenticated/crm/retornos'
+      path: '/crm/retornos'
+      fullPath: '/crm/retornos'
+      preLoaderRoute: typeof AuthenticatedCrmRetornosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/crm/visao-geral': {
@@ -1303,11 +1540,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAgendaConfigRoute: typeof AuthenticatedAgendaConfigRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
-  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
+  AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
+  AuthenticatedGoogleRoute: typeof AuthenticatedGoogleRoute
   AuthenticatedImplantacaoRoute: typeof AuthenticatedImplantacaoRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
@@ -1316,7 +1554,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedModelosMensagemRoute: typeof AuthenticatedModelosMensagemRoute
   AuthenticatedNotasRoute: typeof AuthenticatedNotasRoute
+  AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedNovaOsRoute: typeof AuthenticatedNovaOsRoute
+  AuthenticatedOperacaoRoute: typeof AuthenticatedOperacaoRoute
   AuthenticatedOrigensRoute: typeof AuthenticatedOrigensRoute
   AuthenticatedOssRoute: typeof AuthenticatedOssRoute
   AuthenticatedPagamentosRoute: typeof AuthenticatedPagamentosRoute
@@ -1324,6 +1564,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRotasRoute: typeof AuthenticatedRotasRoute
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedConfiguracoesAgendaRoute: typeof AuthenticatedConfiguracoesAgendaRoute
+  AuthenticatedConfiguracoesAliceLeadsRoute: typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  AuthenticatedConfiguracoesEmpresaRoute: typeof AuthenticatedConfiguracoesEmpresaRoute
+  AuthenticatedConfiguracoesEquipeRoute: typeof AuthenticatedConfiguracoesEquipeRoute
+  AuthenticatedConfiguracoesMensagensRoute: typeof AuthenticatedConfiguracoesMensagensRoute
+  AuthenticatedConfiguracoesOutrosRoute: typeof AuthenticatedConfiguracoesOutrosRoute
+  AuthenticatedConfiguracoesVendasRoute: typeof AuthenticatedConfiguracoesVendasRoute
   AuthenticatedConversasConversaIdRoute: typeof AuthenticatedConversasConversaIdRoute
   AuthenticatedCrmCampanhasRoute: typeof AuthenticatedCrmCampanhasRoute
   AuthenticatedCrmFunilRoute: typeof AuthenticatedCrmFunilRoute
@@ -1332,6 +1579,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmLeadsRoute: typeof AuthenticatedCrmLeadsRoute
   AuthenticatedCrmLeadsSiteRoute: typeof AuthenticatedCrmLeadsSiteRoute
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
+  AuthenticatedCrmRetornosRoute: typeof AuthenticatedCrmRetornosRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
@@ -1340,6 +1588,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
   AuthenticatedServicoVisitIdRoute: typeof AuthenticatedServicoVisitIdRoute
+  AuthenticatedConfiguracoesIndexRoute: typeof AuthenticatedConfiguracoesIndexRoute
   AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
   AuthenticatedOrcamentosIndexRoute: typeof AuthenticatedOrcamentosIndexRoute
   AuthenticatedCrmLeadLeadIdRoute: typeof AuthenticatedCrmLeadLeadIdRoute
@@ -1350,11 +1599,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAgendaConfigRoute: AuthenticatedAgendaConfigRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
-  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
+  AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
+  AuthenticatedGoogleRoute: AuthenticatedGoogleRoute,
   AuthenticatedImplantacaoRoute: AuthenticatedImplantacaoRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
@@ -1363,7 +1613,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedModelosMensagemRoute: AuthenticatedModelosMensagemRoute,
   AuthenticatedNotasRoute: AuthenticatedNotasRoute,
+  AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedNovaOsRoute: AuthenticatedNovaOsRoute,
+  AuthenticatedOperacaoRoute: AuthenticatedOperacaoRoute,
   AuthenticatedOrigensRoute: AuthenticatedOrigensRoute,
   AuthenticatedOssRoute: AuthenticatedOssRoute,
   AuthenticatedPagamentosRoute: AuthenticatedPagamentosRoute,
@@ -1371,6 +1623,16 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRotasRoute: AuthenticatedRotasRoute,
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedConfiguracoesAgendaRoute: AuthenticatedConfiguracoesAgendaRoute,
+  AuthenticatedConfiguracoesAliceLeadsRoute:
+    AuthenticatedConfiguracoesAliceLeadsRoute,
+  AuthenticatedConfiguracoesEmpresaRoute:
+    AuthenticatedConfiguracoesEmpresaRoute,
+  AuthenticatedConfiguracoesEquipeRoute: AuthenticatedConfiguracoesEquipeRoute,
+  AuthenticatedConfiguracoesMensagensRoute:
+    AuthenticatedConfiguracoesMensagensRoute,
+  AuthenticatedConfiguracoesOutrosRoute: AuthenticatedConfiguracoesOutrosRoute,
+  AuthenticatedConfiguracoesVendasRoute: AuthenticatedConfiguracoesVendasRoute,
   AuthenticatedConversasConversaIdRoute: AuthenticatedConversasConversaIdRoute,
   AuthenticatedCrmCampanhasRoute: AuthenticatedCrmCampanhasRoute,
   AuthenticatedCrmFunilRoute: AuthenticatedCrmFunilRoute,
@@ -1379,6 +1641,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmLeadsRoute: AuthenticatedCrmLeadsRoute,
   AuthenticatedCrmLeadsSiteRoute: AuthenticatedCrmLeadsSiteRoute,
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
+  AuthenticatedCrmRetornosRoute: AuthenticatedCrmRetornosRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
@@ -1387,6 +1650,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
   AuthenticatedServicoVisitIdRoute: AuthenticatedServicoVisitIdRoute,
+  AuthenticatedConfiguracoesIndexRoute: AuthenticatedConfiguracoesIndexRoute,
   AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
   AuthenticatedOrcamentosIndexRoute: AuthenticatedOrcamentosIndexRoute,
   AuthenticatedCrmLeadLeadIdRoute: AuthenticatedCrmLeadLeadIdRoute,

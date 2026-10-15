@@ -1,6 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import { findRate, type PaymentRate } from "@/lib/data";
 
+/**
+ * Linhas de pagamento que são dinheiro recebido. "Parcialmente pago" entra: é como linhas antigas
+ * foram gravadas quando o cliente pagou só uma parte (a situação é da OS, não do dinheiro que entrou).
+ */
+export const STATUS_RECEBIDOS = ["Pago", "Parcialmente pago"];
+
+export function recebido(p: {
+  payment_status: string | null;
+  is_active?: boolean | null;
+}): boolean {
+  return p.is_active !== false && STATUS_RECEBIDOS.includes(p.payment_status ?? "");
+}
+
 export const PAYMENT_REOPEN_REASONS = [
   "Forma de pagamento incorreta",
   "Número de parcelas incorreto",

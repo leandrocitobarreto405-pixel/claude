@@ -10,7 +10,7 @@ self.addEventListener("push", (event) => {
   } catch {
     dados = { corpo: event.data ? event.data.text() : "" };
   }
-  const url = typeof dados.url === "string" && /^\/(?!\/)/.test(dados.url) ? dados.url : "/avisos";
+  const url = typeof dados.url === "string" && /^\/(?!\/)/.test(dados.url) ? dados.url : "/inicio";
   event.waitUntil(
     self.registration.showNotification(dados.titulo || "Nexa", {
       body: dados.corpo || "",
@@ -25,7 +25,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const destino = new URL(
-    (event.notification.data && event.notification.data.url) || "/avisos",
+    (event.notification.data && event.notification.data.url) || "/inicio",
     self.location.origin,
   ).href;
   event.waitUntil(

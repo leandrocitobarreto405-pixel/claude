@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/app-shell";
+import { AbasDeRota } from "@/components/nexa";
+import { ABAS_DE_TELA } from "@/lib/menu";
+
 import { LeadLink, StatusPill, TemperatureBadge } from "@/components/crm-ui";
 import {
   CRM_STATUS_KIND,
@@ -73,9 +76,10 @@ function Funil() {
   return (
     <>
       <PageHeader
-        title="Funil"
+        title="Leads e funil"
         description="Arraste os cartões para mudar a etapa. Cada movimento fica registrado no histórico."
       />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads e funil" className="mb-6" />
 
       {query.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando funil...</p>

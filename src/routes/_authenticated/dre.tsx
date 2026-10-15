@@ -1,6 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/app-shell";
+import { AbasDeRota, Botao, Recolhido } from "@/components/nexa";
+import { OrigensDaVenda } from "@/components/financeiro/origens";
+import { ABAS_DE_TELA, abasPermitidas } from "@/lib/menu";
+import { useContextoTenant } from "@/lib/tenant";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMonthSummary } from "@/lib/reports";
@@ -8,14 +14,17 @@ import { textoPercentuais } from "@/lib/comissao-nexa";
 import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dre")({
+  // `?bloco=origens` abre o bloco Origens da venda (endereço antigo /origens).
+  validateSearch: (s: Record<string, unknown>): { bloco?: "origens" } =>
+    s["bloco"] === "origens" ? { bloco: "origens" } : {},
   head: () => ({
     meta: [
-      { title: "DRE gerencial — Nexa OS" },
+      { title: "Relatórios: DRE — Nexa OS" },
       {
         name: "description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
       },
-      { property: "og:title", content: "DRE gerencial — Nexa OS" },
+      { property: "og:title", content: "Relatórios: DRE — Nexa OS" },
       {
         property: "og:description",
         content: "Demonstrativo mensal por competência: receita, custos e lucro líquido.",
@@ -26,15 +35,27 @@ export const Route = createFileRoute("/_authenticated/dre")({
 });
 
 function DRE() {
+  const { bloco } = Route.useSearch();
   const [mes, setMes] = useState(currentMonth());
   const { data: r } = useMonthSummary(mes);
+  const { data: tenant } = useContextoTenant();
+  const papel = tenant?.ativa?.papel ?? null;
+  const souNexa = tenant?.souNexa === true;
   // Vendas das atendentes da Nexa: a comissão delas é paga à Nexa e aparece separada.
   const temNexa = (r?.nexa.recebido ?? 0) > 0;
   const pctNexa = r?.nexa.percentuais.length ? ` (${textoPercentuais(r.nexa.percentuais)})` : "";
 
   return (
     <>
-      <PageHeader title="DRE gerencial" description={`Competência de ${monthLabelPT(mes)}`} />
+      <PageHeader
+        title="Financeiro"
+        description={`DRE gerencial · competência de ${monthLabelPT(mes)}`}
+      />
+      <AbasDeRota
+        abas={abasPermitidas(ABAS_DE_TELA.financeiro, papel, souNexa)}
+        rotulo="Financeiro"
+        className="mb-6"
+      />
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">
@@ -48,6 +69,24 @@ function DRE() {
           />
         </div>
       </div>
+
+      {(r?.receivableCompleted ?? 0) > 0 ? (
+        <div
+          role="status"
+          className="mb-6 flex items-center gap-3 rounded-card border border-atencao-foreground/30 bg-atencao p-4 text-atencao-foreground"
+        >
+          <AlertTriangle className="size-5 shrink-0" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm">
+            <strong>{brl(r?.receivableCompleted)}</strong> em serviços concluídos sem recebimento.
+            Eles não entram na receita até o pagamento ser registrado.
+          </p>
+          <Botao asChild variante="claro" className="shrink-0">
+            <Link to="/a-receber" search={{ aba: "concluido" }}>
+              Registrar
+            </Link>
+          </Botao>
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card
@@ -231,6 +270,12 @@ function DRE() {
           </table>
         </section>
       </div>
+
+      <Recolhido titulo="Origens da venda" abertoInicial={bloco === "origens"} className="mb-6">
+        <div className="p-4">
+          <OrigensDaVenda />
+        </div>
+      </Recolhido>
     </>
   );
 }

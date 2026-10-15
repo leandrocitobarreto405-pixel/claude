@@ -13,7 +13,7 @@ import { dateBR } from "@/lib/format";
 import { usePapel } from "@/lib/tenant";
 
 export const Route = createFileRoute("/_authenticated/implantacao")({
-  head: () => ({ meta: [{ title: "Configuração da empresa — Nexa OS" }] }),
+  head: () => ({ meta: [{ title: "Primeiros passos — Nexa OS" }] }),
   component: Implantacao,
 });
 
@@ -34,7 +34,7 @@ function Implantacao() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
-        titulo="Configuração da empresa"
+        titulo="Primeiros passos"
         descricao="O que falta para a empresa usar o Nexa por completo. Cada etapa se marca sozinha quando fica pronta."
       />
       {q.isLoading ? <Card className="text-sm">Conferindo as etapas…</Card> : null}

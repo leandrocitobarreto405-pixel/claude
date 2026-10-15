@@ -160,7 +160,8 @@ function Campanhas() {
   return (
     <>
       <PageHeader
-        title="Campanhas"
+        voltarPara="/configuracoes/alice-leads"
+        title="Campanhas Google"
         description="Cadastre as campanhas e o investimento para medir custo por lead e por venda."
         actions={
           <Button className="gap-2" onClick={() => abrirNova()}>

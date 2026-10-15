@@ -5,6 +5,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR } from "@/lib/format";
+import { recebido } from "@/lib/payments";
 
 export const DEFAULT_NOTA_TEMPLATE = [
   "Nota fiscal — {{nome_cliente}}",
@@ -63,9 +64,7 @@ export const TAREFA_NOTA_SELECT = `
 
 /** Forma de pagamento da OS: a efetivamente recebida; sem pagamento lançado, a combinada. */
 export function formaPagamento(t: TarefaNota): string | null {
-  const pagos = (t.work_order?.payments ?? []).filter(
-    (p) => p.is_active !== false && p.payment_status === "Pago",
-  );
+  const pagos = (t.work_order?.payments ?? []).filter(recebido);
   const descrever = (tipo: string | null, parcelas: number | null) =>
     tipo ? `${tipo}${parcelas && parcelas > 1 ? ` em ${parcelas}x` : ""}` : null;
   if (pagos.length) {

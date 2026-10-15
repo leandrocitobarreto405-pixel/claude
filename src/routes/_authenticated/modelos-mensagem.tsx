@@ -70,6 +70,7 @@ function ModelosMensagem() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
+        voltarPara="/configuracoes/mensagens"
         titulo="Modelos de mensagem"
         descricao="Todos os textos que o Nexa envia no WhatsApp: os que precisam de aprovação da Meta e os que não precisam."
       />
@@ -231,16 +232,14 @@ function ModelosMensagem() {
         <Card className="gap-2 text-sm">
           <p className="font-bold">Outros textos do app</p>
           <Link
-            to="/configuracoes"
-            search={{ aba: "alice" }}
+            to="/configuracoes/alice-leads"
             className="flex min-h-11 items-center justify-between gap-2 rounded-botao font-semibold text-marca"
           >
             Alice: instruções e respostas frequentes (ela escreve a partir delas)
             <ChevronRight className="size-5 shrink-0" aria-hidden />
           </Link>
           <Link
-            to="/configuracoes"
-            search={{ aba: "mensagem" }}
+            to="/configuracoes/mensagens"
             className="flex min-h-11 items-center justify-between gap-2 rounded-botao font-semibold text-marca"
           >
             Mensagem padrão da OS e da nota fiscal

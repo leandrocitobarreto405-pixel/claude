@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Banco } from "@/lib/banco";
+import { STATUS_RECEBIDOS } from "@/lib/payments";
 import { effectiveVisitValue } from "@/lib/visit-value";
 
 /** Serviços ainda em aberto na agenda (contam como a receber futuro). */
@@ -58,6 +60,7 @@ type VisitRaw = {
     os_number: string;
     status: string;
     deleted_at: string | null;
+    eh_teste?: boolean;
     customer: { full_name: string } | null;
   } | null;
 };
@@ -67,9 +70,9 @@ type VisitRaw = {
  * Pagamentos ativos da OS são abatidos primeiro dos serviços concluídos e depois
  * dos agendados, para que o saldo reflita o que realmente falta receber.
  */
-export async function fetchReceivables(): Promise<Receivables> {
+export async function fetchReceivables(db: Banco = supabase): Promise<Receivables> {
   const [visitsRes, paymentsRes] = await Promise.all([
-    supabase
+    db
       .from("visits")
       .select(
         `id, status, scheduled_date, completion_date, visit_value, final_value, work_order_id,
@@ -79,16 +82,16 @@ export async function fetchReceivables(): Promise<Receivables> {
          service_type:service_type_id ( name ),
          upholstery_type:upholstery_type_id ( name ),
          work_order:work_orders!visits_work_order_id_fkey (
-           id, os_number, status, deleted_at, customer:customer_id ( full_name )
+           id, os_number, status, deleted_at, eh_teste, customer:customer_id ( full_name )
          )`,
       )
       .in("status", [...RECEIVABLE_SCHEDULED_STATUSES, "Concluído"])
       .order("scheduled_date"),
-    supabase
+    db
       .from("payments")
       .select("work_order_id, gross_amount")
       .eq("is_active", true)
-      .eq("payment_status", "Pago"),
+      .in("payment_status", STATUS_RECEBIDOS),
   ]);
   if (visitsRes.error) throw visitsRes.error;
   if (paymentsRes.error) throw paymentsRes.error;
@@ -99,8 +102,13 @@ export async function fetchReceivables(): Promise<Receivables> {
     paidByOs.set(id, round2((paidByOs.get(id) ?? 0) + Number(p.gross_amount ?? 0)));
   }
 
+  // OS de teste ficam fora, como em todo número do app.
   const visits = ((visitsRes.data ?? []) as unknown as VisitRaw[]).filter(
-    (v) => v.work_order && !v.work_order.deleted_at && v.work_order.status !== "Cancelada",
+    (v) =>
+      v.work_order &&
+      !v.work_order.deleted_at &&
+      !v.work_order.eh_teste &&
+      v.work_order.status !== "Cancelada",
   );
 
   const byOs = new Map<string, VisitRaw[]>();
@@ -163,5 +171,5 @@ export async function fetchReceivables(): Promise<Receivables> {
 }
 
 export function useReceivables() {
-  return useQuery({ queryKey: ["a_receber"], queryFn: fetchReceivables });
+  return useQuery({ queryKey: ["a_receber"], queryFn: () => fetchReceivables() });
 }

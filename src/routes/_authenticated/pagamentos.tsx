@@ -19,10 +19,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota, Botao, Recolhido } from "@/components/nexa";
+import { ABAS_DE_TELA, abasPermitidas } from "@/lib/menu";
+import { useContextoTenant } from "@/lib/tenant";
+
 import { StatusBadge } from "@/components/visit-dialog";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { PAYMENT_CHANNELS, PAYMENT_STATUSES } from "@/lib/data";
 import { fetchPayments, fetchPaymentsByServiceMonth, type PaymentRow } from "@/lib/reports";
+import { recebido } from "@/lib/payments";
 import { fetchPaymentHistory, type PaymentFull } from "@/lib/payments";
 import {
   brl,
@@ -43,12 +48,12 @@ export const Route = createFileRoute("/_authenticated/pagamentos")({
   }),
   head: () => ({
     meta: [
-      { title: "Pagamentos — Nexa OS" },
+      { title: "Recebimentos: recebidos — Nexa OS" },
       {
         name: "description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",
       },
-      { property: "og:title", content: "Pagamentos — Nexa OS" },
+      { property: "og:title", content: "Recebimentos: recebidos — Nexa OS" },
       {
         property: "og:description",
         content: "Controle de recebimentos, taxas por canal e valores líquidos.",
@@ -79,6 +84,9 @@ function Pagamentos() {
     mode: "registrar" | "reabrir";
   } | null>(null);
   const [historico, setHistorico] = useState<PaymentRow | null>(null);
+  const { data: tenant } = useContextoTenant();
+  const papel = tenant?.ativa?.papel ?? null;
+  const souNexa = tenant?.souNexa === true;
 
   const { from, to, periodoLabel } = useMemo(() => {
     if (modo === "dia") return { from: dia, to: dia, periodoLabel: dateBR(dia) };
@@ -122,7 +130,7 @@ function Pagamentos() {
   const duplicadas = useMemo(() => {
     const count = new Map<string, number>();
     for (const p of query.data ?? []) {
-      if (p.is_active === false || p.payment_status !== "Pago") continue;
+      if (!recebido(p)) continue;
       const key = `${p.work_order_id}|${p.payment_date}|${Number(p.gross_amount).toFixed(2)}`;
       count.set(key, (count.get(key) ?? 0) + 1);
     }
@@ -130,11 +138,10 @@ function Pagamentos() {
   }, [query.data]);
 
   const isDuplicada = (p: PaymentRow) =>
-    p.is_active !== false &&
-    p.payment_status === "Pago" &&
+    recebido(p) &&
     duplicadas.has(`${p.work_order_id}|${p.payment_date}|${Number(p.gross_amount).toFixed(2)}`);
 
-  const pagos = lista.filter((p) => p.is_active !== false && p.payment_status === "Pago");
+  const pagos = lista.filter(recebido);
   const bruto = pagos.reduce((s, p) => s + Number(p.gross_amount), 0);
   const taxas = pagos.reduce((s, p) => s + Number(p.payment_fee_amount), 0);
   const liquido = pagos.reduce((s, p) => s + Number(p.net_amount), 0);
@@ -146,229 +153,213 @@ function Pagamentos() {
   return (
     <>
       <PageHeader
-        title="Pagamentos"
-        description={`${periodoLabel} · ${lista.length} lançamento(s) · ${pagos.length} pago(s)`}
+        title="Financeiro"
+        description={`Recebidos · ${periodoLabel} · ${lista.length} lançamento(s) · ${pagos.length} pago(s)`}
+      />
+      <AbasDeRota
+        abas={abasPermitidas(ABAS_DE_TELA.financeiro, papel, souNexa)}
+        rotulo="Financeiro"
+        className="mb-6"
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-3 gap-2.5 sm:gap-4">
         <Card label="Total bruto recebido" value={brl(bruto)} />
         <Card label="Taxas de pagamento" value={brl(taxas)} />
         <Card label="Valor líquido" value={brl(liquido)} />
       </div>
 
-      <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
-        <div className="space-y-1">
-          <Label>Referência</Label>
-          <Select
-            value={referencia}
-            onValueChange={(v) => setReferencia(v as "pagamento" | "servico")}
-          >
-            <SelectTrigger className="w-[190px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pagamento">Data do pagamento</SelectItem>
-              <SelectItem value="servico">Mês do serviço</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Período</Label>
-          <Select value={modo} onValueChange={(v) => setModo(v as Modo)}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dia">Dia</SelectItem>
-              <SelectItem value="semana">Semana</SelectItem>
-              <SelectItem value="mes">Mês</SelectItem>
-              <SelectItem value="personalizado">Personalizado</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <Recolhido titulo="Filtros" className="mb-6">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <div className="space-y-1">
+            <Label>Referência</Label>
+            <Select
+              value={referencia}
+              onValueChange={(v) => setReferencia(v as "pagamento" | "servico")}
+            >
+              <SelectTrigger className="w-[190px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pagamento">Data do pagamento</SelectItem>
+                <SelectItem value="servico">Mês do serviço</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Período</Label>
+            <Select value={modo} onValueChange={(v) => setModo(v as Modo)}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dia">Dia</SelectItem>
+                <SelectItem value="semana">Semana</SelectItem>
+                <SelectItem value="mes">Mês</SelectItem>
+                <SelectItem value="personalizado">Personalizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {modo === "mes" ? (
-          <div className="space-y-1">
-            <Label htmlFor="mes">Mês</Label>
-            <Input
-              id="mes"
-              type="month"
-              value={mes}
-              onChange={(e) => setMes(e.target.value)}
-              className="w-[170px]"
-            />
-          </div>
-        ) : null}
-        {modo === "dia" || modo === "semana" ? (
-          <div className="space-y-1">
-            <Label htmlFor="dia">{modo === "dia" ? "Data" : "Semana de"}</Label>
-            <Input
-              id="dia"
-              type="date"
-              value={dia}
-              onChange={(e) => setDia(e.target.value)}
-              className="w-[170px]"
-            />
-          </div>
-        ) : null}
-        {modo === "personalizado" ? (
-          <>
+          {modo === "mes" ? (
             <div className="space-y-1">
-              <Label htmlFor="de">De</Label>
+              <Label htmlFor="mes">Mês</Label>
               <Input
-                id="de"
-                type="date"
-                value={de}
-                onChange={(e) => setDe(e.target.value)}
-                className="w-[160px]"
+                id="mes"
+                type="month"
+                value={mes}
+                onChange={(e) => setMes(e.target.value)}
+                className="w-[170px]"
               />
             </div>
+          ) : null}
+          {modo === "dia" || modo === "semana" ? (
             <div className="space-y-1">
-              <Label htmlFor="ate">Até</Label>
+              <Label htmlFor="dia">{modo === "dia" ? "Data" : "Semana de"}</Label>
               <Input
-                id="ate"
+                id="dia"
                 type="date"
-                value={ate}
-                onChange={(e) => setAte(e.target.value)}
-                className="w-[160px]"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                className="w-[170px]"
               />
             </div>
-          </>
-        ) : null}
+          ) : null}
+          {modo === "personalizado" ? (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="de">De</Label>
+                <Input
+                  id="de"
+                  type="date"
+                  value={de}
+                  onChange={(e) => setDe(e.target.value)}
+                  className="w-[160px]"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ate">Até</Label>
+                <Input
+                  id="ate"
+                  type="date"
+                  value={ate}
+                  onChange={(e) => setAte(e.target.value)}
+                  className="w-[160px]"
+                />
+              </div>
+            </>
+          ) : null}
 
-        <div className="space-y-1">
-          <Label htmlFor="busca-pag">Buscar cliente ou OS</Label>
-          <Input
-            id="busca-pag"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Nome do cliente ou nº da OS"
-            className="w-[240px]"
-          />
+          <div className="space-y-1">
+            <Label htmlFor="busca-pag">Buscar cliente ou OS</Label>
+            <Input
+              id="busca-pag"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Nome do cliente ou nº da OS"
+              className="w-[240px]"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Canal</Label>
+            <Select value={canal} onValueChange={setCanal}>
+              <SelectTrigger className="w-[190px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {PAYMENT_CHANNELS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-[190px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {PAYMENT_STATUSES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label>Canal</Label>
-          <Select value={canal} onValueChange={setCanal}>
-            <SelectTrigger className="w-[190px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {PAYMENT_CHANNELS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-[190px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {PAYMENT_STATUSES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      </Recolhido>
 
       {lista.length === 0 ? (
         <EmptyState title="Nenhum pagamento no período" description="Ajuste o mês ou os filtros." />
       ) : (
-        <div className="card-surface overflow-x-auto">
-          <table className="w-full min-w-[860px] text-sm">
-            <thead className="bg-secondary text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">OS</th>
-                <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">Canal</th>
-                <th className="px-4 py-3 font-medium">Forma</th>
-                <th className="px-4 py-3 font-medium">Parcelas</th>
-                <th className="px-4 py-3 font-medium">Bruto</th>
-                <th className="px-4 py-3 font-medium">Taxa</th>
-                <th className="px-4 py-3 font-medium">Líquido</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((p) => (
-                <tr key={p.id} className="border-t border-border">
-                  <td className="px-4 py-3">{dateBR(p.payment_date)}</td>
-                  <td className="px-4 py-3">
-                    {p.work_order?.os_number}
-                    {isDuplicada(p) ? (
-                      <span
-                        className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
-                        title="Existe outro pagamento pago da mesma OS com mesma data e mesmo valor"
-                      >
-                        Possível duplicidade
-                      </span>
-                    ) : null}
-                  </td>
-
-                  <td className="px-4 py-3">{p.work_order?.customer?.full_name}</td>
-                  <td className="px-4 py-3">{p.payment_channel}</td>
-                  <td className="px-4 py-3">{p.payment_type}</td>
-                  <td className="px-4 py-3">{p.installments}x</td>
-                  <td className="px-4 py-3">{brl(p.gross_amount)}</td>
-                  <td className="px-4 py-3">
-                    {brl(p.payment_fee_amount)}{" "}
-                    <span className="text-muted-foreground">
-                      ({Number(p.applied_rate).toFixed(2).replace(".", ",")}%)
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">{brl(p.net_amount)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={p.payment_status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {p.payment_status !== "Pago" ? (
-                        <Button size="sm" variant="outline" onClick={() => abrir(p, "registrar")}>
-                          {p.reopen_reason ? "Registrar novo pagamento" : "Marcar como pago"}
-                        </Button>
-                      ) : (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => abrir(p, "registrar")}>
-                            Editar pagamento
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => abrir(p, "reabrir")}>
-                            Reabrir
-                          </Button>
-                        </>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => setHistorico(p)}>
-                        Histórico
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t-2 border-border bg-secondary font-semibold">
-              <tr>
-                <td className="px-4 py-3" colSpan={5}>
-                  Total do período · {periodoLabel}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{pagos.length} pago(s)</td>
-                <td className="px-4 py-3">{brl(bruto)}</td>
-                <td className="px-4 py-3">{brl(taxas)}</td>
-                <td className="px-4 py-3">{brl(liquido)}</td>
-                <td className="px-4 py-3" colSpan={2} />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <ul className="flex flex-col gap-2.5" aria-label="Recebidos">
+          {lista.map((p) => (
+            <li
+              key={p.id}
+              className="flex flex-col gap-2 rounded-card border border-border bg-card p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {dateBR(p.payment_date)} · OS {p.work_order?.os_number}
+                  </span>
+                  <span className="truncate text-[15px] font-bold">
+                    {p.work_order?.customer?.full_name ?? "Cliente"}
+                  </span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {p.payment_channel} · {p.payment_type}
+                    {p.installments > 1 ? ` ${p.installments}x` : ""} · taxa{" "}
+                    {brl(p.payment_fee_amount)} (
+                    {Number(p.applied_rate).toFixed(2).replace(".", ",")}%)
+                  </span>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="font-titulo text-[17px]">{brl(p.gross_amount)}</span>
+                  <span className="text-xs text-muted-foreground">líquido {brl(p.net_amount)}</span>
+                  <StatusBadge status={p.payment_status} />
+                </div>
+              </div>
+              {isDuplicada(p) ? (
+                <p className="text-xs font-semibold text-problema-foreground">
+                  Possível duplicidade: outro pagamento pago da mesma OS, mesma data e valor.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {p.payment_status !== "Pago" ? (
+                  <Botao variante="contorno" onClick={() => abrir(p, "registrar")}>
+                    {p.reopen_reason ? "Registrar novo pagamento" : "Marcar como pago"}
+                  </Botao>
+                ) : (
+                  <>
+                    <Botao variante="contorno" onClick={() => abrir(p, "registrar")}>
+                      Editar
+                    </Botao>
+                    <Botao variante="neutro" onClick={() => abrir(p, "reabrir")}>
+                      Reabrir
+                    </Botao>
+                  </>
+                )}
+                <Botao variante="neutro" onClick={() => setHistorico(p)}>
+                  Histórico
+                </Botao>
+              </div>
+            </li>
+          ))}
+          <li className="flex items-center justify-between px-1 text-sm font-bold">
+            <span>
+              Total · {periodoLabel} · {pagos.length} pago(s)
+            </span>
+            <span>
+              {brl(bruto)}{" "}
+              <span className="font-normal text-muted-foreground">(líquido {brl(liquido)})</span>
+            </span>
+          </li>
+        </ul>
       )}
 
       <PaymentDialog
@@ -434,9 +425,9 @@ function HistoryDialog({ payment, onClose }: { payment: PaymentRow | null; onClo
 
 function Card({ label, value }: { label: string; value: string }) {
   return (
-    <div className="card-surface p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
+    <div className="card-surface p-3 sm:p-4">
+      <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
+      <p className="font-titulo mt-1 text-[15px] break-words sm:text-2xl">{value}</p>
     </div>
   );
 }

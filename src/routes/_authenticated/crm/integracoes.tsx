@@ -216,7 +216,8 @@ function LeadIntegrations() {
   return (
     <>
       <PageHeader
-        title="Integrações de Leads"
+        voltarPara="/configuracoes/alice-leads"
+        title="Integrações de leads"
         description="Conecte Meta Lead Ads, Google Ads e formulários do site para criar leads automaticamente no CRM."
         actions={
           <div className="flex gap-2">

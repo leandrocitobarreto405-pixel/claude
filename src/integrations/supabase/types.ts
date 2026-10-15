@@ -6077,6 +6077,7 @@ export type Database = {
           deleted_at: string | null;
           deleted_by: string | null;
           deletion_reason: string | null;
+          eh_teste: boolean;
           empresa_id: string;
           general_notes: string | null;
           id: string;
@@ -6117,6 +6118,7 @@ export type Database = {
           deleted_at?: string | null;
           deleted_by?: string | null;
           deletion_reason?: string | null;
+          eh_teste?: boolean;
           empresa_id?: string;
           general_notes?: string | null;
           id?: string;
@@ -6157,6 +6159,7 @@ export type Database = {
           deleted_at?: string | null;
           deleted_by?: string | null;
           deletion_reason?: string | null;
+          eh_teste?: boolean;
           empresa_id?: string;
           general_notes?: string | null;
           id?: string;

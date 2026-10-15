@@ -15,6 +15,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/app-shell";
+import { AbasDeRota, Botao, Recolhido } from "@/components/nexa";
+import { SeletorMes } from "@/components/financeiro/seletor-mes";
+import { ABAS_DE_TELA, abasPermitidas } from "@/lib/menu";
+import { useContextoTenant } from "@/lib/tenant";
+import { MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateFinanceQueries } from "@/lib/cache";
@@ -134,6 +145,7 @@ function Despesas() {
   const { user } = useSession();
   const userId = user?.id ?? null;
   const { aba: abaBusca } = Route.useSearch();
+  const { data: tenant } = useContextoTenant();
   const [mes, setMes] = useState(currentMonth());
   const [aba, setAba] = useState<Aba>(
     (ABAS as readonly string[]).includes(abaBusca ?? "") ? (abaBusca as Aba) : "Todas",
@@ -476,7 +488,7 @@ function Despesas() {
   return (
     <>
       <PageHeader
-        title="Custos e despesas"
+        title="Financeiro"
         description={`${monthLabelPT(mes)} · previsto ${brl(previsto)} · pago ${brl(pago)}`}
         actions={
           <>
@@ -487,10 +499,22 @@ function Despesas() {
           </>
         }
       />
+      <AbasDeRota
+        abas={abasPermitidas(
+          ABAS_DE_TELA.financeiro,
+          tenant?.ativa?.papel ?? null,
+          tenant?.souNexa,
+        )}
+        rotulo="Financeiro"
+        className="mb-6"
+      />
 
-      <div className="card-surface mb-6 space-y-3 p-4">
-        <h2 className="text-base font-semibold">Despesas recorrentes do mês</h2>
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <Recolhido
+        titulo="Despesas recorrentes do mês"
+        contagem={faltantes.length + semVencimento.length}
+        className="mb-6"
+      >
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-6">
           <Info label="Previstas" value={String(planejadas.length)} />
           <Info label="Geradas" value={String(recorrentesGeradas)} />
           <Info label="Faltantes" value={String(faltantes.length)} />
@@ -498,17 +522,17 @@ function Despesas() {
           <Info label="Pendentes" value={String(recorrentesPendentes)} />
           <Info label="Total previsto" value={brl(totalRecorrentePrevisto)} />
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="px-4 pb-4 text-sm text-muted-foreground">
           Total pago {brl(totalRecorrentePago)} · total pendente{" "}
           {brl(Math.max(0, totalRecorrentePrevisto - totalRecorrentePago))}
         </p>
         {semVencimento.length > 0 && (
-          <p className="text-sm text-warning-foreground">
+          <p className="px-4 pb-4 text-sm text-warning-foreground">
             Dia de vencimento não configurado: {semVencimento.map((p) => p.name).join(", ")}.
           </p>
         )}
         {faltantes.length > 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
             Faltando gerar:{" "}
             {faltantes
               .map((p) => `${p.name}${p.dueDate ? ` (${dateBR(p.dueDate)})` : ""}`)
@@ -516,19 +540,10 @@ function Despesas() {
             .
           </p>
         )}
-      </div>
+      </Recolhido>
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
-        <div className="space-y-1">
-          <Label htmlFor="mes">Mês</Label>
-          <Input
-            id="mes"
-            type="month"
-            value={mes}
-            onChange={(e) => setMes(e.target.value)}
-            className="w-[170px]"
-          />
-        </div>
+        <SeletorMes mes={mes} onChange={setMes} />
         <div className="space-y-1">
           <Label htmlFor="busca">Buscar</Label>
           <Input
@@ -559,91 +574,77 @@ function Despesas() {
           description="Use “Sincronizar despesas do mês” para gerar as despesas recorrentes que faltam."
         />
       ) : (
-        <div className="card-surface overflow-x-auto">
-          <table className="w-full min-w-[1200px] text-sm">
-            <thead className="bg-secondary text-left">
-              <tr>
-                <th className="px-3 py-3 font-medium">Descrição</th>
-                <th className="px-3 py-3 font-medium">Categoria</th>
-                <th className="px-3 py-3 font-medium">Beneficiário</th>
-                <th className="px-3 py-3 font-medium">Origem</th>
-                <th className="px-3 py-3 font-medium">Competência</th>
-                <th className="px-3 py-3 font-medium">Vencimento</th>
-                <th className="px-3 py-3 font-medium">Previsto</th>
-                <th className="px-3 py-3 font-medium">Pago</th>
-                <th className="px-3 py-3 font-medium">Restante</th>
-                <th className="px-3 py-3 font-medium">Status</th>
-                <th className="px-3 py-3 font-medium">Pagamento</th>
-                <th className="px-3 py-3 font-medium">Atualização</th>
-                <th className="px-3 py-3 font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((e) => (
-                <tr key={e.id} className="border-t border-border align-top">
-                  <td className="px-3 py-3">{e.description}</td>
-                  <td className="px-3 py-3">{e.category}</td>
-                  <td className="px-3 py-3">{e.beneficiary ?? "—"}</td>
-                  <td className="px-3 py-3">{e.origin}</td>
-                  <td className="px-3 py-3">{dateBR(e.competence_date)}</td>
-                  <td className="px-3 py-3">
-                    {e.due_date ? (
-                      dateBR(e.due_date)
-                    ) : (
-                      <span className="text-warning-foreground">
-                        Dia de vencimento não configurado
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">{brl(e.expected_amount)}</td>
-                  <td className="px-3 py-3">
-                    {cashPaidAmount(e) > 0 ? brl(cashPaidAmount(e)) : "—"}
-                  </td>
-                  <td className="px-3 py-3">{brl(remainingAmount(e))}</td>
-                  <td className="px-3 py-3">
-                    <StatusBadge status={e.status} />
-                  </td>
-                  <td className="px-3 py-3">
-                    {e.payment_date
-                      ? `${dateBR(e.payment_date)}${e.payment_method ? ` · ${e.payment_method}` : ""}`
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-3 text-muted-foreground">{dateTimeBR(e.updated_at)}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {e.status !== "Pago" && e.status !== "Cancelado" && (
-                        <Button size="sm" variant="outline" onClick={() => abrirPagamento(e)}>
-                          Registrar pagamento
-                        </Button>
-                      )}
-                      <Button size="sm" variant="outline" onClick={() => abrirStatus(e)}>
-                        Alterar status
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => abrirEdicao(e)}>
-                        Editar
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setHistoricoDe(e)}>
-                        Histórico
-                      </Button>
-                      {e.status !== "Cancelado" && (
-                        <Button size="sm" variant="ghost" onClick={() => cancelarDespesa(e)}>
-                          Cancelar
-                        </Button>
-                      )}
-                      {e.daily_route_id && (
-                        <Button size="sm" variant="ghost" asChild>
-                          <Link to="/rotas" search={{ dia: e.competence_date }}>
-                            Abrir rota
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="flex flex-col gap-2.5" aria-label="Despesas">
+          {lista.map((e) => (
+            <li
+              key={e.id}
+              className="flex flex-col gap-2 rounded-card border border-border bg-card p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {e.category}
+                    {e.due_date ? ` · vence ${dateBR(e.due_date)}` : " · sem dia de vencimento"}
+                  </span>
+                  <span className="truncate text-[15px] font-bold">{e.description}</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {[
+                      e.beneficiary,
+                      e.origin,
+                      e.payment_date
+                        ? `pago ${dateBR(e.payment_date)}${e.payment_method ? ` · ${e.payment_method}` : ""}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="font-titulo text-[17px]">{brl(e.expected_amount)}</span>
+                  {cashPaidAmount(e) > 0 && remainingAmount(e) > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      resta {brl(remainingAmount(e))}
+                    </span>
+                  ) : null}
+                  <StatusBadge status={e.status} />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {e.status !== "Pago" && e.status !== "Cancelado" ? (
+                  <Botao onClick={() => abrirPagamento(e)}>Marcar como paga</Botao>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Botao variante="neutro" aria-label={`Mais ações: ${e.description}`}>
+                      <MoreHorizontal /> Mais
+                    </Botao>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-52">
+                    <DropdownMenuItem onSelect={() => abrirStatus(e)}>
+                      Alterar status
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => abrirEdicao(e)}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setHistoricoDe(e)}>
+                      Histórico
+                    </DropdownMenuItem>
+                    {e.status !== "Cancelado" ? (
+                      <DropdownMenuItem onSelect={() => void cancelarDespesa(e)}>
+                        Cancelar despesa
+                      </DropdownMenuItem>
+                    ) : null}
+                    {e.daily_route_id ? (
+                      <DropdownMenuItem asChild>
+                        <Link to="/rotas" search={{ dia: e.competence_date }}>
+                          Abrir rota
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       <Dialog open={nova} onOpenChange={setNova}>
