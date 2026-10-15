@@ -56,6 +56,52 @@ async function sheets(token: string, caminho: string, init: RequestInit = {}) {
   return texto ? (JSON.parse(texto) as Record<string, unknown>) : {};
 }
 
+/**
+ * O Google Ads lê o Conversion Value com ponto decimal. Numa planilha em pt-BR o número aparece
+ * como "295,8" e a linha é recusada (só as de valor inteiro entram). A planilha precisa estar
+ * em en_US; o fuso do horário não depende disso (vai escrito na própria célula, -03:00).
+ */
+export const LOCALIDADE_PLANILHA = "en_US";
+export function localidadeCerta(locale: unknown): boolean {
+  return (
+    String(locale ?? "")
+      .replace("-", "_")
+      .toLowerCase() === "en_us"
+  );
+}
+
+/** Abrevia o gclid nos registros (só para conferência; nunca o valor inteiro no log). */
+export function linhasParaRegistro(valores: unknown[][], maximo = 12): string[][] {
+  return valores
+    .slice(0, maximo)
+    .map((l, i) =>
+      l.map((c, j) => (i > 0 && j === 0 ? `${String(c ?? "").slice(0, 12)}…` : String(c ?? ""))),
+    );
+}
+
+/** Deixa a planilha em en_US (uma vez); devolve de onde veio e se mudou. */
+async function garantirLocalidade(token: string, id: string) {
+  const props = (await sheets(token, `${id}?fields=properties.locale`)) as {
+    properties?: { locale?: string };
+  };
+  const de = props.properties?.locale ?? "";
+  if (localidadeCerta(de)) return { de, para: de, alterada: false };
+  await sheets(token, `${id}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({
+      requests: [
+        {
+          updateSpreadsheetProperties: {
+            properties: { locale: LOCALIDADE_PLANILHA },
+            fields: "locale",
+          },
+        },
+      ],
+    }),
+  });
+  return { de, para: LOCALIDADE_PLANILHA, alterada: true };
+}
+
 /** Horário "yyyy-MM-dd HH:mm:ss-03:00" → Date (para descartar as linhas antigas). */
 function dataDaLinha(horario: unknown): Date | null {
   const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})([+-]\d{2}:\d{2})$/.exec(
@@ -167,6 +213,29 @@ async function exportarEmpresa(
   };
   const valores = atual.values ?? [];
 
+  // Localidade da planilha: en_US para o valor sair com ponto ("295.8"), senão o Google Ads recusa.
+  const localidade = await garantirLocalidade(token, id);
+  if (localidade.alterada) {
+    const formatadas = (await sheets(token, `${id}/values/${faixa}`)) as { values?: unknown[][] };
+    await supabaseAdmin.from("ads_eventos").insert({
+      empresa_id: empresaId,
+      tipo: "exportacao_google",
+      resultado: "localidade_alterada",
+      detalhe: {
+        planilha,
+        aba,
+        de: localidade.de,
+        para: localidade.para,
+        linhas: linhasParaRegistro(formatadas.values ?? []),
+      },
+    });
+    log("INFO", "exportacao.localidade_alterada", {
+      empresa_id: empresaId,
+      planilha,
+      ...localidade,
+    });
+  }
+
   // Nada novo, planilha no formato e valores como número: não mexe. Valor como texto é regravado.
   const comoTextoAntes = valoresComoTexto(valores);
   if (!novas.length && formatoCerto(valores) && !comoTextoAntes) {
@@ -181,6 +250,7 @@ async function exportarEmpresa(
         aba,
         na_planilha: Math.max(0, valores.length - 1),
         valores_como_texto: 0,
+        localidade: localidade.para,
       },
     });
     return { ...base, na_planilha: 0, situacao: "nada_novo" };
@@ -248,6 +318,7 @@ async function exportarEmpresa(
       primeiras_linhas: primeirasLinhas,
       valores_como_texto: comoTexto,
       valores_como_texto_antes: comoTextoAntes,
+      localidade: localidade.para,
     },
   });
   log("INFO", `exportacao.${situacao}`, {

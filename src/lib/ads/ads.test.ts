@@ -8,6 +8,8 @@ import {
   linhasRecentes,
   valorNumerico,
   valoresComoTexto,
+  localidadeCerta,
+  linhasParaRegistro,
 } from "./exportar-google.server";
 
 test("pop-up: JSON, formulário e nomes alternativos", () => {
@@ -127,4 +129,32 @@ test("exportação recusada: identifica OIDC, Bearer errado ou sem autorização
   );
   assert.equal(tipoDeAutorizacao("Bearer segredo-errado"), "bearer");
   assert.equal(tipoDeAutorizacao("Basic abc"), "outra");
+});
+
+test("planilha precisa estar em en_US para o valor sair com ponto", () => {
+  assert.equal(localidadeCerta("en_US"), true);
+  assert.equal(localidadeCerta("en-US"), true);
+  assert.equal(localidadeCerta("pt_BR"), false);
+  assert.equal(localidadeCerta(undefined), false);
+});
+
+test("linhas para registro: gclid abreviado, cabeçalho inteiro", () => {
+  const linhas = linhasParaRegistro([
+    [
+      "Google Click ID",
+      "Conversion Name",
+      "Conversion Time",
+      "Conversion Value",
+      "Conversion Currency",
+    ],
+    ["CjwKCAjw_pzWBhAkEiwAwDCi1X", "Venda", "2026-10-09 11:47:30-03:00", "295.8", "BRL"],
+  ]);
+  assert.deepEqual(linhas[0]![0], "Google Click ID");
+  assert.deepEqual(linhas[1], [
+    "CjwKCAjw_pzW…",
+    "Venda",
+    "2026-10-09 11:47:30-03:00",
+    "295.8",
+    "BRL",
+  ]);
 });
