@@ -51,6 +51,7 @@ function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
   if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";
   if (tipo === "lead_site_erro") return "problema";
   if (tipo === "lead_site_sem_chamar") return "atencao";
+  if (tipo === "servico_nao_concluido") return "atencao";
   return "neutro";
 }
 
@@ -77,7 +78,7 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
   for (const m of f.marketing) {
     // Agendamento da Alice abre a OS para conferir.
     const os =
-      m.tipo === "agendamento_alice"
+      m.tipo === "agendamento_alice" || m.tipo === "servico_nao_concluido"
         ? /\bOS (\S+)/.exec(m.mensagem)?.[1]?.replace(/[^\w-]/g, "")
         : undefined;
     lista.push({

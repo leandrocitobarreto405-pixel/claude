@@ -51,6 +51,15 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("CRM: falha no vínculo de OS", e instanceof Error ? e.message : e);
             return null;
           });
+          // Serviço de data passada ainda "Agendado" depois de 1 dia: aviso só no app, por visita.
+          const { avisarServicosNaoConcluidos } = await import("@/lib/avisos.server");
+          const servicosNaoConcluidos = await avisarServicosNaoConcluidos().catch((e) => {
+            console.error(
+              "Avisos: falha nos serviços não concluídos",
+              e instanceof Error ? e.message : e,
+            );
+            return null;
+          });
           // Google Ads: exportação diária das vendas (uma vez por dia, a partir das 5h).
           const { exportacaoDiaria } = await import("@/lib/ads/exportar-google.server");
           const exportacaoGoogle = await exportacaoDiaria()
@@ -70,6 +79,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             leadsSite,
             vinculoOs,
             retornosExpirados,
+            servicosNaoConcluidos,
             exportacaoGoogle,
           });
         } catch (erro) {
