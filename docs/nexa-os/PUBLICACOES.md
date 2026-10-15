@@ -246,6 +246,20 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   recebimentos do período) e `public.crm_ligar_os_sem_lead` não liga OS de teste a lead. Mesmas
   assinaturas; nenhuma tabela ou dado alterado. Para voltar: recriar as duas funções com o texto
   de `20261004120000` e `20261108140000`.
+- "Marketing sem quem tem OS ou garantia" (`20261112120000`, aplicada em 15/10 em partes, todas as
+  empresas): `mkt_listas_dados` ganha `tem_os` (OS não cancelada/excluída/de teste com venda nos
+  últimos 90 dias ou atendimento ainda não concluído) e `garantia_aberta` (retorno pendente com
+  "garantia"/"reclama", a regra da Alice); listas, promoção, planilha diária, contagem, "presas" e
+  lembretes passam a usar as duas regras (motivos "tem OS" e "garantia/reclamação em aberto");
+  `mkt_reservar_envios` cancela antes de reservar o pendente de campanha/promoção de quem passou a
+  ter OS e qualquer envio de quem tem garantia em aberto (erro com o motivo, nada apagado; na
+  aplicação, 2 dos 314 pendentes da "Primavera"); aviso só no app `servico_nao_concluido` (coluna
+  nova `mkt_avisos.referencia`, um aviso por visita). As versões anteriores de `mkt_listas_dados` e
+  `mkt_motivo_fora` ficaram com o sufixo `_ate_20261112`. A troca de `mkt_preparar_campanha` não
+  pôde ser feita daqui (o Supabase pede uma confirmação que não chega a esta sessão): rodar
+  `scripts/mkt/preparar-campanha-tem-os.sql` no SQL Editor; até lá a conferência no envio cobre.
+  Para voltar: recriar as funções com o texto das migrações anteriores e renomear as `_ate_20261112`
+  de volta.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -328,6 +342,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 14/10/2026       | Repaginada fase 3 (só na `redesign`/`nexaos-teste`) | `d2ab520`…`a2b7099` | `ce3ff5d`                |
 | 15/10/2026 02:00 | Repaginada fases 1, 2 e 3 (merge da `redesign`)     | `db7a286`           | `8b85f6d`                |
 | 15/10/2026 03:16 | Google Ads: planilha em en_US                       | `af804c4`           | `0279885`                |
+| 15/10/2026       | Marketing sem quem tem OS ou garantia               | `8bc25cb`           | `fff5cb2`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
