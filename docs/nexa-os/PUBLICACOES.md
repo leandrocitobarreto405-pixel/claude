@@ -260,6 +260,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `scripts/mkt/preparar-campanha-tem-os.sql` no SQL Editor; até lá a conferência no envio cobre.
   Para voltar: recriar as funções com o texto das migrações anteriores e renomear as `_ate_20261112`
   de volta.
+- "Alice no Sonnet" (`20261113120000`, aplicada em 18/10, todas as empresas): o padrão de
+  `ia_configuracoes.modelo` passa a `claude-sonnet-5-5` e quem estava no `claude-opus-5-5` foi
+  trocado (só a Turbine). Nada apagado. Para voltar: escolher o Opus em Alice › Ajustes avançados
+  (o modelo de cada execução continua em `ia_execucoes.modelo`). O painel Nexa › Alice só lê.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -343,6 +347,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 15/10/2026 02:00 | Repaginada fases 1, 2 e 3 (merge da `redesign`)     | `db7a286`           | `8b85f6d`                |
 | 15/10/2026 03:16 | Google Ads: planilha em en_US                       | `af804c4`           | `0279885`                |
 | 15/10/2026       | Marketing sem quem tem OS ou garantia               | `8bc25cb`           | `fff5cb2`                |
+| 18/10/2026       | Alice mais barata + painel Nexa › Alice             | `9438aa0`…`caf0b6a` | `c935863`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
