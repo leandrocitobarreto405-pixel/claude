@@ -275,7 +275,7 @@ export function dividirResposta(texto: string, maximo = 3): string[] {
 }
 
 // ---------------------------------------------------------------- custo
-/** US$ por milhão de tokens. Cache gravado (5 min) custa 1,25× a entrada. */
+/** US$ por milhão de tokens. Cache gravado custa 1,25× a entrada (5 min) ou 2× (1 hora). */
 const PRECOS_USD_POR_MILHAO: Record<string, { entrada: number; saida: number; cacheLido: number }> =
   {
     "claude-opus-5-5": { entrada: 4, saida: 20, cacheLido: 0.2 },
@@ -290,7 +290,10 @@ export type Uso = {
   entrada: number;
   saida: number;
   cacheLeitura: number;
+  /** Total gravado no cache (5 min + 1 hora). */
   cacheEscrita: number;
+  /** Parte do cache gravado com validade de 1 hora (instruções fixas). */
+  cacheEscrita1h?: number;
 };
 
 export function custoEstimadoUsd(modelo: string, uso: Uso): number {
@@ -298,7 +301,8 @@ export function custoEstimadoUsd(modelo: string, uso: Uso): number {
   const total =
     uso.entrada * p.entrada +
     uso.cacheLeitura * p.cacheLido +
-    uso.cacheEscrita * p.entrada * 1.25 +
+    (uso.cacheEscrita - (uso.cacheEscrita1h ?? 0)) * p.entrada * 1.25 +
+    (uso.cacheEscrita1h ?? 0) * p.entrada * 2 +
     uso.saida * p.saida;
   return Math.round((total / 1_000_000) * 1_000_000) / 1_000_000;
 }

@@ -36,7 +36,8 @@ type Admin = SupabaseClient<Database>;
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
 
 const MAX_RODADAS = 8;
-const MAX_HISTORICO = 40;
+/** Mensagens mais recentes que a Alice lê (o resumo do lead guarda o resto). */
+const MAX_HISTORICO = 20;
 const MAX_IMAGENS = 4;
 const MAX_AUDIOS_TRANSCRITOS = 3;
 const MAX_MENSAGENS_POR_RESPOSTA = 10;
@@ -684,6 +685,51 @@ async function concluirRepescagem(
     .eq("empresa_id", tarefa.empresa_id);
 }
 
+/**
+ * Conferência rápida antes de cada chamada ao modelo: mensagem do cliente mais nova que a última
+ * lida, conversa fora da Alice (equipe assumiu) ou atendente escreveu desde o início. Devolve o
+ * motivo ou null. A decisão final (descartar e reagendar) continua no fim da resposta.
+ */
+async function motivoParaParar(
+  db: Admin,
+  empresaId: string,
+  conversaId: string,
+  ultimaLida: Date | null,
+  inicio: number,
+): Promise<string | null> {
+  const [{ data: ultima }, { data: conversa }, { data: humanas }] = await Promise.all([
+    db
+      .from("whatsapp_messages")
+      .select("message_timestamp")
+      .eq("empresa_id", empresaId)
+      .eq("conversa_id", conversaId)
+      .eq("direction", "Recebida")
+      .eq("privada", false)
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db.from("conversas").select("status").eq("id", conversaId).single(),
+    db
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .eq("conversa_id", conversaId)
+      .eq("direction", "Enviada")
+      .eq("remetente_tipo", "user")
+      .eq("privada", false)
+      .gte("created_at", new Date(inicio).toISOString())
+      .limit(1),
+  ]);
+  if (
+    ultima &&
+    (!ultimaLida || new Date(ultima.message_timestamp).getTime() > ultimaLida.getTime())
+  )
+    return "cliente mandou mensagem nova";
+  if (humanas?.length) return "atendente escreveu";
+  if (conversa && conversa.status !== "pending") return "equipe assumiu";
+  return null;
+}
+
 // ---------------------------------------------------------------- conversa com a IA
 async function conversar(
   db: Admin,
@@ -759,10 +805,18 @@ async function conversar(
     .join("\n");
   const momentoNoMeio = !SEM_SISTEMA_NO_MEIO.includes(cfg.modelo);
   const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: instrucoesFixas(empresa), cache_control: { type: "ephemeral" } },
+    // Ferramentas + instruções fixas são iguais em todas as conversas da empresa: cache de 1 hora,
+    // gravado uma vez e lido pelas próximas conversas (com 5 min, cada conversa regravava tudo).
+    {
+      type: "text",
+      text: instrucoesFixas(empresa),
+      cache_control: { type: "ephemeral", ttl: "1h" },
+    },
     ...(momentoNoMeio ? [] : [{ type: "text" as const, text: momento }]),
   ];
-  const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
+  const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };
+  /** Mensagem nova do cliente ou equipe assumiu no meio da resposta: para antes de gastar mais. */
+  let interrompida: string | null = null;
   const ferramentasUsadas: Array<{ nome: string; entrada: unknown; resultado: string }> = [];
   const saida: Saida[] = [];
   /** Relatório que a IA escreveu para si ("Enviei ao Breno...", "Ficha do cliente..."): não vai. */
@@ -775,6 +829,18 @@ async function conversar(
     : [...turnos];
 
   while (rodadas < MAX_RODADAS) {
+    // Antes de cada chamada (menos depois de criar/remarcar OS, que precisa da confirmação):
+    // chegou mensagem nova ou a equipe assumiu? Para aqui; a tarefa seguinte responde tudo junto.
+    if (!ctx.osAcao) {
+      interrompida = await motivoParaParar(
+        db,
+        tarefa.empresa_id,
+        d.conversa.id,
+        hist.ultimaDoCliente,
+        inicio,
+      );
+      if (interrompida) break;
+    }
     rodadas++;
     const resposta = await cliente.beta.messages.create({
       model: cfg.modelo,
@@ -794,6 +860,7 @@ async function conversar(
     uso.saida += resposta.usage.output_tokens;
     uso.cacheLeitura += resposta.usage.cache_read_input_tokens ?? 0;
     uso.cacheEscrita += resposta.usage.cache_creation_input_tokens ?? 0;
+    uso.cacheEscrita1h! += resposta.usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
     parada = resposta.stop_reason;
     if (resposta.stop_reason === "refusal") break;
 
@@ -848,12 +915,21 @@ async function conversar(
 
   const textos = saida.filter((s) => s.tipo === "texto");
   const semNada = saida.filter((s) => !(s.tipo === "texto" && s.texto.trim() === NADA));
-  if (ehFollowup && !ctx.passagem && semNada.length === 0 && parada !== "refusal") {
+  if (
+    ehFollowup &&
+    !interrompida &&
+    !ctx.passagem &&
+    semNada.length === 0 &&
+    parada !== "refusal"
+  ) {
     await db.from("ia_execucoes").insert({ ...registro, mensagens_enviadas: [] });
     await concluirRepescagem(db, tarefa, `${cfg.nome} avaliou que não era preciso enviar`, true);
     return { situacao: "concluida", detalhe: "follow-up dispensado pela IA" };
   }
-  if (parada === "refusal" || (!textos.length && !saida.length && !ctx.passagem)) {
+  if (
+    !interrompida &&
+    (parada === "refusal" || (!textos.length && !saida.length && !ctx.passagem))
+  ) {
     await db.from("ia_execucoes").insert({ ...registro, erro: "sem resposta da IA" });
     if (ehFollowup) {
       await followupParaEquipe(db, tarefa, "a Alice não conseguiu escrever o toque");

@@ -141,8 +141,8 @@ check(
 );
 check("instrução da empresa no prompt", sistema.includes("Atendemos só Florianópolis."));
 check(
-  "prompt fixo com cache",
-  JSON.stringify(primeira.body.system?.[0]?.cache_control) === '{"type":"ephemeral"}',
+  "prompt fixo com cache de 1 hora",
+  JSON.stringify(primeira.body.system?.[0]?.cache_control) === '{"type":"ephemeral","ttl":"1h"}',
 );
 const blocos = primeira.body.messages?.[0]?.content ?? [];
 check(

@@ -182,3 +182,31 @@ test("acréscimos: só para empresa com classe/acréscimos ligados, sem conta de
   assert.match(txt, /almofadas_soltas \(\+10%\), muito_encardido \(\+10%\)/);
   assert.match(txt, /Nunca calcule acréscimo de cabeça/);
 });
+
+test("custo: cache de 1 hora custa 2× a entrada e o de 5 min 1,25×", () => {
+  // Sonnet 5.5: entrada 2, saída 10, cache lido 0,2 (US$ por milhão).
+  const so5min = custoEstimadoUsd("claude-sonnet-5-5", {
+    entrada: 0,
+    saida: 0,
+    cacheLeitura: 0,
+    cacheEscrita: 1_000_000,
+  });
+  assert.equal(so5min, 2.5);
+  const metade1h = custoEstimadoUsd("claude-sonnet-5-5", {
+    entrada: 0,
+    saida: 0,
+    cacheLeitura: 0,
+    cacheEscrita: 1_000_000,
+    cacheEscrita1h: 500_000,
+  });
+  assert.equal(metade1h, 0.5 * 2.5 + 0.5 * 4);
+  assert.equal(
+    custoEstimadoUsd("claude-sonnet-5-5", {
+      entrada: 0,
+      saida: 1_000_000,
+      cacheLeitura: 1_000_000,
+      cacheEscrita: 0,
+    }),
+    10.2,
+  );
+});
