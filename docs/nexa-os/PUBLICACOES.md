@@ -264,6 +264,17 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `ia_configuracoes.modelo` passa a `claude-sonnet-5-5` e quem estava no `claude-opus-5-5` foi
   trocado (só a Turbine). Nada apagado. Para voltar: escolher o Opus em Alice › Ajustes avançados
   (o modelo de cada execução continua em `ia_execucoes.modelo`). O painel Nexa › Alice só lê.
+- "Terceirizados" (`20261114120000`, aplicada em 18/10): colunas novas e vazias em `technicians`
+  (`parceiro`, com regra "parceiro sem login e sem e-mail"), `tabela_precos_itens` (`terceirizado`,
+  `custo_parceiro`, `custo_parceiro_impermeabilizacao`, `parceiro_id`), `service_items`
+  (`tabela_preco_item_id`, `custo_parceiro_unitario`, `parceiro_id`, `repasse_parceiro` calculado)
+  e `visits.repasse_parceiro`; gatilhos que congelam o custo na linha da OS e criam/ajustam/cancelam
+  a despesa "Repasse a parceiro" (`reference_key` `repasse:<visita>`) ao concluir. Dados: 7 itens de
+  tapete/persiana da Turbine marcados como terceirizados (custo vazio, repasse zero até preencher) e
+  técnico parceiro "Reginaldo" (sem e-mail/login) ligado a eles. As chaves estrangeiras novas não têm
+  `ON DELETE` (o Supabase pede confirmação que não chega a esta sessão): item usado em OS só é
+  desativado. Pendente: preencher o custo e rodar `scripts/terceirizados/religar-os-existentes.sql`
+  (OS 1684 e 1685) depois da prévia. Para voltar: desligar "Terceirizado" nos itens (repasse zero).
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -348,6 +359,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 15/10/2026 03:16 | Google Ads: planilha em en_US                       | `af804c4`           | `0279885`                |
 | 15/10/2026       | Marketing sem quem tem OS ou garantia               | `8bc25cb`           | `fff5cb2`                |
 | 18/10/2026       | Alice mais barata + painel Nexa › Alice             | `9438aa0`…`caf0b6a` | `c935863`                |
+| 18/10/2026       | Terceirizados (tapete e persiana)                   | `6594530`           | `d93b042`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
