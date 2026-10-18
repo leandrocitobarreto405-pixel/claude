@@ -82,7 +82,7 @@ async function leadsDaEmpresa(empresaId: string, ids: string[]) {
     const { data, error } = await supabase
       .from("crm_leads")
       .select(
-        "id, orcamento_em, os_criada_em, os:linked_work_order_id ( total_gross_value, eh_teste, cancelled_at, deleted_at )",
+        "id, orcamento_em, os_criada_em, os:linked_work_order_id ( total_gross_value, eh_teste, cancelled_at, deleted_at, visits ( repasse_parceiro ) )",
       )
       .in("id", ids.slice(i, i + 150))
       .setHeader(EMPRESA_HEADER, empresaId);
@@ -226,8 +226,9 @@ function AliceNexa() {
             <h2 className="mb-1 text-lg font-semibold">Por empresa — {monthLabelPT(mes)}</h2>
             <p className="mb-3 text-sm text-muted-foreground">
               Atendidos: leads a quem a Alice mandou mensagem no mês. Orçamento e venda: o que esses
-              leads já alcançaram (OS de teste, cancelada ou excluída não conta). A comissão é a da
-              linha "Comissão Nexa" do DRE, só das vendas da Alice recebidas no mês.
+              leads já alcançaram (OS de teste, cancelada ou excluída não conta; valor sem o repasse
+              a parceiros). A comissão é a da linha "Comissão Nexa" do DRE, só das vendas da Alice
+              recebidas no mês.
             </p>
             {linhas.length ? (
               <div className="space-y-3">

@@ -1125,11 +1125,12 @@ function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: 
 async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof DadosTecnico>) {
   const { data } = await ctx.admin
     .from("technicians")
-    .select("id, name, foto_path")
+    .select("id, name, foto_path, parceiro")
     .eq("empresa_id", ctx.empresaId)
     .eq("active", true)
     .order("display_order");
   const tecnicos = data ?? [];
+  const daEmpresa = tecnicos.filter((t) => !t.parceiro);
   const norm = (t: string) =>
     t
       .normalize("NFD")
@@ -1140,15 +1141,22 @@ async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof
   const achado = pedido
     ? (tecnicos.find((t) => norm(t.name) === pedido) ??
       tecnicos.find((t) => norm(t.name).includes(pedido) || pedido.includes(norm(t.name))))
-    : tecnicos.length === 1
-      ? tecnicos[0]
+    : daEmpresa.length === 1
+      ? daEmpresa[0]
       : undefined;
   if (!achado) {
     return {
       erro: true,
       texto: tecnicos.length
-        ? `Informe o técnico do horário oferecido. Técnicos: ${tecnicos.map((t) => t.name).join(", ")}.`
+        ? `Informe o técnico do horário oferecido. Técnicos: ${daEmpresa.map((t) => t.name).join(", ")}.`
         : "Não há técnico ativo cadastrado. Siga sem a foto.",
+    };
+  }
+  // Parceiro terceirizado: só o nome, sem foto nem telefone.
+  if (achado.parceiro) {
+    return {
+      erro: false,
+      texto: `Técnico: ${achado.name}. Diga só o nome dele, sem foto e sem telefone.`,
     };
   }
   if (!achado.foto_path) {

@@ -156,6 +156,8 @@ export const lerAgendaConfig = createServerFn({ method: "GET" })
         .from("technicians")
         .select("id, name, active")
         .eq("empresa_id", context.empresaId)
+        // Parceiro terceirizado: a equipe marca à mão, sem horários-base.
+        .eq("parceiro", false)
         .order("display_order")
         .order("name"),
       db

@@ -122,6 +122,16 @@ function DRE() {
           <tbody>
             <Line label="Vendas fechadas no mês" value={r?.soldGross} muted />
             <Line label="Serviços realizados no mês (valor)" value={r?.servicesValue} muted />
+            {(r?.repasse ?? 0) !== 0 ? (
+              <>
+                <Line
+                  label="Recebido dos clientes nos serviços do mês"
+                  value={(r?.revenue ?? 0) + (r?.repasse ?? 0)}
+                  muted
+                />
+                <Line label="(-) Repasse a parceiros (terceirizados)" value={-(r?.repasse ?? 0)} />
+              </>
+            ) : null}
             <Line label="(=) Receita recebida dos serviços do mês" value={r?.revenue} strong />
             <Line label="(-) Taxas de pagamento" value={-(r?.fees ?? 0)} />
             {temNexa ? (
@@ -135,6 +145,12 @@ function DRE() {
               <p className="pb-1 text-xs text-muted-foreground">
                 Quilometragem paga ao técnico no mês: {brl(r?.mileageExpensesPaid)} (já está no
                 custo de deslocamento, não entra de novo nas despesas).
+              </p>
+            ) : null}
+            {(r?.repasseExpensesPaid ?? 0) > 0 ? (
+              <p className="pb-1 text-xs text-muted-foreground">
+                Repasse pago a parceiros no mês: {brl(r?.repasseExpensesPaid)} (já descontado da
+                receita, não entra de novo nas despesas).
               </p>
             ) : null}
             {(r?.cmv ?? 0) > 0 ? (

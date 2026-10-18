@@ -54,7 +54,11 @@ async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
       .from("agenda_horarios_base")
       .select("tecnico_id, dia_semana, hora")
       .eq("empresa_id", empresaId),
-    db.from("technicians").select("id, name, active").eq("empresa_id", empresaId),
+    db
+      .from("technicians")
+      .select("id, name, active")
+      .eq("empresa_id", empresaId)
+      .eq("parceiro", false),
     db
       .from("visits")
       .select("technician_id, scheduled_time, status")

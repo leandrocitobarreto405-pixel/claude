@@ -18,6 +18,7 @@ import {
   type Venda,
 } from "@/lib/painel";
 import { RECEIVABLE_SCHEDULED_STATUSES, fetchReceivables } from "@/lib/receivables";
+import { repasseDaOs, valorLiquido } from "@/lib/terceirizados";
 import { fetchMonthSummary } from "@/lib/reports";
 import { effectiveVisitValue } from "@/lib/visit-value";
 
@@ -30,14 +31,16 @@ type VisitaResumo = {
   completion_date: string | null;
   final_value: number | null;
   visit_value: number | null;
+  repasse_parceiro?: number | null;
   work_order: OsResumo;
 };
 
 const osValida = (o: OsResumo) => !!o && !o.deleted_at && !o.eh_teste && o.status !== "Cancelada";
 const menor = (a: string, b: string) => (a < b ? a : b);
 const maior = (a: string, b: string) => (a > b ? a : b);
+// Sem o repasse a parceiros dos itens terceirizados (só a receita líquida conta).
 const soma = (lista: VisitaResumo[]) =>
-  round2(lista.reduce((t, v) => t + effectiveVisitValue(v), 0));
+  round2(lista.reduce((t, v) => t + valorLiquido(effectiveVisitValue(v), v.repasse_parceiro), 0));
 
 export const resumoPainel = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
@@ -64,7 +67,7 @@ export const resumoPainel = createServerFn({ method: "GET" })
         db
           .from("work_orders")
           .select(
-            "id, sale_date, total_gross_value, status, eh_teste, sales_origin:sales_origin_id ( name )",
+            "id, sale_date, total_gross_value, status, eh_teste, sales_origin:sales_origin_id ( name ), visits ( repasse_parceiro )",
           )
           .is("deleted_at", null)
           .neq("status", "Cancelada")
@@ -73,7 +76,7 @@ export const resumoPainel = createServerFn({ method: "GET" })
         db
           .from("visits")
           .select(
-            "completion_date, final_value, visit_value, work_order:work_order_id ( eh_teste, deleted_at, status )",
+            "completion_date, final_value, visit_value, repasse_parceiro, work_order:work_order_id ( eh_teste, deleted_at, status )",
           )
           .eq("status", "Concluído")
           .gte("completion_date", menor(anterior.de, noMes.de))
@@ -81,7 +84,7 @@ export const resumoPainel = createServerFn({ method: "GET" })
         db
           .from("visits")
           .select(
-            "completion_date, final_value, visit_value, work_order:work_order_id ( eh_teste, deleted_at, status )",
+            "completion_date, final_value, visit_value, repasse_parceiro, work_order:work_order_id ( eh_teste, deleted_at, status )",
           )
           .in("status", RECEIVABLE_SCHEDULED_STATUSES)
           .gte("scheduled_date", hoje)
@@ -139,12 +142,13 @@ export const resumoPainel = createServerFn({ method: "GET" })
         total_gross_value: number | null;
         eh_teste: boolean;
         sales_origin: { name: string } | null;
+        visits: { repasse_parceiro: number | null }[] | null;
       }[]
     )
       .filter((w) => !w.eh_teste)
       .map((w) => ({
         sale_date: w.sale_date,
-        valor: round2(Number(w.total_gross_value ?? 0)),
+        valor: valorLiquido(Number(w.total_gross_value ?? 0), repasseDaOs(w.visits)),
         origem: w.sales_origin?.name ?? null,
       }));
     const vendasAtual = vendas.filter((v) => dentro(v.sale_date, atual));

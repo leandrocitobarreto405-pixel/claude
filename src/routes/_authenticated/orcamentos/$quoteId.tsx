@@ -20,6 +20,7 @@ import { findRate, usePaymentRates, useSetting } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
+import { repasseEstimado } from "@/lib/terceirizados";
 import { useConfigOrcamento } from "@/lib/orcamento-config";
 import {
   acrescimoDoItem,
@@ -378,6 +379,7 @@ function OrcamentoDetalhe() {
     if (aVistaEditado !== null && Math.abs(aVistaEditado - aVistaCalculado) < 0.005)
       setAVistaEditado(null);
   }, [aVistaEditado, aVistaCalculado]);
+  const repasse = repasseEstimado(linhas, catalogo ?? []);
   const custoDeslocamento = round(km * custoKmConfig);
   const custos = useMemo(
     () => ({
@@ -1107,6 +1109,12 @@ function OrcamentoDetalhe() {
             </>
           )}
         </div>
+        {repasse > 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Terceirizado (uso interno): repasse ao parceiro {brl(repasse)} · fica{" "}
+            {brl(Math.max(0, total - repasse))}
+          </p>
+        ) : null}
 
         {vitrine ? (
           <div className="mt-4 rounded-xl border border-border/70 p-3">

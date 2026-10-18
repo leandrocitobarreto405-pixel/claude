@@ -40,9 +40,11 @@ export async function carregarAgenda(ctx: Ctx, inicio: string, ate: string) {
   const [{ data: base, error: e1 }, { data: visitas, error: e2 }] = await Promise.all([
     ctx.admin
       .from("agenda_horarios_base")
-      .select("tecnico_id, dia_semana, hora, technicians!inner(name, active)")
+      .select("tecnico_id, dia_semana, hora, technicians!inner(name, active, parceiro)")
       .eq("empresa_id", ctx.empresaId)
-      .eq("technicians.active", true),
+      .eq("technicians.active", true)
+      // Parceiro terceirizado: a equipe marca os horários dele à mão.
+      .eq("technicians.parceiro", false),
     ctx.admin
       .from("visits")
       .select(

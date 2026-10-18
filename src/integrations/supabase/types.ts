@@ -5195,6 +5195,10 @@ export type Database = {
       };
       service_items: {
         Row: {
+          custo_parceiro_unitario: number | null;
+          parceiro_id: string | null;
+          repasse_parceiro: number;
+          tabela_preco_item_id: string | null;
           active: boolean;
           adicional_pos_fechamento: boolean;
           created_at: string;
@@ -5215,6 +5219,9 @@ export type Database = {
           visit_id: string;
         };
         Insert: {
+          custo_parceiro_unitario?: number | null;
+          parceiro_id?: string | null;
+          tabela_preco_item_id?: string | null;
           active?: boolean;
           adicional_pos_fechamento?: boolean;
           created_at?: string;
@@ -5235,6 +5242,9 @@ export type Database = {
           visit_id: string;
         };
         Update: {
+          custo_parceiro_unitario?: number | null;
+          parceiro_id?: string | null;
+          tabela_preco_item_id?: string | null;
           active?: boolean;
           adicional_pos_fechamento?: boolean;
           created_at?: string;
@@ -5277,6 +5287,10 @@ export type Database = {
       };
       tabela_precos_itens: {
         Row: {
+          custo_parceiro: number | null;
+          custo_parceiro_impermeabilizacao: number | null;
+          parceiro_id: string | null;
+          terceirizado: boolean;
           ativo: boolean;
           categoria: string;
           created_at: string;
@@ -5290,6 +5304,10 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          custo_parceiro?: number | null;
+          custo_parceiro_impermeabilizacao?: number | null;
+          parceiro_id?: string | null;
+          terceirizado?: boolean;
           ativo?: boolean;
           categoria?: string;
           created_at?: string;
@@ -5303,6 +5321,10 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          custo_parceiro?: number | null;
+          custo_parceiro_impermeabilizacao?: number | null;
+          parceiro_id?: string | null;
+          terceirizado?: boolean;
           ativo?: boolean;
           categoria?: string;
           created_at?: string;
@@ -5396,6 +5418,7 @@ export type Database = {
       };
       technicians: {
         Row: {
+          parceiro: boolean;
           active: boolean;
           base_address: string | null;
           base_latitude: number | null;
@@ -5413,6 +5436,7 @@ export type Database = {
           vehicle: string | null;
         };
         Insert: {
+          parceiro?: boolean;
           active?: boolean;
           base_address?: string | null;
           base_latitude?: number | null;
@@ -5430,6 +5454,7 @@ export type Database = {
           vehicle?: string | null;
         };
         Update: {
+          parceiro?: boolean;
           active?: boolean;
           base_address?: string | null;
           base_latitude?: number | null;
@@ -5579,6 +5604,7 @@ export type Database = {
       };
       visits: {
         Row: {
+          repasse_parceiro: number;
           completion_date: string | null;
           completion_time: string | null;
           created_at: string;
@@ -5619,6 +5645,7 @@ export type Database = {
           work_order_id: string;
         };
         Insert: {
+          repasse_parceiro?: number;
           completion_date?: string | null;
           completion_time?: string | null;
           created_at?: string;
@@ -5659,6 +5686,7 @@ export type Database = {
           work_order_id: string;
         };
         Update: {
+          repasse_parceiro?: number;
           completion_date?: string | null;
           completion_time?: string | null;
           created_at?: string;

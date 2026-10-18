@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,13 +171,21 @@ export function Equipe() {
                   }
                 >
                   {t.name}
+                  {t.parceiro ? " · parceiro" : ""}
                   {t.active ? "" : " (inativo)"}
                 </p>
                 <Button variant="outline" onClick={() => ativarTecnico(t.id, !t.active)}>
                   {t.active ? "Desativar" : "Ativar"}
                 </Button>
               </div>
-              {empresaId ? (
+              {t.parceiro ? (
+                <p className="text-sm text-muted-foreground">
+                  Terceirizado: não tem acesso ao app, e-mail, convite da Agenda nem avisos. Aparece
+                  como responsável nas visitas dele, a Alice diz só o nome e fica fora do custo de
+                  km.
+                </p>
+              ) : null}
+              {empresaId && !t.parceiro ? (
                 <FotoTecnico
                   empresaId={empresaId}
                   tecnicoId={t.id}
@@ -185,31 +194,35 @@ export function Equipe() {
                   aoMudar={() => invalidate("technicians")}
                 />
               ) : null}
-              <LoginDaEquipe
-                tabela="technicians"
-                id={t.id}
-                userId={t.user_id ?? null}
-                papel="tecnico"
-                membros={membros.data ?? []}
-                ligados={(tecnicos ?? []).map((x) => x.user_id ?? null)}
-                aoMudar={() => invalidate("technicians")}
-              />
-              <div className="space-y-2">
-                <Label>Endereço base</Label>
-                <Input
-                  defaultValue={t.base_address ?? ""}
-                  onBlur={(e) => salvarBase(t.id, e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>E-mail (recebe o convite do Google Agenda)</Label>
-                <Input
-                  type="email"
-                  placeholder="tecnico@empresa.com.br"
-                  defaultValue={t.email ?? ""}
-                  onBlur={(e) => salvarEmail(t.id, e.target.value)}
-                />
-              </div>
+              {t.parceiro ? null : (
+                <>
+                  <LoginDaEquipe
+                    tabela="technicians"
+                    id={t.id}
+                    userId={t.user_id ?? null}
+                    papel="tecnico"
+                    membros={membros.data ?? []}
+                    ligados={(tecnicos ?? []).map((x) => x.user_id ?? null)}
+                    aoMudar={() => invalidate("technicians")}
+                  />
+                  <div className="space-y-2">
+                    <Label>Endereço base</Label>
+                    <Input
+                      defaultValue={t.base_address ?? ""}
+                      onBlur={(e) => salvarBase(t.id, e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>E-mail (recebe o convite do Google Agenda)</Label>
+                    <Input
+                      type="email"
+                      placeholder="tecnico@empresa.com.br"
+                      defaultValue={t.email ?? ""}
+                      onBlur={(e) => salvarEmail(t.id, e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           ))}
           {tecnicos && !tecnicos.length ? (
@@ -466,6 +479,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
   const [nome, setNome] = useState("");
   const [base, setBase] = useState("");
   const [email, setEmail] = useState("");
+  const [parceiro, setParceiro] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
@@ -474,7 +488,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
       toast.error("Informe o nome do técnico.");
       return;
     }
-    const mail = email.trim();
+    const mail = parceiro ? "" : email.trim();
     if (mail && !mail.includes("@")) {
       toast.error("Informe um e-mail válido.");
       return;
@@ -492,9 +506,10 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
     setSalvando(true);
     const { error } = await supabase.from("technicians").insert({
       name,
-      base_address: base.trim() || null,
+      base_address: parceiro ? null : base.trim() || null,
       email: mail || null,
       display_order: ordem,
+      parceiro,
     } as never);
     setSalvando(false);
     if (error) {
@@ -505,6 +520,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
     setNome("");
     setBase("");
     setEmail("");
+    setParceiro(false);
     aoSalvar();
   }
 
@@ -520,19 +536,31 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
           onChange={(e) => setNome(e.target.value)}
         />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="novo-tecnico-base">Endereço base (de onde sai)</Label>
-        <Input id="novo-tecnico-base" value={base} onChange={(e) => setBase(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="novo-tecnico-email">E-mail (opcional)</Label>
-        <Input
-          id="novo-tecnico-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <Switch
+          checked={parceiro}
+          onCheckedChange={setParceiro}
+          aria-label="Parceiro terceirizado"
         />
-      </div>
+        Parceiro terceirizado (não é da empresa: sem acesso, e-mail nem avisos)
+      </label>
+      {parceiro ? null : (
+        <>
+          <div className="space-y-1">
+            <Label htmlFor="novo-tecnico-base">Endereço base (de onde sai)</Label>
+            <Input id="novo-tecnico-base" value={base} onChange={(e) => setBase(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="novo-tecnico-email">E-mail (opcional)</Label>
+            <Input
+              id="novo-tecnico-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+        </>
+      )}
       <Button disabled={salvando} onClick={salvar}>
         Adicionar técnico
       </Button>

@@ -79,6 +79,8 @@ export type Technician = {
   user_id?: string | null;
   /** Foto na pasta "equipe-fotos" (a Alice manda ao cliente). */
   foto_path?: string | null;
+  /** Parceiro terceirizado: sem login, e-mail ou avisos; fora do km e dos horários da Alice. */
+  parceiro?: boolean;
 };
 
 export function useTechnicians(onlyActive = true) {
@@ -88,7 +90,7 @@ export function useTechnicians(onlyActive = true) {
       let q = supabase
         .from("technicians")
         .select(
-          "id, name, email, base_address, vehicle, include_return, active, user_id, foto_path",
+          "id, name, email, base_address, vehicle, include_return, active, user_id, foto_path, parceiro",
         )
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);

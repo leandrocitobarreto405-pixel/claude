@@ -9,6 +9,12 @@ import { cashPaidAmount } from "@/lib/expenses";
 import { despesaDeRota } from "@/lib/dre-quilometragem";
 import { fetchReceivables } from "@/lib/receivables";
 import { effectiveVisitValue } from "@/lib/visit-value";
+import {
+  despesaDeRepasse,
+  repasseDaOs,
+  repasseDoRecebido,
+  valorLiquido,
+} from "@/lib/terceirizados";
 
 export type CompletedVisit = {
   id: string;
@@ -18,6 +24,8 @@ export type CompletedVisit = {
   visit_value: number;
   discount_amount: number | null;
   mileage_cost_allocated: number;
+  /** Repasse ao parceiro dos itens terceirizados do atendimento (soma das linhas ativas). */
+  repasse_parceiro?: number | null;
   service_type: { name: string } | null;
   upholstery_type: { name: string } | null;
   upholstery_description: string | null;
@@ -86,7 +94,7 @@ export type ExpenseRow = {
 
 const COMPLETED_SELECT = `
   id, completion_date, scheduled_date, final_value, visit_value, discount_amount,
-  mileage_cost_allocated,
+  mileage_cost_allocated, repasse_parceiro,
   upholstery_description,
   service_type:service_type_id ( name ),
   upholstery_type:upholstery_type_id ( name ),
@@ -291,7 +299,13 @@ export type RevenueAllocation = {
   service: string;
   serviceValue: number;
   discount: number;
+  /**
+   * Recebido que fica com a empresa: o pago pelo cliente menos a parte do repasse ao parceiro
+   * (itens terceirizados). Faturamento, comissões e Comissão Nexa usam este valor.
+   */
   received: number;
+  /** Parte do repasse ao parceiro correspondente ao recebido (já descontada de `received`). */
+  repasse: number;
   mileage: number;
   commissionPct: number;
 };
@@ -304,8 +318,11 @@ export type ServiceMonthRevenue = {
   allocations: RevenueAllocation[];
   received: number;
   receivedNet: number;
+  /** Repasse a parceiros descontado da receita (parte do que foi recebido). */
+  repasse: number;
   fees: number;
   feesByChannel: Record<string, number>;
+  /** Valor dos serviços concluídos, já sem o repasse a parceiros. */
   servicesValue: number;
   servicesCount: number;
   ordersCount: number;
@@ -428,7 +445,7 @@ export async function fetchServiceMonthRevenue(
   const ensure = (v: CompletedVisit) => {
     const existing = allocations.get(v.id);
     if (existing) return existing;
-    const created: RevenueAllocation = { ...base(v), received: 0 };
+    const created: RevenueAllocation = { ...base(v), received: 0, repasse: 0 };
     allocations.set(v.id, created);
     return created;
   };
@@ -482,6 +499,7 @@ export async function fetchServiceMonthRevenue(
         serviceValue: 0,
         discount: 0,
         received: 0,
+        repasse: 0,
         mileage: 0,
         commissionPct: 0,
       } satisfies RevenueAllocation);
@@ -547,6 +565,21 @@ export async function fetchServiceMonthRevenue(
     );
   }
 
+  // Terceirizados: só a receita líquida conta; o repasse sai na proporção do recebido.
+  let repasse = 0;
+  for (const v of completed) {
+    const row = allocations.get(v.id);
+    if (!row) continue;
+    row.repasse = repasseDoRecebido(
+      Number(v.repasse_parceiro ?? 0),
+      row.serviceValue,
+      row.received,
+    );
+    if (row.repasse === 0) continue;
+    row.received = round2(row.received - row.repasse);
+    repasse = round2(repasse + row.repasse);
+  }
+
   const rows = [...allocations.values(), ...extras.values()];
   const customers = new Set(
     completed.map((v) => v.work_order?.customer_id).filter(Boolean) as string[],
@@ -560,9 +593,12 @@ export async function fetchServiceMonthRevenue(
     allocations: rows,
     received,
     receivedNet,
+    repasse,
     fees,
     feesByChannel,
-    servicesValue: round2(completed.reduce((s, v) => s + effectiveVisitValue(v), 0)),
+    servicesValue: round2(
+      completed.reduce((s, v) => s + valorLiquido(effectiveVisitValue(v), v.repasse_parceiro), 0),
+    ),
     servicesCount: completed.length,
     ordersCount: new Set(completed.map((v) => v.work_order?.id).filter(Boolean)).size,
     customersCount: customers.size,
@@ -716,11 +752,16 @@ export function useOriginBreakdown(from: string, to: string) {
 }
 
 export type MonthSummary = {
+  /** Vendas do mês (OS pela data da venda), já sem o repasse a parceiros. */
   soldGross: number;
   soldCount: number;
   completedCount: number;
-  /** Receita reconhecida: somente pagamentos recebidos (competência do serviço). */
+  /** Receita reconhecida: pagamentos recebidos (competência do serviço) menos o repasse a parceiros. */
   revenue: number;
+  /** Repasse a parceiros descontado da receita (itens terceirizados). */
+  repasse: number;
+  /** Despesas "Repasse a parceiro" pagas no mês (fora do DRE: a receita já entra líquida). */
+  repasseExpensesPaid: number;
   /** Valor dos serviços concluídos no mês, recebidos ou não. */
   servicesValue: number;
   /** Serviços do mês ainda não recebidos (fica em "A receber"). */
@@ -794,7 +835,7 @@ export async function fetchMonthSummary(
     fetchExpenses(from, to, db),
     db
       .from("work_orders")
-      .select("id, total_gross_value, status, eh_teste")
+      .select("id, total_gross_value, status, eh_teste, visits ( repasse_parceiro )")
       .is("deleted_at", null)
       .gte("sale_date", from)
       .lte("sale_date", to),
@@ -819,13 +860,20 @@ export async function fetchMonthSummary(
 
   const vendas = (soldRes.data ?? []).filter((w) => !w.eh_teste);
   const soldRows = vendas.filter((w) => w.status !== "Cancelada");
-  const soldGross = soldRows.reduce((s, w) => s + Number(w.total_gross_value ?? 0), 0);
+  const soldGross = round2(
+    soldRows.reduce(
+      (s, w) => s + valorLiquido(Number(w.total_gross_value ?? 0), repasseDaOs(w.visits)),
+      0,
+    ),
+  );
   const canceled = vendas
     .filter((w) => w.status === "Cancelada")
     .reduce((s, w) => s + Number(w.total_gross_value ?? 0), 0);
 
-  // Receita = somente o que foi efetivamente recebido (competência do serviço).
-  const revenue = revenueBase.received;
+  // Receita = somente o que foi efetivamente recebido (competência do serviço), sem o repasse a
+  // parceiros dos itens terceirizados.
+  const repasse = revenueBase.repasse;
+  const revenue = round2(revenueBase.received - repasse);
   const received = revenueBase.received;
   const receivedNet = revenueBase.receivedNet;
   const fees = revenueBase.fees;
@@ -867,8 +915,14 @@ export async function fetchMonthSummary(
       .filter((e) => e.status !== "Cancelado" && !e.deleted_at && despesaDeRota(e))
       .reduce((s, e) => s + cashPaidAmount(e), 0),
   );
+  // "Repasse a parceiro" também fica fora: a receita já entra líquida (sem o repasse).
+  const repasseExpensesPaid = round2(
+    expenses
+      .filter((e) => e.status !== "Cancelado" && !e.deleted_at && despesaDeRepasse(e))
+      .reduce((s, e) => s + cashPaidAmount(e), 0),
+  );
   const validExpenses = expenses.filter(
-    (e) => e.status !== "Cancelado" && !e.deleted_at && !despesaDeRota(e),
+    (e) => e.status !== "Cancelado" && !e.deleted_at && !despesaDeRota(e) && !despesaDeRepasse(e),
   );
   const expensesPaidList = validExpenses
     .map((e) => ({ expense: e, paid: round2(cashPaidAmount(e)) }))
@@ -907,6 +961,8 @@ export async function fetchMonthSummary(
     soldCount: soldRows.length,
     completedCount: completed.length,
     revenue,
+    repasse,
+    repasseExpensesPaid,
     servicesValue: revenueBase.servicesValue,
     servicesPending: revenueBase.pendingValue,
     discounts: 0,

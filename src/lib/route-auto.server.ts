@@ -125,6 +125,18 @@ export async function syncDailyRoute(
     failures: [],
   };
 
+  // Parceiro terceirizado: sem rota nem custo de km.
+  if (input.technicianId) {
+    const { data: tec } = await db
+      .from("technicians")
+      .select("parceiro")
+      .eq("id", input.technicianId)
+      .maybeSingle();
+    if ((tec as { parceiro?: boolean } | null)?.parceiro) {
+      return { ...base, message: "Parceiro terceirizado: sem custo de km." };
+    }
+  }
+
   // 1) Serviços do dia para o técnico
   let visitQuery = db
     .from("visits")

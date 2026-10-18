@@ -114,7 +114,7 @@ check(
 );
 const primeira = chamadasClaude[0] ?? { body: {}, headers: {} };
 const sistema = JSON.stringify(primeira.body.system ?? "");
-check("modelo padrão (Opus 5.5)", primeira.body.model === "claude-opus-5-5", primeira.body.model);
+check("modelo padrão (Sonnet 5.5)", primeira.body.model === "claude-sonnet-5-5", primeira.body.model);
 check(
   "conversa no cache automático",
   JSON.stringify(primeira.body.cache_control) === '{"type":"ephemeral"}',

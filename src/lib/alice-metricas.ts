@@ -1,3 +1,5 @@
+import { repasseDaOs, valorLiquido } from "@/lib/terceirizados";
+
 /**
  * Métricas da Alice por empresa (painel Nexa › Alice): o que ela atendeu,
  * quanto virou venda e quanto custou. Cálculo puro; a tela busca os dados.
@@ -72,17 +74,21 @@ export function resumirAlice(execucoes: ExecucaoAlice[], leads: LeadAlice[]): Me
   };
 }
 
-/** Valor da OS que conta como venda: não cancelada, não excluída e não de teste. */
+/**
+ * Valor da OS que conta como venda: não cancelada, não excluída e não de teste, já sem o
+ * repasse a parceiros dos itens terceirizados.
+ */
 export function valorOsVendida(
   os: {
     total_gross_value: number | null;
     eh_teste: boolean | null;
     cancelled_at: string | null;
     deleted_at: string | null;
+    visits?: { repasse_parceiro?: number | null }[] | null;
   } | null,
 ): number | null {
   if (!os || os.eh_teste || os.cancelled_at || os.deleted_at) return null;
-  return Number(os.total_gross_value) || 0;
+  return valorLiquido(Number(os.total_gross_value) || 0, repasseDaOs(os.visits ?? null));
 }
 
 /** Percentual de a sobre b, para "x de y (z%)". */

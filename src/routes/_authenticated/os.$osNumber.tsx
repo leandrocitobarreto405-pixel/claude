@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { TirarAlice } from "@/components/tirar-alice";
+import { valoresDaLinha } from "@/lib/terceirizados";
 import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -90,6 +91,7 @@ const SELECT = `
     service_type:service_type_id ( name ), upholstery_type:upholstery_type_id ( name ),
     technician:technician_id ( name ),
     service_items ( id, description, quantity, unit_price, subtotal, display_order, active, unidade,
+      repasse_parceiro, parceiro:parceiro_id ( name ),
       upholstery_type:upholstery_type_id ( name ) ) ),
   payments ( id, work_order_id, visit_id, payment_date, payment_channel, payment_type, installments,
     gross_amount, applied_rate, payment_fee_amount, net_amount, payment_status, notes, is_active,
@@ -105,6 +107,9 @@ type Item = {
   subtotal: number;
   display_order: number;
   active: boolean;
+  /** Repasse ao parceiro (item terceirizado); só a equipe vê. */
+  repasse_parceiro?: number | null;
+  parceiro?: { name: string } | null;
   upholstery_type: { name: string } | null;
 };
 
@@ -662,6 +667,7 @@ function OsDetalhe() {
                     <p className="mt-2 text-sm">
                       Total do serviço: <strong>{brl(total)}</strong>
                     </p>
+                    <RepasseTerceirizado itens={itens} total={total} />
                     {Number(v.discount_amount ?? 0) > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                         <span className="text-muted-foreground">
@@ -1274,5 +1280,22 @@ function OsDetalhe() {
         onDone={() => void osQuery.refetch()}
       />
     </>
+  );
+}
+
+/** Itens terceirizados: cobrado do cliente, repasse ao parceiro e o que fica (só a equipe vê). */
+function RepasseTerceirizado({ itens, total }: { itens: Item[]; total: number }) {
+  const terceirizados = itens.filter((i) => Number(i.repasse_parceiro ?? 0) > 0);
+  if (!terceirizados.length) return null;
+  const v = valoresDaLinha(
+    total,
+    terceirizados.reduce((s, i) => s + Number(i.repasse_parceiro ?? 0), 0),
+  );
+  const parceiros = [...new Set(terceirizados.map((i) => i.parceiro?.name).filter(Boolean))];
+  return (
+    <p className="mt-1 text-sm text-muted-foreground">
+      Terceirizado{parceiros.length ? ` (${parceiros.join(", ")})` : ""}: cliente paga{" "}
+      {brl(v.cobrado)} · repasse {brl(v.repasse)} · fica {brl(v.liquido)}
+    </p>
   );
 }

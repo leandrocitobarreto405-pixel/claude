@@ -43,6 +43,7 @@ test("métricas da Alice: OS de teste, cancelada ou excluída não conta como ve
   assert.equal(valorOsVendida({ ...base, cancelled_at: "2026-10-01" }), null);
   assert.equal(valorOsVendida({ ...base, deleted_at: "2026-10-01" }), null);
   assert.equal(valorOsVendida(null), null);
+  assert.equal(valorOsVendida({ ...base, visits: [{ repasse_parceiro: 120 }] }), 180);
   const m = resumirAlice(
     [ex("L1", "C1", 0.1, 1)],
     [{ id: "L1", orcamento_em: null, os_criada_em: "2026-10-02", valor_os: null }],

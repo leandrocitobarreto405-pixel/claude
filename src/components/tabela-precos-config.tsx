@@ -30,6 +30,7 @@ import {
   reordenarItensPreco,
   saveItemPreco,
   setItemPrecoAtivo,
+  useParceiros,
   useTabelaPrecos,
   CATEGORIA_LABEL,
   type ItemPreco,
@@ -67,10 +68,12 @@ function SelectCategoria({
 
 function Linha({
   item,
+  parceiros,
   onSalvar,
   onExcluir,
 }: {
   item: ItemPreco;
+  parceiros: { id: string; name: string }[];
   onSalvar: (id: string, campos: Partial<ItemPreco>) => Promise<void>;
   onExcluir: (item: ItemPreco) => void;
 }) {
@@ -81,13 +84,20 @@ function Linha({
   const [imp, setImp] = useState<number>(Number(item.preco_impermeabilizacao ?? 0));
   const [adic, setAdic] = useState<number>(Number(item.preco_adicional ?? 0));
   const [nome, setNome] = useState(item.nome);
+  const [custo, setCusto] = useState<number>(Number(item.custo_parceiro ?? 0));
+  const [custoImp, setCustoImp] = useState<number>(
+    Number(item.custo_parceiro_impermeabilizacao ?? 0),
+  );
 
   useEffect(() => {
     setHig(Number(item.preco_higienizacao ?? 0));
     setImp(Number(item.preco_impermeabilizacao ?? 0));
     setAdic(Number(item.preco_adicional ?? 0));
     setNome(item.nome);
+    setCusto(Number(item.custo_parceiro ?? 0));
+    setCustoImp(Number(item.custo_parceiro_impermeabilizacao ?? 0));
   }, [item]);
+  const unidade = item.categoria === "tapete" ? "por m²" : "por peça";
 
   return (
     <div
@@ -180,12 +190,79 @@ function Linha({
       <Button variant="ghost" size="icon" onClick={() => onExcluir(item)} aria-label="Excluir item">
         <Trash2 className="h-4 w-4 text-destructive" />
       </Button>
+
+      <div className="col-span-full flex flex-wrap items-end gap-3 border-t border-border/60 pt-2">
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <Switch
+            checked={item.terceirizado}
+            onCheckedChange={(v) => void onSalvar(item.id, { terceirizado: v })}
+            aria-label="Serviço terceirizado"
+          />
+          Terceirizado
+        </label>
+        {item.terceirizado ? (
+          <>
+            <div className="w-36">
+              <span className="text-xs text-muted-foreground">Custo do parceiro {unidade}</span>
+              <MoneyInput
+                value={custo}
+                onValueChange={setCusto}
+                onBlur={() => {
+                  if (custo !== Number(item.custo_parceiro ?? 0)) {
+                    void onSalvar(item.id, { custo_parceiro: custo > 0 ? custo : null });
+                  }
+                }}
+                aria-label="Custo do parceiro"
+              />
+            </div>
+            {item.preco_impermeabilizacao ? (
+              <div className="w-36">
+                <span className="text-xs text-muted-foreground">Custo na imper. {unidade}</span>
+                <MoneyInput
+                  value={custoImp}
+                  onValueChange={setCustoImp}
+                  onBlur={() => {
+                    if (custoImp !== Number(item.custo_parceiro_impermeabilizacao ?? 0)) {
+                      void onSalvar(item.id, {
+                        custo_parceiro_impermeabilizacao: custoImp > 0 ? custoImp : null,
+                      });
+                    }
+                  }}
+                  aria-label="Custo do parceiro na impermeabilização"
+                />
+              </div>
+            ) : null}
+            <div className="w-44">
+              <span className="text-xs text-muted-foreground">Parceiro</span>
+              <select
+                value={item.parceiro_id ?? ""}
+                onChange={(e) => void onSalvar(item.id, { parceiro_id: e.target.value || null })}
+                className={CLASSE_SELECT}
+                aria-label="Parceiro"
+              >
+                <option value="">Sem parceiro</option>
+                {parceiros.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!item.custo_parceiro ? (
+              <span className="pb-3 text-xs text-muted-foreground">
+                Sem custo preenchido: o repasse fica zero.
+              </span>
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
 
 export function TabelaPrecosConfig() {
   const query = useTabelaPrecos(false);
+  const parceiros = useParceiros();
   const [ordem, setOrdem] = useState<ItemPreco[]>([]);
   const [novoNome, setNovoNome] = useState("");
   const [novoHig, setNovoHig] = useState(0);
@@ -218,6 +295,14 @@ export function TabelaPrecosConfig() {
           categoria: campos.categoria ?? atual.categoria,
           preco_adicional:
             campos.preco_adicional !== undefined ? campos.preco_adicional : atual.preco_adicional,
+          terceirizado: campos.terceirizado ?? atual.terceirizado,
+          custo_parceiro:
+            campos.custo_parceiro !== undefined ? campos.custo_parceiro : atual.custo_parceiro,
+          custo_parceiro_impermeabilizacao:
+            campos.custo_parceiro_impermeabilizacao !== undefined
+              ? campos.custo_parceiro_impermeabilizacao
+              : atual.custo_parceiro_impermeabilizacao,
+          parceiro_id: campos.parceiro_id !== undefined ? campos.parceiro_id : atual.parceiro_id,
         },
         id,
       );
@@ -233,7 +318,7 @@ export function TabelaPrecosConfig() {
       if (await itemPrecoEmUso(item.id)) {
         await setItemPrecoAtivo(item.id, false);
         await query.refetch();
-        toast.info(`"${item.nome}" já foi usado em orçamentos, então foi apenas desativado.`);
+        toast.info(`"${item.nome}" já foi usado em orçamentos ou OS, então foi apenas desativado.`);
         return;
       }
       await excluirItemPreco(item.id);
@@ -293,8 +378,10 @@ export function TabelaPrecosConfig() {
             Preços usados nos orçamentos. Deixe a impermeabilização em branco quando o serviço não é
             oferecido para o item. A categoria decide o desconto do item adicional e o pedido mínimo
             de cadeiras (Configurações → Orçamento). "Adicional" é o preço de higienização quando o
-            item entra depois do fechamento (ex.: colchão): fixo e fora dos descontos. Arraste pela
-            alça para mudar a ordem.
+            item entra depois do fechamento (ex.: colchão): fixo e fora dos descontos.
+            "Terceirizado": o cliente paga o preço cheio e o custo do parceiro vira repasse (conta a
+            pagar ao concluir), fora do faturamento e das comissões. Arraste pela alça para mudar a
+            ordem.
           </p>
         </div>
         <Button onClick={() => setAberto((v) => !v)}>
@@ -353,6 +440,7 @@ export function TabelaPrecosConfig() {
               <Linha
                 key={item.id}
                 item={item}
+                parceiros={parceiros.data ?? []}
                 onSalvar={salvarCampos}
                 onExcluir={(i) => void excluir(i)}
               />

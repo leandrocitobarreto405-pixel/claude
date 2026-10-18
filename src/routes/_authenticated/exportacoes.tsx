@@ -83,7 +83,8 @@ function Exportacoes() {
 
   const dre = [
     { Linha: "Vendas fechadas no mês", "Valor (R$)": r?.soldGross ?? 0 },
-    { Linha: "Receita de serviços realizados", "Valor (R$)": r?.revenue ?? 0 },
+    { Linha: "Repasse a parceiros (terceirizados)", "Valor (R$)": -(r?.repasse ?? 0) },
+    { Linha: "Receita de serviços realizados (líquida)", "Valor (R$)": r?.revenue ?? 0 },
     { Linha: "Taxas de pagamento", "Valor (R$)": -(r?.fees ?? 0) },
     { Linha: "Comissões de vendas", "Valor (R$)": -(r?.commissions ?? 0) },
     { Linha: "Custo de deslocamento", "Valor (R$)": -(r?.mileage ?? 0) },
