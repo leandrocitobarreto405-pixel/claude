@@ -367,7 +367,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 15/10/2026       | Marketing sem quem tem OS ou garantia               | `8bc25cb`           | `fff5cb2`                |
 | 18/10/2026       | Alice mais barata + painel Nexa › Alice             | `9438aa0`…`caf0b6a` | `c935863`                |
 | 18/10/2026       | Terceirizados (tapete e persiana)                   | `6594530`           | `d93b042`                |
-| 18/10/2026       | Funil e comissão pelo valor líquido                 | (este commit)       | `a5fd147`                |
+| 18/10/2026       | Funil e comissão pelo valor líquido                 | `58cd399`           | `a5fd147`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
