@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { TirarAlice } from "@/components/tirar-alice";
-import { valoresDaLinha } from "@/lib/terceirizados";
+import { repasseDoRecebido, valoresDaLinha } from "@/lib/terceirizados";
 import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -84,7 +84,7 @@ const SELECT = `
   general_notes, eh_teste, cancelled_at, cancellation_reason, deleted_at, deletion_reason,
   customer:customer_id ( id, full_name, phone, full_address, document_number, email ),
   salesperson:salesperson_id ( name ),
-  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, visit_value, final_value, item_quantity, mileage_cost_allocated,
+  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, visit_value, final_value, item_quantity, mileage_cost_allocated, repasse_parceiro,
     discount_amount, discount_reason, discount_notes,
     upholstery_description, visit_notes, reschedule_type, rescheduled_from_visit_id,
     rescheduled_to_visit_id, original_scheduled_date, reschedule_reason,
@@ -116,6 +116,7 @@ type Item = {
 type Visit = {
   id: string;
   mileage_cost_allocated: number | null;
+  repasse_parceiro?: number | null;
   status: string;
   scheduled_date: string;
   scheduled_time: string;
@@ -511,6 +512,14 @@ function OsDetalhe() {
     const recebido = r2(pagos.reduce((s, p) => s + Number(p.gross_amount ?? 0), 0));
     const taxas = r2(pagos.reduce((s, p) => s + Number(p.payment_fee_amount ?? 0), 0));
     const comissao = r2(Number(os.commission_realized ?? 0));
+    // Terceirizados: parte do repasse ao parceiro correspondente ao que já foi recebido.
+    const repasse = repasseDoRecebido(
+      os.visits
+        .filter((v) => v.status !== "Cancelado")
+        .reduce((s, v) => s + Number(v.repasse_parceiro ?? 0), 0),
+      combinado,
+      recebido,
+    );
     const deslocamento = r2(
       os.visits.reduce((s, v) => s + Number(v.mileage_cost_allocated ?? 0), 0),
     );
@@ -518,9 +527,10 @@ function OsDetalhe() {
       ? r2(consumo.reduce((s, c) => s + Number(c.custo_calculado ?? 0), 0))
       : 0;
     const gastos = r2(gastosTecnico.reduce((s, g) => s + Number(g.amount ?? 0), 0));
-    const resultado = r2(recebido - taxas - comissao - deslocamento - produtos - gastos);
+    const resultado = r2(recebido - repasse - taxas - comissao - deslocamento - produtos - gastos);
     return {
       recebido,
+      repasse,
       taxas,
       comissao,
       deslocamento,
@@ -793,6 +803,12 @@ function OsDetalhe() {
                   <td className="py-2">Recebido do cliente</td>
                   <td className="py-2 text-right font-medium">{brl(margem.recebido)}</td>
                 </tr>
+                {margem.repasse !== 0 ? (
+                  <tr className="border-b border-border">
+                    <td className="py-2">(-) Repasse ao parceiro</td>
+                    <td className="py-2 text-right">{brl(-margem.repasse)}</td>
+                  </tr>
+                ) : null}
                 <tr className="border-b border-border">
                   <td className="py-2">(-) Taxas de pagamento</td>
                   <td className="py-2 text-right">{brl(-margem.taxas)}</td>

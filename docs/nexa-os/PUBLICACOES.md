@@ -256,8 +256,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   aplicação, 2 dos 314 pendentes da "Primavera"); aviso só no app `servico_nao_concluido` (coluna
   nova `mkt_avisos.referencia`, um aviso por visita). As versões anteriores de `mkt_listas_dados` e
   `mkt_motivo_fora` ficaram com o sufixo `_ate_20261112`. A troca de `mkt_preparar_campanha` não
-  pôde ser feita daqui (o Supabase pede uma confirmação que não chega a esta sessão): rodar
-  `scripts/mkt/preparar-campanha-tem-os.sql` no SQL Editor; até lá a conferência no envio cobre.
+  pôde ser feita daqui (o Supabase pede uma confirmação que não chega a esta sessão):
+  `scripts/mkt/preparar-campanha-tem-os.sql` rodado no SQL Editor (conferido em 18/10: a função em
+  produção já usa "tem OS" e "garantia em aberto").
   Para voltar: recriar as funções com o texto das migrações anteriores e renomear as `_ate_20261112`
   de volta.
 - "Alice no Sonnet" (`20261113120000`, aplicada em 18/10, todas as empresas): o padrão de
@@ -275,6 +276,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `ON DELETE` (o Supabase pede confirmação que não chega a esta sessão): item usado em OS só é
   desativado. Pendente: preencher o custo e rodar `scripts/terceirizados/religar-os-existentes.sql`
   (OS 1684 e 1685) depois da prévia. Para voltar: desligar "Terceirizado" nos itens (repasse zero).
+- "Funil e comissão pelo valor líquido" (`20261115120000`, aplicada em 18/10): `indicadores_funil`
+  passa a somar vendido, ticket médio e vendido por origem sem o repasse (função nova
+  `private.valor_liquido_os`); gatilho em `work_orders` troca a comissão prevista/realizada gravada
+  pelo app pela líquida quando a OS tem repasse, e o sincronizador do repasse recalcula a comissão
+  quando o repasse muda. Na aplicação, nenhuma OS mudou (nenhuma tem repasse ainda). Para voltar:
+  recriar as funções com o texto de `20261111120000` e `20261114120000` e desligar o gatilho.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -360,6 +367,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 15/10/2026       | Marketing sem quem tem OS ou garantia               | `8bc25cb`           | `fff5cb2`                |
 | 18/10/2026       | Alice mais barata + painel Nexa › Alice             | `9438aa0`…`caf0b6a` | `c935863`                |
 | 18/10/2026       | Terceirizados (tapete e persiana)                   | `6594530`           | `d93b042`                |
+| 18/10/2026       | Funil e comissão pelo valor líquido                 | (este commit)       | `a5fd147`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
