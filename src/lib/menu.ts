@@ -8,6 +8,7 @@ import {
   Coins,
   FileSpreadsheet,
   Filter,
+  Bot,
   HandCoins,
   Home,
   ListChecks,
@@ -98,6 +99,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     itens: [
       { to: "/nexa/empresas", rotulo: "Empresas e comissões", icone: Building2 },
       { to: "/nexa/comissoes", rotulo: "Comissão da Nexa", icone: HandCoins },
+      { to: "/nexa/alice", rotulo: "Alice: custo e resultado", icone: Bot },
       { to: "/nexa/chatwoot", rotulo: "Chatwoot", icone: MessagesSquare },
     ],
   },
