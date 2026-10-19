@@ -310,6 +310,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   outubro em "Google" automático (51 do pop-up + 5 com o texto da landing sem gclid) passaram a
   "Google Ads – landing", com as OS 1671, 1673, 1674, 1677, 1679, 1685 e 1686; os 3 textos das
   landing pages passaram a dar essa origem. Origem escolhida à mão e os 9 do botão não mudaram.
+  Roteiro da Alice (Turbine, aprovado em 19/10, só acréscimos): bloco "Cupons de desconto" no
+  fim da seção 4 e "Como conheceu" na Etapa 1 (pergunta no fim da primeira resposta, nunca em
+  mensagem separada). Cópia dos pontos de antes: `docs/nexa-os/alice/turbine-cupons-origem-ate-1910.md`.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
