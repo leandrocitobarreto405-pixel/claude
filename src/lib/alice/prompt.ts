@@ -247,7 +247,9 @@ function descreverMensagem(m: MensagemHistorico): string {
         ? m.transcricao
           ? `[áudio do cliente, transcrição automática] ${m.transcricao}`
           : "[o cliente enviou um áudio que não foi possível transcrever]"
-        : "[áudio enviado]";
+        : m.transcricao
+          ? `[áudio enviado; o que foi falado:] ${m.transcricao}`
+          : "[áudio enviado]";
   } else if (tipo === "Vídeo") anexo = "[vídeo enviado]";
   else if (tipo === "Documento") anexo = "[documento enviado]";
   else if (tipo === "Localização") anexo = "[localização enviada]";

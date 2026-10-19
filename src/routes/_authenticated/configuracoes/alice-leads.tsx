@@ -3,6 +3,7 @@ import { Link2, Megaphone, Upload } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Listas } from "@/components/configuracoes/listas";
 import { AliceConfig } from "@/components/alice-config";
+import { AliceAudio } from "@/components/configuracoes/alice-audio";
 import { LeadsSiteConfig } from "@/components/leads-site-config";
 import { MensagensOrigem } from "@/components/mensagens-origem";
 
@@ -12,6 +13,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/alice-leads"
     <PaginaGrupo grupo="alice-leads">
       <SecaoConfig titulo="Alice" aberta>
         <AliceConfig />
+      </SecaoConfig>
+      <SecaoConfig titulo="Alice: responder em áudio">
+        <AliceAudio />
       </SecaoConfig>
       <SecaoConfig titulo="Leads do site">
         <LeadsSiteConfig />

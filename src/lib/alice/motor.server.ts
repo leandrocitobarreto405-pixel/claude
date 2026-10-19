@@ -125,6 +125,8 @@ type DadosConversa = {
     status: string | null;
     crm_lead_id: string | null;
     whatsapp_contact_id: string | null;
+    /** O cliente pediu "manda por escrito": sem áudio nesta conversa. */
+    alice_so_texto_em?: string | null;
   };
   conta: Conta;
   tokenRobo: string | null;
@@ -135,7 +137,9 @@ type DadosConversa = {
 async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> {
   const { data: conversa } = await db
     .from("conversas")
-    .select("id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id")
+    .select(
+      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em",
+    )
     .eq("id", tarefa.conversa_id)
     .eq("empresa_id", tarefa.empresa_id)
     .single();
@@ -433,7 +437,7 @@ async function historico(
   const { data } = await db
     .from("whatsapp_messages")
     .select(
-      "id, direction, text_content, message_type, remetente_tipo, raw_event_reference, message_timestamp, transcricao",
+      "id, direction, text_content, message_type, remetente_tipo, raw_event_reference, message_timestamp, transcricao, chatwoot_message_id",
     )
     .eq("empresa_id", empresaId)
     .eq("conversa_id", conversaId)
@@ -485,6 +489,36 @@ async function historico(
     for (const m of semTranscricao) {
       const t = textos.get(m.id);
       if (t) m.transcricao = t;
+    }
+  }
+
+  // Áudios da própria Alice (resposta em áudio): o texto falado fica no registro de uso.
+  const audiosAlice = linhas.filter(
+    (m) =>
+      m.direction !== "Recebida" &&
+      m.message_type === "Áudio" &&
+      !m.transcricao &&
+      m.chatwoot_message_id !== null,
+  );
+  if (audiosAlice.length) {
+    const { data: usos } = await db
+      .from("ia_audios_uso")
+      .select("chatwoot_message_id, texto_falado")
+      .eq("empresa_id", empresaId)
+      .in(
+        "chatwoot_message_id",
+        audiosAlice.map((m) => m.chatwoot_message_id as number),
+      );
+    const falado = new Map((usos ?? []).map((u) => [u.chatwoot_message_id, u.texto_falado]));
+    for (const m of audiosAlice) {
+      const t = falado.get(m.chatwoot_message_id);
+      if (!t) continue;
+      m.transcricao = t;
+      await db
+        .from("whatsapp_messages")
+        .update({ transcricao: t })
+        .eq("id", m.id)
+        .eq("empresa_id", empresaId);
     }
   }
 
@@ -1068,7 +1102,14 @@ async function conversar(
   const agoraItens = programar ? semNada.slice(0, iMidia + 1) : semNada;
   const depoisItens = programar ? semNada.slice(iMidia + 1) : [];
 
-  const enviadas = await enviarItens(db, tarefa.empresa_id, d, agoraItens);
+  // Resposta em áudio (Configurações › Alice): o começo conversado pode sair falado.
+  const audio = ctx.passagem
+    ? null
+    : await comAudio(db, tarefa.empresa_id, d, cfg, hist.mensagens, ehFollowup, agoraItens);
+  const enviadas = [
+    ...(audio?.enviadas ?? []),
+    ...(await enviarItens(db, tarefa.empresa_id, d, audio?.itens ?? agoraItens)),
+  ];
   if (depoisItens.length) {
     await db.from("ia_tarefas").insert({
       empresa_id: tarefa.empresa_id,
@@ -1165,6 +1206,127 @@ async function conversar(
     return { situacao: "concluida", detalhe: `transferida para a equipe: ${motivo}` };
   }
   return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };
+}
+
+// ---------------------------------------------------------------- resposta em áudio
+/**
+ * Responder em áudio: o começo da resposta (textos simples, antes de qualquer bloco ou mídia) pode
+ * sair falado, conforme as regras de voz.ts. Sem áudio (ou se ele falhar), devolve os itens como
+ * estavam e o texto sai normal. "Manda por escrito" marca a conversa como só texto.
+ */
+async function comAudio(
+  db: Admin,
+  empresaId: string,
+  d: DadosConversa,
+  cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
+  mensagens: MensagemHistorico[],
+  ehFollowup: boolean,
+  itens: Saida[],
+): Promise<{ itens: Saida[]; enviadas: string[] } | null> {
+  if (!cfg.audio_ativo || ehFollowup || !d.tokenRobo) return null;
+  const ultima = mensagens.filter((m) => m.direcao === "Recebida").at(-1);
+  let soTexto = Boolean(d.conversa.alice_so_texto_em);
+  const { pediuPorEscrito, diaBrasilia, inicioDoDiaBrasilia } = await import("./voz");
+  if (!soTexto && ultima && pediuPorEscrito(`${ultima.texto ?? ""} ${ultima.transcricao ?? ""}`)) {
+    soTexto = true;
+    await db
+      .from("conversas")
+      .update({ alice_so_texto_em: new Date().toISOString() })
+      .eq("id", d.conversa.id)
+      .eq("empresa_id", empresaId);
+    await enviarNota(
+      d,
+      `🔇 O cliente pediu por escrito: a ${cfg.nome} não manda mais áudio nesta conversa.`,
+    );
+  }
+
+  let n = 0;
+  while (n < itens.length) {
+    const i = itens[n]!;
+    if (i.tipo !== "texto" || i.bloco) break;
+    n++;
+  }
+  if (!n) return null;
+  const resposta = itens
+    .slice(0, n)
+    .map((i) => (i.tipo === "texto" ? i.texto : ""))
+    .join("\n\n");
+
+  const { responderComAudio } = await import("./resposta-audio");
+  const { sintetizar } = await import("./voz.server");
+  const { duracaoOggOpus } = await import("./ogg-opus");
+  const conversa = d.conversa.chatwoot_conversation_id;
+  const r = await responderComAudio(
+    {
+      cfg: {
+        audio_ativo: cfg.audio_ativo,
+        audio_voz: cfg.audio_voz,
+        audio_max_caracteres: cfg.audio_max_caracteres,
+        audio_max_segundos: cfg.audio_max_segundos,
+        audio_limite_diario_reais: Number(cfg.audio_limite_diario_reais),
+        audio_cotacao_dolar: Number(cfg.audio_cotacao_dolar),
+      },
+      ultimaDoClienteEhAudio: ultima?.tipo === "Áudio",
+      soTexto,
+      ehFollowup,
+      resposta,
+    },
+    {
+      gastoHoje: async () => {
+        const { data } = await db
+          .from("ia_audios_uso")
+          .select("custo_reais")
+          .eq("empresa_id", empresaId)
+          .gte("created_at", inicioDoDiaBrasilia());
+        return (data ?? []).reduce((s, u) => s + Number(u.custo_reais ?? 0), 0);
+      },
+      sintetizar,
+      duracao: duracaoOggOpus,
+      enviarAudio: (bytes) =>
+        enviarAnexo(
+          d.conta,
+          d.tokenRobo!,
+          conversa,
+          new Blob([new Uint8Array(bytes)], { type: "audio/ogg" }),
+          "audio.ogg",
+        ),
+      enviarNota: (texto) => enviarNota(d, texto),
+      registrar: async (u) => {
+        const { error } = await db.from("ia_audios_uso").insert({
+          empresa_id: empresaId,
+          conversa_id: d.conversa.id,
+          chatwoot_message_id: u.chatwootMessageId,
+          voz: u.voz,
+          situacao: u.situacao,
+          caracteres: u.caracteres,
+          segundos: u.segundos,
+          custo_reais: u.custo,
+          texto_falado: u.texto,
+          erro: u.erro,
+        });
+        if (error) throw new Error(error.message);
+      },
+      avisarLimite: async () => {
+        const limite = Number(cfg.audio_limite_diario_reais).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        // Um aviso por dia, só no app (a referência repetida é recusada pelo índice único).
+        await db.from("mkt_avisos").insert({
+          empresa_id: empresaId,
+          tipo: "alice_audio_limite",
+          titulo: `${cfg.nome}: limite diário de áudio`,
+          mensagem: `A ${cfg.nome} chegou ao limite de ${limite} em áudios hoje e voltou a responder só em texto até amanhã. O limite fica em Configurações › Alice › Responder em áudio.`,
+          so_no_app: true,
+          referencia: `alice-audio-limite:${diaBrasilia()}`,
+        } as never);
+      },
+    },
+  );
+  if (!r.enviado) return null;
+  const resto: Saida[] = r.texto ? [{ tipo: "texto", texto: r.texto }] : [];
+  const fala = r.decisao.modo === "audio" ? r.decisao.fala : "";
+  return { itens: [...resto, ...itens.slice(n)], enviadas: [`[áudio] ${fala}`] };
 }
 
 // ---------------------------------------------------------------- envio

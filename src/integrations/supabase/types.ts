@@ -796,6 +796,7 @@ export type Database = {
       conversas: {
         Row: {
           aguardando_desde: string | null;
+          alice_so_texto_em: string | null;
           atualizado_chatwoot_em: string | null;
           chatwoot_conversation_id: number;
           conexao_id: string;
@@ -819,6 +820,7 @@ export type Database = {
         };
         Insert: {
           aguardando_desde?: string | null;
+          alice_so_texto_em?: string | null;
           atualizado_chatwoot_em?: string | null;
           chatwoot_conversation_id: number;
           conexao_id: string;
@@ -841,6 +843,7 @@ export type Database = {
         };
         Update: {
           aguardando_desde?: string | null;
+          alice_so_texto_em?: string | null;
           atualizado_chatwoot_em?: string | null;
           chatwoot_conversation_id?: number;
           conexao_id?: string;
@@ -2001,6 +2004,51 @@ export type Database = {
           },
         ];
       };
+      ia_audios_uso: {
+        Row: {
+          caracteres: number;
+          chatwoot_message_id: number | null;
+          conversa_id: string | null;
+          created_at: string;
+          custo_reais: number;
+          empresa_id: string;
+          erro: string | null;
+          id: string;
+          segundos: number | null;
+          situacao: string;
+          texto_falado: string;
+          voz: string;
+        };
+        Insert: {
+          caracteres?: number;
+          chatwoot_message_id?: number | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          custo_reais?: number;
+          empresa_id: string;
+          erro?: string | null;
+          id?: string;
+          segundos?: number | null;
+          situacao: string;
+          texto_falado?: string;
+          voz: string;
+        };
+        Update: {
+          caracteres?: number;
+          chatwoot_message_id?: number | null;
+          conversa_id?: string | null;
+          created_at?: string;
+          custo_reais?: number;
+          empresa_id?: string;
+          erro?: string | null;
+          id?: string;
+          segundos?: number | null;
+          situacao?: string;
+          texto_falado?: string;
+          voz?: string;
+        };
+        Relationships: [];
+      };
       ia_configuracoes: {
         Row: {
           avaliacao_ligada: boolean;
@@ -2015,6 +2063,12 @@ export type Database = {
           agenda_automatica: boolean;
           ativo: boolean;
           audio_higienizacao: string | null;
+          audio_ativo: boolean;
+          audio_cotacao_dolar: number;
+          audio_limite_diario_reais: number;
+          audio_max_caracteres: number;
+          audio_max_segundos: number;
+          audio_voz: string | null;
           audio_impermeabilizacao: string | null;
           clientes_antigos_com_equipe: boolean;
           desconto_pix_percentual: number;
@@ -2051,6 +2105,12 @@ export type Database = {
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
+          audio_ativo?: boolean;
+          audio_cotacao_dolar?: number;
+          audio_limite_diario_reais?: number;
+          audio_max_caracteres?: number;
+          audio_max_segundos?: number;
+          audio_voz?: string | null;
           audio_impermeabilizacao?: string | null;
           clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;
@@ -2087,6 +2147,12 @@ export type Database = {
           agenda_automatica?: boolean;
           ativo?: boolean;
           audio_higienizacao?: string | null;
+          audio_ativo?: boolean;
+          audio_cotacao_dolar?: number;
+          audio_limite_diario_reais?: number;
+          audio_max_caracteres?: number;
+          audio_max_segundos?: number;
+          audio_voz?: string | null;
           audio_impermeabilizacao?: string | null;
           clientes_antigos_com_equipe?: boolean;
           desconto_pix_percentual?: number;

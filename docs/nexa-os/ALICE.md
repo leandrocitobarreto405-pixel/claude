@@ -196,6 +196,25 @@ Base: `alice-prompt.md` (Turbine) e a lista "Alice na Nexa — o que o app preci
 - Vídeos e áudios padrão: Configurações → Alice → "Vídeos e áudios padrão" (Storage `alice-midias`,
   pasta da empresa; até 16 MB).
 
+### Resposta em áudio (19/10/2026)
+- Google Cloud Text-to-Speech, vozes Chirp 3 HD pt-BR, mesma conta de serviço do Cloud Run
+  (`gcloud services enable texttospeech.googleapis.com`; sem chave no código). Volta em OGG/Opus
+  e sai como anexo `audio.ogg` pelo Chatwoot (`src/lib/alice/voz.server.ts`).
+- Configurações › Alice › "Alice: responder em áudio": desligado por padrão, botão Ativar (só com
+  voz salva), lista de vozes com "Ouvir", limites, teste de envio só para contatos internos da
+  equipe e cartão de custo (hoje, mês, média por conversa).
+- Regras (`src/lib/alice/voz.ts`): só quando a última mensagem do cliente foi áudio, nunca em
+  follow-up; vai falado só o começo conversado da resposta, e do primeiro parágrafo com valor,
+  orçamento, endereço, data/hora, link, Pix ou lista em diante vai tudo escrito. Acima de 350
+  caracteres ou ~25 s, tudo escrito. "Manda por escrito" marca `conversas.alice_so_texto_em` e
+  deixa nota privada.
+- Cada áudio deixa nota privada "🔊 Áudio da Alice: …" e uma linha em `ia_audios_uso` (texto,
+  caracteres, segundos, custo em R$ a US$ 30 por milhão de caracteres). A Alice lê o que falou
+  no histórico pela mesma linha.
+- Falha do Google (até 8 s) ou do envio: sai o texto normal e a falha fica registrada.
+- Limite diário por empresa (padrão R$ 5,00, inclui os testes): ao passar, só texto até o dia
+  seguinte e um aviso só no sininho (`mkt_avisos`, `so_no_app`, um por dia).
+
 ### Configuração no Google Cloud (uma vez)
 ```bash
 REGIAO=southamerica-east1
