@@ -195,3 +195,69 @@ export const pdfExemploFn = createServerFn({ method: "POST" })
       nome: data.tipo === "termo" ? "Termo de garantia - exemplo.pdf" : "OS 0001 - exemplo.pdf",
     };
   });
+
+// ---------------------------------------------------------------- PDF da OS e termo
+
+/** Modo dos documentos da OS (Drive ou PDF no app), para as telas escolherem o botão. */
+export const modoDocumentosFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async () => {
+    const { lerConfigDocumentos } = await import("@/lib/documentos.server");
+    return { modo: (await lerConfigDocumentos()).modo };
+  });
+
+const ID = /^[0-9a-f-]{36}$/i;
+const validarOs = (i: { workOrderId: string }) => {
+  const workOrderId = String(i?.workOrderId ?? "");
+  if (!ID.test(workOrderId)) throw new Error("OS inválida.");
+  return { workOrderId };
+};
+
+/** PDF da OS, gerado na hora e devolvido (não fica salvo). Técnico não vê valores: não baixa. */
+export const pdfDaOsFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator(validarOs)
+  .handler(async ({ data, context }): Promise<ArquivoPdf> => {
+    const { data: papel } = await context.supabase.rpc("meu_papel" as never);
+    if (papel === "tecnico") throw new Error("O PDF da OS tem valores: peça a quem atende.");
+    const { empresaDocumento, lerConfigDocumentos, paraBase64 } =
+      await import("@/lib/documentos.server");
+    const { dadosOsPdf } = await import("@/lib/os-docs.server");
+    const { nomeArquivoOs, pdfDaOs } = await import("@/lib/pdf/os-pdf");
+    const [dados, empresa, config] = await Promise.all([
+      dadosOsPdf(data.workOrderId),
+      empresaDocumento(),
+      lerConfigDocumentos(),
+    ]);
+    return {
+      base64: paraBase64(await pdfDaOs(dados, empresa, config)),
+      nome: nomeArquivoOs(dados.numero, dados.cliente),
+    };
+  });
+
+/** Se a OS já pode ter termo em PDF (impermeabilização com visita concluída). */
+export const termoDisponivelFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .inputValidator(validarOs)
+  .handler(async ({ data }) => {
+    const { dadosTermoPdf } = await import("@/lib/os-docs.server");
+    return { disponivel: Boolean(await dadosTermoPdf(data.workOrderId, 12)) };
+  });
+
+export const termoPdfFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator(validarOs)
+  .handler(async ({ data }): Promise<ArquivoPdf> => {
+    const { empresaDocumento, lerConfigDocumentos, paraBase64 } =
+      await import("@/lib/documentos.server");
+    const { dadosTermoPdf } = await import("@/lib/os-docs.server");
+    const { nomeArquivoOs, pdfDoTermo } = await import("@/lib/pdf/os-pdf");
+    const [empresa, config] = await Promise.all([empresaDocumento(), lerConfigDocumentos()]);
+    const dados = await dadosTermoPdf(data.workOrderId, config.garantia_meses);
+    if (!dados)
+      throw new Error("O termo sai depois de uma visita de impermeabilização concluída nesta OS.");
+    return {
+      base64: paraBase64(await pdfDoTermo(dados, empresa, config)),
+      nome: `Termo de garantia - ${nomeArquivoOs(dados.numero, dados.cliente)}`,
+    };
+  });

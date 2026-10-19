@@ -429,3 +429,110 @@ test("proposta: itens no formato da OS (mesmo item nos dois serviços numa linha
     /^R\$\s?300,00$/,
   );
 });
+
+// ---------- PDF direto no app (dados fictícios) ----------
+
+/** O real formatado usa espaço inseparável depois do "R$". */
+const semNbsp = <T>(v: T): T => JSON.parse(JSON.stringify(v).replace(/\u00a0/g, " ")) as T;
+
+const visitaPdf = (
+  servico: string,
+  status: string,
+  itens: Array<[string, number, number, string]>,
+) => ({
+  status,
+  scheduled_date: "2026-08-31",
+  completion_date: status === "Concluído" ? "2026-08-31" : null,
+  visit_value: 0,
+  final_value: null,
+  item_quantity: 1,
+  upholstery_description: null,
+  service_type: { name: servico },
+  upholstery_type: null,
+  technician: { name: "Técnico Fictício" },
+  service_items: itens.map(([nome, qtd, preco, grupo], i) => ({
+    description: nome,
+    quantity: qtd,
+    unidade: null,
+    unit_price: preco,
+    subtotal: qtd * preco,
+    item_group_id: grupo,
+    display_order: i,
+    active: true,
+    upholstery_type: null,
+  })),
+});
+
+tabelas["work_orders"]!.push(
+  {
+    id: "os-pdf-comb",
+    os_number: "9001",
+    updated_at: "2026-08-30T12:00:00Z",
+    total_gross_value: 1040,
+    os_value_text: null,
+    negotiated_payment_method: "Cartão de crédito",
+    negotiated_installments: 10,
+    customer: { full_name: "Cliente Fictício PDF", phone: "5511900009001" },
+    visits: [
+      visitaPdf("Higienização", "Agendado", [
+        ["Sofá 3 lugares", 1, 280, "g1"],
+        ["Cadeira", 4, 40, "g2"],
+      ]),
+      visitaPdf("Impermeabilização", "Agendado", [["Sofá 3 lugares", 1, 560, "g1"]]),
+    ],
+  },
+  {
+    id: "os-pdf-hig",
+    os_number: "9002",
+    updated_at: "2026-08-30T12:00:00Z",
+    total_gross_value: 280,
+    os_value_text: null,
+    negotiated_payment_method: "Pix",
+    negotiated_installments: 1,
+    customer: { full_name: "Outro Fictício", phone: null },
+    visits: [visitaPdf("Higienização", "Concluído", [["Sofá 3 lugares", 1, 280, "g1"]])],
+  },
+);
+
+test("PDF no app: OS combinada com as duas colunas, valor e pagamento do documento do Drive", async () => {
+  const d = await docs.dadosOsPdf("os-pdf-comb");
+  assert.equal(d.numero, "9001");
+  assert.equal(d.clienteTexto, "nº 9001");
+  assert.equal(d.temHig, true);
+  assert.equal(d.temImp, true);
+  assert.deepEqual(semNbsp(d.linhas), [
+    { item: "Sofá 3 lugares", qtd: "1", hig: "R$ 280,00", imp: "R$ 560,00" },
+    { item: "Cadeira", qtd: "4", hig: "R$ 40,00/cada", imp: "—" },
+  ]);
+  assert.match(d.valorTotal, /R\$\s1\.040,00 em até 10x sem juros/);
+  assert.equal(d.formaPagamento, "Cartão de crédito");
+});
+
+test("PDF no app: só higienização não tem coluna nem garantia", async () => {
+  const d = await docs.dadosOsPdf("os-pdf-hig");
+  assert.equal(d.temImp, false);
+  assert.equal(d.clienteTexto, "");
+  assert.deepEqual(semNbsp(d.linhas), [
+    { item: "Sofá 3 lugares", qtd: "1", hig: "R$ 280,00", imp: "—" },
+  ]);
+  assert.equal(await docs.dadosTermoPdf("os-pdf-hig", 12), null);
+});
+
+test("PDF no app: termo só depois da impermeabilização concluída, próxima pelos meses", async () => {
+  assert.equal(await docs.dadosTermoPdf("os-pdf-comb", 12), null, "visita ainda agendada");
+  const os = tabelas["work_orders"]!.find((o) => o["id"] === "os-pdf-comb")!;
+  const imp = (os["visits"] as Array<Record<string, unknown>>)[1]!;
+  imp["status"] = "Concluído";
+  imp["completion_date"] = "2026-08-31";
+  const t = await docs.dadosTermoPdf("os-pdf-comb", 6);
+  assert.deepEqual(t, {
+    numero: "9001",
+    cliente: "Cliente Fictício PDF",
+    dataServico: "31/08/2026",
+    tecnico: "Técnico Fictício",
+    estofados: "Sofá 3 lugares",
+    proxima: "28/02/2027",
+  });
+  assert.equal(docs.somarMeses("2026-10-07", 12), "07/10/2027");
+  assert.equal(docs.somarMeses("2027-12-15", 1), "15/01/2028");
+});

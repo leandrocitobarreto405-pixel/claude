@@ -1,6 +1,8 @@
 import { CheckCircle2, FileText } from "lucide-react";
 import { Botao } from "@/components/nexa";
 import type { NovaOs } from "@/lib/nova-os/useNovaOs";
+import { BotaoPdfDaOs } from "@/components/os/pdf-da-os";
+import { useModoDocumentos, usePodeBaixarOs } from "@/lib/documentos-hooks";
 
 export function Sucesso({
   n,
@@ -12,6 +14,8 @@ export function Sucesso({
   aoNova: () => void;
 }) {
   const c = n.criada;
+  const { data: modo } = useModoDocumentos();
+  const podeBaixar = usePodeBaixarOs();
   if (!c) return null;
   return (
     <div className="flex flex-col items-center gap-4 px-4 py-10 text-center" role="status">
@@ -27,7 +31,11 @@ export function Sucesso({
         </p>
       ) : null}
       <div className="mt-2 flex w-full max-w-sm flex-col gap-2.5">
-        {!c.documento ? (
+        {modo === "pdf" ? (
+          podeBaixar ? (
+            <BotaoPdfDaOs workOrderId={c.id} />
+          ) : null
+        ) : modo === "drive" && !c.documento ? (
           <Botao
             variante="contorno"
             larguraTotal

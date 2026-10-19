@@ -31,6 +31,8 @@ import { PaymentDialog } from "@/components/payment-dialog";
 import { NotaFiscalDaOs } from "@/components/nota-fiscal";
 import { recebido as pagamentoRecebido, type PaymentFull } from "@/lib/payments";
 import { supabase } from "@/integrations/supabase/client";
+import { CartaoPdfDaOs } from "@/components/os/pdf-da-os";
+import { useModoDocumentos } from "@/lib/documentos-hooks";
 import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { clearVisitDiscount } from "@/lib/discounts";
@@ -234,6 +236,7 @@ function OsDetalhe() {
     queryFn: () => buscarTermo({ data: { workOrderId: workOrderId! } }),
   });
   const garantia = garantiaQuery.data ?? null;
+  const { data: modoDocumentos } = useModoDocumentos();
 
   const midiasQuery = useQuery({
     queryKey: ["os_midias", workOrderId],
@@ -988,147 +991,155 @@ function OsDetalhe() {
         </div>
 
         <div className="grid gap-6 [&>*]:min-w-0">
-          <section className="card-surface p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <FileText className="size-5 text-primary" />
-              <h2 className="text-lg font-semibold">Documento da OS</h2>
-            </div>
+          {modoDocumentos === "pdf" && workOrderId ? (
+            <CartaoPdfDaOs workOrderId={workOrderId} />
+          ) : (
+            <>
+              <section className="card-surface p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <FileText className="size-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Documento da OS</h2>
+                </div>
 
-            <p className="text-sm">
-              Situação: <strong>{gerando ? "Gerando" : (doc?.status ?? "Não gerado")}</strong>
-              {doc?.version && doc.version > 1 ? ` · versão ${doc.version}` : ""}
-            </p>
-            {doc?.templateType ? (
-              <p className="mt-1 text-xs text-muted-foreground">Modelo: {doc.templateType}</p>
-            ) : null}
-            {doc?.outdated ? (
-              <p className="mt-2 text-sm text-destructive">
-                Os dados desta OS foram alterados após a geração do documento.
-              </p>
-            ) : null}
-            {doc?.status === "Erro" && doc.errorMessage ? (
-              <p className="mt-2 text-sm text-destructive">{doc.errorMessage}</p>
-            ) : null}
-            {semValor ? (
-              <p className="mt-2 text-sm text-destructive">
-                Existem itens sem valor individual. Revise os dados antes de gerar a OS.
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex flex-col gap-2">
-              {!doc || doc.status === "Não gerado" ? (
-                <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
-                  {gerando ? "Gerando documento..." : "Gerar documento"}
-                </Button>
-              ) : null}
-
-              {doc?.url ? (
-                <>
-                  <Button variant="outline" asChild>
-                    <a href={doc.url} target="_blank" rel="noreferrer">
-                      <ExternalLink className="mr-2 size-4" /> Abrir no Google Docs
-                    </a>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <a
-                      href={doc.url.replace(/\/edit.*$/, "/export?format=pdf")}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Download className="mr-2 size-4" /> Baixar PDF
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(doc.url!);
-                      toast.success("Link copiado.");
-                    }}
-                  >
-                    <Link2 className="mr-2 size-4" /> Copiar link
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void gerarDocumento("atualizar")}
-                    disabled={gerando}
-                  >
-                    <RefreshCw className="mr-2 size-4" />
-                    {gerando ? "Gerando documento..." : "Atualizar documento"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void gerarDocumento("versao")}
-                    disabled={gerando}
-                  >
-                    Gerar nova versão
-                  </Button>
-                </>
-              ) : null}
-
-              {doc?.status === "Erro" ? (
-                <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
-                  Tentar novamente
-                </Button>
-              ) : null}
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              A pasta do cliente fica sempre com um documento só. “Atualizar documento” troca o
-              atual; “Gerar nova versão” troca e numera (V2, V3...). Os anteriores ficam guardados
-              na pasta “Controle interno”, que o cliente não vê.
-            </p>
-          </section>
-
-          {garantia?.available ? (
-            <section className="card-surface p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <FileText className="size-5 text-primary" />
-                <h2 className="text-lg font-semibold">Termo de garantia</h2>
-              </div>
-              <p className="text-sm">
-                Situação:{" "}
-                <strong>
-                  {gerandoTermo ? "Gerando" : (garantia.document?.status ?? "Não gerado")}
-                </strong>
-                {garantia.document && garantia.document.version > 1
-                  ? ` · versão ${garantia.document.version}`
-                  : ""}
-              </p>
-              {garantia.document?.status === "Erro" && garantia.document.errorMessage ? (
-                <p className="mt-2 text-sm text-destructive">{garantia.document.errorMessage}</p>
-              ) : null}
-              <div className="mt-4 flex flex-col gap-2">
-                <Button onClick={() => void gerarTermo()} disabled={gerandoTermo}>
-                  {gerandoTermo
-                    ? "Gerando termo..."
-                    : garantia.document?.url
-                      ? "Gerar nova versão"
-                      : "Gerar termo de garantia"}
-                </Button>
-                {garantia.document?.url ? (
-                  <>
-                    <Button variant="outline" asChild>
-                      <a href={garantia.document.url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="mr-2 size-4" /> Abrir termo
-                      </a>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(garantia.document!.url!);
-                        toast.success("Link copiado.");
-                      }}
-                    >
-                      <Link2 className="mr-2 size-4" /> Copiar link
-                    </Button>
-                  </>
+                <p className="text-sm">
+                  Situação: <strong>{gerando ? "Gerando" : (doc?.status ?? "Não gerado")}</strong>
+                  {doc?.version && doc.version > 1 ? ` · versão ${doc.version}` : ""}
+                </p>
+                {doc?.templateType ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Modelo: {doc.templateType}</p>
                 ) : null}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Gerado apenas para OS com impermeabilização, com a data da próxima impermeabilização
-                (12 meses) e salvo na mesma pasta da OS.
-              </p>
-            </section>
-          ) : null}
+                {doc?.outdated ? (
+                  <p className="mt-2 text-sm text-destructive">
+                    Os dados desta OS foram alterados após a geração do documento.
+                  </p>
+                ) : null}
+                {doc?.status === "Erro" && doc.errorMessage ? (
+                  <p className="mt-2 text-sm text-destructive">{doc.errorMessage}</p>
+                ) : null}
+                {semValor ? (
+                  <p className="mt-2 text-sm text-destructive">
+                    Existem itens sem valor individual. Revise os dados antes de gerar a OS.
+                  </p>
+                ) : null}
+
+                <div className="mt-4 flex flex-col gap-2">
+                  {!doc || doc.status === "Não gerado" ? (
+                    <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
+                      {gerando ? "Gerando documento..." : "Gerar documento"}
+                    </Button>
+                  ) : null}
+
+                  {doc?.url ? (
+                    <>
+                      <Button variant="outline" asChild>
+                        <a href={doc.url} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-2 size-4" /> Abrir no Google Docs
+                        </a>
+                      </Button>
+                      <Button variant="outline" asChild>
+                        <a
+                          href={doc.url.replace(/\/edit.*$/, "/export?format=pdf")}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Download className="mr-2 size-4" /> Baixar PDF
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(doc.url!);
+                          toast.success("Link copiado.");
+                        }}
+                      >
+                        <Link2 className="mr-2 size-4" /> Copiar link
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => void gerarDocumento("atualizar")}
+                        disabled={gerando}
+                      >
+                        <RefreshCw className="mr-2 size-4" />
+                        {gerando ? "Gerando documento..." : "Atualizar documento"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => void gerarDocumento("versao")}
+                        disabled={gerando}
+                      >
+                        Gerar nova versão
+                      </Button>
+                    </>
+                  ) : null}
+
+                  {doc?.status === "Erro" ? (
+                    <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
+                      Tentar novamente
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  A pasta do cliente fica sempre com um documento só. “Atualizar documento” troca o
+                  atual; “Gerar nova versão” troca e numera (V2, V3...). Os anteriores ficam
+                  guardados na pasta “Controle interno”, que o cliente não vê.
+                </p>
+              </section>
+
+              {garantia?.available ? (
+                <section className="card-surface p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <FileText className="size-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Termo de garantia</h2>
+                  </div>
+                  <p className="text-sm">
+                    Situação:{" "}
+                    <strong>
+                      {gerandoTermo ? "Gerando" : (garantia.document?.status ?? "Não gerado")}
+                    </strong>
+                    {garantia.document && garantia.document.version > 1
+                      ? ` · versão ${garantia.document.version}`
+                      : ""}
+                  </p>
+                  {garantia.document?.status === "Erro" && garantia.document.errorMessage ? (
+                    <p className="mt-2 text-sm text-destructive">
+                      {garantia.document.errorMessage}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 flex flex-col gap-2">
+                    <Button onClick={() => void gerarTermo()} disabled={gerandoTermo}>
+                      {gerandoTermo
+                        ? "Gerando termo..."
+                        : garantia.document?.url
+                          ? "Gerar nova versão"
+                          : "Gerar termo de garantia"}
+                    </Button>
+                    {garantia.document?.url ? (
+                      <>
+                        <Button variant="outline" asChild>
+                          <a href={garantia.document.url} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-2 size-4" /> Abrir termo
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(garantia.document!.url!);
+                            toast.success("Link copiado.");
+                          }}
+                        >
+                          <Link2 className="mr-2 size-4" /> Copiar link
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Gerado apenas para OS com impermeabilização, com a data da próxima
+                    impermeabilização (12 meses) e salvo na mesma pasta da OS.
+                  </p>
+                </section>
+              ) : null}
+            </>
+          )}
 
           <section className="card-surface p-5">
             <div className="mb-3 flex items-center gap-2">

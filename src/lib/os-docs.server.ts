@@ -21,6 +21,7 @@ import { ensureInternalFolder, ensureMaterialsFolders } from "@/lib/os-media.ser
 import { escolherSubstituidos, nomeSubstituido } from "@/lib/os-docs-versoes";
 import { SEM_MODELO_GARANTIA } from "@/lib/os-docs-campos";
 import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
+import type { DadosOsPdf, DadosTermoPdf } from "@/lib/pdf/os-pdf";
 
 const SETTINGS_KEY = "os_document_settings";
 export const DEFAULT_NAME_TEMPLATE = "OS {{NUMERO_OS}} - {{NOME_CLIENTE}}";
@@ -388,6 +389,33 @@ function numeroClienteTexto(phone: string | null | undefined) {
   const digits = (phone ?? "").replace(/\D/g, "");
   if (digits.length < 4) return "";
   return `nº ${digits.slice(-4)}`;
+}
+
+/**
+ * Dados do PDF da OS gerado no app (Configurações › Documentos › PDF direto no app): as mesmas
+ * linhas, valor e forma de pagamento do documento do Drive.
+ */
+export async function dadosOsPdf(workOrderId: string): Promise<DadosOsPdf> {
+  const wo = await loadWorkOrder(workOrderId);
+  const tipo = templateTypeFor(wo.visits);
+  const combinado = tipo === "Higienização e Impermeabilização";
+  const temImp = tipo !== "Higienização";
+  const temHig = tipo !== "Impermeabilização";
+  const linhas = buildItems(wo, combinado).map((i) =>
+    combinado
+      ? { item: i.item, qtd: i.qty, hig: i.valueHig, imp: i.valueImp }
+      : { item: i.item, qtd: i.qty, hig: temHig ? i.value : "—", imp: temImp ? i.value : "—" },
+  );
+  return {
+    numero: wo.os_number,
+    cliente: wo.customer?.full_name ?? "",
+    clienteTexto: numeroClienteTexto(wo.customer?.phone),
+    temHig,
+    temImp,
+    linhas,
+    valorTotal: resumoValor(wo),
+    formaPagamento: wo.negotiated_payment_method ?? "",
+  };
 }
 
 function renderName(template: string, wo: WorkOrderData) {
@@ -881,6 +909,44 @@ function warrantyData(wo: WarrantyOrder) {
     proxima: maisUmAno(dataServico),
     tecnico: ultima.technician?.name ?? "",
     estofados: [...estofados].join(", "),
+  };
+}
+
+/** Soma meses a uma data ISO (dia 31 + 1 mês = último dia do mês seguinte). */
+export function somarMeses(iso: string, meses: number) {
+  const [a, m, d] = iso.split("-").map(Number) as [number, number, number];
+  const total = m - 1 + meses;
+  const ano = a + Math.floor(total / 12);
+  const mes = (total % 12) + 1;
+  const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const dia = Math.min(d, ultimo);
+  return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
+}
+
+/**
+ * Dados do termo em PDF: só depois de uma visita de impermeabilização concluída; a próxima
+ * impermeabilização vem dos meses de garantia de Configurações › Documentos.
+ */
+export async function dadosTermoPdf(
+  workOrderId: string,
+  meses: number,
+): Promise<DadosTermoPdf | null> {
+  const wo = await loadWarrantyOrder(workOrderId);
+  const concluidas = wo.visits.filter((v) => v.status === "Concluído");
+  const d = warrantyData({ ...wo, visits: concluidas });
+  if (!d) return null;
+  const ultima = concluidas
+    .filter((v) => isImp(v.service_type?.name ?? ""))
+    .map((v) => v.completion_date ?? v.scheduled_date)
+    .sort()
+    .pop()!;
+  return {
+    numero: wo.os_number,
+    cliente: d.cliente,
+    dataServico: d.dataServico,
+    tecnico: d.tecnico,
+    estofados: d.estofados,
+    proxima: somarMeses(ultima, meses),
   };
 }
 

@@ -2,6 +2,7 @@
  * Estado e salvamento da Nova OS em janela (só criar: inclusive vindo de lead, visita de
  * orçamento e orçamento). A edição (`?editar=`) continua no formulário antigo.
  */
+import { modoDocumentosFn } from "@/lib/documentos.functions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   const { user } = useSession();
   const lerConfigDoc = useServerFn(getOsDocSettings);
   const gerarDoc = useServerFn(generateOsDocument);
+  const lerModoDoc = useServerFn(modoDocumentosFn);
   const { data: motivosAjuste } = useConfigOptions("adjustment_reason");
   const { data: origens } = useConfigOptions("sales_origin");
   const { data: servicos } = useConfigOptions("service_type");
@@ -445,8 +447,9 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
       }
       let documento: string | null = null;
       try {
-        const settings = await lerConfigDoc();
-        if (settings.enabled && settings.autoGenerate && settings.configured) {
+        const [settings, { modo }] = await Promise.all([lerConfigDoc(), lerModoDoc()]);
+        // No modo "PDF direto no app" o documento não vai para o Drive.
+        if (modo === "drive" && settings.enabled && settings.autoGenerate && settings.configured) {
           documento = await gerarDocumento(wo.id);
           if (documento) toast.success(`Documento ${documento} gerado no Google Docs.`);
         }
