@@ -6,6 +6,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR } from "@/lib/format";
 import { recebido } from "@/lib/payments";
+import {
+  descricaoServicos,
+  type Descricao,
+  type VisitaDescricao,
+} from "@/lib/nota-fiscal-descricao";
 
 export const DEFAULT_NOTA_TEMPLATE = [
   "Nota fiscal — {{nome_cliente}}",
@@ -51,6 +56,8 @@ export type TarefaNota = {
       email: string | null;
     } | null;
     payments: PagamentoNota[] | null;
+    /** Visitas com os itens (descrição dos serviços da nota). */
+    visits?: VisitaDescricao[] | null;
   } | null;
 };
 
@@ -59,7 +66,10 @@ export const TAREFA_NOTA_SELECT = `
   solicitada_em, arquivo_path, arquivo_nome,
   work_order:work_order_id ( id, os_number, total_gross_value, negotiated_payment_method, negotiated_installments,
     customer:customer_id ( full_name, document_number, email ),
-    payments ( payment_type, payment_channel, installments, payment_status, is_active ) )
+    payments ( payment_type, payment_channel, installments, payment_status, is_active ),
+    visits!visits_work_order_id_fkey ( status, completion_date, scheduled_date, visit_value, final_value,
+      discount_amount, item_quantity, upholstery_description, service_type:service_type_id ( name ),
+      service_items ( description, quantity, unidade, subtotal, item_group_id, display_order, active ) ) )
 `;
 
 /** Forma de pagamento da OS: a efetivamente recebida; sem pagamento lançado, a combinada. */
@@ -118,8 +128,33 @@ export function camposFaltando(d: DadosNota): string[] {
     .map((k) => ROTULOS_NOTA[k]);
 }
 
-export function montarMensagemNota(template: string | null | undefined, d: DadosNota): string {
-  const modelo = (template && template.trim()) || DEFAULT_NOTA_TEMPLATE;
+/** Descrição dos serviços (campo "Discriminação dos Serviços" da NFS-e) a partir dos itens da OS. */
+export function descricaoDaNota(t: TarefaNota): Descricao {
+  const valorOs = Number(t.work_order?.total_gross_value ?? 0);
+  return descricaoServicos({
+    valorNota: Number(t.invoice_amount ?? valorOs),
+    valorOs,
+    dataServico: t.service_date,
+    visitas: t.work_order?.visits ?? [],
+  });
+}
+
+/**
+ * Mensagem do modelo da empresa; com a descrição, ela entra no lugar de {{descricao_servicos}} ou,
+ * se o modelo não tiver essa variável, no fim (depois de uma linha em branco).
+ */
+export function montarMensagemNota(
+  template: string | null | undefined,
+  d: DadosNota,
+  descricao?: string | null,
+): string {
+  let modelo = (template && template.trim()) || DEFAULT_NOTA_TEMPLATE;
+  if (descricao) {
+    const variavel = /\{\{\s*descricao_servicos\s*\}\}/g;
+    modelo = variavel.test(modelo)
+      ? modelo.replace(variavel, () => descricao)
+      : `${modelo}\n\n${descricao}`;
+  }
   return modelo.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, chave: string) => {
     const valor = (d as Record<string, string | null>)[chave];
     return valor === undefined ? `{{${chave}}}` : valor || "não informado";

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ import { brl, dateBR } from "@/lib/format";
 import {
   TAREFA_NOTA_SELECT,
   dadosDaNota,
+  descricaoDaNota,
   montarMensagemNota,
   type TarefaNota,
 } from "@/lib/nota-fiscal";
@@ -94,12 +96,23 @@ function Notas() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() =>
+            onClick={() => {
+              // Nota cujos itens não batem com o valor fica de fora (o aviso aparece no cartão dela).
+              const prontas = lista.flatMap((t) => {
+                const d = descricaoDaNota(t);
+                return d.ok ? [montarMensagemNota(modelo, dadosDaNota(t), d.texto)] : [];
+              });
+              const fora = lista.length - prontas.length;
+              if (!prontas.length) {
+                toast.error("Nenhuma nota com valores que batem: confira os avisos de cada uma.");
+                return;
+              }
               void copiarTexto(
-                lista.map((t) => montarMensagemNota(modelo, dadosDaNota(t))).join("\n\n———\n\n"),
-                `${lista.length} mensagens copiadas.`,
-              )
-            }
+                prontas.join("\n\n———\n\n"),
+                `${prontas.length} mensagens copiadas.` +
+                  (fora ? ` ${fora} ficaram de fora: valor que não bate (veja o aviso).` : ""),
+              );
+            }}
           >
             <Copy className="size-4" /> Copiar todas ({lista.length})
           </Button>

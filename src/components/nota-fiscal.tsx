@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Download, Eye, Paperclip, Receipt } from "lucide-react";
+import { Copy, Download, Eye, FileText, Paperclip, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,7 @@ import {
   anexarNota,
   camposFaltando,
   dadosDaNota,
+  descricaoDaNota,
   linkArquivoNota,
   marcarSolicitada,
   montarMensagemNota,
@@ -66,6 +67,7 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
   const modelo = useModeloNota();
   const dados = dadosDaNota(tarefa);
   const faltando = camposFaltando(dados);
+  const descricao = descricaoDaNota(tarefa);
   const arquivoRef = useRef<HTMLInputElement>(null);
   const [emitindo, setEmitindo] = useState(false);
   const [numero, setNumero] = useState("");
@@ -102,16 +104,44 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
           Falta no cadastro: {faltando.join(", ")}. A mensagem sai com “não informado”.
         </p>
       ) : null}
+      {descricao.ok ? (
+        descricao.agrupado ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Itens iguais foram agrupados na descrição para caber em 2.000 caracteres.
+          </p>
+        ) : null
+      ) : (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">
+          {descricao.aviso}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
           variant="outline"
-          className="gap-2"
+          className="min-h-11 gap-2"
           onClick={() =>
-            void copiarTexto(montarMensagemNota(modelo, dados), "Mensagem da nota copiada.")
+            descricao.ok
+              ? void copiarTexto(
+                  montarMensagemNota(modelo, dados, descricao.texto),
+                  "Mensagem da nota copiada.",
+                )
+              : toast.error(descricao.aviso)
           }
         >
           <Copy className="size-4" /> Copiar mensagem
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="min-h-11 gap-2"
+          onClick={() =>
+            descricao.ok
+              ? void copiarTexto(descricao.texto, "Descrição dos serviços copiada.")
+              : toast.error(descricao.aviso)
+          }
+        >
+          <FileText className="size-4" /> Copiar só a descrição
         </Button>
         {tarefa.status === "Pendente" ? (
           <Button
