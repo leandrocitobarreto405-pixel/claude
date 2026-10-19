@@ -38,3 +38,4 @@ for _ in $(seq 1 30); do
 done
 
 PGRST_URL="http://localhost:${PORTA}" node "${ROOT}/supabase/tests/api/isolamento.test.mjs"
+PGRST_URL="http://localhost:${PORTA}" node "${ROOT}/supabase/tests/api/orcamento.test.mjs"

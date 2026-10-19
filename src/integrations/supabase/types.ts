@@ -4770,6 +4770,9 @@ export type Database = {
       };
       quotes: {
         Row: {
+          proposta_documento_id: string | null;
+          proposta_gerada_em: string | null;
+          proposta_url: string | null;
           acrescimo_distancia: number;
           acrescimo_sujidade: number;
           adicional_aceito: boolean | null;
@@ -4825,6 +4828,9 @@ export type Database = {
           valores_editados_por: string | null;
         };
         Insert: {
+          proposta_documento_id?: string | null;
+          proposta_gerada_em?: string | null;
+          proposta_url?: string | null;
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;
           adicional_aceito?: boolean | null;
@@ -4880,6 +4886,9 @@ export type Database = {
           valores_editados_por?: string | null;
         };
         Update: {
+          proposta_documento_id?: string | null;
+          proposta_gerada_em?: string | null;
+          proposta_url?: string | null;
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;
           adicional_aceito?: boolean | null;

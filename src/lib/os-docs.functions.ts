@@ -87,6 +87,18 @@ export const generateOsDocument = createServerFn({ method: "POST" })
     return generateDocument(data.workOrderId, data.mode ?? "novo", context.userId);
   });
 
+/** Proposta do orçamento: o mesmo documento da OS, sem criar OS (PDF para o WhatsApp). */
+export const gerarPropostaOrcamento = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: { quoteId: string }) => {
+    if (!/^[0-9a-f-]{36}$/i.test(String(input.quoteId))) throw new Error("Orçamento inválido.");
+    return { quoteId: String(input.quoteId) };
+  })
+  .handler(async ({ data }) => {
+    const { generateProposal } = await import("@/lib/os-docs.server");
+    return generateProposal(data.quoteId);
+  });
+
 export type OsWarrantyInfo = {
   available: boolean;
   document: {

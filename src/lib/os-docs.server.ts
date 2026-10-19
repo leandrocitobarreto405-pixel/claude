@@ -5,8 +5,10 @@ import {
   deleteFile,
   docUrl,
   enviarParaLixeira,
+  exportarPdf,
   extractGoogleId,
   fillItemsTable,
+  findOrCreateFolder,
   getFile,
   listarDocumentosDaPasta,
   moveFile,
@@ -275,7 +277,7 @@ function qtdTexto(q: number, unidade?: string | null) {
   return unidade === "m2" ? textoQuantidade(q, "m2") : String(q || 1);
 }
 
-function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
+export function buildItems(wo: WorkOrderData, combinado: boolean): DocItem[] {
   const ativos = wo.visits.filter((v) => v.status !== "Cancelado");
 
   if (!combinado) {
@@ -625,6 +627,175 @@ export async function generateDocument(
       .eq("id", registro.id);
     throw new Error(msg);
   }
+}
+
+// ---------- Proposta: o documento da OS a partir do orçamento, sem criar OS ----------
+
+export type PropostaOrcamento = {
+  id: string;
+  cliente_nome: string;
+  cliente_telefone: string | null;
+  total: number;
+  valor_a_vista: number | null;
+  valor_pix: number | null;
+  forma_pagamento: string | null;
+  parcelas: number | null;
+  status: string;
+  updated_at: string;
+  proposta_documento_id: string | null;
+};
+
+export type PropostaItem = {
+  nome_snapshot: string;
+  tipo_servico: string;
+  categoria: string | null;
+  quantidade: number;
+  preco_aplicado: number;
+  subtotal: number;
+  display_order: number;
+  tabela_preco_item_id: string | null;
+};
+
+/** Valor da proposta: "R$ 6.959,00 em até 10x sem juros ou R$ 6.611,05 à vista no Pix". */
+export function resumoProposta(q: PropostaOrcamento) {
+  const total = Number(q.total ?? 0);
+  const parcelas = Number(q.parcelas ?? 1);
+  const vista = Number(q.valor_a_vista ?? q.valor_pix ?? 0);
+  const comVista = vista > 0 && vista < total ? ` ou ${brl(vista)} à vista no Pix` : "";
+  if (parcelas > 1) return `${brl(total)} em até ${parcelas}x sem juros${comVista}`;
+  return `${brl(total)}${comVista}`;
+}
+
+/** O orçamento no formato da OS, para usar os mesmos modelos e o mesmo preenchimento. */
+export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): WorkOrderData {
+  const servicos: Array<[string, string]> = [
+    ["higienizacao", "Higienização"],
+    ["impermeabilizacao", "Impermeabilização"],
+  ];
+  const visits: VisitData[] = [];
+  for (const [tipo, nome] of servicos) {
+    const doTipo = itens
+      .filter((i) => i.tipo_servico === tipo && Number(i.quantidade) > 0)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    if (!doTipo.length) continue;
+    visits.push({
+      status: "Agendado",
+      visit_value: doTipo.reduce((s, i) => s + Number(i.subtotal ?? 0), 0),
+      final_value: null,
+      item_quantity: doTipo.length,
+      upholstery_description: null,
+      service_type: { name: nome },
+      upholstery_type: null,
+      service_items: doTipo.map((i) => ({
+        description: i.nome_snapshot,
+        quantity: Number(i.quantidade),
+        unidade: i.categoria === "tapete" ? "m2" : "un",
+        unit_price: Number(i.preco_aplicado ?? 0),
+        subtotal: Number(i.subtotal ?? 0),
+        // O mesmo item nos dois serviços fica numa linha só no modelo combinado.
+        item_group_id: i.tabela_preco_item_id || i.nome_snapshot.trim().toLowerCase(),
+        display_order: i.display_order ?? 0,
+        active: true,
+        upholstery_type: null,
+      })),
+    });
+  }
+  return {
+    id: q.id,
+    os_number: "Proposta",
+    updated_at: q.updated_at,
+    total_gross_value: Number(q.total ?? 0),
+    os_value_text: resumoProposta(q),
+    negotiated_payment_method: q.forma_pagamento,
+    negotiated_installments: q.parcelas,
+    customer: { full_name: q.cliente_nome, phone: q.cliente_telefone },
+    visits,
+  };
+}
+
+/**
+ * Gera a proposta (Google Docs + PDF) do orçamento, com os modelos da OS, numa pasta "Propostas".
+ * Não cria OS. O orçamento em rascunho passa a "enviado"; as outras situações não mudam. A
+ * proposta anterior do mesmo orçamento vai para a lixeira do Drive (recuperável).
+ */
+export async function generateProposal(quoteId: string) {
+  const s = await readSettings();
+  if (!s.enabled) throw new Error("A integração com o Google está desativada nas Configurações.");
+  if (
+    !s.templateHigienizacao ||
+    !s.templateImpermeabilizacao ||
+    !s.templateCombinado ||
+    !s.folderId
+  )
+    throw new Error("Integração não configurada. Informe os três modelos e a pasta de destino.");
+
+  const db = await admin();
+  const { data: q } = await db
+    .from("quotes")
+    .select(
+      "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id",
+    )
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (!q) throw new Error("Orçamento não encontrado.");
+  const { data: itens } = await db
+    .from("quote_items")
+    .select(
+      "nome_snapshot, tipo_servico, categoria, quantidade, preco_aplicado, subtotal, display_order, tabela_preco_item_id",
+    )
+    .eq("quote_id", quoteId)
+    .order("display_order");
+  const orcamento = q as unknown as PropostaOrcamento;
+  const wo = propostaComoOs(orcamento, (itens ?? []) as unknown as PropostaItem[]);
+  if (!wo.visits.length) throw new Error("Inclua pelo menos um item no orçamento.");
+
+  const tipo = templateTypeFor(wo.visits);
+  const templateId =
+    tipo === "Higienização e Impermeabilização"
+      ? s.templateCombinado
+      : tipo === "Impermeabilização"
+        ? s.templateImpermeabilizacao
+        : s.templateHigienizacao;
+  const nome = `Proposta - ${orcamento.cliente_nome.trim()} - ${dataBR(new Date().toISOString())}`;
+  const pasta = await findOrCreateFolder("Propostas", s.folderId);
+
+  const copia = await copyFile(templateId, nome, pasta);
+  try {
+    await replacePlaceholders(copia.id, {
+      NUMERO_OS: wo.os_number,
+      NOME_CLIENTE: wo.customer?.full_name ?? "",
+      NUMERO_CLIENTE_TEXTO: numeroClienteTexto(wo.customer?.phone),
+      RESUMO_VALOR: resumoValor(wo),
+      FORMA_PAGAMENTO: wo.negotiated_payment_method ?? "",
+    });
+    await fillItemsTable(copia.id, buildItems(wo, tipo === "Higienização e Impermeabilização"));
+    await stripRemainingPlaceholders(copia.id);
+  } catch (e) {
+    await enviarParaLixeira(copia.id).catch((x) =>
+      console.error("Proposta com falha não foi para a lixeira:", copia.id, x),
+    );
+    throw e;
+  }
+
+  const url = copia.webViewLink ?? docUrl(copia.id);
+  const anterior = orcamento.proposta_documento_id;
+  const { error } = await db
+    .from("quotes")
+    .update({
+      proposta_documento_id: copia.id,
+      proposta_url: url,
+      proposta_gerada_em: new Date().toISOString(),
+      ...(orcamento.status === "rascunho" ? { status: "enviado" } : {}),
+    } as never)
+    .eq("id", quoteId);
+  if (error) throw new Error("A proposta foi gerada, mas não consegui guardar no orçamento.");
+  if (anterior && anterior !== copia.id)
+    await enviarParaLixeira(anterior).catch((x) =>
+      console.error("Proposta anterior não foi para a lixeira:", x),
+    );
+
+  const pdf = Buffer.from(await (await exportarPdf(copia.id)).arrayBuffer()).toString("base64");
+  return { url, nome, tipo, pdfBase64: pdf };
 }
 
 // ---------- Termo de garantia da impermeabilização ----------

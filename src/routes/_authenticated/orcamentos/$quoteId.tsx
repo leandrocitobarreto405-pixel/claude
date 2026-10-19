@@ -6,7 +6,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Loader2, MessageCircle, PlusCircle, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  FileText,
+  Loader2,
+  MessageCircle,
+  PlusCircle,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +27,7 @@ import { brl, decimal, onlyDigits } from "@/lib/format";
 import { findRate, usePaymentRates, useSetting } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
+import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
 import { repasseEstimado } from "@/lib/terceirizados";
 import { useConfigOrcamento } from "@/lib/orcamento-config";
@@ -35,6 +44,7 @@ import {
 import {
   STATUS_CLASS,
   STATUS_LABEL,
+  situacoesEscolhiveis,
   TIPO_LABEL,
   excluirOrcamento,
   setQuoteStatus,
@@ -129,6 +139,7 @@ function OrcamentoDetalhe() {
   const { data: carregado, refetch } = useQuote(novo ? null : quoteId);
   const salvar = useServerFn(salvarOrcamento);
   const duplicar = useServerFn(duplicarOrcamento);
+  const gerarPropostaFn = useServerFn(gerarPropostaOrcamento);
   const estimarKm = useServerFn(estimarKmPorCep);
 
   const [nome, setNome] = useState("");
@@ -553,6 +564,30 @@ function OrcamentoDetalhe() {
       return false;
     } finally {
       setSalvando(false);
+    }
+  }
+
+  /**
+   * Proposta formal sem criar OS: salva (fica "enviado"), gera o documento com os modelos da OS e
+   * baixa o PDF para mandar no WhatsApp. Se fechar depois, o botão de virar OS continua igual.
+   */
+  async function gerarProposta() {
+    if (!(await gravar())) return;
+    setAcao("proposta");
+    try {
+      const r = await gerarPropostaFn({ data: { quoteId } });
+      const bytes = Uint8Array.from(atob(r.pdfBase64), (c) => c.charCodeAt(0));
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      link.download = `${r.nome}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+      await refetch();
+      toast.success("Proposta gerada. O PDF foi baixado para mandar ao cliente.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível gerar a proposta.");
+    } finally {
+      setAcao(null);
     }
   }
 
@@ -1280,17 +1315,33 @@ function OrcamentoDetalhe() {
               }}
               className="flex h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
             >
-              {(["rascunho", "enviado", "aprovado", "recusado", "convertido"] as QuoteStatus[]).map(
-                (s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ),
-              )}
+              {situacoesEscolhiveis(status).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
             </select>
             <Button variant="outline" onClick={gerarMensagem} disabled={ocupado}>
               <MessageCircle className="mr-2 h-4 w-4" /> Gerar mensagem WhatsApp
             </Button>
+            <Button variant="outline" onClick={() => void gerarProposta()} disabled={ocupado}>
+              {acao === "proposta" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              {acao === "proposta" ? "Gerando proposta…" : "Gerar proposta (PDF)"}
+            </Button>
+            {carregado?.quote.proposta_url ? (
+              <a
+                href={carregado.quote.proposta_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center text-sm text-primary underline sm:min-h-0"
+              >
+                Abrir última proposta
+              </a>
+            ) : null}
             <Button
               variant="outline"
               disabled={ocupado}

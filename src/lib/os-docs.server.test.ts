@@ -35,6 +35,57 @@ const tabelas: Record<string, Linha[]> = {
     },
   ],
   empresas: [],
+  quotes: [
+    {
+      id: "orc-1",
+      cliente_nome: "Diego Fictício",
+      cliente_telefone: "5511900001682",
+      total: 6959,
+      valor_a_vista: 6611.05,
+      valor_pix: null,
+      forma_pagamento: "Maquininha",
+      parcelas: 10,
+      status: "rascunho",
+      updated_at: "2026-10-16T12:00:00Z",
+      proposta_documento_id: null,
+      generated_work_order_id: null,
+    },
+  ],
+  quote_items: [
+    {
+      quote_id: "orc-1",
+      nome_snapshot: "Sofá 3 lugares",
+      tipo_servico: "higienizacao",
+      categoria: "sofa",
+      quantidade: 1,
+      preco_aplicado: 400,
+      subtotal: 400,
+      display_order: 1,
+      tabela_preco_item_id: "t-sofa",
+    },
+    {
+      quote_id: "orc-1",
+      nome_snapshot: "Sofá 3 lugares",
+      tipo_servico: "impermeabilizacao",
+      categoria: "sofa",
+      quantidade: 1,
+      preco_aplicado: 800,
+      subtotal: 800,
+      display_order: 2,
+      tabela_preco_item_id: "t-sofa",
+    },
+    {
+      quote_id: "orc-1",
+      nome_snapshot: "Tapete comum (por m²)",
+      tipo_servico: "higienizacao",
+      categoria: "tapete",
+      quantidade: 3.6,
+      preco_aplicado: 62.4,
+      subtotal: 224.64,
+      display_order: 3,
+      tabela_preco_item_id: "t-tapete",
+    },
+  ],
   work_order_documents: [],
   work_orders: [
     {
@@ -196,6 +247,8 @@ mock.module("@/lib/google-docs.server", {
     getFile: async () => ({ mimeType: "application/vnd.google-apps.document" }),
     deleteFile: async () => undefined,
     extractGoogleId: (v: string) => v,
+    findOrCreateFolder: async (nome: string, pai: string) => `${pai}/${nome}`,
+    exportarPdf: async () => new Blob(["%PDF-1.4 teste"], { type: "application/pdf" }),
   },
 });
 
@@ -319,4 +372,60 @@ test("empresa sem modelo do termo: avisa e não gera com texto de outra empresa"
   assert.equal(r.warranty, false);
   assert.ok(r.errors.some((e) => e.startsWith("Configure o modelo do termo de garantia")));
   cfg["value"] = valor;
+});
+
+test("proposta: documento da OS a partir do orçamento, sem OS, rascunho vira enviado", async () => {
+  const antes = copiasDe.length;
+  const r = await docs.generateProposal("orc-1");
+  // Higienização e impermeabilização: modelo combinado, na pasta "Propostas".
+  assert.equal(copiasDe.at(-1), "modelo-comb");
+  assert.equal(copiasDe.length, antes + 1);
+  assert.equal(r.tipo, "Higienização e Impermeabilização");
+  assert.ok(r.nome.startsWith("Proposta - Diego Fictício - "), r.nome);
+  const doc = [...drive.values()].find((a) => a.name === r.nome)!;
+  assert.equal(doc.parent, "raiz/Propostas");
+  const campos = preenchidos.at(-1)!;
+  assert.equal(campos.NUMERO_OS, "Proposta");
+  assert.equal(campos.NOME_CLIENTE, "Diego Fictício");
+  assert.equal(campos.NUMERO_CLIENTE_TEXTO, "nº 1682");
+  assert.match(
+    campos.RESUMO_VALOR,
+    /^R\$\s?6\.959,00 em até 10x sem juros ou R\$\s?6\.611,05 à vista no Pix$/,
+  );
+  assert.ok(Buffer.from(r.pdfBase64, "base64").toString().startsWith("%PDF"));
+  const q = tabelas["quotes"]![0]!;
+  assert.equal(q["status"], "enviado");
+  assert.equal(q["proposta_documento_id"], doc.id);
+  assert.equal(q["generated_work_order_id"], null);
+  assert.equal(registros().filter((l) => l.google_document_id === doc.id).length, 0);
+
+  // Gerar de novo: a anterior vai para a lixeira; situação já "aprovado" não muda.
+  q["status"] = "aprovado";
+  const r2 = await docs.generateProposal("orc-1");
+  assert.equal(drive.get(doc.id)!.trashed, true);
+  assert.notEqual(r2.url, r.url);
+  assert.equal(q["status"], "aprovado");
+});
+
+test("proposta: itens no formato da OS (mesmo item nos dois serviços numa linha; tapete em m²)", () => {
+  const q = tabelas["quotes"]![0]! as unknown as Parameters<typeof docs.propostaComoOs>[0];
+  const itens = tabelas["quote_items"] as unknown as Parameters<typeof docs.propostaComoOs>[1];
+  const wo = docs.propostaComoOs(q, itens);
+  assert.deepEqual(
+    wo.visits.map((v) => v.service_type?.name),
+    ["Higienização", "Impermeabilização"],
+  );
+  assert.equal(docs.templateTypeFor(wo.visits), "Higienização e Impermeabilização");
+  const linhas = docs.buildItems(wo, true);
+  assert.equal(linhas.length, 2);
+  assert.equal(linhas[0]!.item, "Sofá 3 lugares");
+  assert.match(linhas[0]!.valueHig, /400,00/);
+  assert.match(linhas[0]!.valueImp, /800,00/);
+  assert.equal(linhas[1]!.qty, "3,6 m²");
+  assert.equal(linhas[1]!.valueImp, "—");
+  // Só higienização: R$ cheio sem parcelas.
+  assert.match(
+    docs.resumoProposta({ ...q, parcelas: 1, valor_a_vista: null, valor_pix: null, total: 300 }),
+    /^R\$\s?300,00$/,
+  );
 });

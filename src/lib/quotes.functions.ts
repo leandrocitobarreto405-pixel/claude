@@ -8,7 +8,13 @@ export const salvarOrcamento = createServerFn({ method: "POST" })
   .inputValidator((input: QuoteInput) => input)
   .handler(async ({ data, context }) => {
     const { saveQuote } = await import("./quotes.server");
-    return saveQuote(context.supabase, data, context.userId ?? null);
+    const { statusAoSalvar } = await import("./quote-status");
+    // Salvar pela tela = orçamento enviado ao cliente (os gatilhos atualizam o lead).
+    return saveQuote(
+      context.supabase,
+      { ...data, status: statusAoSalvar(data.status) },
+      context.userId ?? null,
+    );
   });
 
 export const duplicarOrcamento = createServerFn({ method: "POST" })
