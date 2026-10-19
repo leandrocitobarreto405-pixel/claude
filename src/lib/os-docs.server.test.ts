@@ -385,11 +385,11 @@ test("proposta: documento da OS a partir do orçamento, sem OS, rascunho vira en
   const doc = [...drive.values()].find((a) => a.name === r.nome)!;
   assert.equal(doc.parent, "raiz/Propostas");
   const campos = preenchidos.at(-1)!;
-  assert.equal(campos.NUMERO_OS, "Proposta");
-  assert.equal(campos.NOME_CLIENTE, "Diego Fictício");
-  assert.equal(campos.NUMERO_CLIENTE_TEXTO, "nº 1682");
+  assert.equal(campos["NUMERO_OS"], "Proposta");
+  assert.equal(campos["NOME_CLIENTE"], "Diego Fictício");
+  assert.equal(campos["NUMERO_CLIENTE_TEXTO"], "nº 1682");
   assert.match(
-    campos.RESUMO_VALOR,
+    campos["RESUMO_VALOR"] ?? "",
     /^R\$\s?6\.959,00 em até 10x sem juros ou R\$\s?6\.611,05 à vista no Pix$/,
   );
   assert.ok(Buffer.from(r.pdfBase64, "base64").toString().startsWith("%PDF"));
