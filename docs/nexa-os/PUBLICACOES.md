@@ -297,6 +297,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   informações!" → botão + serviço Higienização; clique do pop-up sem origem → landing.
   Retroativo (`scripts/origens/google-ads-retroativo.sql`): 9 leads de "Google" (automático) para
   o botão, com as OS 1668 e 1687; nenhum lead de pop-up estava sem origem.
+- "PDF da OS no app" (`20261119120000`, aplicada em 19/10): só cria a pasta privada
+  `empresa-logos` do armazenamento (PNG/JPG até 2 MB, pasta por empresa, troca só pelo admin).
+  Os dados novos da empresa (e-mail, endereço, Instagram, logo) vão no `app_settings` "company"
+  que já existia, sem apagar as chaves de antes; os textos ficam no `app_settings` "documentos"
+  (sem ele, a empresa continua nos modelos do Drive). Nenhum dado foi alterado na aplicação.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -384,6 +389,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 18/10/2026       | Terceirizados (tapete e persiana)                   | `6594530`           | `d93b042`                |
 | 18/10/2026       | Funil e comissão pelo valor líquido                 | `58cd399`           | `a5fd147`                |
 | 19/10/2026       | Orçamento enviado, proposta, origem Google Ads      | `9efdd87`…`7503746` | `9cd38a0`                |
+| 19/10/2026       | PDF da OS no app (Documentos, dados e logo)         | `e96b898`…`4baad41` | `b3a28aa`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
