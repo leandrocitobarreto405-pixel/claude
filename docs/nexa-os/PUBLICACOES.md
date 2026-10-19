@@ -319,6 +319,13 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Ecoprime 1–4; contadores 65 e 4; `updated_at` conferido igual antes/depois (gatilho do
   updated_at desligado só durante a numeração). Nenhum outro dado mudou. Para voltar: o app
   anterior ignora a coluna; o gatilho de numeração pode ficar.
+- "Alice responde em áudio" (`20261122120000`, aprovada e aplicada em 19/10, depois de ensaio
+  desfeito): só acréscimos. Colunas `audio_*` em `ia_configuracoes` (desligado, sem voz, 350
+  caracteres, 25 s, R$ 5,00/dia, US$ 1 = R$ 5,50), `conversas.alice_so_texto_em` (vazia) e a
+  tabela `ia_audios_uso` (RLS: só leitura da própria empresa; quem grava é o servidor). Conferido
+  depois: nenhuma empresa ligada, nenhuma conversa marcada, configuração atual da Alice igual
+  (md5 das colunas antigas antes e depois). Para voltar: desligar em Configurações › Alice; o app
+  anterior ignora as colunas novas.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -413,6 +420,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 19/10/2026       | Correção: Início zerado e erros em português        | `b300e7a`           | `04bb91d`                |
 | 19/10/2026       | Número sequencial do orçamento (Nº 0153)            | `43354bd`           | `879f892`                |
 | 19/10/2026       | Notas fiscais: descrição dos serviços (NFS-e)       | `60755c0`           | `2a7e1aa`                |
+| 19/10/2026       | Alice responde em áudio (desligado)                 | `82d022b`           | `ee4cd9a`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
