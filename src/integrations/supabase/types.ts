@@ -1506,6 +1506,42 @@ export type Database = {
           },
         ];
       };
+      cupons: {
+        Row: {
+          ativo: boolean;
+          canal: string | null;
+          codigo: string;
+          created_at: string;
+          empresa_id: string;
+          id: string;
+          servico: string;
+          updated_at: string;
+          valor: number;
+        };
+        Insert: {
+          ativo?: boolean;
+          canal?: string | null;
+          codigo: string;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          servico: string;
+          updated_at?: string;
+          valor: number;
+        };
+        Update: {
+          ativo?: boolean;
+          canal?: string | null;
+          codigo?: string;
+          created_at?: string;
+          empresa_id?: string;
+          id?: string;
+          servico?: string;
+          updated_at?: string;
+          valor?: number;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           city: string | null;
@@ -4784,6 +4820,7 @@ export type Database = {
           cliente_telefone: string | null;
           contribuicao_percentual: number | null;
           contribuicao_valor: number | null;
+          cupom: string | null;
           created_at: string;
           created_by: string | null;
           crm_lead_id: string | null;
@@ -4842,6 +4879,7 @@ export type Database = {
           cliente_telefone?: string | null;
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
+          cupom?: string | null;
           created_at?: string;
           created_by?: string | null;
           crm_lead_id?: string | null;
@@ -4900,6 +4938,7 @@ export type Database = {
           cliente_telefone?: string | null;
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
+          cupom?: string | null;
           created_at?: string;
           created_by?: string | null;
           crm_lead_id?: string | null;

@@ -25,6 +25,7 @@ import {
 import { rotulosAcrescimo } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { assinaturaOrcamento } from "./agendamento";
+import { conferirCupom, maiorDesconto, type Cupom } from "./cupons";
 import {
   descontoPermitido,
   lerMarketing,
@@ -124,6 +125,9 @@ const AtualizarLead = z.object({
   endereco: z.string().trim().min(1).max(300).optional(),
   resumo: z.string().trim().min(1).max(1500).optional(),
   temperatura: z.enum(["QUENTE", "FRIO"]).optional(),
+  origem: z
+    .enum(["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "outro"])
+    .optional(),
 });
 const ConsultarCep = z.object({ cep: z.string().trim().min(8).max(10) });
 const CLASSE = z.enum(["A", "B", "C"]);
@@ -151,6 +155,7 @@ const CriarOrcamento = z.object({
   cep: z.string().trim().max(10).optional(),
   rotulo: z.string().trim().max(40).optional(),
   desconto: z.enum(["campanha", "indicacao"]).optional(),
+  cupom: z.string().trim().min(3).max(30).optional(),
 });
 const AdicionalPosFechamento = z.object({
   acao: z.enum(["oferecer", "aceitou", "recusou"]),
@@ -263,6 +268,12 @@ export function ferramentasDisponiveis(
             enum: ["QUENTE", "FRIO"],
             description: "QUENTE se o cliente demonstra intenção clara de fechar.",
           },
+          origem: {
+            type: "string",
+            enum: ["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "outro"],
+            description:
+              "Só quando a origem do cliente não é conhecida e ele disse como conheceu a empresa: google_anuncio (anúncio do Google), google_artigo (artigo/blog achado no Google), google (só 'Google', sem saber qual), instagram, indicacao, outro. Origem já conhecida não é trocada.",
+          },
         },
         additionalProperties: false,
       },
@@ -334,6 +345,11 @@ export function ferramentasDisponiveis(
             enum: ["campanha", "indicacao"],
             description:
               "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao). O sistema calcula o percentual. Nunca os dois juntos.",
+          },
+          cupom: {
+            type: "string",
+            description:
+              "Código do cupom que o cliente mandou (ex.: BLOG50), inclusive o que veio na primeira mensagem. O sistema confere o serviço e o valor; vale um desconto por orçamento (o maior, se também houver campanha/indicação).",
           },
         },
         required: ["servico", "itens"],
@@ -678,7 +694,7 @@ async function lerLead(ctx: ContextoFerramenta) {
   if (!ctx.leadId) return null;
   const { data } = await ctx.admin
     .from("crm_leads")
-    .select("id, lead_name, phone, notes, status_id, customer_id, loss_reason_id")
+    .select("id, lead_name, phone, notes, status_id, customer_id, loss_reason_id, sales_origin_id")
     .eq("id", ctx.leadId)
     .eq("empresa_id", ctx.empresaId)
     .maybeSingle();
@@ -697,18 +713,68 @@ async function atualizarLead(ctx: ContextoFerramenta, input: z.infer<typeof Atua
     mudancas.summary_source = "Alice";
   }
   if (input.temperatura) mudancas.temperature = input.temperatura;
+  let avisoOrigem = "";
+  if (input.origem) {
+    if (lead.sales_origin_id) avisoOrigem = " A origem já era conhecida e não mudou.";
+    else {
+      const id = await origemPorCodigo(ctx, CODIGO_ORIGEM_INFORMADA[input.origem]);
+      if (id) {
+        mudancas.sales_origin_id = id;
+        mudancas.origem_automatica = true;
+      } else avisoOrigem = " Origem não cadastrada nesta empresa: não gravei.";
+    }
+  }
   if (input.endereco) {
     const linha = `Endereço informado ao atendimento: ${input.endereco}`;
     const atuais = lead.notes ?? "";
     if (!atuais.includes(linha)) mudancas.notes = atuais ? `${atuais}\n${linha}` : linha;
   }
-  if (!Object.keys(mudancas).length) return "Nada novo para gravar.";
+  if (!Object.keys(mudancas).length) return `Nada novo para gravar.${avisoOrigem}`;
   const { error } = await ctx.admin
     .from("crm_leads")
     .update(mudancas)
     .eq("id", lead.id)
     .eq("empresa_id", ctx.empresaId);
-  return error ? `Não foi possível gravar: ${error.message}` : "Dados gravados.";
+  return error ? `Não foi possível gravar: ${error.message}` : `Dados gravados.${avisoOrigem}`;
+}
+
+/** Resposta do cliente a "como conheceu" → código da origem de venda. */
+const CODIGO_ORIGEM_INFORMADA = {
+  google_anuncio: "google",
+  google_artigo: "blog",
+  google: "google",
+  instagram: "instagram",
+  indicacao: "indicacao",
+  outro: "outra",
+} as const;
+
+async function origemPorCodigo(ctx: ContextoFerramenta, codigo: string): Promise<string | null> {
+  const { data } = await ctx.admin
+    .from("config_options")
+    .select("id")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("kind", "sales_origin")
+    .eq("active", true)
+    .eq("metadata->>codigo", codigo)
+    .order("display_order")
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+/** Cupons ativos da empresa. */
+export async function cuponsAtivos(admin: Admin, empresaId: string): Promise<Cupom[]> {
+  const { data } = await admin
+    .from("cupons")
+    .select("codigo, valor, servico, canal")
+    .eq("empresa_id", empresaId)
+    .eq("ativo", true);
+  return (data ?? []).map((c) => ({
+    codigo: c.codigo,
+    valor: Number(c.valor),
+    servico: c.servico as Servico,
+    canal: c.canal,
+  }));
 }
 
 async function consultarCliente(ctx: ContextoFerramenta) {
@@ -902,7 +968,7 @@ async function orcamentoIgualRecente(
   const { data } = await ctx.admin
     .from("quotes")
     .select(
-      "id, desconto_tipo, quote_items(tabela_preco_item_id, tipo_servico, quantidade, preco_aplicado, classe, almofadas_soltas, muito_encardido)",
+      "id, desconto_tipo, cupom, quote_items(tabela_preco_item_id, tipo_servico, quantidade, preco_aplicado, classe, almofadas_soltas, muito_encardido)",
     )
     .eq("empresa_id", ctx.empresaId)
     .eq("crm_lead_id", leadId)
@@ -913,6 +979,7 @@ async function orcamentoIgualRecente(
   type Linha = {
     id: string;
     desconto_tipo: string | null;
+    cupom: string | null;
     quote_items: Array<{
       tabela_preco_item_id: string | null;
       tipo_servico: string;
@@ -928,7 +995,7 @@ async function orcamentoIgualRecente(
     if (!itens.length) continue;
     const a = assinaturaOrcamento({
       servico: itens[0]!.tipo_servico,
-      desconto: q.desconto_tipo,
+      desconto: q.cupom ? `cupom:${q.cupom}` : q.desconto_tipo,
       itens: itens.map((i) => ({
         itemId: i.tabela_preco_item_id,
         quantidade: Number(i.quantidade),
@@ -986,12 +1053,43 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
     regraDesconto = d;
   }
+  // Cupom (em reais, do serviço certo). Com campanha/indicação também, vale o maior.
+  let cupom: Cupom | null = null;
+  if (input.cupom) {
+    const c = conferirCupom(
+      input.cupom,
+      input.servico,
+      await cuponsAtivos(ctx.admin, ctx.empresaId),
+    );
+    if (!c.ok) return { erro: true, texto: c.texto };
+    cupom = c.cupom;
+  }
+  const baseDesconto =
+    Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
+  const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
+  const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
-    regraDesconto,
+    escolha?.tipo === "cupom"
+      ? { valor: escolha.cupom.valor, rotulo: `Cupom ${escolha.cupom.codigo}` }
+      : escolha?.tipo === "pct"
+        ? escolha.pct
+        : null,
     ctx.cfg.parcelas_max,
     Number(ctx.cfg.desconto_pix_percentual),
   );
+  const tipoDesconto = !desconto
+    ? null
+    : cupomUsado
+      ? ("manual" as const)
+      : (input.desconto ?? null);
+  const chaveDesconto = cupomUsado ? `cupom:${cupomUsado.codigo}` : tipoDesconto;
+  const avisoDesconto =
+    cupom && regraDesconto
+      ? cupomUsado
+        ? `Só um desconto por orçamento: o cupom ${cupomUsado.codigo} é maior que o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} e foi o aplicado.`
+        : `Só um desconto por orçamento: o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
+      : null;
   const val = validade(ctx.agora, ctx.cfg.validade_orcamento_dias);
 
   let km = 0;
@@ -1008,7 +1106,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   // orçamento: devolve o que já existe.
   const assinatura = assinaturaOrcamento({
     servico: input.servico,
-    desconto: desconto ? (input.desconto ?? null) : null,
+    desconto: chaveDesconto,
     itens: escolhidos.map((e) => ({
       itemId: e.item.id,
       quantidade: e.quantidade,
@@ -1032,10 +1130,11 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         cliente_endereco: endereco,
         customer_id: lead?.customer_id ?? null,
         data_servico: null,
-        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct}% (${reais(desconto.valor)}).` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
+        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct !== null ? `${desconto.pct}% (${reais(desconto.valor)})` : `-${reais(desconto.valor)}`}.` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
         desconto: desconto?.valor ?? 0,
-        desconto_tipo: desconto ? (input.desconto ?? null) : null,
+        desconto_tipo: tipoDesconto,
         desconto_pct: desconto?.pct ?? null,
+        cupom: cupomUsado?.codigo ?? null,
         valor_a_vista: cond.pix,
         km_ida_volta: km,
         custo_produtos: 0,
@@ -1083,9 +1182,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       ...(desconto
         ? [
             `Subtotal: ${reais(bruto)}`,
-            `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`,
+            desconto.pct !== null
+              ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
+              : `${desconto.rotulo}: −${reais(desconto.valor)}`,
           ]
         : []),
+      ...(avisoDesconto ? [`(Para você, não copie: ${avisoDesconto})`] : []),
       `Total${desconto ? " com desconto" : ""}: ${reais(cond.total)}`,
       "Pagamento para o cliente (copie exatamente assim, nestas linhas):",
       linhasPagamento({

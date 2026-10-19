@@ -71,6 +71,7 @@ type QuoteMensagem = Pick<
       | "valor_pix"
       | "desconto_tipo"
       | "desconto_pct"
+      | "cupom"
     >
   >;
 
@@ -153,13 +154,18 @@ export function quoteWhatsappMessage(
     const pctTxt = quote.desconto_pct
       ? ` (${Number(quote.desconto_pct).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)`
       : "";
-    const rotulo =
-      quote.desconto_tipo === "campanha"
+    const rotulo = quote.cupom
+      ? `Cupom ${quote.cupom}`
+      : quote.desconto_tipo === "campanha"
         ? `Desconto da campanha${pctTxt}`
         : quote.desconto_tipo === "indicacao"
           ? `Desconto de indicação${pctTxt}`
           : "Desconto";
-    partes.push("", `Subtotal: ${brl(quote.subtotal)}`, `${rotulo}: -${brl(quote.desconto)}`);
+    partes.push(
+      "",
+      `Subtotal: ${brl(quote.subtotal)}`,
+      `${rotulo}: ${quote.cupom ? "−" : "-"}${brl(quote.desconto)}`,
+    );
   }
   partes.push(
     "",

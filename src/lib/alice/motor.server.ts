@@ -9,8 +9,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { enviarAnexo, enviarMensagem, mudarSituacao, type Conta } from "./chatwoot-api.server";
+import { cupomNoTexto } from "./cupons";
 import {
   cancelarFollowupPendente,
+  cuponsAtivos,
   executarFerramenta,
   ferramentasDisponiveis,
   type ConfigIa,
@@ -360,6 +362,20 @@ async function contextoLead(
     .eq("empresa_id", empresaId)
     .maybeSingle();
   if (!data) return { lead: null, salesperson: null };
+  // Cupom citado na primeira mensagem recebida (ex.: "Vi o cupom BLOG50 no blog…").
+  const [{ data: primeira }, cupons] = await Promise.all([
+    db
+      .from("whatsapp_messages")
+      .select("text_content")
+      .eq("crm_lead_id", leadId)
+      .eq("empresa_id", empresaId)
+      .eq("direction", "Recebida")
+      .order("message_timestamp")
+      .limit(1)
+      .maybeSingle(),
+    cuponsAtivos(db, empresaId),
+  ]);
+  const cupomCitado = cupomNoTexto(primeira?.text_content, cupons)?.codigo ?? null;
   const l = data as unknown as {
     lead_name: string | null;
     phone: string | null;
@@ -384,6 +400,7 @@ async function contextoLead(
       etapa: l.status?.name ?? null,
       clienteExistente: Boolean(l.customer_id),
       semPosVenda,
+      cupomCitado,
     } satisfies ContextoLead,
     salesperson: l.salesperson_id,
   };

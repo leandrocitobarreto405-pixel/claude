@@ -1,6 +1,6 @@
 /**
  * Orçamento da Alice: preço de cada item pela tabela + classe/acréscimos da empresa (arredondado
- * para o real de cima), desconto de campanha OU indicação e Pix por cima. A Alice nunca informa
+ * para o real de cima), um desconto (campanha, indicação ou cupom) e Pix por cima. A Alice nunca informa
  * preço: só item, quantidade, classe e as marcações. Função pura (ferramenta e testes).
  */
 import { normalizarQuantidade, unidadeDaCategoria } from "@/lib/unidade";
@@ -82,23 +82,39 @@ export function precificar(
 
 export type Totais = {
   bruto: number;
-  desconto: { pct: number; rotulo: string; valor: number } | null;
+  /** pct null = desconto em reais (cupom). */
+  desconto: { pct: number | null; rotulo: string; valor: number } | null;
   cond: Condicoes;
 };
 
-/** Total: soma dos itens → desconto (campanha OU indicação) → Pix e parcelas sobre o resultado. */
+/**
+ * Total: soma dos itens → um desconto (campanha OU indicação em %, ou cupom em reais, nunca
+ * acima da base) → Pix e parcelas sobre o resultado.
+ */
 export function totalizar(
   linhas: LinhaOrcamento[],
-  desconto: { pct: number; rotulo: string } | null,
+  desconto: { pct: number; rotulo: string } | { valor: number; rotulo: string } | null,
   parcelasMax: number,
   pixPct: number,
 ): Totais {
   const soma = (ls: LinhaOrcamento[]) =>
     Math.round(ls.reduce((s, l) => s + l.preco * l.quantidade, 0) * 100) / 100;
   const bruto = soma(linhas);
-  // Desconto de campanha/indicação só nos itens normais (o adicional já tem preço especial).
+  // Desconto só nos itens normais (o adicional já tem preço especial).
   const baseDesconto = soma(linhas.filter((l) => !l.adicional));
-  const d = desconto ? { ...desconto, valor: descontoPorPct(baseDesconto, desconto.pct) } : null;
+  const d = !desconto
+    ? null
+    : "pct" in desconto
+      ? {
+          pct: desconto.pct,
+          rotulo: desconto.rotulo,
+          valor: descontoPorPct(baseDesconto, desconto.pct),
+        }
+      : {
+          pct: null,
+          rotulo: desconto.rotulo,
+          valor: Math.round(Math.min(Math.max(desconto.valor, 0), baseDesconto) * 100) / 100,
+        };
   const total = Math.round((bruto - (d?.valor ?? 0)) * 100) / 100;
   return { bruto, desconto: d, cond: condicoesPagamento(total, parcelasMax, pixPct) };
 }

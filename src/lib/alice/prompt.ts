@@ -71,6 +71,8 @@ export type ContextoLead = {
   etapa: string | null;
   clienteExistente: boolean;
   semPosVenda: boolean;
+  /** Cupom cadastrado citado na primeira mensagem do cliente (ex.: BLOG50). */
+  cupomCitado?: string | null;
 };
 
 const reais = (v: number) =>
@@ -158,13 +160,16 @@ export function instrucoesDoMomento(agora: Date, lead: ContextoLead | null): str
       lead.nome ? `nome no WhatsApp/cadastro: ${lead.nome}` : null,
       lead.clienteExistente ? "já é cliente da empresa (veja consultar_cliente)" : "cliente novo",
       lead.etapa ? `etapa no CRM: ${lead.etapa}` : null,
-      lead.origem ? `origem: ${lead.origem}` : null,
+      `origem: ${lead.origem ?? "não identificada"}`,
       lead.campanha ? `campanha: ${lead.campanha}` : null,
       lead.servicoInteresse ? `serviço de interesse: ${lead.servicoInteresse}` : null,
       lead.descricaoEstofados ? `estofados: ${lead.descricaoEstofados}` : null,
       lead.resumo ? `resumo até aqui: ${lead.resumo}` : null,
       lead.semPosVenda
         ? "marcado como SEM PÓS-VENDA (não envie satisfação, avaliação nem reativação)"
+        : null,
+      lead.cupomCitado
+        ? `a primeira mensagem já trouxe o cupom ${lead.cupomCitado} (use em criar_orcamento sem pedir o código de novo)`
         : null,
     ].filter(Boolean);
     linhas.push(`Sobre este cliente: ${dados.join("; ")}.`);

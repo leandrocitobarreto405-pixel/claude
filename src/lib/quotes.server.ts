@@ -76,6 +76,8 @@ export type QuoteInput = {
   /** Desconto: campanha OU indicação (percentual das regras de marketing) ou valor manual. */
   desconto_tipo?: DescontoTipo | null;
   desconto_pct?: number | null;
+  /** Cupom aplicado (desconto "manual" em reais). Omitido: mantém o atual enquanto o desconto for manual. */
+  cupom?: string | null;
 };
 
 export type MargemParams = {
@@ -458,6 +460,11 @@ export async function saveQuote(
           ? round(input.valor_a_vista)
           : null,
     ...calc.regrasAplicadas,
+    ...(input.cupom !== undefined
+      ? { cupom: input.cupom }
+      : calc.regrasAplicadas.desconto_tipo !== "manual"
+        ? { cupom: null }
+        : {}),
     km_ida_volta: calc.km_ida_volta,
     custo_deslocamento: calc.custo_deslocamento,
     custo_produtos: calc.custo_produtos,
@@ -543,6 +550,7 @@ export function quoteInputDoBanco(
     distancia_base: (orig["distancia_base"] as string | null) ?? null,
     desconto_tipo: (orig["desconto_tipo"] as DescontoTipo | null) ?? null,
     desconto_pct: orig["desconto_pct"] === null ? null : Number(orig["desconto_pct"]),
+    cupom: (orig["cupom"] as string | null | undefined) ?? null,
     items: items.map((it) => ({
       tabela_preco_item_id: (it["tabela_preco_item_id"] as string | null) ?? null,
       nome_snapshot: String(it["nome_snapshot"] ?? ""),
