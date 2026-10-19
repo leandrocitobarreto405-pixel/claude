@@ -76,7 +76,7 @@ REVOKE ALL ON FUNCTION private.lead_desfazer_orcamento_enviado(uuid) FROM PUBLIC
 CREATE OR REPLACE FUNCTION private.quotes_marcos()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF TG_OP = 'DELETE' THEN
+  IF TG_OP NOT IN ('INSERT', 'UPDATE') THEN  -- exclusão do orçamento
     PERFORM private.atualizar_marcos_lead(OLD.crm_lead_id);
     PERFORM private.lead_desfazer_orcamento_enviado(OLD.crm_lead_id);
     RETURN NULL;
