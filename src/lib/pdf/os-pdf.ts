@@ -25,6 +25,18 @@ export type DadosOsPdf = {
   linhas: LinhaOsPdf[];
   valorTotal: string;
   formaPagamento: string;
+  /** Presente no PDF do orçamento (sem OS): título, datas, desconto e linhas do pagamento. */
+  orcamento?: DadosOrcamentoPdf;
+};
+
+export type DadosOrcamentoPdf = {
+  /** "19/10/2026" */
+  data: string;
+  validoAte: string;
+  validadeDias: number;
+  desconto: { subtotal: string; rotulo: string; valor: string } | null;
+  /** Como na mensagem do orçamento: total/parcelas no cartão e valor no Pix. */
+  pagamento: string[];
 };
 
 export type DadosTermoPdf = {
@@ -36,13 +48,21 @@ export type DadosTermoPdf = {
   proxima: string;
 };
 
-export function nomeArquivoOs(numero: string, cliente: string) {
+function nomeArquivo(prefixo: string, numero: string, cliente: string) {
   const limpo = (s: string) =>
     s
       .replace(/[\\/:*?"<>|\n\r]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-  return `OS ${limpo(numero)} - ${limpo(cliente) || "cliente"}.pdf`;
+  return `${prefixo} ${limpo(numero)} - ${limpo(cliente) || "cliente"}.pdf`;
+}
+
+export function nomeArquivoOs(numero: string, cliente: string) {
+  return nomeArquivo("OS", numero, cliente);
+}
+
+export function nomeArquivoOrcamento(numero: string, cliente: string) {
+  return nomeArquivo("Orçamento", numero, cliente);
 }
 
 export function servicosContratados(d: { temHig: boolean; temImp: boolean }) {
@@ -63,11 +83,17 @@ export async function pdfDaOs(
   c: ConfigDocumentos,
 ): Promise<Uint8Array> {
   const vars = variaveis(empresa, c);
-  const doc = await Documento.criar(`Ordem de serviço ${d.numero}`, empresa.nome);
+  const orc = d.orcamento ?? null;
+  const titulo = orc ? `Orçamento Nº ${d.numero}` : `Ordem de serviço Nº ${d.numero}`;
+  const doc = await Documento.criar(titulo, empresa.nome);
   await cabecalho(doc, empresa);
 
-  doc.texto(`Ordem de serviço Nº ${d.numero}`, { tamanho: 16, negrito: true, depois: 4 });
+  doc.texto(titulo, { tamanho: 16, negrito: true, depois: 4 });
   doc.campo("Cliente:", [d.cliente, d.clienteTexto].filter(Boolean).join(" "), 11);
+  if (orc) {
+    doc.campo("Data do orçamento:", orc.data);
+    doc.campo("Válido até:", orc.validoAte);
+  }
   doc.separador();
   doc.campo("Serviços contratados:", servicosContratados(d), 11);
   doc.espaco(4);
@@ -93,12 +119,22 @@ export async function pdfDaOs(
     ]),
   );
 
+  if (orc?.desconto) {
+    doc.campo("Subtotal:", orc.desconto.subtotal);
+    doc.campo(`${orc.desconto.rotulo}:`, `-${orc.desconto.valor}`);
+  }
   doc.destaque([
     { texto: "Valor total: ", negrito: true },
     { texto: d.valorTotal, negrito: false },
   ]);
+  for (const linha of orc?.pagamento ?? []) doc.texto(linha, { tamanho: 10.5, depois: 2 });
   doc.campo("Forma de pagamento:", d.formaPagamento);
-  doc.campo("Observação:", substituir(c.validade, vars));
+  doc.campo(
+    "Observação:",
+    orc
+      ? `Este orçamento é válido por ${orc.validadeDias} dia${orc.validadeDias === 1 ? "" : "s"}, até ${orc.validoAte}.`
+      : substituir(c.validade, vars),
+  );
 
   if (d.temImp) {
     doc.separador();

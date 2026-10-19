@@ -253,3 +253,34 @@ export const termoPdfFn = createServerFn({ method: "POST" })
       nome: `Termo de garantia - ${nomeArquivoOs(dados.numero, dados.cliente)}`,
     };
   });
+
+// ---------------------------------------------------------------- PDF do orçamento
+
+/**
+ * PDF do orçamento no layout do PDF da OS, gerado na hora (não fica salvo): não cria OS, não
+ * usa número de OS e não chama o Drive. Técnico não vê valores: não baixa.
+ */
+export const pdfDoOrcamentoFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((i: { quoteId: string }) => {
+    const quoteId = String(i?.quoteId ?? "");
+    if (!ID.test(quoteId)) throw new Error("Orçamento inválido.");
+    return { quoteId };
+  })
+  .handler(async ({ data, context }): Promise<ArquivoPdf> => {
+    const { data: papel } = await context.supabase.rpc("meu_papel" as never);
+    if (papel === "tecnico") throw new Error("O PDF do orçamento tem valores: peça a quem atende.");
+    const { empresaDocumento, lerConfigDocumentos, paraBase64 } =
+      await import("@/lib/documentos.server");
+    const { dadosOrcamentoPdf } = await import("@/lib/os-docs.server");
+    const { nomeArquivoOrcamento, pdfDaOs } = await import("@/lib/pdf/os-pdf");
+    const [dados, empresa, config] = await Promise.all([
+      dadosOrcamentoPdf(data.quoteId),
+      empresaDocumento(),
+      lerConfigDocumentos(),
+    ]);
+    return {
+      base64: paraBase64(await pdfDaOs(dados, empresa, config)),
+      nome: nomeArquivoOrcamento(dados.numero, dados.cliente),
+    };
+  });

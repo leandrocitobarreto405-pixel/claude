@@ -9,10 +9,12 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Copy,
+  Download,
   FileText,
   Loader2,
   MessageCircle,
   PlusCircle,
+  Share2,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,9 @@ import { findRate, usePaymentRates, useSetting } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
+import { pdfDoOrcamentoFn } from "@/lib/documentos.functions";
+import { useModoDocumentos, usePodeBaixarOs } from "@/lib/documentos-hooks";
+import { usePdfCompartilhavel } from "@/lib/compartilhar-pdf";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
 import { repasseEstimado } from "@/lib/terceirizados";
 import { useConfigOrcamento } from "@/lib/orcamento-config";
@@ -140,6 +145,10 @@ function OrcamentoDetalhe() {
   const salvar = useServerFn(salvarOrcamento);
   const duplicar = useServerFn(duplicarOrcamento);
   const gerarPropostaFn = useServerFn(gerarPropostaOrcamento);
+  const pdfOrcamentoFn = useServerFn(pdfDoOrcamentoFn);
+  const { data: modoDocumentos } = useModoDocumentos();
+  const podeBaixarPdf = usePodeBaixarOs();
+  const pdfOrcamento = usePdfCompartilhavel();
   const estimarKm = useServerFn(estimarKmPorCep);
 
   const [nome, setNome] = useState("");
@@ -589,6 +598,15 @@ function OrcamentoDetalhe() {
     } finally {
       setAcao(null);
     }
+  }
+
+  /**
+   * PDF do orçamento direto no app (modo "PDF direto no app"): salva o que está na tela e gera o
+   * PDF na hora. Não cria OS, não usa número de OS, não chama o Drive e não guarda o arquivo.
+   */
+  async function baixarPdfOrcamento() {
+    if (!(await gravar())) return;
+    await pdfOrcamento.gerar(() => pdfOrcamentoFn({ data: { quoteId } }));
   }
 
   /** Aprova os valores (salva) e monta a mensagem com o que ficou gravado. */
@@ -1324,24 +1342,50 @@ function OrcamentoDetalhe() {
             <Button variant="outline" onClick={gerarMensagem} disabled={ocupado}>
               <MessageCircle className="mr-2 h-4 w-4" /> Gerar mensagem WhatsApp
             </Button>
-            <Button variant="outline" onClick={() => void gerarProposta()} disabled={ocupado}>
-              {acao === "proposta" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="mr-2 h-4 w-4" />
-              )}
-              {acao === "proposta" ? "Gerando proposta…" : "Gerar proposta (PDF)"}
-            </Button>
-            {carregado?.quote.proposta_url ? (
-              <a
-                href={carregado.quote.proposta_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center text-sm text-primary underline sm:min-h-0"
-              >
-                Abrir última proposta
-              </a>
-            ) : null}
+            {modoDocumentos === "pdf" ? (
+              podeBaixarPdf ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => void baixarPdfOrcamento()}
+                    disabled={ocupado || pdfOrcamento.gerando}
+                  >
+                    {pdfOrcamento.gerando ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    {pdfOrcamento.gerando ? "Gerando PDF…" : "Baixar PDF do orçamento"}
+                  </Button>
+                  {pdfOrcamento.pronto ? (
+                    <Button onClick={() => void pdfOrcamento.compartilharPronto()}>
+                      <Share2 className="mr-2 h-4 w-4" /> Compartilhar PDF
+                    </Button>
+                  ) : null}
+                </>
+              ) : null
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => void gerarProposta()} disabled={ocupado}>
+                  {acao === "proposta" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  {acao === "proposta" ? "Gerando proposta…" : "Gerar proposta (PDF)"}
+                </Button>
+                {carregado?.quote.proposta_url ? (
+                  <a
+                    href={carregado.quote.proposta_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center text-sm text-primary underline sm:min-h-0"
+                  >
+                    Abrir última proposta
+                  </a>
+                ) : null}
+              </>
+            )}
             <Button
               variant="outline"
               disabled={ocupado}

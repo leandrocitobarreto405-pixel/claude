@@ -23,6 +23,8 @@ import { SEM_MODELO_GARANTIA } from "@/lib/os-docs-campos";
 import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 import type { DadosOsPdf, DadosTermoPdf } from "@/lib/pdf/os-pdf";
 import { configDocumentos } from "@/lib/pdf/textos-padrao";
+import { linhasPagamento } from "@/lib/texto-pagamento";
+import { rotuloDesconto } from "@/lib/quote-message";
 import {
   AVISO_MODO_PDF,
   avisoDocumento,
@@ -435,7 +437,10 @@ function numeroClienteTexto(phone: string | null | undefined) {
  * linhas, valor e forma de pagamento do documento do Drive.
  */
 export async function dadosOsPdf(workOrderId: string): Promise<DadosOsPdf> {
-  const wo = await loadWorkOrder(workOrderId);
+  return dadosPdfDaWo(await loadWorkOrder(workOrderId));
+}
+
+function dadosPdfDaWo(wo: WorkOrderData): DadosOsPdf {
   const tipo = templateTypeFor(wo.visits);
   const combinado = tipo === "Higienização e Impermeabilização";
   const temImp = tipo !== "Higienização";
@@ -777,6 +782,109 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
     negotiated_installments: q.parcelas,
     customer: { full_name: q.cliente_nome, phone: q.cliente_telefone },
     visits,
+  };
+}
+
+/** Número do orçamento mostrado ao cliente (o mesmo "nº" que a Alice usa). */
+export function numeroOrcamento(id: string) {
+  return String(id).slice(0, 8);
+}
+
+/** Data (dd/mm/aaaa, horário de Brasília) e a validade somando os dias. */
+export function datasDoOrcamento(criadoEm: string, dias: number) {
+  const dia = new Date(criadoEm).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const [a, m, d] = dia.split("-").map(Number) as [number, number, number];
+  const fim = new Date(Date.UTC(a, m - 1, d + dias));
+  const br = (x: Date) =>
+    `${String(x.getUTCDate()).padStart(2, "0")}/${String(x.getUTCMonth() + 1).padStart(2, "0")}/${x.getUTCFullYear()}`;
+  return { data: br(new Date(Date.UTC(a, m - 1, d))), validoAte: br(fim) };
+}
+
+type OrcamentoPdfLinha = PropostaOrcamento & {
+  created_at: string;
+  subtotal: number | null;
+  desconto: number | null;
+  desconto_tipo: string | null;
+  desconto_pct: number | null;
+  cupom: string | null;
+};
+
+/**
+ * Dados do PDF do orçamento gerado no app (sem OS, sem Drive): as mesmas linhas do documento
+ * da OS, com data, validade, desconto/cupom e as linhas de pagamento da mensagem do orçamento.
+ */
+export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
+  const db = await admin();
+  const empresaId = contextoEmpresa().empresaId;
+  const [{ data: q }, { data: itens }, { data: ia }, { data: orc }] = await Promise.all([
+    db
+      .from("quotes")
+      .select(
+        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom",
+      )
+      .eq("id", quoteId)
+      .maybeSingle(),
+    db
+      .from("quote_items")
+      .select(
+        "nome_snapshot, tipo_servico, categoria, quantidade, preco_aplicado, subtotal, display_order, tabela_preco_item_id",
+      )
+      .eq("quote_id", quoteId)
+      .order("display_order"),
+    db
+      .from("ia_configuracoes")
+      .select("validade_orcamento_dias, desconto_pix_percentual")
+      .eq("empresa_id", empresaId)
+      .maybeSingle(),
+    db
+      .from("orcamento_configuracoes")
+      .select("validade_dias")
+      .eq("empresa_id", empresaId)
+      .maybeSingle(),
+  ]);
+  if (!q) throw new Error("Orçamento não encontrado.");
+  const o = q as unknown as OrcamentoPdfLinha;
+  const wo = propostaComoOs(o, (itens ?? []) as unknown as PropostaItem[]);
+  if (!wo.visits.length) throw new Error("Inclua pelo menos um item no orçamento.");
+
+  // Mesma validade e mesmo Pix da mensagem do orçamento (textos-cliente.ts).
+  const dias = Number(
+    (orc as { validade_dias?: number | null } | null)?.validade_dias ??
+      (ia as { validade_orcamento_dias?: number | null } | null)?.validade_orcamento_dias ??
+      7,
+  );
+  const pixPct = Number(
+    (ia as { desconto_pix_percentual?: number | null } | null)?.desconto_pix_percentual ?? 0,
+  );
+  const total = Number(o.total ?? 0);
+  const parcelas = Math.max(Number(o.parcelas ?? 1), 1);
+  const aVista = Number(o.valor_a_vista ?? 0) > 0 ? Number(o.valor_a_vista) : total;
+  const desconto = Number(o.desconto ?? 0);
+  const { data, validoAte } = datasDoOrcamento(o.created_at, dias);
+
+  return {
+    ...dadosPdfDaWo(wo),
+    numero: numeroOrcamento(o.id),
+    valorTotal: brl(total),
+    formaPagamento: o.forma_pagamento ?? "",
+    orcamento: {
+      data,
+      validoAte,
+      validadeDias: dias,
+      desconto:
+        desconto > 0
+          ? {
+              subtotal: brl(Number(o.subtotal ?? total + desconto)),
+              rotulo: rotuloDesconto(o),
+              valor: brl(desconto),
+            }
+          : null,
+      // Sem os asteriscos do WhatsApp.
+      pagamento: linhasPagamento({ total, parcelas, pix: aVista, pixPct })
+        .split("\n")
+        .map((l) => l.replace(/\*/g, "").trim())
+        .filter(Boolean),
+    },
   };
 }
 

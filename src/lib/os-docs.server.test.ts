@@ -569,3 +569,69 @@ test("modo Drive com a integração desligada: aviso (sem gerar); ligada: libera
   }
   assert.equal((await docs.garantirDocumentoPeloDrive()).decisao, "drive");
 });
+
+// ---------- PDF do orçamento direto no app (sem OS, sem Drive) ----------
+
+test("PDF do orçamento: cupom, Pix e validade como na mensagem; nada no Drive nem na OS", async () => {
+  tabelas["quotes"]!.push({
+    id: "c0ffee12-0000-0000-0000-000000000001",
+    cliente_nome: "Cliente Fictício Cupom",
+    cliente_telefone: "5511900000050",
+    total: 210,
+    subtotal: 260,
+    desconto: 50,
+    desconto_tipo: "manual",
+    desconto_pct: null,
+    cupom: "BLOG50",
+    valor_a_vista: 199.5,
+    valor_pix: null,
+    forma_pagamento: null,
+    parcelas: 5,
+    status: "enviado",
+    created_at: "2026-10-19T02:30:00Z", // 18/10 23h30 em Brasília
+    updated_at: "2026-10-19T02:30:00Z",
+    proposta_documento_id: null,
+    generated_work_order_id: null,
+  });
+  tabelas["quote_items"]!.push({
+    quote_id: "c0ffee12-0000-0000-0000-000000000001",
+    nome_snapshot: "Sofá comum 3 lugares",
+    tipo_servico: "higienizacao",
+    categoria: "sofa",
+    quantidade: 1,
+    preco_aplicado: 260,
+    subtotal: 260,
+    display_order: 1,
+    tabela_preco_item_id: "t-sofa3",
+  });
+  tabelas["ia_configuracoes"] = [
+    { empresa_id: "emp-1", validade_orcamento_dias: 15, desconto_pix_percentual: 5 },
+  ];
+  tabelas["orcamento_configuracoes"] = [{ empresa_id: "emp-1", validade_dias: 7 }];
+  copiasDe.length = 0;
+  const osAntes = tabelas["work_orders"]!.length;
+
+  const d = semNbsp(await docs.dadosOrcamentoPdf("c0ffee12-0000-0000-0000-000000000001"));
+  assert.equal(d.numero, "c0ffee12");
+  assert.equal(d.temHig, true);
+  assert.equal(d.temImp, false);
+  assert.equal(d.valorTotal, "R$ 210,00");
+  assert.deepEqual(d.orcamento, {
+    data: "18/10/2026",
+    validoAte: "25/10/2026",
+    validadeDias: 7,
+    desconto: { subtotal: "R$ 260,00", rotulo: "Cupom BLOG50", valor: "R$ 50,00" },
+    pagamento: [
+      "Total: R$ 210,00 em até 5x de R$ 42,00 sem juros no cartão",
+      "No Pix (5% de desconto): R$ 199,50",
+    ],
+  });
+  assert.equal(copiasDe.length, 0, "não chama o Drive");
+  assert.equal(tabelas["work_orders"]!.length, osAntes, "não cria OS");
+  assert.equal(
+    tabelas["quotes"]!.find((q) => q["id"] === "c0ffee12-0000-0000-0000-000000000001")![
+      "proposta_documento_id"
+    ],
+    null,
+  );
+});

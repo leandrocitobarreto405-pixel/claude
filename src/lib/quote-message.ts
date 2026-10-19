@@ -75,6 +75,21 @@ type QuoteMensagem = Pick<
     >
   >;
 
+/** Rótulo da linha do desconto (mensagem e PDF do orçamento). */
+export function rotuloDesconto(quote: {
+  cupom?: string | null;
+  desconto_tipo?: string | null;
+  desconto_pct?: number | null;
+}): string {
+  const pctTxt = quote.desconto_pct
+    ? ` (${Number(quote.desconto_pct).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)`
+    : "";
+  if (quote.cupom) return `Cupom ${quote.cupom}`;
+  if (quote.desconto_tipo === "campanha") return `Desconto da campanha${pctTxt}`;
+  if (quote.desconto_tipo === "indicacao") return `Desconto de indicação${pctTxt}`;
+  return "Desconto";
+}
+
 export function quoteWhatsappMessage(
   quote: QuoteMensagem,
   items: ItemMensagem[],
@@ -151,16 +166,7 @@ export function quoteWhatsappMessage(
   const aVista =
     quote.valor_a_vista && quote.valor_a_vista > 0 ? Number(quote.valor_a_vista) : total;
   if (Number(quote.desconto ?? 0) > 0) {
-    const pctTxt = quote.desconto_pct
-      ? ` (${Number(quote.desconto_pct).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)`
-      : "";
-    const rotulo = quote.cupom
-      ? `Cupom ${quote.cupom}`
-      : quote.desconto_tipo === "campanha"
-        ? `Desconto da campanha${pctTxt}`
-        : quote.desconto_tipo === "indicacao"
-          ? `Desconto de indicação${pctTxt}`
-          : "Desconto";
+    const rotulo = rotuloDesconto(quote);
     partes.push(
       "",
       `Subtotal: ${brl(quote.subtotal)}`,

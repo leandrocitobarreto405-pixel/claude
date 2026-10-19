@@ -6,6 +6,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   EXEMPLO_OS,
   EXEMPLO_TERMO,
+  nomeArquivoOrcamento,
   nomeArquivoOs,
   pdfDaOs,
   pdfDoTermo,
@@ -196,4 +197,83 @@ test("marcação, variáveis, configuração e nome do arquivo", () => {
   assert.match(c.validade, /15 dias/);
   assert.equal(c.garantia_meses, 12);
   assert.equal(nomeArquivoOs("1690", "Ana / Fictícia"), "OS 1690 - Ana Fictícia.pdf");
+});
+
+// ---------- PDF do orçamento (sem OS, sem Drive) ----------
+
+const orcamentoBase = {
+  data: "19/10/2026",
+  validoAte: "26/10/2026",
+  validadeDias: 7,
+  desconto: null,
+  pagamento: [
+    "Total: R$ 280,00 em até 5x de R$ 56,00 sem juros no cartão",
+    "No Pix (5% de desconto): R$ 266,00",
+  ],
+};
+
+test("orçamento só higienização: título, data, validade calculada e nada de garantia", async () => {
+  const { texto } = await lerPdf(
+    await pdfDaOs(
+      { ...soHig, numero: "a1b2c3d4", valorTotal: "R$ 280,00", orcamento: orcamentoBase },
+      empresa,
+      config,
+    ),
+  );
+  assert.match(texto, /Orçamento Nº a1b2c3d4/);
+  assert.doesNotMatch(texto, /Ordem de serviço/);
+  assert.match(texto, /Data do orçamento: 19\/10\/2026/);
+  assert.match(texto, /Válido até: 26\/10\/2026/);
+  assert.match(texto, /válido por 7 dias, até 26\/10\/2026/);
+  assert.doesNotMatch(texto, /15 dias/);
+  assert.match(texto, /No Pix \(5% de desconto\): R\$ 266,00/);
+  assert.doesNotMatch(texto, /[Gg]arantia/);
+  assert.match(texto, /24 horas de antecedência/);
+});
+
+test("orçamento com impermeabilização: benefícios e garantia", async () => {
+  const { texto } = await lerPdf(
+    await pdfDaOs({ ...soImp, orcamento: orcamentoBase }, empresa, config),
+  );
+  assert.match(texto, /Orçamento Nº 0001/);
+  assert.match(texto, /Benefícios da impermeabilização/);
+  assert.match(texto, /Período de garantia: 12 meses/);
+});
+
+test("orçamento com cupom: subtotal, linha do cupom e Pix sobre o total com cupom", async () => {
+  const { texto } = await lerPdf(
+    await pdfDaOs(
+      {
+        ...soHig,
+        valorTotal: "R$ 210,00",
+        orcamento: {
+          ...orcamentoBase,
+          desconto: { subtotal: "R$ 260,00", rotulo: "Cupom BLOG50", valor: "R$ 50,00" },
+          pagamento: [
+            "Total: R$ 210,00 em até 5x de R$ 42,00 sem juros no cartão",
+            "No Pix (5% de desconto): R$ 199,50",
+          ],
+        },
+      },
+      empresa,
+      config,
+    ),
+  );
+  assert.match(texto, /Subtotal: R\$ 260,00/);
+  assert.match(texto, /Cupom BLOG50: [-−]R\$ 50,00/);
+  assert.match(texto, /Valor total: R\$ 210,00/);
+  assert.match(texto, /No Pix \(5% de desconto\): R\$ 199,50/);
+});
+
+test("orçamento sem logo e nome do arquivo", async () => {
+  const semLogo: EmpresaDocumento = { ...empresa, logo: null, cnpj: null };
+  const { texto } = await lerPdf(
+    await pdfDaOs({ ...soHig, orcamento: orcamentoBase }, semLogo, config),
+  );
+  assert.match(texto, /Orçamento Nº/);
+  assert.doesNotMatch(texto, /CNPJ/);
+  assert.equal(
+    nomeArquivoOrcamento("a1b2c3d4", "Ana / Fictícia"),
+    "Orçamento a1b2c3d4 - Ana Fictícia.pdf",
+  );
 });
