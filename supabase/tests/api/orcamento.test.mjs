@@ -42,7 +42,7 @@ const novo = await req(
 const statusNovo = novo.body?.[0]?.id;
 check("status 'Novo contato' da Turbine", Boolean(statusNovo), novo);
 
-// Leads do seed (criar lead pela API esbarra na permissão do índice de telefone; ver relatório).
+// Leads do seed (com o status inicial já definido).
 async function lead(nome) {
   const r = await req("turbine", `/crm_leads?lead_name=eq.${encodeURIComponent(nome)}&select=id`);
   return r.body?.[0]?.id;
@@ -114,6 +114,13 @@ check(
   r.status === 200 && r.body?.length === 0,
   r,
 );
+
+// 5) usuário comum cria lead pela API (índice de telefone com private.telefone_chave)
+r = await req("turbine", "/crm_leads", {
+  method: "POST",
+  body: { lead_name: "Lead API Novo", phone: "11946000003", normalized_phone: "5511946000003" },
+});
+check("usuário logado cria lead pela API", r.status === 201 && r.body?.[0]?.id, r);
 
 if (falhas) {
   console.error(`${falhas} falha(s)`);

@@ -17,17 +17,19 @@ SELECT pg_temp.ok(pg_temp.origem('Google') IS NOT NULL AND pg_temp.origem('Indic
 -- ---------------------------------------------------------------- 1) clique do Google
 INSERT INTO public.crm_leads (id, empresa_id, lead_name, phone, normalized_phone, is_open, gclid) VALUES
   ('a4000000-0000-0000-0000-000000000001', :'E', 'Com gclid', '11971000001', '5511971000001', true, 'gclid-ficticio');
-SELECT pg_temp.ok((SELECT sales_origin_id = pg_temp.origem('Google') AND origem_automatica
+-- Desde 20261118120000 a Turbine tem "Google Ads – landing" (pop-up): ela vale no lugar de "Google".
+SELECT pg_temp.ok((SELECT sales_origin_id = coalesce(pg_temp.origem('Google Ads – landing'), pg_temp.origem('Google'))
+                          AND origem_automatica
                      FROM public.crm_leads WHERE id = 'a4000000-0000-0000-0000-000000000001'),
-                  'lead novo com gclid e sem origem vira Google automático');
+                  'lead novo com gclid e sem origem vira Google Ads – landing automático');
 
 INSERT INTO public.crm_leads (id, empresa_id, lead_name, phone, normalized_phone, is_open) VALUES
   ('a4000000-0000-0000-0000-000000000002', :'E', 'Gbraid depois', '11971000002', '5511971000002', true);
 SELECT pg_temp.ok((SELECT sales_origin_id IS NULL FROM public.crm_leads WHERE id = 'a4000000-0000-0000-0000-000000000002'),
                   'sem clique, continua sem origem');
 UPDATE public.crm_leads SET gbraid = 'gbraid-ficticio' WHERE id = 'a4000000-0000-0000-0000-000000000002';
-SELECT pg_temp.ok((SELECT sales_origin_id = pg_temp.origem('Google') FROM public.crm_leads WHERE id = 'a4000000-0000-0000-0000-000000000002'),
-                  'gbraid que chega depois (leitura da planilha) vira Google');
+SELECT pg_temp.ok((SELECT sales_origin_id = coalesce(pg_temp.origem('Google Ads – landing'), pg_temp.origem('Google')) FROM public.crm_leads WHERE id = 'a4000000-0000-0000-0000-000000000002'),
+                  'gbraid que chega depois (leitura da planilha) vira Google Ads – landing');
 
 INSERT INTO public.crm_leads (id, empresa_id, lead_name, phone, normalized_phone, is_open, gclid, sales_origin_id) VALUES
   ('a4000000-0000-0000-0000-000000000003', :'E', 'Indicação com gclid', '11971000003', '5511971000003', true, 'gclid-x', pg_temp.origem('Indicação'));

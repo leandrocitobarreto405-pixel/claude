@@ -282,6 +282,21 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   pelo app pela líquida quando a OS tem repasse, e o sincronizador do repasse recalcula a comissão
   quando o repasse muda. Na aplicação, nenhuma OS mudou (nenhuma tem repasse ainda). Para voltar:
   recriar as funções com o texto de `20261111120000` e `20261114120000` e desligar o gatilho.
+- "Orçamento enviado e proposta" (`20261116120000`, aplicada em 19/10): colunas `proposta_*` em
+  `quotes`; orçamento "enviado" leva o lead aberto (antes da etapa de orçamento) para "Orçamento
+  enviado" com histórico, e orçamento desligado do lead desfaz. Dados (Turbine): 25 orçamentos em
+  rascunho desde 01/10 com telefone passaram a "enviado" (`scripts/orcamentos/enviado-retroativo.sql`),
+  24 leads foram para "Orçamento enviado" (o fechado não mudou), data do envio = do orçamento.
+  Diego (OS 1682, OS de teste mantida): lead desligado da OS e reaberto em "Orçamento enviado",
+  orçamento de volta a "enviado" e liberado para virar OS.
+- "Lead pelo CRM" (`20261117120000`, aplicada em 19/10): `GRANT EXECUTE` de
+  `private.telefone_chave` a usuários logados (criar lead pela tela dava "permission denied" desde
+  07/10). Conferido com um lead de teste como usuário comum, desfeito na hora.
+- "Origem Google Ads" (`20261118120000`, aplicada em 19/10, Turbine): origens "Google Ads – botão
+  WhatsApp" e "Google Ads – landing"; mensagem pronta "Olá, vim do google e gostaria de mais
+  informações!" → botão + serviço Higienização; clique do pop-up sem origem → landing.
+  Retroativo (`scripts/origens/google-ads-retroativo.sql`): 9 leads de "Google" (automático) para
+  o botão, com as OS 1668 e 1687; nenhum lead de pop-up estava sem origem.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -368,6 +383,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 18/10/2026       | Alice mais barata + painel Nexa › Alice             | `9438aa0`…`caf0b6a` | `c935863`                |
 | 18/10/2026       | Terceirizados (tapete e persiana)                   | `6594530`           | `d93b042`                |
 | 18/10/2026       | Funil e comissão pelo valor líquido                 | `58cd399`           | `a5fd147`                |
+| 19/10/2026       | Orçamento enviado, proposta, origem Google Ads      | `9efdd87`…(este)    | `9cd38a0`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
