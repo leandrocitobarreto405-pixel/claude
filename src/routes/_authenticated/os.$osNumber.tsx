@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CartaoPdfDaOs } from "@/components/os/pdf-da-os";
 import { useInvalidarDocumentos, useSituacaoDocumentos } from "@/lib/documentos-hooks";
 import { avisoDocumento } from "@/lib/documentos-decisao";
+import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { clearVisitDiscount } from "@/lib/discounts";
@@ -239,6 +240,21 @@ function OsDetalhe() {
     queryFn: () => buscarTermo({ data: { workOrderId: workOrderId! } }),
   });
   const garantia = garantiaQuery.data ?? null;
+  // Orçamento que virou esta OS (o orçamento guarda a OS gerada). Número separado do da OS.
+  const orcamentoDaOs = useQuery({
+    queryKey: ["orcamento_da_os", workOrderId],
+    enabled: Boolean(workOrderId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("quotes")
+        .select("id, numero")
+        .eq("generated_work_order_id", workOrderId!)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
   const situacaoDoc = useSituacaoDocumentos();
   const modoDocumentos = situacaoDoc.data?.modo;
   const invalidarDocumentos = useInvalidarDocumentos();
@@ -602,6 +618,18 @@ function OsDetalhe() {
           </div>
         }
       />
+      {orcamentoDaOs.data ? (
+        <p className="-mt-2 mb-3 text-sm text-muted-foreground">
+          do{" "}
+          <Link
+            to="/orcamentos/$quoteId"
+            params={{ quoteId: orcamentoDaOs.data.id }}
+            className="font-medium text-primary underline"
+          >
+            orçamento Nº {formatarNumeroOrcamento(orcamentoDaOs.data.numero, orcamentoDaOs.data.id)}
+          </Link>
+        </p>
+      ) : null}
 
       {os.deleted_at ? (
         <div className="card-surface mb-6 flex flex-wrap items-center justify-between gap-3 border-destructive/40 p-4">

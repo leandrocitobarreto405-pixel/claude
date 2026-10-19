@@ -25,6 +25,7 @@ import type { DadosOsPdf, DadosTermoPdf } from "@/lib/pdf/os-pdf";
 import { configDocumentos } from "@/lib/pdf/textos-padrao";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import { rotuloDesconto } from "@/lib/quote-message";
+import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import {
   AVISO_MODO_PDF,
   avisoDocumento,
@@ -785,11 +786,6 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
   };
 }
 
-/** Número do orçamento mostrado ao cliente (o mesmo "nº" que a Alice usa). */
-export function numeroOrcamento(id: string) {
-  return String(id).slice(0, 8);
-}
-
 /** Data (dd/mm/aaaa, horário de Brasília) e a validade somando os dias. */
 export function datasDoOrcamento(criadoEm: string, dias: number) {
   const dia = new Date(criadoEm).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -807,6 +803,7 @@ type OrcamentoPdfLinha = PropostaOrcamento & {
   desconto_tipo: string | null;
   desconto_pct: number | null;
   cupom: string | null;
+  numero: number | null;
 };
 
 /**
@@ -820,7 +817,7 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
     db
       .from("quotes")
       .select(
-        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom",
+        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom, numero",
       )
       .eq("id", quoteId)
       .maybeSingle(),
@@ -864,7 +861,7 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
 
   return {
     ...dadosPdfDaWo(wo),
-    numero: numeroOrcamento(o.id),
+    numero: formatarNumeroOrcamento(o.numero, o.id),
     valorTotal: brl(total),
     formaPagamento: o.forma_pagamento ?? "",
     orcamento: {

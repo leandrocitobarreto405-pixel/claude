@@ -215,12 +215,12 @@ const orcamentoBase = {
 test("orçamento só higienização: título, data, validade calculada e nada de garantia", async () => {
   const { texto } = await lerPdf(
     await pdfDaOs(
-      { ...soHig, numero: "a1b2c3d4", valorTotal: "R$ 280,00", orcamento: orcamentoBase },
+      { ...soHig, numero: "0153", valorTotal: "R$ 280,00", orcamento: orcamentoBase },
       empresa,
       config,
     ),
   );
-  assert.match(texto, /Orçamento Nº a1b2c3d4/);
+  assert.match(texto, /Orçamento Nº 0153/);
   assert.doesNotMatch(texto, /Ordem de serviço/);
   assert.match(texto, /Data do orçamento: 19\/10\/2026/);
   assert.match(texto, /Válido até: 26\/10\/2026/);
@@ -272,8 +272,5 @@ test("orçamento sem logo e nome do arquivo", async () => {
   );
   assert.match(texto, /Orçamento Nº/);
   assert.doesNotMatch(texto, /CNPJ/);
-  assert.equal(
-    nomeArquivoOrcamento("a1b2c3d4", "Ana / Fictícia"),
-    "Orçamento a1b2c3d4 - Ana Fictícia.pdf",
-  );
+  assert.equal(nomeArquivoOrcamento("0153", "Ana / Fictícia"), "Orçamento 0153 - Ana Fictícia.pdf");
 });

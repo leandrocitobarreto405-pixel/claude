@@ -26,6 +26,7 @@ import { rotulosAcrescimo } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, type Cupom } from "./cupons";
+import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import {
   descontoPermitido,
   lerMarketing,
@@ -499,7 +500,7 @@ export function ferramentasDisponiveis(
             type: "array",
             items: { type: "string" },
             description:
-              "Nº dos orçamentos aprovados (o nº que criar_orcamento devolveu). Se o cliente fechou higienização e impermeabilização, informe os dois. Sem isso, vale o orçamento mais recente.",
+              "Nº dos orçamentos aprovados (o Nº que criar_orcamento devolveu, ex.: 0153). Se o cliente fechou higienização e impermeabilização, informe os dois. Sem isso, vale o orçamento mais recente.",
           },
           pagamento: {
             type: "string",
@@ -1163,6 +1164,14 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       ctx.empresaId,
     ));
 
+  // Número do orçamento na empresa (o gatilho do banco preenche na criação).
+  const { data: comNumero } = await ctx.admin
+    .from("quotes")
+    .select("numero")
+    .eq("id", salvo.id)
+    .eq("empresa_id", ctx.empresaId)
+    .maybeSingle();
+  const numero = formatarNumeroOrcamento(comNumero?.numero, String(salvo.id));
   const linhas = escolhidos.map(
     (e) =>
       `• ${
@@ -1175,8 +1184,8 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     erro: false,
     texto: [
       existente
-        ? `Este mesmo orçamento já existe (criado há pouco) — nº ${String(salvo.id).slice(0, 8)}; não criei outro. Use exatamente estes valores:`
-        : `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — nº ${String(salvo.id).slice(0, 8)}. Use exatamente estes valores:`,
+        ? `Este mesmo orçamento já existe (criado há pouco) — Nº ${numero}; não criei outro. Use exatamente estes valores:`
+        : `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — Nº ${numero}. Use exatamente estes valores:`,
       `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
       ...linhas,
       ...(desconto

@@ -33,6 +33,7 @@ import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
 import { pdfDoOrcamentoFn } from "@/lib/documentos.functions";
 import { useModoDocumentos, usePodeBaixarOs } from "@/lib/documentos-hooks";
 import { usePdfCompartilhavel } from "@/lib/compartilhar-pdf";
+import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { useTabelaPrecos, type ItemPreco } from "@/lib/precos";
 import { repasseEstimado } from "@/lib/terceirizados";
 import { useConfigOrcamento } from "@/lib/orcamento-config";
@@ -624,7 +625,11 @@ function OrcamentoDetalhe() {
   return (
     <>
       <PageHeader
-        title={novo ? "Novo orçamento" : `Orçamento de ${carregado?.quote.cliente_nome ?? ""}`}
+        title={
+          novo
+            ? "Novo orçamento"
+            : `Orçamento${carregado?.quote.numero ? ` Nº ${formatarNumeroOrcamento(carregado.quote.numero)}` : ""} de ${carregado?.quote.cliente_nome ?? ""}`
+        }
         description="Os custos e a margem são de uso interno e não aparecem na mensagem do cliente."
       />
 

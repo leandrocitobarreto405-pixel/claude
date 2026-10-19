@@ -583,6 +583,7 @@ test("PDF do orçamento: cupom, Pix e validade como na mensagem; nada no Drive n
     desconto_tipo: "manual",
     desconto_pct: null,
     cupom: "BLOG50",
+    numero: 153,
     valor_a_vista: 199.5,
     valor_pix: null,
     forma_pagamento: null,
@@ -612,7 +613,7 @@ test("PDF do orçamento: cupom, Pix e validade como na mensagem; nada no Drive n
   const osAntes = tabelas["work_orders"]!.length;
 
   const d = semNbsp(await docs.dadosOrcamentoPdf("c0ffee12-0000-0000-0000-000000000001"));
-  assert.equal(d.numero, "c0ffee12");
+  assert.equal(d.numero, "0153");
   assert.equal(d.temHig, true);
   assert.equal(d.temImp, false);
   assert.equal(d.valorTotal, "R$ 210,00");

@@ -2,6 +2,7 @@
 import { brl } from "@/lib/format";
 import { preencherTexto } from "@/lib/modelos-mensagem";
 import { linhasPagamento } from "@/lib/texto-pagamento";
+import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import type { RegrasOrcamento } from "@/lib/orcamento-regras";
 import type { Quote, QuoteItem } from "@/lib/quotes";
 import {
@@ -72,6 +73,7 @@ type QuoteMensagem = Pick<
       | "desconto_tipo"
       | "desconto_pct"
       | "cupom"
+      | "numero"
     >
   >;
 
@@ -114,6 +116,8 @@ export function quoteWhatsappMessage(
       : null;
 
   const partes = [
+    // Número do orçamento na empresa (os textos editáveis não mudam).
+    ...(quote.numero ? [`*Orçamento Nº ${formatarNumeroOrcamento(quote.numero)}*`, ""] : []),
     `Olá, ${quote.cliente_nome}! Tudo bem?`,
     "",
     base,

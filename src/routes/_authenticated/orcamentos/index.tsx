@@ -1,3 +1,8 @@
+import {
+  formatarNumeroOrcamento,
+  lerNumeroOrcamento,
+  prefixoIdOrcamento,
+} from "@/lib/numero-orcamento";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { FileText, PlusCircle, Search } from "lucide-react";
@@ -53,10 +58,16 @@ function Orcamentos() {
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
+    // Busca pelo nome, pelo número ("153", "0153", "Nº 0153") ou pelo id curto antigo.
+    const numero = lerNumeroOrcamento(termo);
+    const prefixo = prefixoIdOrcamento(termo);
     return (data ?? []).filter(
       (q) =>
         (status === "todos" || q.status === status) &&
-        (!termo || q.cliente_nome.toLowerCase().includes(termo)),
+        (!termo ||
+          q.cliente_nome.toLowerCase().includes(termo) ||
+          (numero !== null && q.numero === numero) ||
+          (prefixo.length >= 4 && prefixo === termo && q.id.startsWith(prefixo))),
     );
   }, [data, status, busca]);
 
@@ -143,7 +154,7 @@ function Orcamentos() {
         </div>
         <div className="min-w-48 flex-1">
           <label className="text-xs text-muted-foreground" htmlFor="busca">
-            Cliente
+            Cliente ou nº
           </label>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -151,7 +162,7 @@ function Orcamentos() {
               id="busca"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar pelo nome"
+              placeholder="Nome do cliente ou nº do orçamento"
               className="pl-8"
             />
           </div>
@@ -175,7 +186,12 @@ function Orcamentos() {
                 className="card-surface flex flex-wrap items-center justify-between gap-3 p-4 transition hover:border-primary/40"
               >
                 <div>
-                  <p className="font-medium">{q.cliente_nome}</p>
+                  <p className="font-medium">
+                    <span className="mr-2 text-sm text-muted-foreground">
+                      Nº {formatarNumeroOrcamento(q.numero, q.id)}
+                    </span>
+                    {q.cliente_nome}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Criado em {dateBR(q.created_at.slice(0, 10))}
                     {q.data_servico ? ` · Serviço em ${dateBR(q.data_servico)}` : ""}

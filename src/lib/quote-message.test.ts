@@ -189,3 +189,23 @@ test("tapete aparece em m² e como limpeza; persiana como limpeza", () => {
   assert.ok(m.includes("• Tapete comum – limpeza (por m²) (3,68 m²) — Limpeza: R$ 229,63"), m);
   assert.ok(m.includes("• 1x Persiana rolo (até 2 m) — Limpeza: R$ 150,00"), m);
 });
+
+test("mensagem com o número do orçamento (4 dígitos) na primeira linha", () => {
+  const { regras: _semRegras, ...semRegras } = t;
+  const textos = { ...semRegras, pixPct: 5 };
+  const base = {
+    cliente_nome: "Cliente Fictício",
+    subtotal: 260,
+    desconto: 50,
+    total: 210,
+    valor_a_vista: 199.5,
+    cupom: "BLOG50",
+    desconto_tipo: "manual" as const,
+  };
+  const m = quoteWhatsappMessage({ ...base, numero: 153 }, itens, textos);
+  assert.ok(m.startsWith("*Orçamento Nº 0153*\n\nOlá, Cliente Fictício!"), m.slice(0, 60));
+  assert.match(m, /Cupom BLOG50: −R\$ 50,00/);
+  // Sem número (orçamento ainda não salvo): sem a linha.
+  const sem = quoteWhatsappMessage(base, itens, textos);
+  assert.ok(sem.startsWith("Olá, Cliente Fictício!"));
+});

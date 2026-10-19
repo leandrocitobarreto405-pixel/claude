@@ -3,6 +3,7 @@
  * documento da OS no Google Docs (enviado ao cliente em PDF) e avisa a equipe.
  * Usa a chave de serviço: toda consulta e gravação leva o filtro/valor da empresa da tarefa.
  */
+import { acharOrcamento } from "@/lib/numero-orcamento";
 import { textoQuantidade } from "@/lib/unidade";
 import { z } from "zod";
 import { buildFullAddress } from "@/lib/format";
@@ -192,7 +193,7 @@ async function orcamentosDaReserva(
   if (!ctx.leadId) return "Não há lead nesta conversa para achar o orçamento.";
   const { data: quotes } = await ctx.admin
     .from("quotes")
-    .select("id, total, valor_a_vista, desconto, parcelas, status, created_at")
+    .select("id, numero, total, valor_a_vista, desconto, parcelas, status, created_at")
     .eq("empresa_id", ctx.empresaId)
     .eq("crm_lead_id", ctx.leadId)
     .neq("status", "convertido")
@@ -200,6 +201,7 @@ async function orcamentosDaReserva(
     .limit(20);
   const lista = (quotes ?? []) as Array<{
     id: string;
+    numero: number | null;
     total: number;
     valor_a_vista: number | null;
     desconto: number | null;
@@ -211,9 +213,9 @@ async function orcamentosDaReserva(
   if (numeros?.length) {
     escolhidos = [];
     for (const n of numeros) {
-      const limpo = n.replace(/[^0-9a-f-]/gi, "").toLowerCase();
-      const q = lista.find((x) => x.id.toLowerCase().startsWith(limpo));
-      if (!q) return `Orçamento nº ${n} não encontrado entre os orçamentos abertos deste cliente.`;
+      // Número novo ("0153") e, de conversas antigas, o id curto.
+      const q = acharOrcamento(lista, n);
+      if (!q) return `Orçamento Nº ${n} não encontrado entre os orçamentos abertos deste cliente.`;
       if (!escolhidos.includes(q)) escolhidos.push(q);
     }
   }

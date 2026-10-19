@@ -3,6 +3,7 @@
  * só, depois que o cliente confirma; se ele aceitar, o item entra no mesmo orçamento (e na OS, se
  * já foi gerada) pelo preço de adicional da tabela, fora do desconto de campanha e de indicação.
  */
+import { acharOrcamento } from "@/lib/numero-orcamento";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -22,6 +23,7 @@ type Resultado = { erro: boolean; texto: string };
 
 type Orcamento = {
   id: string;
+  numero: number | null;
   status: string;
   generated_work_order_id: string | null;
   adicional_oferecido_em: string | null;
@@ -32,7 +34,7 @@ async function orcamentoDoCliente(ctx: Ctx, numero?: string): Promise<Orcamento 
   if (!ctx.leadId) return "Não há lead nesta conversa para achar o orçamento.";
   const { data } = await ctx.admin
     .from("quotes")
-    .select("id, status, generated_work_order_id, adicional_oferecido_em, adicional_aceito")
+    .select("id, numero, status, generated_work_order_id, adicional_oferecido_em, adicional_aceito")
     .eq("empresa_id", ctx.empresaId)
     .eq("crm_lead_id", ctx.leadId)
     .neq("status", "recusado")
@@ -41,9 +43,9 @@ async function orcamentoDoCliente(ctx: Ctx, numero?: string): Promise<Orcamento 
   const lista = (data ?? []) as Orcamento[];
   if (!lista.length) return "Não achei orçamento deste cliente.";
   if (numero) {
-    const limpo = numero.replace(/[^0-9a-f-]/gi, "").toLowerCase();
-    const q = lista.find((x) => x.id.toLowerCase().startsWith(limpo));
-    if (!q) return `Orçamento nº ${numero} não encontrado.`;
+    // Número novo ("0153") e, de conversas antigas, o id curto.
+    const q = acharOrcamento(lista, numero);
+    if (!q) return `Orçamento Nº ${numero} não encontrado.`;
     return q;
   }
   // O fechado (convertido/aprovado) tem preferência sobre um mais novo ainda em aberto.

@@ -4821,6 +4821,7 @@ export type Database = {
           contribuicao_percentual: number | null;
           contribuicao_valor: number | null;
           cupom: string | null;
+          numero: number;
           created_at: string;
           created_by: string | null;
           crm_lead_id: string | null;
@@ -4880,6 +4881,7 @@ export type Database = {
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
           cupom?: string | null;
+          numero?: number;
           created_at?: string;
           created_by?: string | null;
           crm_lead_id?: string | null;
@@ -4939,6 +4941,7 @@ export type Database = {
           contribuicao_percentual?: number | null;
           contribuicao_valor?: number | null;
           cupom?: string | null;
+          numero?: number;
           created_at?: string;
           created_by?: string | null;
           crm_lead_id?: string | null;

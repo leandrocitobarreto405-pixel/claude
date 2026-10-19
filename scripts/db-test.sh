@@ -35,4 +35,9 @@ for t in "${ROOT}"/supabase/tests/[0-9]*.sql; do
   [ -e "$t" ] || continue
   if run -o /dev/null -f "$t"; then echo "OK   $(basename "$t")"; else echo "FALHA $(basename "$t")"; status=1; fi
 done
+if DB_NAME="${DB_NAME}" "${ROOT}/supabase/tests/concorrencia_numero_orcamento.sh" >/dev/null; then
+  echo "OK   concorrencia_numero_orcamento.sh"
+else
+  echo "FALHA concorrencia_numero_orcamento.sh"; status=1
+fi
 exit $status
