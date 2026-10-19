@@ -48,7 +48,11 @@ export function enviarMensagem(
   });
 }
 
-/** Mensagem com arquivo (vídeo ou áudio padrão da empresa). */
+/**
+ * Mensagem com arquivo (vídeo ou áudio padrão da empresa). `vozGravada`: o Chatwoot marca o anexo
+ * de áudio como mensagem de voz (is_voice_message) e, em caixa WhatsApp Cloud, envia com
+ * "voice": true — chega com a foto de perfil e o microfone, e não como arquivo de música.
+ */
 export function enviarAnexo(
   conta: Conta,
   token: string,
@@ -56,11 +60,13 @@ export function enviarAnexo(
   arquivo: Blob,
   nomeArquivo: string,
   legenda = "",
+  vozGravada = false,
 ) {
   const form = new FormData();
   form.append("content", legenda);
   form.append("message_type", "outgoing");
   form.append("private", "false");
+  if (vozGravada) form.append("is_voice_message", "true");
   form.append("attachments[]", arquivo, nomeArquivo);
   return chamar<{ id: number }>(conta, token, `/conversations/${conversa}/messages`, {
     method: "POST",

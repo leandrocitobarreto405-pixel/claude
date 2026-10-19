@@ -1289,6 +1289,8 @@ async function comAudio(
           conversa,
           new Blob([new Uint8Array(bytes)], { type: "audio/ogg" }),
           "audio.ogg",
+          "",
+          true,
         ),
       enviarNota: (texto) => enviarNota(d, texto),
       registrar: async (u) => {

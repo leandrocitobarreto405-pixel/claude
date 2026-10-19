@@ -347,6 +347,8 @@ export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
         conversa.chatwoot_conversation_id,
         new Blob([new Uint8Array(r.bytes)], { type: "audio/ogg" }),
         "audio.ogg",
+        "",
+        true,
       );
       await enviarMensagem(
         conta,
