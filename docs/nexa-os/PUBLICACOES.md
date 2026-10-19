@@ -302,6 +302,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Os dados novos da empresa (e-mail, endereço, Instagram, logo) vão no `app_settings` "company"
   que já existia, sem apagar as chaves de antes; os textos ficam no `app_settings` "documentos"
   (sem ele, a empresa continua nos modelos do Drive). Nenhum dado foi alterado na aplicação.
+- "Cupons e origem Site x Blog" (`20261120120000`, aplicada em 19/10, Turbine): 13 textos do
+  site/blog em `mensagens_origem`; palavra-chave com "*" final vale como começo de palavra
+  (`private.identificar_origem_lead`, resto igual) e Site/Blog ganham "cupom site*"/"cupom blog*";
+  tabela `cupons` (4 cupons) e coluna `quotes.cupom`. Reprocessamento dos leads abertos sem origem
+  desde 01/10: nenhum mudou. Dados (`scripts/origens/google-ads-landing-outubro.sql`): 56 leads de
+  outubro em "Google" automático (51 do pop-up + 5 com o texto da landing sem gclid) passaram a
+  "Google Ads – landing", com as OS 1671, 1673, 1674, 1677, 1679, 1685 e 1686; os 3 textos das
+  landing pages passaram a dar essa origem. Origem escolhida à mão e os 9 do botão não mudaram.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -390,6 +398,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 18/10/2026       | Funil e comissão pelo valor líquido                 | `58cd399`           | `a5fd147`                |
 | 19/10/2026       | Orçamento enviado, proposta, origem Google Ads      | `9efdd87`…`7503746` | `9cd38a0`                |
 | 19/10/2026       | PDF da OS no app (Documentos, dados e logo)         | `e96b898`…`4baad41` | `b3a28aa`                |
+| 19/10/2026       | Cupons na Alice, origem Site x Blog e landing       | `976ce44`           | `b60f3a9`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
