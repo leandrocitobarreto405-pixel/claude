@@ -57,7 +57,6 @@ test("só higienização: linhas com 2 dígitos, serviço do nome e total", () =
     descricaoServicos({
       valorNota: 732,
       valorOs: 732,
-      dataServico: null,
       visitas: [
         visita("Higienização", [
           item("Sofá exemplo 3 lugares — Higienização", 286),
@@ -86,7 +85,6 @@ test("quantidade e milhar no formato brasileiro", () => {
     descricaoServicos({
       valorNota: 1139,
       valorOs: 1139,
-      dataServico: null,
       visitas: [visita("Higienização", [item("Cadeira exemplo", 1139, { quantity: 12 })])],
     }),
   );
@@ -98,7 +96,6 @@ test("com impermeabilização: o mesmo item nas duas visitas vira uma linha", ()
     descricaoServicos({
       valorNota: 600,
       valorOs: 600,
-      dataServico: null,
       visitas: [
         visita("Higienização", [item("Sofá exemplo — Higienização", 250, { item_group_id: "g1" })]),
         visita(
@@ -121,7 +118,6 @@ test("tapete com medidas no nome e área em m²", () => {
     descricaoServicos({
       valorNota: 937.36,
       valorOs: 937.36,
-      dataServico: null,
       visitas: [
         visita("Higienização", [
           item("Tapete exemplo 5,06 x 3,90 — Higienização", 937.36, {
@@ -139,12 +135,11 @@ test("tapete com medidas no nome e área em m²", () => {
   );
 });
 
-test("tapete sem medidas: só a área, sem o “(por m²)” da tabela", () => {
+test("tapete sem medidas: só a área; Limpeza do app sai Higienização na nota", () => {
   const texto = ok(
     descricaoServicos({
       valorNota: 200,
       valorOs: 200,
-      dataServico: null,
       visitas: [
         visita("Higienização", [
           item("Tapete exemplo – limpeza (por m²) — Limpeza", 200, {
@@ -155,8 +150,8 @@ test("tapete sem medidas: só a área, sem o “(por m²)” da tabela", () => {
       ],
     }),
   );
-  assert.equal(texto.split("\n")[0], "Serviço de limpeza de tapete realizado em 10/03/2026:");
-  assert.match(texto, /^- 01 Tapete exemplo \(4,00 m²\) - Limpeza: R\$ 200,00$/m);
+  assert.equal(texto.split("\n")[0], "Serviço de higienização de tapete realizado em 10/03/2026:");
+  assert.match(texto, /^- 01 Tapete exemplo \(4,00 m²\) - Higienização: R\$ 200,00$/m);
 });
 
 test("tipos misturados: primeira linha sem o objeto", () => {
@@ -164,8 +159,7 @@ test("tipos misturados: primeira linha sem o objeto", () => {
     descricaoServicos({
       valorNota: 500,
       valorOs: 500,
-      dataServico: null,
-      visitas: [visita("Higienização", [item("Sofá exemplo", 300), item("Colchão exemplo", 200)])],
+      visitas: [visita("Higienização", [item("Sofá exemplo", 300), item("Tapete exemplo", 200)])],
     }),
   );
   assert.equal(texto.split("\n")[0], "Serviço de higienização realizado em 10/03/2026:");
@@ -176,7 +170,6 @@ test("com desconto (Pix/cupom no valor da OS e saldo dispensado): linha antes do
     descricaoServicos({
       valorNota: 470,
       valorOs: 480,
-      dataServico: null,
       visitas: [
         visita("Higienização", [item("Sofá exemplo", 300), item("Poltrona exemplo", 200)], {
           discount_amount: 10,
@@ -191,30 +184,90 @@ test("valor que não bate: aviso em vez de descrição", () => {
   const r = descricaoServicos({
     valorNota: 900,
     valorOs: 500,
-    dataServico: null,
     visitas: [visita("Higienização", [item("Sofá exemplo", 500)])],
   });
   assert.equal(r.ok, false);
   assert.match(r.ok ? "" : r.aviso, /não bate.*nota R\$ 900,00/);
 });
 
-test("sem visita concluída: data do pedido de nota; visita cancelada não entra", () => {
+test("sem visita concluída: data agendada da visita; visita cancelada não entra", () => {
   const texto = ok(
     descricaoServicos({
       valorNota: 100,
       valorOs: 100,
-      dataServico: "2026-04-02",
       visitas: [
         visita("Higienização", [item("Poltrona exemplo", 100)], {
           status: "Confirmado",
           completion_date: null,
+          scheduled_date: "2026-04-02",
         }),
-        visita("Higienização", [item("Sofá cancelado", 999)], { status: "Cancelado" }),
+        visita("Higienização", [item("Sofá cancelado", 999)], {
+          status: "Cancelado",
+          scheduled_date: "2026-04-01",
+        }),
       ],
     }),
   );
   assert.match(texto, /realizado em 02\/04\/2026:/);
-  assert.doesNotMatch(texto, /cancelado/);
+  assert.doesNotMatch(texto, /cancelado|01\/04/);
+});
+
+test("uma concluída e outra só agendada: data da conclusão e data agendada", () => {
+  const texto = ok(
+    descricaoServicos({
+      valorNota: 300,
+      valorOs: 300,
+      visitas: [
+        visita("Higienização", [item("Sofá exemplo", 200)], {
+          completion_date: "2026-04-03",
+          scheduled_date: "2026-04-02",
+        }),
+        visita("Impermeabilização", [item("Poltrona exemplo", 100)], {
+          status: "Agendado",
+          completion_date: null,
+          scheduled_date: "2026-04-10",
+        }),
+      ],
+    }),
+  );
+  assert.match(texto, /realizado em 03\/04\/2026 e 10\/04\/2026:/);
+});
+
+test("colchão conta como estofado (sozinho ou com sofá)", () => {
+  const so = ok(
+    descricaoServicos({
+      valorNota: 200,
+      valorOs: 200,
+      visitas: [visita("Higienização", [item("Colchão exemplo — Higienização", 200)])],
+    }),
+  );
+  assert.equal(so.split("\n")[0], "Serviço de higienização de estofados realizado em 10/03/2026:");
+  const junto = ok(
+    descricaoServicos({
+      valorNota: 500,
+      valorOs: 500,
+      visitas: [visita("Higienização", [item("Sofá exemplo", 300), item("Colchão exemplo", 200)])],
+    }),
+  );
+  assert.equal(
+    junto.split("\n")[0],
+    "Serviço de higienização de estofados realizado em 10/03/2026:",
+  );
+});
+
+test("persiana: sai como higienização na nota", () => {
+  const texto = ok(
+    descricaoServicos({
+      valorNota: 150,
+      valorOs: 150,
+      visitas: [visita("Higienização", [item("Persiana exemplo — Limpeza", 150)])],
+    }),
+  );
+  assert.equal(
+    texto.split("\n")[0],
+    "Serviço de higienização de persiana realizado em 10/03/2026:",
+  );
+  assert.match(texto, /^- 01 Persiana exemplo - Higienização: R\$ 150,00$/m);
 });
 
 test("mais de 2.000 caracteres: agrupa itens iguais e avisa", () => {
@@ -224,7 +277,6 @@ test("mais de 2.000 caracteres: agrupa itens iguais e avisa", () => {
   const r = descricaoServicos({
     valorNota: 3000,
     valorOs: 3000,
-    dataServico: null,
     visitas: [visita("Higienização", itens)],
   });
   assert.ok(r.ok);

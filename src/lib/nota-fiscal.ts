@@ -5,6 +5,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR } from "@/lib/format";
+import { logOsHistory } from "@/lib/os";
 import { recebido } from "@/lib/payments";
 import {
   descricaoServicos,
@@ -44,6 +45,8 @@ export type TarefaNota = {
   solicitada_em: string | null;
   arquivo_path: string | null;
   arquivo_nome: string | null;
+  /** Em "Não emitir": o motivo, quem marcou e quando. */
+  notes?: string | null;
   work_order: {
     id: string;
     os_number: string;
@@ -63,7 +66,7 @@ export type TarefaNota = {
 
 export const TAREFA_NOTA_SELECT = `
   id, empresa_id, status, invoice_amount, invoice_number, issue_date, service_date, document_number,
-  solicitada_em, arquivo_path, arquivo_nome,
+  solicitada_em, arquivo_path, arquivo_nome, notes,
   work_order:work_order_id ( id, os_number, total_gross_value, negotiated_payment_method, negotiated_installments,
     customer:customer_id ( full_name, document_number, email ),
     payments ( payment_type, payment_channel, installments, payment_status, is_active ),
@@ -134,7 +137,6 @@ export function descricaoDaNota(t: TarefaNota): Descricao {
   return descricaoServicos({
     valorNota: Number(t.invoice_amount ?? valorOs),
     valorOs,
-    dataServico: t.service_date,
     visitas: t.work_order?.visits ?? [],
   });
 }
@@ -159,6 +161,149 @@ export function montarMensagemNota(
     const valor = (d as Record<string, string | null>)[chave];
     return valor === undefined ? `{{${chave}}}` : valor || "não informado";
   });
+}
+
+// ---------------------------------------------------------------- "Não emitir"
+
+export const NAO_EMITIR = "Não emitir";
+/** Situações que ainda esperam a nota (listas de pendentes, "Copiar todas"). */
+export const SITUACOES_A_EMITIR = ["Pendente", "Solicitada"] as const;
+
+export function aEmitir(status: string): boolean {
+  return (SITUACOES_A_EMITIR as readonly string[]).includes(status);
+}
+
+export const MAX_MOTIVO_NAO_EMITIR = 200;
+
+/** Confere o motivo (curto e obrigatório); devolve o texto limpo ou lança o erro para a tela. */
+export function validarMotivo(motivo: string): string {
+  const m = motivo.replace(/\s+/g, " ").trim();
+  if (m.length < 3) throw new Error("Escreva o motivo (pelo menos 3 letras).");
+  if (m.length > MAX_MOTIVO_NAO_EMITIR)
+    throw new Error(`Motivo muito longo (até ${MAX_MOTIVO_NAO_EMITIR} caracteres).`);
+  return m;
+}
+
+/** Registro guardado na nota: "Motivo — marcado por Ana em 19/10/2026 14:30". */
+export function registroNaoEmitir(motivo: string, quem: string, quando: Date): string {
+  const data = quando.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${motivo} — marcado por ${quem} em ${data.replace(",", "")}`;
+}
+
+async function quemSouEu(): Promise<{ id: string | null; nome: string }> {
+  const { data } = await supabase.auth.getUser();
+  const id = data.user?.id ?? null;
+  if (!id) return { id: null, nome: "alguém da equipe" };
+  const { data: perfil } = await supabase
+    .from("users_profiles")
+    .select("full_name")
+    .eq("id", id)
+    .maybeSingle();
+  return { id, nome: perfil?.full_name?.trim() || data.user?.email || "alguém da equipe" };
+}
+
+/** Tira a nota das pendentes, guardando motivo, quem e quando (na nota e no histórico da OS). */
+export async function marcarNaoEmitir(t: TarefaNota, motivoDigitado: string) {
+  if (!aEmitir(t.status))
+    throw new Error("Só nota pendente ou solicitada pode ir para “Não emitir”.");
+  const motivo = validarMotivo(motivoDigitado);
+  const anterior = t.status;
+  const eu = await quemSouEu();
+  const registro = registroNaoEmitir(motivo, eu.nome, new Date());
+  const { error } = await supabase
+    .from("invoice_tasks")
+    .update({ status: NAO_EMITIR, notes: registro })
+    .eq("id", t.id);
+  if (error) throw error;
+  if (t.work_order?.id)
+    await logOsHistory({
+      workOrderId: t.work_order.id,
+      eventType: "Nota fiscal: não emitir",
+      description: `Nota marcada como “Não emitir” (antes: ${anterior}). Motivo: ${motivo}`,
+      details: { invoice_task_id: t.id, status_anterior: anterior, motivo },
+      userId: eu.id,
+    });
+}
+
+/** Desfaz o "Não emitir": a nota volta para Pendente; o registro fica no histórico da OS. */
+export async function voltarParaPendente(t: TarefaNota) {
+  if (t.status !== NAO_EMITIR) throw new Error("Esta nota não está em “Não emitir”.");
+  const registroAnterior = t.notes ?? null;
+  const eu = await quemSouEu();
+  const { error } = await supabase
+    .from("invoice_tasks")
+    .update({ status: "Pendente", notes: null })
+    .eq("id", t.id);
+  if (error) throw error;
+  if (t.work_order?.id)
+    await logOsHistory({
+      workOrderId: t.work_order.id,
+      eventType: "Nota fiscal: voltou para pendente",
+      description: `Nota voltou para Pendente. Estava em “Não emitir”: ${registroAnterior ?? "sem motivo"}`,
+      details: { invoice_task_id: t.id, registro_anterior: registroAnterior },
+      userId: eu.id,
+    });
+}
+
+// ---------------------------------------------------------------- "Pedir nota" (tela da OS)
+
+/**
+ * Data do serviço do pedido manual: a última conclusão; sem visita concluída, a primeira data
+ * agendada das visitas não canceladas.
+ */
+export function dataServicoDaOs(
+  visitas: Array<{ status: string; completion_date: string | null; scheduled_date: string | null }>,
+): string | null {
+  const ativas = visitas.filter((v) => v.status !== "Cancelado");
+  const concluidas = ativas
+    .filter((v) => v.status === "Concluído" && v.completion_date)
+    .map((v) => v.completion_date!.slice(0, 10))
+    .sort();
+  if (concluidas.length) return concluidas[concluidas.length - 1]!;
+  const agendadas = ativas
+    .map((v) => v.scheduled_date?.slice(0, 10))
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  return agendadas[0] ?? null;
+}
+
+/** Pedido de nota criado à mão (cliente pediu e a regra automática não criou): sempre Pendente. */
+export function novoPedidoDeNota(a: {
+  workOrderId: string;
+  customerId: string | null;
+  documento: string | null;
+  valor: number;
+  dataServico: string | null;
+  hoje: string;
+}) {
+  return {
+    work_order_id: a.workOrderId,
+    customer_id: a.customerId,
+    document_number: a.documento?.trim() || null,
+    service_date: a.dataServico ?? a.hoje,
+    invoice_amount: a.valor,
+    status: "Pendente" as const,
+  };
+}
+
+/** Cria o pedido só se a OS ainda não tiver nota (o botão some quando já existe). */
+export async function pedirNota(pedido: ReturnType<typeof novoPedidoDeNota>) {
+  const { data: existente } = await supabase
+    .from("invoice_tasks")
+    .select("id")
+    .eq("work_order_id", pedido.work_order_id)
+    .limit(1)
+    .maybeSingle();
+  if (existente) throw new Error("Esta OS já tem nota.");
+  const { error } = await supabase.from("invoice_tasks").insert(pedido as never);
+  if (error) throw new Error("Não foi possível criar o pedido de nota.");
 }
 
 export async function marcarSolicitada(id: string) {

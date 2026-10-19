@@ -42,15 +42,13 @@ export type EntradaDescricao = {
   valorNota: number;
   /** Valor da OS (total_gross_value). */
   valorOs: number;
-  /** Data do pedido de nota (usada se nenhuma visita foi concluída). */
-  dataServico: string | null;
   visitas: VisitaDescricao[];
 };
 
 export type Descricao =
   { ok: true; texto: string; agrupado: boolean } | { ok: false; aviso: string };
 
-type Categoria = "estofado" | "colchao" | "tapete" | "persiana";
+type Categoria = "estofado" | "tapete" | "persiana";
 
 type Linha = {
   chave: string;
@@ -102,14 +100,15 @@ function separar(descricao: string, servicoVisita: string): { nome: string; serv
     .replace(/\s+[–-]\s+limpeza\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  return { nome: nome || "Item", servico: servico.trim() || "Higienização" };
+  // Na nota, tapete e persiana também são "Higienização" (no app o serviço se chama Limpeza).
+  const naNota = servico.trim().replace(/^limpeza$/i, "Higienização");
+  return { nome: nome || "Item", servico: naNota || "Higienização" };
 }
 
 function categoriaDe(nome: string, unidade: string): Categoria {
   const n = nome.toLowerCase();
   if (unidade === "m2" || n.includes("tapete")) return "tapete";
   if (n.includes("persiana")) return "persiana";
-  if (n.includes("colch")) return "colchao";
   return "estofado";
 }
 
@@ -195,7 +194,6 @@ function textoLinha(l: Linha): string {
 
 const OBJETO: Record<Categoria, [string, string]> = {
   estofado: ["estofados", "estofados"],
-  colchao: ["colchão", "colchões"],
   tapete: ["tapete", "tapetes"],
   persiana: ["persiana", "persianas"],
 };
@@ -204,14 +202,11 @@ function titulo(linhas: Linha[], datas: string[]): string {
   const servicos = linhas.flatMap((l) => l.servicos.map((s) => s.toLowerCase()));
   const temImp = servicos.some((s) => s.includes("impermeab"));
   const soImp = servicos.every((s) => s.includes("impermeab"));
-  const soLimpeza = servicos.every((s) => s.includes("limpeza"));
   const verbo = soImp
     ? "impermeabilização"
     : temImp
       ? "higienização e impermeabilização"
-      : soLimpeza
-        ? "limpeza"
-        : "higienização";
+      : "higienização";
   const cats = Array.from(new Set(linhas.map((l) => l.categoria)));
   let objeto = "";
   if (cats.length === 1) {
@@ -246,13 +241,14 @@ function agrupar(linhas: Linha[]): Linha[] {
   return grupos;
 }
 
-function datasDoServico(visitas: VisitaDescricao[], dataServico: string | null): string[] {
-  const concluidas = visitas
-    .filter((v) => v.status === "Concluído")
-    .map((v) => v.completion_date || v.scheduled_date)
+/** Data de cada visita: a da conclusão, se já concluída; senão, a agendada. */
+function datasDoServico(visitas: VisitaDescricao[]): string[] {
+  const lista = visitas
+    .map((v) =>
+      v.status === "Concluído" ? v.completion_date || v.scheduled_date : v.scheduled_date,
+    )
     .filter((d): d is string => Boolean(d))
     .map((d) => d.slice(0, 10));
-  const lista = concluidas.length ? concluidas : dataServico ? [dataServico.slice(0, 10)] : [];
   return Array.from(new Set(lista)).sort().map(dataBR);
 }
 
@@ -274,7 +270,7 @@ export function descricaoServicos(e: EntradaDescricao): Descricao {
     };
   }
 
-  const datas = datasDoServico(visitas, e.dataServico);
+  const datas = datasDoServico(visitas);
   const montar = (ls: Linha[]) =>
     [
       titulo(ls, datas),

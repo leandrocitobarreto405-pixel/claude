@@ -220,6 +220,7 @@ export const INVOICE_STATUSES = [
   "Emitida",
   "Cancelada",
   "Não necessária",
+  "Não emitir",
 ] as const;
 
 export const EXPENSE_STATUSES = [

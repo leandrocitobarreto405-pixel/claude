@@ -23,8 +23,15 @@ import {
   dadosDaNota,
   descricaoDaNota,
   linkArquivoNota,
+  MAX_MOTIVO_NAO_EMITIR,
+  NAO_EMITIR,
+  aEmitir,
+  marcarNaoEmitir,
+  voltarParaPendente,
   marcarSolicitada,
   montarMensagemNota,
+  novoPedidoDeNota,
+  pedirNota,
   type TarefaNota,
 } from "@/lib/nota-fiscal";
 
@@ -41,6 +48,7 @@ const CLASSE_STATUS: Record<string, string> = {
   Emitida: "bg-emerald-100 text-emerald-800",
   Cancelada: "bg-secondary text-muted-foreground",
   "Não necessária": "bg-secondary text-muted-foreground",
+  "Não emitir": "bg-secondary text-muted-foreground",
 };
 
 export function SituacaoNota({ status }: { status: string }) {
@@ -73,6 +81,8 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
   const [numero, setNumero] = useState("");
   const [dataEmissao, setDataEmissao] = useState(todayISO());
   const [ocupado, setOcupado] = useState(false);
+  const [naoEmitir, setNaoEmitir] = useState(false);
+  const [motivo, setMotivo] = useState("");
 
   async function executar(acao: () => Promise<void>, sucesso: string) {
     setOcupado(true);
@@ -95,6 +105,29 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
     } catch {
       toast.error("Não foi possível abrir o arquivo da nota.");
     }
+  }
+
+  if (tarefa.status === NAO_EMITIR) {
+    return (
+      <div className="grid gap-2">
+        <p className="rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          Não emitir: {tarefa.notes || "sem motivo registrado"}.
+        </p>
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-11"
+            disabled={ocupado}
+            onClick={() =>
+              void executar(() => voltarParaPendente(tarefa), "Nota voltou para pendente.")
+            }
+          >
+            Voltar para pendente
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -153,6 +186,20 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
             }
           >
             Nota solicitada
+          </Button>
+        ) : null}
+        {aEmitir(tarefa.status) ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-11"
+            disabled={ocupado}
+            onClick={() => {
+              setMotivo("");
+              setNaoEmitir(true);
+            }}
+          >
+            Não emitir
           </Button>
         ) : null}
         {tarefa.status !== "Emitida" ? (
@@ -214,6 +261,46 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
           }}
         />
       </div>
+
+      <Dialog open={naoEmitir} onOpenChange={setNaoEmitir}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Não emitir esta nota</DialogTitle>
+            <DialogDescription>
+              A nota sai das pendentes e do “Copiar todas”. Fica registrada com o motivo, a data e
+              quem marcou, e pode voltar para pendente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={`nf-motivo-${tarefa.id}`}>Motivo</Label>
+            <Input
+              id={`nf-motivo-${tarefa.id}`}
+              className="min-h-11"
+              maxLength={MAX_MOTIVO_NAO_EMITIR}
+              placeholder="Ex.: cliente desistiu da nota"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" className="min-h-11" onClick={() => setNaoEmitir(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="min-h-11"
+              disabled={ocupado || motivo.trim().length < 3}
+              onClick={() =>
+                void executar(async () => {
+                  await marcarNaoEmitir(tarefa, motivo);
+                  setNaoEmitir(false);
+                }, "Nota marcada como “Não emitir”.")
+              }
+            >
+              Confirmar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={emitindo} onOpenChange={setEmitindo}>
         <DialogContent className="max-w-md">
@@ -305,19 +392,21 @@ export function NotaFiscalDaOs({
   const tarefa = query.data;
 
   async function criarPedido() {
-    const { error } = await supabase.from("invoice_tasks").insert({
-      work_order_id: workOrderId,
-      customer_id: customerId,
-      document_number: documento,
-      service_date: dataServico ?? todayISO(),
-      invoice_amount: valor,
-      status: "Pendente",
-    } as never);
-    if (error) {
-      toast.error("Não foi possível criar o pedido de nota.");
-      return;
+    try {
+      await pedirNota(
+        novoPedidoDeNota({
+          workOrderId,
+          customerId,
+          documento,
+          valor,
+          dataServico,
+          hoje: todayISO(),
+        }),
+      );
+      toast.success("Nota pedida: está em Notas fiscais como pendente.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível criar o pedido de nota.");
     }
-    toast.success("Pedido de nota criado.");
     atualizar();
   }
 
@@ -346,12 +435,18 @@ export function NotaFiscalDaOs({
       ) : (
         <div className="grid gap-2 text-sm">
           <p className="text-muted-foreground">
-            Nenhum pedido de nota para esta OS. Ele é criado ao concluir o serviço marcando “precisa
-            de nota”, ou aqui.
+            Nenhuma nota para esta OS. Ela é criada ao concluir o serviço marcando “precisa de
+            nota”. Se o cliente pediu nota e ela não foi criada (ex.: cliente sem CPF/CNPJ
+            cadastrado), peça aqui.
           </p>
           <div>
-            <Button size="sm" variant="outline" onClick={() => void criarPedido()}>
-              Criar pedido de nota
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => void criarPedido()}
+            >
+              Pedir nota
             </Button>
           </div>
         </div>

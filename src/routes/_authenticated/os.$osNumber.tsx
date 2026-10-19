@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/app-shell";
 import { LinhaSwitch } from "@/components/nexa";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { NotaFiscalDaOs } from "@/components/nota-fiscal";
+import { dataServicoDaOs } from "@/lib/nota-fiscal";
 import { recebido as pagamentoRecebido, type PaymentFull } from "@/lib/payments";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoPdfDaOs } from "@/components/os/pdf-da-os";
@@ -1019,13 +1020,7 @@ function OsDetalhe() {
             customerId={os.customer?.id ?? null}
             documento={os.customer?.document_number ?? null}
             valor={Number(os.total_gross_value ?? 0)}
-            dataServico={
-              os.visits
-                .filter((v) => v.status === "Concluído" && v.completion_date)
-                .map((v) => v.completion_date!)
-                .sort()
-                .pop() ?? null
-            }
+            dataServico={dataServicoDaOs(os.visits)}
           />
 
           <section className="card-surface p-5">

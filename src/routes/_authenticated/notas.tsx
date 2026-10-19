@@ -26,6 +26,7 @@ import { brl, dateBR } from "@/lib/format";
 import {
   TAREFA_NOTA_SELECT,
   dadosDaNota,
+  aEmitir,
   descricaoDaNota,
   montarMensagemNota,
   type TarefaNota,
@@ -65,6 +66,7 @@ function Notas() {
   });
 
   const lista = query.data ?? [];
+  const aEmitirLista = lista.filter((t) => aEmitir(t.status));
   const total = lista.reduce((s, t) => s + Number(t.invoice_amount ?? 0), 0);
   const atualizar = () => void qc.invalidateQueries({ queryKey: [NOTAS_QUERY_KEY] });
 
@@ -92,17 +94,18 @@ function Notas() {
             </SelectContent>
           </Select>
         </div>
-        {lista.length > 1 ? (
+        {aEmitirLista.length > 1 ? (
           <Button
             variant="outline"
             className="gap-2"
             onClick={() => {
               // Nota cujos itens não batem com o valor fica de fora (o aviso aparece no cartão dela).
-              const prontas = lista.flatMap((t) => {
+              // Só as que ainda esperam nota: "Não emitir", emitidas e canceladas ficam de fora.
+              const prontas = aEmitirLista.flatMap((t) => {
                 const d = descricaoDaNota(t);
                 return d.ok ? [montarMensagemNota(modelo, dadosDaNota(t), d.texto)] : [];
               });
-              const fora = lista.length - prontas.length;
+              const fora = aEmitirLista.length - prontas.length;
               if (!prontas.length) {
                 toast.error("Nenhuma nota com valores que batem: confira os avisos de cada uma.");
                 return;
@@ -114,7 +117,7 @@ function Notas() {
               );
             }}
           >
-            <Copy className="size-4" /> Copiar todas ({lista.length})
+            <Copy className="size-4" /> Copiar todas ({aEmitirLista.length})
           </Button>
         ) : null}
       </div>
