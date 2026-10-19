@@ -421,6 +421,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 19/10/2026       | Número sequencial do orçamento (Nº 0153)            | `43354bd`           | `879f892`                |
 | 19/10/2026       | Notas fiscais: descrição dos serviços (NFS-e)       | `60755c0`           | `2a7e1aa`                |
 | 19/10/2026       | Alice responde em áudio (desligado)                 | `82d022b`           | `ee4cd9a`                |
+| 19/10/2026       | Notas: Não emitir, Pedir nota, descrição simples    | `16cff45`           | `0ca79a1`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
