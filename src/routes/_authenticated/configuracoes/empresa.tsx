@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Users } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { MetaCustos } from "@/components/configuracoes/meta-custos";
+import { DadosEmpresa } from "@/components/configuracoes/dados-empresa";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/empresa")({
   head: () => ({ meta: [{ title: "Configurações: empresa — Nexa OS" }] }),
@@ -13,6 +14,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/empresa")({
         descricao="Logins, convites, vendedoras e técnicos"
         icone={Users}
       />
+      <SecaoConfig titulo="Dados nos documentos">
+        <DadosEmpresa />
+      </SecaoConfig>
       <SecaoConfig titulo="Metas e custos" aberta>
         <MetaCustos />
       </SecaoConfig>

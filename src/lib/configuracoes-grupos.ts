@@ -22,9 +22,9 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "empresa",
     rotulo: "Empresa",
-    descricao: "Metas e custos · Equipe e acessos",
+    descricao: "Dados nos documentos · Metas e custos · Equipe e acessos",
     icone: Building2,
-    itens: ["Metas e custos", "Equipe e acessos"],
+    itens: ["Dados nos documentos", "Metas e custos", "Equipe e acessos"],
   },
   {
     id: "vendas",
