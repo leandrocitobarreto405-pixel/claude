@@ -137,29 +137,28 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
           Falta no cadastro: {faltando.join(", ")}. A mensagem sai com “não informado”.
         </p>
       ) : null}
-      {descricao.ok ? (
-        descricao.agrupado ? (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            Itens iguais foram agrupados na descrição para caber em 2.000 caracteres.
-          </p>
-        ) : null
-      ) : (
+      {descricao.aviso ? (
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">
           {descricao.aviso}
         </p>
-      )}
+      ) : null}
+      {descricao.agrupado ? (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Itens iguais foram agrupados na descrição para caber em 2.000 caracteres.
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
           variant="outline"
           className="min-h-11 gap-2"
           onClick={() =>
-            descricao.ok
-              ? void copiarTexto(
-                  montarMensagemNota(modelo, dados, descricao.texto),
-                  "Mensagem da nota copiada.",
-                )
-              : toast.error(descricao.aviso)
+            void copiarTexto(
+              montarMensagemNota(modelo, dados, descricao.texto),
+              descricao.aviso
+                ? "Mensagem copiada. Confira o aviso em vermelho antes de emitir."
+                : "Mensagem da nota copiada.",
+            )
           }
         >
           <Copy className="size-4" /> Copiar mensagem
@@ -168,10 +167,16 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
           size="sm"
           variant="outline"
           className="min-h-11 gap-2"
+          disabled={!descricao.texto}
           onClick={() =>
-            descricao.ok
-              ? void copiarTexto(descricao.texto, "Descrição dos serviços copiada.")
-              : toast.error(descricao.aviso)
+            descricao.texto
+              ? void copiarTexto(
+                  descricao.texto,
+                  descricao.aviso
+                    ? "Descrição copiada. Confira o aviso em vermelho antes de emitir."
+                    : "Descrição dos serviços copiada.",
+                )
+              : undefined
           }
         >
           <FileText className="size-4" /> Copiar só a descrição

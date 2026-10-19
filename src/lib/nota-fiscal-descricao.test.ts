@@ -48,7 +48,8 @@ function visita(
 }
 
 const ok = (r: ReturnType<typeof descricaoServicos>) => {
-  assert.ok(r.ok, r.ok ? "" : r.aviso);
+  assert.equal(r.aviso, null);
+  assert.ok(r.texto);
   return r.texto;
 };
 
@@ -180,14 +181,21 @@ test("com desconto (Pix/cupom no valor da OS e saldo dispensado): linha antes do
   assert.match(texto, /\n\nDesconto: -R\$ 30,00\nValor total: R\$ 470,00$/);
 });
 
-test("valor que não bate: aviso em vez de descrição", () => {
+test("valor que não bate: aviso em vermelho, mas a descrição sai (dá para copiar)", () => {
   const r = descricaoServicos({
     valorNota: 900,
     valorOs: 500,
     visitas: [visita("Higienização", [item("Sofá exemplo", 500)])],
   });
-  assert.equal(r.ok, false);
-  assert.match(r.ok ? "" : r.aviso, /não bate.*nota R\$ 900,00/);
+  assert.match(r.aviso ?? "", /não bate.*nota R\$ 900,00/);
+  assert.match(r.texto ?? "", /^- 01 Sofá exemplo - Higienização: R\$ 500,00$/m);
+  assert.match(r.texto ?? "", /Valor total: R\$ 900,00$/);
+});
+
+test("OS sem itens: sem descrição, com aviso", () => {
+  const r = descricaoServicos({ valorNota: 100, valorOs: 100, visitas: [] });
+  assert.equal(r.texto, null);
+  assert.match(r.aviso, /não tem itens/);
 });
 
 test("sem visita concluída: data agendada da visita; visita cancelada não entra", () => {
@@ -279,11 +287,11 @@ test("mais de 2.000 caracteres: agrupa itens iguais e avisa", () => {
     valorOs: 3000,
     visitas: [visita("Higienização", itens)],
   });
-  assert.ok(r.ok);
+  assert.equal(r.aviso, null);
   assert.equal(r.agrupado, true);
-  assert.ok(r.texto.length <= MAX_DESCRICAO);
+  assert.ok((r.texto ?? "").length <= MAX_DESCRICAO);
   assert.match(
-    r.texto,
+    r.texto ?? "",
     /^- 60 Cadeira de jantar exemplo com encosto alto - Higienização: R\$ 3\.000,00$/m,
   );
 });

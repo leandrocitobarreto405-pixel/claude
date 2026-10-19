@@ -9,7 +9,7 @@
  *   Valor total: R$ 236,00
  *
  * O desconto é a soma dos itens menos o valor da OS (Pix, cupom, ajuste) mais o saldo dispensado
- * nas visitas; se itens − desconto não bater com o valor da nota, não sai descrição (aviso).
+ * nas visitas; se itens − desconto não bater com o valor da nota, sai um aviso (copiar continua livre).
  */
 
 export const MAX_DESCRICAO = 2000;
@@ -45,8 +45,13 @@ export type EntradaDescricao = {
   visitas: VisitaDescricao[];
 };
 
+/**
+ * texto: a descrição para copiar (null só quando a OS não tem itens). aviso: o que conferir antes
+ * de emitir (soma que não bate, texto longo) — aparece em vermelho, mas não impede copiar.
+ */
 export type Descricao =
-  { ok: true; texto: string; agrupado: boolean } | { ok: false; aviso: string };
+  | { texto: string; agrupado: boolean; aviso: string | null }
+  | { texto: null; agrupado: false; aviso: string };
 
 type Categoria = "estofado" | "tapete" | "persiana";
 
@@ -255,19 +260,20 @@ function datasDoServico(visitas: VisitaDescricao[]): string[] {
 export function descricaoServicos(e: EntradaDescricao): Descricao {
   const visitas = e.visitas.filter((v) => v.status !== "Cancelado");
   const linhas = linhasDasVisitas(visitas);
-  if (!linhas.length) return { ok: false, aviso: "A OS não tem itens para descrever na nota." };
+  if (!linhas.length)
+    return { texto: null, agrupado: false, aviso: "A OS não tem itens para descrever na nota." };
 
   const somaItens = linhas.reduce((s, l) => s + centavos(l.valor), 0);
   const dispensado = visitas.reduce((s, v) => s + centavos(Number(v.discount_amount ?? 0)), 0);
   const desconto = Math.max(0, somaItens - centavos(e.valorOs)) + dispensado;
   const valorNota = centavos(e.valorNota);
+  const avisos: string[] = [];
   if (somaItens - desconto !== valorNota) {
     const partes = [`itens ${reais(somaItens / 100)}`];
     if (desconto) partes.push(`desconto ${reais(desconto / 100)}`);
-    return {
-      ok: false,
-      aviso: `A soma dos itens não bate com o valor da nota (${partes.join(", ")} = ${reais((somaItens - desconto) / 100)}; nota ${reais(valorNota / 100)}). Confira a OS ou o valor do pedido antes de copiar.`,
-    };
+    avisos.push(
+      `A soma dos itens não bate com o valor da nota (${partes.join(", ")} = ${reais((somaItens - desconto) / 100)}; nota ${reais(valorNota / 100)}). Confira a OS ou o valor do pedido.`,
+    );
   }
 
   const datas = datasDoServico(visitas);
@@ -287,9 +293,8 @@ export function descricaoServicos(e: EntradaDescricao): Descricao {
     agrupado = true;
   }
   if (texto.length > MAX_DESCRICAO)
-    return {
-      ok: false,
-      aviso: `A descrição passa de ${MAX_DESCRICAO.toLocaleString("pt-BR")} caracteres mesmo agrupando os itens iguais (${texto.length}). Escreva a discriminação à mão.`,
-    };
-  return { ok: true, texto, agrupado };
+    avisos.push(
+      `A descrição passa de ${MAX_DESCRICAO.toLocaleString("pt-BR")} caracteres mesmo agrupando os itens iguais (${texto.length}): encurte antes de colar na nota.`,
+    );
+  return { texto, agrupado, aviso: avisos.length ? avisos.join(" ") : null };
 }

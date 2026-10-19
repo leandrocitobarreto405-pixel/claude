@@ -99,21 +99,15 @@ function Notas() {
             variant="outline"
             className="gap-2"
             onClick={() => {
-              // Nota cujos itens não batem com o valor fica de fora (o aviso aparece no cartão dela).
               // Só as que ainda esperam nota: "Não emitir", emitidas e canceladas ficam de fora.
-              const prontas = aEmitirLista.flatMap((t) => {
-                const d = descricaoDaNota(t);
-                return d.ok ? [montarMensagemNota(modelo, dadosDaNota(t), d.texto)] : [];
-              });
-              const fora = aEmitirLista.length - prontas.length;
-              if (!prontas.length) {
-                toast.error("Nenhuma nota com valores que batem: confira os avisos de cada uma.");
-                return;
-              }
+              const descricoes = aEmitirLista.map((t) => descricaoDaNota(t));
+              const comAviso = descricoes.filter((d) => d.aviso).length;
               void copiarTexto(
-                prontas.join("\n\n———\n\n"),
-                `${prontas.length} mensagens copiadas.` +
-                  (fora ? ` ${fora} ficaram de fora: valor que não bate (veja o aviso).` : ""),
+                aEmitirLista
+                  .map((t, i) => montarMensagemNota(modelo, dadosDaNota(t), descricoes[i]!.texto))
+                  .join("\n\n———\n\n"),
+                `${aEmitirLista.length} mensagens copiadas.` +
+                  (comAviso ? ` ${comAviso} com aviso em vermelho: confira antes de emitir.` : ""),
               );
             }}
           >
