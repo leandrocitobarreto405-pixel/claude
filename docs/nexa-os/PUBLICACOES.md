@@ -313,6 +313,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   Roteiro da Alice (Turbine, aprovado em 19/10, só acréscimos): bloco "Cupons de desconto" no
   fim da seção 4 e "Como conheceu" na Etapa 1 (pergunta no fim da primeira resposta, nunca em
   mensagem separada). Cópia dos pontos de antes: `docs/nexa-os/alice/turbine-cupons-origem-ate-1910.md`.
+- "Número do orçamento" (`20261121120000`, aplicada em 19/10): coluna `quotes.numero` (única por
+  empresa) e tabela `orcamento_contadores` (RLS: só leitura da própria empresa), gatilhos de
+  numeração na criação e de número fixo. Existentes numerados por ordem de criação: Turbine 1–65,
+  Ecoprime 1–4; contadores 65 e 4; `updated_at` conferido igual antes/depois (gatilho do
+  updated_at desligado só durante a numeração). Nenhum outro dado mudou. Para voltar: o app
+  anterior ignora a coluna; o gatilho de numeração pode ficar.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -405,6 +411,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 19/10/2026       | Correção: modo dos documentos (cache e servidor)    | `fcbc246`           | `d6add27`                |
 | 19/10/2026       | PDF do orçamento direto no app                      | `15ca130`           | `61f50d0`                |
 | 19/10/2026       | Correção: Início zerado e erros em português        | `b300e7a`           | `04bb91d`                |
+| 19/10/2026       | Número sequencial do orçamento (Nº 0153)            | `43354bd`           | `879f892`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
