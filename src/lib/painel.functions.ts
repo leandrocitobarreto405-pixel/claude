@@ -1,3 +1,4 @@
+import { SELECT_OS_PAINEL } from "@/lib/consultas";
 import { createServerFn } from "@tanstack/react-start";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import { addDaysISO, monthEnd, monthStart, todayISO } from "@/lib/format";
@@ -66,9 +67,7 @@ export const resumoPainel = createServerFn({ method: "GET" })
       await Promise.all([
         db
           .from("work_orders")
-          .select(
-            "id, sale_date, total_gross_value, status, eh_teste, sales_origin:sales_origin_id ( name ), visits ( repasse_parceiro )",
-          )
+          .select(SELECT_OS_PAINEL)
           .is("deleted_at", null)
           .neq("status", "Cancelada")
           .gte("sale_date", menor(anterior.de, semanas[0]!.de))

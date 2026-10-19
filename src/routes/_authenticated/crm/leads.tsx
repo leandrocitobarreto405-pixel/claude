@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
@@ -489,7 +490,7 @@ function NovoLeadDialog({
       setEstofado("");
       setResumo("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível cadastrar o lead.");
+      toast.error(mensagemDeErro(error, "Não foi possível cadastrar o lead."));
     } finally {
       setSalvando(false);
     }

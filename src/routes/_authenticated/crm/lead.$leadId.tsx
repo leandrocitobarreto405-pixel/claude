@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { preencherTexto } from "@/lib/modelos-mensagem";
 import { useTextosEmpresa } from "@/lib/textos-cliente";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -203,7 +204,7 @@ function LeadDetalhe() {
       void leadQuery.refetch();
       void timeline.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o status.");
+      toast.error(mensagemDeErro(error, "Não foi possível alterar o status."));
     }
   }
 
@@ -276,7 +277,7 @@ function LeadDetalhe() {
         );
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível gerar a sugestão.");
+      toast.error(mensagemDeErro(error, "Não foi possível gerar a sugestão."));
     } finally {
       setGerandoIA(false);
     }

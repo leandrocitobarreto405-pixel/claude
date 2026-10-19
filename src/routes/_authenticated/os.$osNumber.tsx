@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { useQueryClient } from "@tanstack/react-query";
 import { TirarAlice } from "@/components/tirar-alice";
 import { repasseDoRecebido, valoresDaLinha } from "@/lib/terceirizados";
@@ -290,7 +291,7 @@ function OsDetalhe() {
       await navigator.clipboard.writeText(url);
       toast.success("Link da pasta do cliente copiado.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível copiar o link.");
+      toast.error(mensagemDeErro(error, "Não foi possível copiar o link."));
     } finally {
       setCopiandoPasta(false);
     }
@@ -306,7 +307,7 @@ function OsDetalhe() {
       toast.success("Termo de garantia gerado.");
       await garantiaQuery.refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível gerar o termo de garantia.");
+      toast.error(mensagemDeErro(e, "Não foi possível gerar o termo de garantia."));
     } finally {
       setGerandoTermo(false);
     }
@@ -399,7 +400,7 @@ function OsDetalhe() {
       osQuery.refetch();
       invalidateFinanceQueries(queryClient);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+      toast.error(mensagemDeErro(e, "Não foi possível salvar."));
     } finally {
       setSalvandoTeste(false);
     }
@@ -414,7 +415,7 @@ function OsDetalhe() {
       await Promise.all([osQuery.refetch(), historicoQuery.refetch()]);
       invalidateFinanceQueries(queryClient);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível desfazer o desconto.");
+      toast.error(mensagemDeErro(e, "Não foi possível desfazer o desconto."));
     } finally {
       setDesfazendoDesconto(null);
     }
@@ -446,7 +447,7 @@ function OsDetalhe() {
       toast.success(`Documento ${r.name} gerado no Google Docs.`);
       await docQuery.refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível gerar o documento.");
+      toast.error(mensagemDeErro(e, "Não foi possível gerar o documento."));
     } finally {
       setGerando(false);
     }
@@ -466,7 +467,7 @@ function OsDetalhe() {
       await Promise.all([osQuery.refetch(), historicoQuery.refetch()]);
       invalidateFinanceQueries(queryClient);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível cancelar a OS.");
+      toast.error(mensagemDeErro(e, "Não foi possível cancelar a OS."));
     }
   }
 
@@ -485,7 +486,7 @@ function OsDetalhe() {
       await Promise.all([osQuery.refetch(), historicoQuery.refetch()]);
       invalidateFinanceQueries(queryClient);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível excluir a OS.");
+      toast.error(mensagemDeErro(e, "Não foi possível excluir a OS."));
     }
   }
 
@@ -497,7 +498,7 @@ function OsDetalhe() {
       await Promise.all([osQuery.refetch(), historicoQuery.refetch()]);
       invalidateFinanceQueries(queryClient);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível restaurar a OS.");
+      toast.error(mensagemDeErro(e, "Não foi possível restaurar a OS."));
     }
   }
 

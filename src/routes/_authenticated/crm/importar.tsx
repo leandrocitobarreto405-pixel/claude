@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -119,7 +120,7 @@ function ImportarCrm() {
       setMapa(auto);
       toast.success(`${json.length} linha(s) carregada(s). Confira o mapeamento.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível ler a planilha.");
+      toast.error(mensagemDeErro(error, "Não foi possível ler a planilha."));
     }
   }
 
@@ -200,9 +201,7 @@ function ImportarCrm() {
             criados += 1;
           }
         } catch (error) {
-          erros.push(
-            `Linha ${index + 2}: ${error instanceof Error ? error.message : "falha ao gravar"}.`,
-          );
+          erros.push(`Linha ${index + 2}: ${mensagemDeErro(error, "falha ao gravar")}.`);
         }
       }
 

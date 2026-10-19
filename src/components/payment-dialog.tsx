@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateFinanceQueries } from "@/lib/cache";
@@ -135,7 +136,7 @@ export function PaymentDialog({
       onOpenChange(false);
       onDone?.();
     } catch (error) {
-      toast.error((error as Error).message);
+      toast.error(mensagemDeErro(error, "Não foi possível registrar o pagamento."));
     } finally {
       setSaving(false);
     }

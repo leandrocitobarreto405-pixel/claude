@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { useEffect, useMemo, useState, type SelectHTMLAttributes } from "react";
 import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { useNavigate } from "@tanstack/react-router";
@@ -249,9 +250,7 @@ export function BudgetVisitDialog({
       atualizar();
       onOpenChange(false);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Não foi possível salvar a visita de orçamento.",
-      );
+      toast.error(mensagemDeErro(e, "Não foi possível salvar a visita de orçamento."));
     } finally {
       setSalvando(false);
     }

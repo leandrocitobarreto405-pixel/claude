@@ -25,7 +25,7 @@ export function despesaDeRepasse(e: { reference_key?: string | null }): boolean 
   return (e.reference_key ?? "").startsWith("repasse:");
 }
 
-/** Soma do repasse das visitas de uma OS (embed `visits ( repasse_parceiro )`). */
+/** Soma do repasse das visitas de uma OS (embed `visits!visits_work_order_id_fkey ( repasse_parceiro )`). */
 export function repasseDaOs(
   visitas: { repasse_parceiro?: number | null }[] | { repasse_parceiro?: number | null } | null,
 ) {

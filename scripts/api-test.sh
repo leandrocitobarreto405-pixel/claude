@@ -39,3 +39,4 @@ done
 
 PGRST_URL="http://localhost:${PORTA}" node "${ROOT}/supabase/tests/api/isolamento.test.mjs"
 PGRST_URL="http://localhost:${PORTA}" node "${ROOT}/supabase/tests/api/orcamento.test.mjs"
+PGRST_URL="http://localhost:${PORTA}" npx tsx "${ROOT}/supabase/tests/api/embutidos.test.ts"

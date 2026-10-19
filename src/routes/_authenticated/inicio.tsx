@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -120,7 +121,7 @@ function Inicio() {
 
         {error ? (
           <Card className="text-sm text-problema-foreground">
-            Não deu para carregar os números: {(error as Error).message}
+            {mensagemDeErro(error, "Não deu para carregar os números agora.", "inicio")}
           </Card>
         ) : null}
 

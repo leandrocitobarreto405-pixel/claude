@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -178,7 +179,7 @@ function LeadIntegrations() {
       setDialogOpen(false);
       void integrations.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar.");
+      toast.error(mensagemDeErro(error, "Não foi possível salvar."));
     }
   }
 
@@ -189,7 +190,7 @@ function LeadIntegrations() {
       toast.success("Integração excluída.");
       void integrations.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível excluir.");
+      toast.error(mensagemDeErro(error, "Não foi possível excluir."));
     }
   }
 
@@ -205,7 +206,7 @@ function LeadIntegrations() {
             : `Processado: ${r.mapped.name} (${r.mapped.phone})`,
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha no teste.");
+      toast.error(mensagemDeErro(error, "Falha no teste."));
     }
   }
 

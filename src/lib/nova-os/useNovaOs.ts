@@ -2,6 +2,7 @@
  * Estado e salvamento da Nova OS em janela (só criar: inclusive vindo de lead, visita de
  * orçamento e orçamento). A edição (`?editar=`) continua no formulário antigo.
  */
+import { mensagemDeErro } from "@/lib/erros";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { avisoDocumento, geraNoDriveAoCriar } from "@/lib/documentos-decisao";
@@ -470,9 +471,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
         }
       } catch (e) {
         toast.error(
-          `A OS foi salva, mas não foi possível gerar o documento. ${
-            e instanceof Error ? e.message : ""
-          }`.trim(),
+          `A OS foi salva, mas não foi possível gerar o documento. ${mensagemDeErro(e, "")}`.trim(),
         );
       }
       const r: OsCriada = { id: wo.id, os_number: wo.os_number, documento, modo: modoDoc, aviso };
@@ -507,9 +506,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
       setCriada({ ...criada, documento: nome });
       toast.success(`Documento ${nome ?? ""} gerado no Google Docs.`.trim());
     } catch (e) {
-      toast.error(
-        `Não foi possível gerar o documento. ${e instanceof Error ? e.message : ""}`.trim(),
-      );
+      toast.error(`Não foi possível gerar o documento. ${mensagemDeErro(e, "")}`.trim());
     } finally {
       setGerandoDoc(false);
     }

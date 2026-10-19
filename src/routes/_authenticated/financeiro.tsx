@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { SeletorMes } from "@/components/financeiro/seletor-mes";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -59,7 +60,9 @@ function Financeiro() {
       <AbasDeRota abas={abas} rotulo="Financeiro" />
       <SeletorMes mes={mes} onChange={setMes} />
       {error ? (
-        <Card className="text-sm text-problema-foreground">{(error as Error).message}</Card>
+        <Card className="text-sm text-problema-foreground">
+          {mensagemDeErro(error, "Não deu para carregar o financeiro agora.", "financeiro")}
+        </Card>
       ) : null}
 
       <div className="grid grid-cols-2 gap-2.5">

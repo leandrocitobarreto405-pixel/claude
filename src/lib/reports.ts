@@ -1,3 +1,4 @@
+import { SELECT_OS_DRE } from "@/lib/consultas";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Banco } from "@/lib/banco";
@@ -835,7 +836,7 @@ export async function fetchMonthSummary(
     fetchExpenses(from, to, db),
     db
       .from("work_orders")
-      .select("id, total_gross_value, status, eh_teste, visits ( repasse_parceiro )")
+      .select(SELECT_OS_DRE)
       .is("deleted_at", null)
       .gte("sale_date", from)
       .lte("sale_date", to),

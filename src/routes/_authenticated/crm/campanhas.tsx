@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -148,7 +149,7 @@ function Campanhas() {
       void refetch();
       void anunciosSemCampanha.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a campanha.");
+      toast.error(mensagemDeErro(error, "Não foi possível salvar a campanha."));
     }
   }
 

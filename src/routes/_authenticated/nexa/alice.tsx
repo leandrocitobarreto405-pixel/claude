@@ -1,3 +1,4 @@
+import { SELECT_LEADS_ALICE_NEXA } from "@/lib/consultas";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -81,9 +82,7 @@ async function leadsDaEmpresa(empresaId: string, ids: string[]) {
   for (let i = 0; i < ids.length; i += 150) {
     const { data, error } = await supabase
       .from("crm_leads")
-      .select(
-        "id, orcamento_em, os_criada_em, os:linked_work_order_id ( total_gross_value, eh_teste, cancelled_at, deleted_at, visits ( repasse_parceiro ) )",
-      )
+      .select(SELECT_LEADS_ALICE_NEXA)
       .in("id", ids.slice(i, i + 150))
       .setHeader(EMPRESA_HEADER, empresaId);
     if (error) throw error;

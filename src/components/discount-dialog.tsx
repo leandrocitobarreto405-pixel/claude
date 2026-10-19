@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -66,7 +67,7 @@ export function DiscountDialog({
       onOpenChange(false);
       onDone?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível dispensar o saldo.");
+      toast.error(mensagemDeErro(e, "Não foi possível dispensar o saldo."));
     } finally {
       setSalvando(false);
     }

@@ -1,3 +1,4 @@
+import { mensagemDeErro } from "@/lib/erros";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -124,7 +125,7 @@ function LeadsDoSite() {
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : q.isError ? (
         <p className="text-sm text-problema">
-          {q.error instanceof Error ? q.error.message : "Não foi possível carregar."}
+          {mensagemDeErro(q.error, "Não foi possível carregar.")}
         </p>
       ) : !visiveis.length ? (
         <EmptyState title="Nenhum cadastro" description="Nada neste período com esse filtro." />
@@ -174,7 +175,7 @@ function CartaoLead({ lead: l }: { lead: LeadSite }) {
       toast.success(ok);
       await qc.invalidateQueries({ queryKey: [CHAVE] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+      toast.error(mensagemDeErro(e, "Não foi possível salvar."));
     } finally {
       setOcupado(false);
     }
