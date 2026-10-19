@@ -404,6 +404,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 19/10/2026       | Cupons na Alice, origem Site x Blog e landing       | `976ce44`           | `b60f3a9`                |
 | 19/10/2026       | Correção: modo dos documentos (cache e servidor)    | `fcbc246`           | `d6add27`                |
 | 19/10/2026       | PDF do orçamento direto no app                      | `15ca130`           | `61f50d0`                |
+| 19/10/2026       | Correção: Início zerado e erros em português        | `b300e7a`           | `04bb91d`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
