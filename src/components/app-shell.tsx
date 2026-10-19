@@ -12,7 +12,8 @@ import { resumoAliceHoje } from "@/lib/alice.functions";
 import { SinoDeAvisos } from "@/components/avisos/painel-avisos";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { podeAcessar, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
+import { podeAcessar, useContextoTenant } from "@/lib/tenant";
+import { useTrocarEmpresa } from "@/lib/documentos-hooks";
 import {
   Select,
   SelectContent,
@@ -293,6 +294,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 /** Troca de empresa (só para quem tem mais de uma, como a equipe da Nexa). */
 function SeletorEmpresa() {
   const { data: ctx } = useContextoTenant();
+  const trocarEmpresa = useTrocarEmpresa();
   const vinculo = ctx?.ativa ?? null;
   return (
     <Select

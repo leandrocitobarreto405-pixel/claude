@@ -83,8 +83,18 @@ export const generateOsDocument = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string; mode?: "novo" | "atualizar" | "versao" }) => input)
   .handler(async ({ data, context }) => {
-    const { generateDocument } = await import("@/lib/os-docs.server");
+    const { garantirDocumentoPeloDrive, generateDocument } = await import("@/lib/os-docs.server");
+    // Decide pelo servidor na hora: no modo PDF (ou Drive desligado) o Google não é chamado.
+    await garantirDocumentoPeloDrive();
     return generateDocument(data.workOrderId, data.mode ?? "novo", context.userId);
+  });
+
+/** Modo e situação dos documentos agora (Nova OS, botão "Gerar documento", cartão da OS). */
+export const situacaoDocumentosFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async () => {
+    const { situacaoDocumentos } = await import("@/lib/os-docs.server");
+    return situacaoDocumentos();
   });
 
 /** Proposta do orçamento: o mesmo documento da OS, sem criar OS (PDF para o WhatsApp). */
@@ -124,6 +134,7 @@ export const generateOsWarranty = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
   .inputValidator((input: { workOrderId: string }) => input)
   .handler(async ({ data, context }) => {
-    const { generateWarranty } = await import("@/lib/os-docs.server");
+    const { garantirDocumentoPeloDrive, generateWarranty } = await import("@/lib/os-docs.server");
+    await garantirDocumentoPeloDrive();
     return generateWarranty(data.workOrderId, context.userId);
   });

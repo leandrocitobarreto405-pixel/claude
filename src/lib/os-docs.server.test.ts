@@ -536,3 +536,36 @@ test("PDF no app: termo só depois da impermeabilização concluída, próxima p
   assert.equal(docs.somarMeses("2026-10-07", 12), "07/10/2027");
   assert.equal(docs.somarMeses("2027-12-15", 1), "15/01/2028");
 });
+
+// ---------- modo dos documentos decidido no servidor (botão "Gerar documento") ----------
+
+test("modo PDF: o pedido de documento pelo Drive é recusado sem chamar o Google", async () => {
+  const configs = tabelas["app_settings"]!;
+  configs.push({ empresa_id: "emp-1", key: "documentos", value: { modo: "pdf" } });
+  copiasDe.length = 0;
+  try {
+    assert.equal((await docs.situacaoDocumentos()).decisao, "pdf");
+    await assert.rejects(docs.garantirDocumentoPeloDrive(), /PDF direto no app/);
+    assert.equal(copiasDe.length, 0, "nenhuma cópia de modelo no Drive");
+  } finally {
+    configs.splice(
+      configs.findIndex((c) => c["key"] === "documentos"),
+      1,
+    );
+  }
+});
+
+test("modo Drive com a integração desligada: aviso (sem gerar); ligada: libera", async () => {
+  const drive = tabelas["app_settings"]!.find((c) => c["key"] === "os_document_settings")!;
+  const valor = drive["value"] as Record<string, unknown>;
+  valor["enabled"] = false;
+  try {
+    const sit = await docs.situacaoDocumentos();
+    assert.equal(sit.modo, "drive");
+    assert.equal(sit.decisao, "drive_desligado");
+    await assert.rejects(docs.garantirDocumentoPeloDrive(), /Drive desligados/);
+  } finally {
+    valor["enabled"] = true;
+  }
+  assert.equal((await docs.garantirDocumentoPeloDrive()).decisao, "drive");
+});

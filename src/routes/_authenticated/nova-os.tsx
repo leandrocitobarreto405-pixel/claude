@@ -27,7 +27,8 @@ import {
 } from "@/lib/os";
 import { linkLeadToWorkOrder } from "@/lib/crm";
 import { COLLECTION_RULES, collectionRuleLabel, defaultCollectionRule } from "@/lib/collection";
-import { generateOsDocument, getOsDocSettings } from "@/lib/os-docs.functions";
+import { generateOsDocument, situacaoDocumentosFn } from "@/lib/os-docs.functions";
+import { geraNoDriveAoCriar } from "@/lib/documentos-decisao";
 import { useServerFn } from "@tanstack/react-start";
 import { linkBudgetVisitToWorkOrder } from "@/lib/budget-visits";
 import { linkQuoteToWorkOrder } from "@/lib/quotes";
@@ -175,7 +176,7 @@ function NovaOS() {
     cotacao: cotacaoIdParam,
   } = Route.useSearch();
   const { user } = useSession();
-  const lerConfigDoc = useServerFn(getOsDocSettings);
+  const lerSituacaoDoc = useServerFn(situacaoDocumentosFn);
   const gerarDoc = useServerFn(generateOsDocument);
   const { data: motivosAjuste } = useConfigOptions("adjustment_reason");
 
@@ -990,8 +991,10 @@ function NovaOS() {
       }
 
       try {
-        const settings = await lerConfigDoc();
-        if (settings.enabled && settings.autoGenerate && settings.configured && workOrderId) {
+        // Decidido pelo servidor agora: modo PDF ou Drive desligado não chamam o Google (o cartão
+        // da OS mostra o PDF ou o aviso do Drive desligado).
+        const sit = await lerSituacaoDoc();
+        if (geraNoDriveAoCriar(sit) && workOrderId) {
           const r = await gerarDoc({
             fetch: fetchDireto,
             data: { workOrderId, mode: editar ? "atualizar" : "novo" },

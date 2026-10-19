@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useServerFn } from "@tanstack/react-start";
 import { getOsDocSettings, saveOsDocSettings, testOsDocIntegration } from "@/lib/os-docs.functions";
 import { CAMPOS_MODELO_GARANTIA, CAMPOS_MODELO_OS } from "@/lib/os-docs-campos";
+import { useInvalidarDocumentos } from "@/lib/documentos-hooks";
 
 function CamposDoModelo({ campos }: { campos: readonly string[] }) {
   return (
@@ -28,6 +29,7 @@ export function ModelosOS() {
   const ler = useServerFn(getOsDocSettings);
   const salvarFn = useServerFn(saveOsDocSettings);
   const testarFn = useServerFn(testOsDocIntegration);
+  const invalidarDocumentos = useInvalidarDocumentos();
 
   const query = useQuery({ queryKey: ["os_doc_settings"], queryFn: () => ler({}) });
   const [ativa, setAtiva] = useState(false);
@@ -66,6 +68,7 @@ export function ModelosOS() {
         },
       });
       toast.success("Configurações da integração salvas.");
+      void invalidarDocumentos();
       setHig("");
       setImp("");
       setComb("");

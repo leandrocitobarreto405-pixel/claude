@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { usePdfCompartilhavel } from "@/lib/compartilhar-pdf";
+import { useInvalidarDocumentos } from "@/lib/documentos-hooks";
 import {
   CHAVE_CONFIG_DOCUMENTOS,
   lerConfigDocumentosFn,
@@ -83,6 +84,7 @@ const MODOS: Array<{ id: ModoDocumento; titulo: string; descricao: string }> = [
 
 export function DocumentosPdf() {
   const qc = useQueryClient();
+  const invalidarDocumentos = useInvalidarDocumentos();
   const ler = useServerFn(lerConfigDocumentosFn);
   const salvarFn = useServerFn(salvarConfigDocumentosFn);
   const exemploFn = useServerFn(pdfExemploFn);
@@ -102,7 +104,10 @@ export function DocumentosPdf() {
     setSalvando(true);
     try {
       await salvarFn({ data: novo });
-      await qc.invalidateQueries({ queryKey: [...CHAVE_CONFIG_DOCUMENTOS] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: [...CHAVE_CONFIG_DOCUMENTOS] }),
+        invalidarDocumentos(),
+      ]);
       toast.success(aviso);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");

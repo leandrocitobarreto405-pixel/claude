@@ -17,7 +17,8 @@ import {
 import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { dateBR } from "@/lib/format";
-import { CONTEXTO_TENANT_KEY, trocarEmpresa, useContextoTenant } from "@/lib/tenant";
+import { CONTEXTO_TENANT_KEY, useContextoTenant } from "@/lib/tenant";
+import { useTrocarEmpresa } from "@/lib/documentos-hooks";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CHAVE_IMPLANTACOES_NEXA,
@@ -71,6 +72,7 @@ function numero(texto: string): number | null {
 }
 
 function EmpresasNexa() {
+  const trocarEmpresa = useTrocarEmpresa();
   const queryClient = useQueryClient();
   const { data: ctx } = useContextoTenant();
 

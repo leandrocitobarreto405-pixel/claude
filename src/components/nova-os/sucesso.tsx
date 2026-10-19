@@ -14,7 +14,9 @@ export function Sucesso({
   aoNova: () => void;
 }) {
   const c = n.criada;
-  const { data: modo } = useModoDocumentos();
+  const { data: modoCache } = useModoDocumentos();
+  // O modo decidido pelo servidor ao criar vale mais que o cache da tela.
+  const modo = c?.modo ?? modoCache;
   const podeBaixar = usePodeBaixarOs();
   if (!c) return null;
   return (
@@ -30,12 +32,17 @@ export function Sucesso({
           <FileText className="size-4" aria-hidden /> Documento {c.documento} gerado.
         </p>
       ) : null}
+      {c.aviso && modo !== "pdf" ? (
+        <p className="max-w-sm rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+          {c.aviso}
+        </p>
+      ) : null}
       <div className="mt-2 flex w-full max-w-sm flex-col gap-2.5">
         {modo === "pdf" ? (
           podeBaixar ? (
             <BotaoPdfDaOs workOrderId={c.id} />
           ) : null
-        ) : modo === "drive" && !c.documento ? (
+        ) : modo === "drive" && !c.documento && !c.aviso ? (
           <Botao
             variante="contorno"
             larguraTotal

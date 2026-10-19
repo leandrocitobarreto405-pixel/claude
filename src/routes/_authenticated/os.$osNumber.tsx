@@ -32,13 +32,15 @@ import { NotaFiscalDaOs } from "@/components/nota-fiscal";
 import { recebido as pagamentoRecebido, type PaymentFull } from "@/lib/payments";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoPdfDaOs } from "@/components/os/pdf-da-os";
-import { useModoDocumentos } from "@/lib/documentos-hooks";
+import { useInvalidarDocumentos, useSituacaoDocumentos } from "@/lib/documentos-hooks";
+import { avisoDocumento } from "@/lib/documentos-decisao";
 import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { clearVisitDiscount } from "@/lib/discounts";
 import { brl, dateBR, dateTimeBR, timeBR, whatsappLink } from "@/lib/format";
 import {
   generateOsDocument,
+  situacaoDocumentosFn,
   generateOsWarranty,
   getOsDocument,
   getOsWarranty,
@@ -236,7 +238,31 @@ function OsDetalhe() {
     queryFn: () => buscarTermo({ data: { workOrderId: workOrderId! } }),
   });
   const garantia = garantiaQuery.data ?? null;
-  const { data: modoDocumentos } = useModoDocumentos();
+  const situacaoDoc = useSituacaoDocumentos();
+  const modoDocumentos = situacaoDoc.data?.modo;
+  const invalidarDocumentos = useInvalidarDocumentos();
+  const lerSituacaoDoc = useServerFn(situacaoDocumentosFn);
+  // Drive desligado/incompleto: aviso no cartão (sem erro vermelho) e sem botões de gerar.
+  const [avisoDrive, setAvisoDrive] = useState<string | null>(null);
+  const avisoDoc =
+    avisoDrive ?? (situacaoDoc.data ? avisoDocumento(situacaoDoc.data.decisao) : null);
+
+  /** Antes de chamar o Drive, o servidor decide na hora (o cache da tela pode estar velho). */
+  async function podeUsarDrive(): Promise<boolean> {
+    const sit = await lerSituacaoDoc();
+    if (sit.decisao === "pdf") {
+      await invalidarDocumentos();
+      return false;
+    }
+    const aviso = avisoDocumento(sit.decisao);
+    if (aviso) {
+      setAvisoDrive(aviso);
+      void invalidarDocumentos();
+      return false;
+    }
+    setAvisoDrive(null);
+    return true;
+  }
 
   const midiasQuery = useQuery({
     queryKey: ["os_midias", workOrderId],
@@ -275,6 +301,7 @@ function OsDetalhe() {
     if (!workOrderId) return;
     setGerandoTermo(true);
     try {
+      if (!(await podeUsarDrive())) return;
       await gerarTermoFn({ fetch: fetchDireto, data: { workOrderId } });
       toast.success("Termo de garantia gerado.");
       await garantiaQuery.refetch();
@@ -414,6 +441,7 @@ function OsDetalhe() {
     }
     setGerando(true);
     try {
+      if (!(await podeUsarDrive())) return;
       const r = await gerar({ fetch: fetchDireto, data: { workOrderId, mode } });
       toast.success(`Documento ${r.name} gerado no Google Docs.`);
       await docQuery.refetch();
@@ -1021,9 +1049,14 @@ function OsDetalhe() {
                     Existem itens sem valor individual. Revise os dados antes de gerar a OS.
                   </p>
                 ) : null}
+                {avisoDoc ? (
+                  <p className="mt-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                    {avisoDoc}
+                  </p>
+                ) : null}
 
                 <div className="mt-4 flex flex-col gap-2">
-                  {!doc || doc.status === "Não gerado" ? (
+                  {!avisoDoc && (!doc || doc.status === "Não gerado") ? (
                     <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
                       {gerando ? "Gerando documento..." : "Gerar documento"}
                     </Button>
@@ -1054,25 +1087,29 @@ function OsDetalhe() {
                       >
                         <Link2 className="mr-2 size-4" /> Copiar link
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => void gerarDocumento("atualizar")}
-                        disabled={gerando}
-                      >
-                        <RefreshCw className="mr-2 size-4" />
-                        {gerando ? "Gerando documento..." : "Atualizar documento"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => void gerarDocumento("versao")}
-                        disabled={gerando}
-                      >
-                        Gerar nova versão
-                      </Button>
+                      {!avisoDoc ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => void gerarDocumento("atualizar")}
+                            disabled={gerando}
+                          >
+                            <RefreshCw className="mr-2 size-4" />
+                            {gerando ? "Gerando documento..." : "Atualizar documento"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => void gerarDocumento("versao")}
+                            disabled={gerando}
+                          >
+                            Gerar nova versão
+                          </Button>
+                        </>
+                      ) : null}
                     </>
                   ) : null}
 
-                  {doc?.status === "Erro" ? (
+                  {!avisoDoc && doc?.status === "Erro" ? (
                     <Button onClick={() => void gerarDocumento("novo")} disabled={gerando}>
                       Tentar novamente
                     </Button>

@@ -198,14 +198,6 @@ export const pdfExemploFn = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- PDF da OS e termo
 
-/** Modo dos documentos da OS (Drive ou PDF no app), para as telas escolherem o botão. */
-export const modoDocumentosFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
-  .handler(async () => {
-    const { lerConfigDocumentos } = await import("@/lib/documentos.server");
-    return { modo: (await lerConfigDocumentos()).modo };
-  });
-
 const ID = /^[0-9a-f-]{36}$/i;
 const validarOs = (i: { workOrderId: string }) => {
   const workOrderId = String(i?.workOrderId ?? "");

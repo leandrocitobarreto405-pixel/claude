@@ -2,9 +2,11 @@
  * Estado e salvamento da Nova OS em janela (só criar: inclusive vindo de lead, visita de
  * orçamento e orçamento). A edição (`?editar=`) continua no formulário antigo.
  */
-import { modoDocumentosFn } from "@/lib/documentos.functions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { avisoDocumento, geraNoDriveAoCriar } from "@/lib/documentos-decisao";
+import { useInvalidarDocumentos } from "@/lib/documentos-hooks";
+import type { ModoDocumento } from "@/lib/pdf/textos-padrao";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfigOptions, useSalespeople, useTechnicians } from "@/lib/data";
@@ -13,7 +15,7 @@ import { createWorkOrder, findCustomerByPhone, osNumberExists, suggestOsNumber }
 import { linkLeadToWorkOrder } from "@/lib/crm";
 import { linkBudgetVisitToWorkOrder } from "@/lib/budget-visits";
 import { linkQuoteToWorkOrder } from "@/lib/quotes";
-import { generateOsDocument, getOsDocSettings } from "@/lib/os-docs.functions";
+import { generateOsDocument, situacaoDocumentosFn } from "@/lib/os-docs.functions";
 import { fetchDireto } from "@/lib/enderecos";
 import { useSession } from "@/lib/session";
 import {
@@ -46,15 +48,23 @@ import {
 
 export type OrigemDaJanela = { lead?: string; orcamento?: string; cotacao?: string };
 
-export type OsCriada = { id: string; os_number: string; documento: string | null };
+export type OsCriada = {
+  id: string;
+  os_number: string;
+  documento: string | null;
+  /** Modo decidido pelo servidor ao criar (vale mais que o cache da tela). */
+  modo?: ModoDocumento | null;
+  /** Drive desligado ou incompleto: aviso no cartão, sem erro. */
+  aviso?: string | null;
+};
 
 export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   const { aberta, origem } = opcoes;
   const { lead: leadId, orcamento: orcamentoId, cotacao: cotacaoId } = origem;
   const { user } = useSession();
-  const lerConfigDoc = useServerFn(getOsDocSettings);
+  const lerSituacaoDoc = useServerFn(situacaoDocumentosFn);
   const gerarDoc = useServerFn(generateOsDocument);
-  const lerModoDoc = useServerFn(modoDocumentosFn);
+  const invalidarDocumentos = useInvalidarDocumentos();
   const { data: motivosAjuste } = useConfigOptions("adjustment_reason");
   const { data: origens } = useConfigOptions("sales_origin");
   const { data: servicos } = useConfigOptions("service_type");
@@ -446,10 +456,15 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
         }
       }
       let documento: string | null = null;
+      let modoDoc: ModoDocumento | null = null;
+      let aviso: string | null = null;
       try {
-        const [settings, { modo }] = await Promise.all([lerConfigDoc(), lerModoDoc()]);
-        // No modo "PDF direto no app" o documento não vai para o Drive.
-        if (modo === "drive" && settings.enabled && settings.autoGenerate && settings.configured) {
+        // Decidido pelo servidor agora: no modo PDF o Drive nunca é chamado; Drive desligado
+        // não tenta gerar (aviso no cartão, sem erro).
+        const sit = await lerSituacaoDoc();
+        modoDoc = sit.modo;
+        aviso = avisoDocumento(sit.decisao);
+        if (geraNoDriveAoCriar(sit)) {
           documento = await gerarDocumento(wo.id);
           if (documento) toast.success(`Documento ${documento} gerado no Google Docs.`);
         }
@@ -460,7 +475,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
           }`.trim(),
         );
       }
-      const r = { id: wo.id, os_number: wo.os_number, documento };
+      const r: OsCriada = { id: wo.id, os_number: wo.os_number, documento, modo: modoDoc, aviso };
       setCriada(r);
       return r;
     } catch {
@@ -476,9 +491,16 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     if (!criada) return;
     setGerandoDoc(true);
     try {
-      const settings = await lerConfigDoc();
-      if (!settings.enabled || !settings.configured) {
-        toast.error("Geração de documentos não está configurada em Configurações → Documentos.");
+      const sit = await lerSituacaoDoc();
+      if (sit.decisao === "pdf") {
+        // A tela estava com o modo antigo em cache: mostra o PDF e não chama o Drive.
+        setCriada({ ...criada, modo: "pdf", aviso: null });
+        void invalidarDocumentos();
+        return;
+      }
+      const aviso = avisoDocumento(sit.decisao);
+      if (aviso) {
+        setCriada({ ...criada, modo: sit.modo, aviso });
         return;
       }
       const nome = await gerarDocumento(criada.id);

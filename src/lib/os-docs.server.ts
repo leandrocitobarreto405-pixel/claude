@@ -22,6 +22,13 @@ import { escolherSubstituidos, nomeSubstituido } from "@/lib/os-docs-versoes";
 import { SEM_MODELO_GARANTIA } from "@/lib/os-docs-campos";
 import { bancoDaEmpresa, contextoEmpresa } from "@/lib/request-db.server";
 import type { DadosOsPdf, DadosTermoPdf } from "@/lib/pdf/os-pdf";
+import { configDocumentos } from "@/lib/pdf/textos-padrao";
+import {
+  AVISO_MODO_PDF,
+  avisoDocumento,
+  decidirDocumentoOs,
+  type SituacaoDocumentos,
+} from "@/lib/documentos-decisao";
 
 const SETTINGS_KEY = "os_document_settings";
 export const DEFAULT_NAME_TEMPLATE = "OS {{NUMERO_OS}} - {{NOME_CLIENTE}}";
@@ -144,6 +151,38 @@ export async function saveSettings(input: {
     );
   if (error) throw new Error("Não foi possível salvar as configurações da integração.");
   return { ok: true };
+}
+
+/** Modo dos documentos (Configurações › Documentos) e situação do Drive, lidos agora. */
+export async function situacaoDocumentos(): Promise<SituacaoDocumentos> {
+  const db = await admin();
+  const [s, { data }] = await Promise.all([
+    readSettings(),
+    db
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", contextoEmpresa().empresaId)
+      .eq("key", "documentos")
+      .maybeSingle(),
+  ]);
+  const modo = configDocumentos(data?.value).modo;
+  const drive = {
+    enabled: s.enabled,
+    autoGenerate: s.autoGenerate,
+    configured: Boolean(
+      s.templateHigienizacao && s.templateImpermeabilizacao && s.templateCombinado && s.folderId,
+    ),
+  };
+  return { modo, drive, decisao: decidirDocumentoOs(modo, drive) };
+}
+
+/** Pedido de documento pelo Drive vindo da tela: no modo PDF ou com o Drive desligado, não chama o Google. */
+export async function garantirDocumentoPeloDrive() {
+  const sit = await situacaoDocumentos();
+  if (sit.decisao === "pdf") throw new Error(AVISO_MODO_PDF);
+  const aviso = avisoDocumento(sit.decisao);
+  if (aviso) throw new Error(aviso);
+  return sit;
 }
 
 export async function testIntegration() {
