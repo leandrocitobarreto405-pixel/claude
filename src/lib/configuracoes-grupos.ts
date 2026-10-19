@@ -4,13 +4,14 @@ import {
   Bot,
   Building2,
   CalendarCog,
+  FileText,
   MessageSquareText,
   ShoppingBag,
   SlidersHorizontal,
 } from "lucide-react";
 
 export type GrupoConfig = {
-  id: "empresa" | "vendas" | "agenda" | "mensagens" | "alice-leads" | "outros";
+  id: "empresa" | "vendas" | "agenda" | "mensagens" | "documentos" | "alice-leads" | "outros";
   rotulo: string;
   descricao: string;
   icone: LucideIcon;
@@ -43,9 +44,16 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "mensagens",
     rotulo: "Mensagens",
-    descricao: "Modelos de mensagem · Mensagem padrão · Modelos da OS",
+    descricao: "Modelos de mensagem · Mensagem padrão",
     icone: MessageSquareText,
-    itens: ["Modelos de mensagem", "Mensagem padrão", "Modelos da OS"],
+    itens: ["Modelos de mensagem", "Mensagem padrão"],
+  },
+  {
+    id: "documentos",
+    rotulo: "Documentos",
+    descricao: "PDF da OS e textos · Modelos da OS (Google Drive)",
+    icone: FileText,
+    itens: ["PDF da OS e textos", "Modelos da OS (Google Drive)"],
   },
   {
     id: "alice-leads",
@@ -85,7 +93,7 @@ const GRUPO_DA_ABA: Record<string, GrupoConfig["id"]> = {
   produtos: "vendas",
   agenda: "agenda",
   mensagem: "mensagens",
-  documentos: "mensagens",
+  documentos: "documentos",
   alice: "alice-leads",
   "leads-site": "alice-leads",
   listas: "alice-leads",

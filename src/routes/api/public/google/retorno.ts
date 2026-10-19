@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/google/retorno")({
 
 /** Volta para a tela de configurações (endereço relativo: mesmo host do retorno). */
 function voltar(params: Record<string, string>) {
-  const alvo = `/configuracoes/mensagens?${new URLSearchParams(params)}`;
+  const alvo = `/configuracoes/documentos?${new URLSearchParams(params)}`;
   return new Response(null, { status: 302, headers: { Location: alvo } });
 }
 

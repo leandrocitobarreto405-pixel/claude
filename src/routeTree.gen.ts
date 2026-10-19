@@ -46,6 +46,7 @@ import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedConfiguracoesIndexRouteImport } from './routes/_authenticated/configuracoes/index'
 import { Route as AuthenticatedConfiguracoesAgendaRouteImport } from './routes/_authenticated/configuracoes/agenda'
 import { Route as AuthenticatedConfiguracoesAliceLeadsRouteImport } from './routes/_authenticated/configuracoes/alice-leads'
+import { Route as AuthenticatedConfiguracoesDocumentosRouteImport } from './routes/_authenticated/configuracoes/documentos'
 import { Route as AuthenticatedConfiguracoesEmpresaRouteImport } from './routes/_authenticated/configuracoes/empresa'
 import { Route as AuthenticatedConfiguracoesEquipeRouteImport } from './routes/_authenticated/configuracoes/equipe'
 import { Route as AuthenticatedConfiguracoesMensagensRouteImport } from './routes/_authenticated/configuracoes/mensagens'
@@ -278,6 +279,12 @@ const AuthenticatedConfiguracoesAliceLeadsRoute =
   AuthenticatedConfiguracoesAliceLeadsRouteImport.update({
     id: '/configuracoes/alice-leads',
     path: '/configuracoes/alice-leads',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedConfiguracoesDocumentosRoute =
+  AuthenticatedConfiguracoesDocumentosRouteImport.update({
+    id: '/configuracoes/documentos',
+    path: '/configuracoes/documentos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedConfiguracoesEmpresaRoute =
@@ -549,6 +556,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
   '/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
   '/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
   '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
@@ -627,6 +635,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
   '/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
   '/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
   '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
@@ -707,6 +716,7 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/_authenticated/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  '/_authenticated/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
   '/_authenticated/configuracoes/empresa': typeof AuthenticatedConfiguracoesEmpresaRoute
   '/_authenticated/configuracoes/equipe': typeof AuthenticatedConfiguracoesEquipeRoute
   '/_authenticated/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
@@ -787,6 +797,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/configuracoes/agenda'
     | '/configuracoes/alice-leads'
+    | '/configuracoes/documentos'
     | '/configuracoes/empresa'
     | '/configuracoes/equipe'
     | '/configuracoes/mensagens'
@@ -865,6 +876,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/configuracoes/agenda'
     | '/configuracoes/alice-leads'
+    | '/configuracoes/documentos'
     | '/configuracoes/empresa'
     | '/configuracoes/equipe'
     | '/configuracoes/mensagens'
@@ -944,6 +956,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/_authenticated/configuracoes/agenda'
     | '/_authenticated/configuracoes/alice-leads'
+    | '/_authenticated/configuracoes/documentos'
     | '/_authenticated/configuracoes/empresa'
     | '/_authenticated/configuracoes/equipe'
     | '/_authenticated/configuracoes/mensagens'
@@ -1271,6 +1284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesAliceLeadsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/configuracoes/documentos': {
+      id: '/_authenticated/configuracoes/documentos'
+      path: '/configuracoes/documentos'
+      fullPath: '/configuracoes/documentos'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesDocumentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/configuracoes/empresa': {
       id: '/_authenticated/configuracoes/empresa'
       path: '/configuracoes/empresa'
@@ -1585,6 +1605,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedConfiguracoesAgendaRoute: typeof AuthenticatedConfiguracoesAgendaRoute
   AuthenticatedConfiguracoesAliceLeadsRoute: typeof AuthenticatedConfiguracoesAliceLeadsRoute
+  AuthenticatedConfiguracoesDocumentosRoute: typeof AuthenticatedConfiguracoesDocumentosRoute
   AuthenticatedConfiguracoesEmpresaRoute: typeof AuthenticatedConfiguracoesEmpresaRoute
   AuthenticatedConfiguracoesEquipeRoute: typeof AuthenticatedConfiguracoesEquipeRoute
   AuthenticatedConfiguracoesMensagensRoute: typeof AuthenticatedConfiguracoesMensagensRoute
@@ -1646,6 +1667,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesAgendaRoute: AuthenticatedConfiguracoesAgendaRoute,
   AuthenticatedConfiguracoesAliceLeadsRoute:
     AuthenticatedConfiguracoesAliceLeadsRoute,
+  AuthenticatedConfiguracoesDocumentosRoute:
+    AuthenticatedConfiguracoesDocumentosRoute,
   AuthenticatedConfiguracoesEmpresaRoute:
     AuthenticatedConfiguracoesEmpresaRoute,
   AuthenticatedConfiguracoesEquipeRoute: AuthenticatedConfiguracoesEquipeRoute,

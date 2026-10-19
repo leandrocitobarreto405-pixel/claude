@@ -300,7 +300,7 @@ const DEFS: Def[] = [
     titulo: "Google Drive e Agenda",
     responsavel: "empresa",
     obrigatoria: false,
-    resolver: { rotulo: "Conectar", para: "/configuracoes/mensagens" },
+    resolver: { rotulo: "Conectar", para: "/configuracoes/documentos" },
     podeRevisar: false,
     podeNaoSeAplica: true,
     avaliar: ({ google }) =>

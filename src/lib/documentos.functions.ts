@@ -6,6 +6,8 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import type { ArquivoPdf } from "@/lib/compartilhar-pdf";
+import { TEXTOS_PADRAO, configDocumentos, type ConfigDocumentos } from "@/lib/pdf/textos-padrao";
 
 export const CHAVE_DADOS_EMPRESA = ["dados-empresa-documento"] as const;
 
@@ -116,4 +118,80 @@ export const salvarDadosEmpresaFn = createServerFn({ method: "POST" })
     );
     if (error) throw new Error("Não foi possível salvar os dados da empresa.");
     return { ok: true };
+  });
+
+// ---------------------------------------------------------------- Configurações › Documentos
+
+export const CHAVE_CONFIG_DOCUMENTOS = ["config-documentos"] as const;
+
+export type RespostaConfigDocumentos = {
+  config: ConfigDocumentos;
+  padrao: typeof TEXTOS_PADRAO;
+};
+
+export const lerConfigDocumentosFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async (): Promise<RespostaConfigDocumentos> => {
+    const { lerConfigDocumentos } = await import("@/lib/documentos.server");
+    return { config: await lerConfigDocumentos(), padrao: TEXTOS_PADRAO };
+  });
+
+const MAX_TEXTO = 20000;
+
+/** Confere tamanhos e faixas; texto vazio volta ao padrão. */
+function validarConfig(c: ConfigDocumentos): ConfigDocumentos {
+  const bruto = (c ?? {}) as Partial<ConfigDocumentos>;
+  for (const k of [
+    "validade",
+    "cancelamento",
+    "beneficios",
+    "garantia_os",
+    "termo",
+    "agradecimento",
+  ] as const) {
+    if (typeof bruto[k] === "string" && bruto[k]!.length > MAX_TEXTO)
+      throw new Error(`Texto muito longo (máximo ${MAX_TEXTO} caracteres).`);
+  }
+  const faixas = [
+    ["garantia_meses", 1, 120, "Meses de garantia"],
+    ["visitas_gratuitas", 0, 20, "Visitas gratuitas"],
+    ["pct_manutencao", 0, 100, "% da manutenção"],
+    ["valor_km", 0, 100, "R$ por km"],
+  ] as const;
+  for (const [k, min, max, nome] of faixas) {
+    const v = Number(bruto[k]);
+    if (!Number.isFinite(v) || v < min || v > max)
+      throw new Error(`${nome}: use de ${min} a ${max}.`);
+  }
+  return configDocumentos({ ...bruto, modo: bruto.modo === "pdf" ? "pdf" : "drive" });
+}
+
+export const salvarConfigDocumentosFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator(validarConfig)
+  .handler(async ({ data }) => {
+    const { salvarConfigDocumentos } = await import("@/lib/documentos.server");
+    await salvarConfigDocumentos(data);
+    return { ok: true };
+  });
+
+/** "Ver PDF de exemplo": dados fictícios com a empresa e os textos da tela (mesmo sem salvar). */
+export const pdfExemploFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: { tipo: "os" | "termo"; config: ConfigDocumentos }) => ({
+    tipo: i.tipo === "termo" ? ("termo" as const) : ("os" as const),
+    config: validarConfig(i.config),
+  }))
+  .handler(async ({ data }): Promise<ArquivoPdf> => {
+    const { empresaDocumento, paraBase64 } = await import("@/lib/documentos.server");
+    const { EXEMPLO_OS, EXEMPLO_TERMO, pdfDaOs, pdfDoTermo } = await import("@/lib/pdf/os-pdf");
+    const empresa = await empresaDocumento();
+    const bytes =
+      data.tipo === "termo"
+        ? await pdfDoTermo(EXEMPLO_TERMO, empresa, data.config)
+        : await pdfDaOs(EXEMPLO_OS, empresa, data.config);
+    return {
+      base64: paraBase64(bytes),
+      nome: data.tipo === "termo" ? "Termo de garantia - exemplo.pdf" : "OS 0001 - exemplo.pdf",
+    };
   });
