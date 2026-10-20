@@ -326,6 +326,12 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   depois: nenhuma empresa ligada, nenhuma conversa marcada, configuração atual da Alice igual
   (md5 das colunas antigas antes e depois). Para voltar: desligar em Configurações › Alice; o app
   anterior ignora as colunas novas.
+- Cadastro da Ecoprime (dado, aprovado em 20/10): Carol e Maria marcadas como atendentes da Nexa
+  (`salespeople.atendente_nexa` false → true; percentual 5% sem mudança). Nenhuma estrutura mudou.
+  Para voltar: desmarcar "atendente da Nexa" nas duas em Configurações › Equipe.
+- Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões
+  lança despesas "Comissões" com `reference_key` `comissao:<vendedora>:<mês>` (índice único já
+  existente impede duplicar); essas despesas ficam fora das despesas do DRE.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -422,6 +428,11 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 19/10/2026       | Notas fiscais: descrição dos serviços (NFS-e)       | `60755c0`           | `2a7e1aa`                |
 | 19/10/2026       | Alice responde em áudio (desligado)                 | `82d022b`           | `ee4cd9a`                |
 | 19/10/2026       | Notas: Não emitir, Pedir nota, descrição simples    | `16cff45`           | `0ca79a1`                |
+| 20/10/2026       | Alice: áudio como mensagem de voz                   | `056570b`           | `a198be9`                |
+| 20/10/2026       | Notas: soma que não bate vira aviso                 | `3a5d85b`           | `056570b`                |
+| 20/10/2026       | A: Vendido pela data do serviço (cheio)             | `7a6fb96`           | `3a5d85b`                |
+| 20/10/2026       | B: OS de teste fora e A receber por OS              | `8d5322e`           | `e263014`                |
+| 20/10/2026       | C: DRE pelo recebimento e Comissões a pagar         | `b731429`           | `8d5322e`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
