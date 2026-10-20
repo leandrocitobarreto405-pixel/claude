@@ -3,7 +3,7 @@ import { Botao, Card, Chip, NumeroGrande } from "@/components/nexa";
 import { brl, monthLabelPT, remainingDaysInMonth } from "@/lib/format";
 import type { ResumoPainel } from "@/lib/painel";
 
-/** Meta do mês: realizado + agendado até o fim do mês contra a meta. */
+/** Meta do mês contra o Vendido do mês (pela data do serviço): realizado + agendado + atrasado. */
 export function MetaDoMes({
   r,
   carregando,
@@ -16,12 +16,18 @@ export function MetaDoMes({
   const mes = r?.mes ?? new Date().toISOString().slice(0, 7);
   const nomeDoMes = monthLabelPT(mes).split(" de ")[0] ?? "";
   const meta = r?.meta.valor ?? null;
-  const realizado = r?.realizado.noMes ?? 0;
-  const agendado = r?.realizado.agendadoAteFimDoMes ?? 0;
+  const realizado = r?.vendidoMes.realizado ?? 0;
+  const agendado = r?.vendidoMes.agendado ?? 0;
+  const atrasado = r?.vendidoMes.atrasado ?? 0;
+  const vendido = r?.vendidoMes.valor ?? 0;
   const pct = r?.meta.pct ?? null;
   const pctRealizado = meta ? Math.min(100, (realizado / meta) * 100) : 0;
-  const pctAgendado = meta ? Math.min(100 - pctRealizado, (agendado / meta) * 100) : 0;
-  const faltam = meta ? Math.max(0, meta - realizado - agendado) : 0;
+  const pctAtrasado = meta ? Math.min(100 - pctRealizado, (atrasado / meta) * 100) : 0;
+  const pctAgendado = meta
+    ? Math.min(100 - pctRealizado - pctAtrasado, (agendado / meta) * 100)
+    : 0;
+  const faltam = meta ? Math.max(0, meta - vendido) : 0;
+  const partes = `Realizado ${brl(realizado)} · agendado ${brl(agendado)}${atrasado > 0 ? ` · atrasado ${brl(atrasado)}` : ""}.`;
 
   return (
     <Card aria-label="Meta do mês">
@@ -32,7 +38,7 @@ export function MetaDoMes({
         ) : null}
       </div>
       <NumeroGrande
-        valor={carregando ? "…" : brl(realizado + agendado)}
+        valor={carregando ? "…" : brl(vendido)}
         complemento={meta ? `de ${brl(meta)}` : undefined}
       />
       {meta ? (
@@ -46,10 +52,11 @@ export function MetaDoMes({
             aria-label="Meta do mês"
           >
             <div className="h-full bg-dado" style={{ width: `${pctRealizado}%` }} />
+            <div className="h-full bg-atencao-foreground/60" style={{ width: `${pctAtrasado}%` }} />
             <div className="h-full bg-dado/40" style={{ width: `${pctAgendado}%` }} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Realizado {brl(realizado)} · agendado até o fim do mês {brl(agendado)}.{" "}
+            Vendido do mês (serviços agendados no mês). {partes}{" "}
             {faltam > 0
               ? `Faltam ${brl(faltam)} em ${remainingDaysInMonth(mes)} dia(s).`
               : "Meta batida!"}
@@ -58,8 +65,7 @@ export function MetaDoMes({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            Nenhuma meta definida para este mês. Realizado {brl(realizado)} · agendado{" "}
-            {brl(agendado)}.
+            Nenhuma meta definida para este mês. {partes}
           </p>
           {podeDefinir ? (
             <Botao asChild variante="contorno" className="self-start">

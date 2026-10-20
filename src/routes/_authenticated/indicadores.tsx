@@ -156,7 +156,7 @@ function Conteudo({ d }: { d: Indicadores }) {
           }
         />
         <CartaoNumero
-          titulo="Vendido"
+          titulo="Vendido (pela data da venda)"
           valor={brl(d.valores.vendido)}
           detalhe={`orçado ${brl(d.valores.orcado)} · recebido ${brl(d.valores.recebido)}`}
         />
@@ -172,7 +172,7 @@ function Conteudo({ d }: { d: Indicadores }) {
       </Card>
 
       <Card>
-        <h2 className="text-sm font-bold">Vendas por origem</h2>
+        <h2 className="text-sm font-bold">Vendas por origem (pela data da venda)</h2>
         <GraficoVendasPorOrigem dados={porOrigem} />
       </Card>
 
@@ -210,7 +210,7 @@ function Conteudo({ d }: { d: Indicadores }) {
         </div>
       </Recolhido>
 
-      <Recolhido titulo="Vendas no período (com ou sem lead)">
+      <Recolhido titulo="Vendas no período, pela data da venda (com ou sem lead)">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-sm">
           <Numero rotulo="Orçamentos criados" valor={String(g.orcamentos)} />
           <Numero

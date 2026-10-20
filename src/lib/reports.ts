@@ -5,7 +5,9 @@ import type { Banco } from "@/lib/banco";
 import { STATUS_RECEBIDOS } from "@/lib/payments";
 import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
 import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
-import { monthEnd, monthStart } from "@/lib/format";
+import { monthEnd, monthStart, todayISO } from "@/lib/format";
+import { vendidoNoPeriodo } from "@/lib/vendido";
+import { buscarOsDoPeriodo } from "@/lib/vendido-dados";
 import { cashPaidAmount } from "@/lib/expenses";
 import { despesaDeRota } from "@/lib/dre-quilometragem";
 import { fetchReceivables } from "@/lib/receivables";
@@ -753,8 +755,10 @@ export function useOriginBreakdown(from: string, to: string) {
 }
 
 export type MonthSummary = {
-  /** Vendas do mês (OS pela data da venda), já sem o repasse a parceiros. */
+  /** Vendido do mês pela data do serviço (valor cheio, o que o cliente paga). */
   soldGross: number;
+  /** O mesmo sem o repasse a parceiros (itens terceirizados). */
+  soldNet: number;
   soldCount: number;
   completedCount: number;
   /** Receita reconhecida: pagamentos recebidos (competência do serviço) menos o repasse a parceiros. */
@@ -831,42 +835,40 @@ export async function fetchMonthSummary(
   db: Banco = supabase,
 ): Promise<MonthSummary> {
   const completed = await fetchCompletedVisits(from, to, undefined, db);
-  const [revenueBase, expenses, soldRes, invoicesRes, cashOutRes, cmvRes] = await Promise.all([
-    fetchServiceMonthRevenue(from, to, completed, undefined, db),
-    fetchExpenses(from, to, db),
-    db
-      .from("work_orders")
-      .select(SELECT_OS_DRE)
-      .is("deleted_at", null)
-      .gte("sale_date", from)
-      .lte("sale_date", to),
-    db
-      .from("invoice_tasks")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["Pendente", "Solicitada"]),
-    db
-      .from("expenses")
-      .select("status, paid_amount, actual_amount")
-      .is("deleted_at", null)
-      .gte("payment_date", from)
-      .lte("payment_date", to),
-    db
-      .from("os_produtos_utilizados")
-      .select("custo_calculado, created_at")
-      .gte("created_at", `${from}T00:00:00`)
-      .lte("created_at", `${to}T23:59:59`),
-  ]);
+  const [revenueBase, expenses, soldRes, invoicesRes, cashOutRes, cmvRes, osDoMes] =
+    await Promise.all([
+      fetchServiceMonthRevenue(from, to, completed, undefined, db),
+      fetchExpenses(from, to, db),
+      db
+        .from("work_orders")
+        .select(SELECT_OS_DRE)
+        .is("deleted_at", null)
+        .gte("sale_date", from)
+        .lte("sale_date", to),
+      db
+        .from("invoice_tasks")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["Pendente", "Solicitada"]),
+      db
+        .from("expenses")
+        .select("status, paid_amount, actual_amount")
+        .is("deleted_at", null)
+        .gte("payment_date", from)
+        .lte("payment_date", to),
+      db
+        .from("os_produtos_utilizados")
+        .select("custo_calculado, created_at")
+        .gte("created_at", `${from}T00:00:00`)
+        .lte("created_at", `${to}T23:59:59`),
+      buscarOsDoPeriodo(db, from, to),
+    ]);
 
   const payments = revenueBase.payments;
 
   const vendas = (soldRes.data ?? []).filter((w) => !w.eh_teste);
-  const soldRows = vendas.filter((w) => w.status !== "Cancelada");
-  const soldGross = round2(
-    soldRows.reduce(
-      (s, w) => s + valorLiquido(Number(w.total_gross_value ?? 0), repasseDaOs(w.visits)),
-      0,
-    ),
-  );
+  // Vendido do mês pela data do serviço (valor cheio; o líquido do repasse ao lado).
+  const vendido = vendidoNoPeriodo(osDoMes, { de: from, ate: to }, todayISO());
+  const soldGross = vendido.valor;
   const canceled = vendas
     .filter((w) => w.status === "Cancelada")
     .reduce((s, w) => s + Number(w.total_gross_value ?? 0), 0);
@@ -959,7 +961,8 @@ export async function fetchMonthSummary(
 
   return {
     soldGross,
-    soldCount: soldRows.length,
+    soldNet: vendido.liquido,
+    soldCount: vendido.quantidade,
     completedCount: completed.length,
     revenue,
     repasse,

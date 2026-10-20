@@ -137,14 +137,10 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Quanto da meta já está garantido: realizado no mês + agendado até o fim dele. */
-export function percentualDaMetaComAgendado(
-  realizado: number,
-  agendado: number,
-  meta: number | null,
-): number | null {
+/** Quanto da meta o Vendido do mês (realizado + agendado + atrasado) já cobre. */
+export function percentualDaMeta(vendidoMes: number, meta: number | null): number | null {
   if (!meta || !(meta > 0)) return null;
-  return Math.max(0, ((realizado + agendado) / meta) * 100);
+  return Math.max(0, (vendidoMes / meta) * 100);
 }
 
 // ------------------------------------------------------------------ atalhos
@@ -205,6 +201,15 @@ export function atalhosDoPapel(papel: Papel | null, souNexa = false): Atalho[] {
 
 // ------------------------------------------------------------------ resposta do servidor
 
+export type PartesVendido = {
+  valor: number;
+  liquido: number;
+  realizado: number;
+  agendado: number;
+  atrasado: number;
+  atrasadoQtd: number;
+};
+
 /** O que resumoPainel devolve: só totais (nunca linhas) e já cortado pelo papel no servidor. */
 export type ResumoPainel = {
   periodo: Periodo;
@@ -214,17 +219,17 @@ export type ResumoPainel = {
   anterior: Intervalo;
   /** "ontem" | "semana passada" | "mês passado" */
   comparacao: string;
-  vendido: { valor: number; quantidade: number; anterior: { valor: number; quantidade: number } };
-  realizado: {
-    valor: number;
+  /**
+   * Vendido pela DATA DO SERVIÇO (valor cheio, o que o cliente paga), aberto em Realizado +
+   * Agendado + Atrasado. `liquido`: sem o repasse aos parceiros (itens terceirizados).
+   */
+  vendido: PartesVendido & {
     quantidade: number;
-    anterior: { valor: number };
-    /** Serviços agendados de hoje até o fim do mês (ainda não realizados). */
-    agendadoAteFimDoMes: number;
-    /** Realizado no mês inteiro (para a meta), independente do período escolhido. */
-    noMes: number;
+    anterior: { valor: number; quantidade: number };
   };
-  /** O que entrou no caixa no período (data do pagamento). O DRE é por competência do serviço. */
+  /** O mesmo para o mês inteiro (meta e linha de atrasados), independente do período. */
+  vendidoMes: PartesVendido;
+  /** O que entrou no caixa no período (data do pagamento). */
   recebido: { valor: number; liquido: number; quantidade: number; anterior: { valor: number } };
   aReceber: { total: number; concluidos: number; agendados: number };
   /** Serviços concluídos sem nenhum recebimento (aviso do topo). */

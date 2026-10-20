@@ -6,6 +6,7 @@ import {
   SELECT_LEADS_ALICE_NEXA,
   SELECT_OS_DRE,
   SELECT_OS_PAINEL,
+  SELECT_OS_VENDIDO,
 } from "../../../src/lib/consultas";
 
 const SECRET = "segredo-de-teste-local-com-mais-de-32-caracteres";
@@ -33,6 +34,7 @@ function check(nome: string, cond: boolean, info?: unknown) {
 for (const [nome, tabela, select] of [
   ["Início (vendas com repasse)", "work_orders", SELECT_OS_PAINEL],
   ["DRE (OS com repasse)", "work_orders", SELECT_OS_DRE],
+  ["Vendido e A receber (OS com visitas)", "work_orders", SELECT_OS_VENDIDO],
   ["Nexa › Alice (leads com OS e repasse)", "crm_leads", SELECT_LEADS_ALICE_NEXA],
 ] as const) {
   const r = await get(tabela, select);

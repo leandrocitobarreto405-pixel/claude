@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 export function CartaoNumero({
   titulo,
   valor,
+  legenda,
   detalhe,
+  nota,
   variacao,
   to,
   search,
@@ -20,7 +22,11 @@ export function CartaoNumero({
 }: {
   titulo: string;
   valor: string;
+  /** Linha curta dizendo o que o número mede (ex.: "entrou no caixa no período"). */
+  legenda?: string | undefined;
   detalhe?: string | undefined;
+  /** Observação em letra menor (ex.: "líquido do repasse: R$ X"). */
+  nota?: string | undefined;
   /** undefined: sem chip; null: sem base de comparação ("—"). */
   variacao?: number | null;
   to?: string;
@@ -40,9 +46,13 @@ export function CartaoNumero({
       <span className="font-titulo text-[22px] leading-tight break-words">
         {carregando ? "…" : valor}
       </span>
+      {legenda ? (
+        <span className="text-[11px] leading-snug text-muted-foreground italic">{legenda}</span>
+      ) : null}
       {detalhe ? (
         <span className="text-xs leading-snug text-muted-foreground">{detalhe}</span>
       ) : null}
+      {nota ? <span className="text-[11px] leading-snug text-muted-foreground">{nota}</span> : null}
       {variacao !== undefined ? (
         <Chip
           tom={variacao === null ? "neutro" : variacao >= 0 ? "sucesso" : "problema"}

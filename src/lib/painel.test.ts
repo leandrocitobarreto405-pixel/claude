@@ -4,7 +4,7 @@ import {
   atalhosDoPapel,
   conversao,
   intervalosDoPeriodo,
-  percentualDaMetaComAgendado,
+  percentualDaMeta,
   semanasAte,
   textoVariacao,
   ticketMedio,
@@ -79,9 +79,9 @@ test("vendido por semana e por origem", () => {
 });
 
 test("meta conta realizado + agendado; sem meta, null", () => {
-  assert.equal(percentualDaMetaComAgendado(6000, 2000, 10000), 80);
-  assert.equal(percentualDaMetaComAgendado(6000, 2000, null), null);
-  assert.equal(percentualDaMetaComAgendado(6000, 2000, 0), null);
+  assert.equal(percentualDaMeta(8000, 10000), 80);
+  assert.equal(percentualDaMeta(8000, null), null);
+  assert.equal(percentualDaMeta(8000, 0), null);
 });
 
 test("atalhos: admin vê todos; atendente sem Financeiro, Operação, Notas, Exportações e Configurações", () => {

@@ -120,7 +120,11 @@ function DRE() {
         </p>
         <table className="w-full text-sm">
           <tbody>
-            <Line label="Vendas fechadas no mês" value={r?.soldGross} muted />
+            <Line
+              label="Vendido no mês (serviços do mês, valor cheio)"
+              value={r?.soldGross}
+              muted
+            />
             <Line label="Serviços realizados no mês (valor)" value={r?.servicesValue} muted />
             {(r?.repasse ?? 0) !== 0 ? (
               <>

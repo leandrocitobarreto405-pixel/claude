@@ -143,35 +143,55 @@ function Inicio() {
           </Card>
         ) : null}
 
+        {r && r.vendidoMes.atrasadoQtd > 0 ? (
+          <Card className="flex-row items-center gap-3 border-atencao-foreground/30 bg-atencao">
+            <AlertTriangle className="size-5 shrink-0 text-atencao-foreground" aria-hidden />
+            <p className="min-w-0 flex-1 text-sm text-atencao-foreground">
+              <strong>{brl(r.vendidoMes.atrasado)}</strong> em{" "}
+              {n(r.vendidoMes.atrasadoQtd, "serviço", "serviços")} com data passada não concluídos.
+            </p>
+            {pode("/servicos") ? (
+              <Botao asChild variante="claro" className="shrink-0">
+                <Link to="/servicos" search={{ aba: "para-concluir" }}>
+                  Concluir
+                </Link>
+              </Botao>
+            ) : null}
+          </Card>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           <CartaoNumero
             titulo="Vendido"
             valor={brl(r?.vendido.valor)}
-            detalhe={r ? n(r.vendido.quantidade, "OS", "OS") : undefined}
+            legenda="serviços agendados no período"
+            detalhe={
+              r
+                ? `${n(r.vendido.quantidade, "OS", "OS")} · realizado ${brl(r.vendido.realizado)} · agendado ${brl(r.vendido.agendado)}${r.vendido.atrasado > 0 ? ` · atrasado ${brl(r.vendido.atrasado)}` : ""}`
+                : undefined
+            }
+            nota={
+              r && r.vendido.liquido < r.vendido.valor
+                ? `líquido do repasse: ${brl(r.vendido.liquido)}`
+                : undefined
+            }
             variacao={r ? variacao(r.vendido.valor, r.vendido.anterior.valor) : null}
             {...(pode("/oss") ? { to: "/oss" } : {})}
             carregando={carregando}
           />
           <CartaoNumero
             titulo="Realizado"
-            valor={brl(r?.realizado.valor)}
-            detalhe={
-              r
-                ? `${n(r.realizado.quantidade, "serviço", "serviços")} · agendado até o fim do mês ${brl(r.realizado.agendadoAteFimDoMes)}`
-                : undefined
-            }
-            variacao={r ? variacao(r.realizado.valor, r.realizado.anterior.valor) : null}
+            valor={brl(r?.vendido.realizado)}
+            legenda="serviços concluídos no período"
+            detalhe={r ? `Parte do Vendido do período` : undefined}
             {...(pode("/servicos") ? { to: "/servicos", search: { aba: "realizados" } } : {})}
             carregando={carregando}
           />
           <CartaoNumero
             titulo="Recebido"
             valor={brl(r?.recebido.valor)}
-            detalhe={
-              r
-                ? `Entrou no caixa no período (${n(r.recebido.quantidade, "pagamento", "pagamentos")}). O DRE conta por competência do serviço.`
-                : "Entrou no caixa no período."
-            }
+            legenda="entrou no caixa no período"
+            detalhe={r ? n(r.recebido.quantidade, "pagamento", "pagamentos") : undefined}
             variacao={r ? variacao(r.recebido.valor, r.recebido.anterior.valor) : null}
             {...(financeiro ? { to: "/pagamentos" } : {})}
             carregando={carregando}
@@ -179,6 +199,7 @@ function Inicio() {
           <CartaoNumero
             titulo="A receber"
             valor={brl(r?.aReceber.total)}
+            legenda="tudo em aberto, de qualquer mês"
             detalhe={
               r
                 ? `Concluídos ${brl(r.aReceber.concluidos)} · agendados ${brl(r.aReceber.agendados)}`

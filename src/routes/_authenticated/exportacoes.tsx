@@ -82,7 +82,7 @@ function Exportacoes() {
   }));
 
   const dre = [
-    { Linha: "Vendas fechadas no mês", "Valor (R$)": r?.soldGross ?? 0 },
+    { Linha: "Vendido no mês (serviços do mês, valor cheio)", "Valor (R$)": r?.soldGross ?? 0 },
     { Linha: "Repasse a parceiros (terceirizados)", "Valor (R$)": -(r?.repasse ?? 0) },
     { Linha: "Receita de serviços realizados (líquida)", "Valor (R$)": r?.revenue ?? 0 },
     { Linha: "Taxas de pagamento", "Valor (R$)": -(r?.fees ?? 0) },
