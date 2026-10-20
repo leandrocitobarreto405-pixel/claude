@@ -5,6 +5,13 @@
 set -euo pipefail
 run() { PGOPTIONS="-c client_min_messages=warning" psql -q -X -v ON_ERROR_STOP=1 -d "${DB_NAME}" "$@"; }
 EMP='48000000-0000-0000-0000-0000000000cc'
+# Limpa no fim (mesmo com falha): o banco local é reaproveitado pelos testes da API.
+limpar() {
+  run -c "DELETE FROM public.quotes WHERE empresa_id = '${EMP}';
+          DELETE FROM public.orcamento_contadores WHERE empresa_id = '${EMP}';
+          DELETE FROM public.empresas WHERE id = '${EMP}';" || true
+}
+trap limpar EXIT
 run -c "INSERT INTO public.empresas (id, nome) VALUES ('${EMP}', 'Concorrência Fictícia') ON CONFLICT DO NOTHING"
 for s in $(seq 1 8); do
   run -c "DO \$\$ BEGIN FOR i IN 1..25 LOOP
