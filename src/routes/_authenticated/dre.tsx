@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMonthSummary } from "@/lib/reports";
 import { textoPercentuais } from "@/lib/comissao-nexa";
+import { quintoDiaUtil } from "@/lib/comissoes";
 import { brl, currentMonth, dateBR, monthLabelPT } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dre")({
@@ -44,6 +45,7 @@ function DRE() {
   // Vendas das atendentes da Nexa: a comissão delas é paga à Nexa e aparece separada.
   const temNexa = (r?.nexa.recebido ?? 0) > 0;
   const pctNexa = r?.nexa.percentuais.length ? ` (${textoPercentuais(r.nexa.percentuais)})` : "";
+  const notaComissao = `competência: valores recebidos no mês · pagamento no 5º dia útil do mês seguinte (${dateBR(quintoDiaUtil(mes))})`;
 
   return (
     <>
@@ -114,9 +116,9 @@ function DRE() {
       <section className="card-surface mb-6 p-5">
         <h2 className="mb-1 text-lg font-semibold">Demonstrativo por competência</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          A receita considera apenas o que foi recebido, alocado no mês em que o serviço foi
-          concluído. As despesas entram no mês de competência, mas somente pelo valor já pago — uma
-          despesa de um mês paga no mês seguinte aparece aqui automaticamente.
+          Receita, taxas, repasse a parceiros e comissões entram no mês em que o valor foi recebido
+          (data do pagamento). As despesas entram no mês de competência, mas somente pelo valor já
+          pago — uma despesa de um mês paga no mês seguinte aparece aqui automaticamente.
         </p>
         <table className="w-full text-sm">
           <tbody>
@@ -129,20 +131,33 @@ function DRE() {
             {(r?.repasse ?? 0) !== 0 ? (
               <>
                 <Line
-                  label="Recebido dos clientes nos serviços do mês"
+                  label="Recebido dos clientes no mês"
                   value={(r?.revenue ?? 0) + (r?.repasse ?? 0)}
                   muted
                 />
                 <Line label="(-) Repasse a parceiros (terceirizados)" value={-(r?.repasse ?? 0)} />
               </>
             ) : null}
-            <Line label="(=) Receita recebida dos serviços do mês" value={r?.revenue} strong />
+            <Line
+              label="(=) Receita recebida no mês"
+              value={r?.revenue}
+              strong
+              nota="competência: valores recebidos no mês"
+            />
             <Line label="(-) Taxas de pagamento" value={-(r?.fees ?? 0)} />
             {temNexa ? (
-              <Line label={`(-) Comissão Nexa${pctNexa}`} value={-(r?.nexa.comissao ?? 0)} />
+              <Line
+                label={`(-) Comissão Nexa${pctNexa}`}
+                value={-(r?.nexa.comissao ?? 0)}
+                nota={notaComissao}
+              />
             ) : null}
             {!temNexa || (r?.commissionsOthers ?? 0) !== 0 ? (
-              <Line label="(-) Comissões de vendas" value={-(r?.commissionsOthers ?? 0)} />
+              <Line
+                label="(-) Comissões de vendas"
+                value={-(r?.commissionsOthers ?? 0)}
+                nota={notaComissao}
+              />
             ) : null}
             <Line label="(-) Custo de deslocamento" value={-(r?.mileage ?? 0)} />
             {(r?.mileageExpensesPaid ?? 0) > 0 ? (
@@ -315,11 +330,14 @@ function Line({
   value,
   strong,
   muted,
+  nota,
 }: {
   label: string;
   value: number | undefined;
   strong?: boolean;
   muted?: boolean;
+  /** Linha pequena embaixo do rótulo (ex.: a competência). */
+  nota?: string;
 }) {
   return (
     <tr className="border-t border-border">
@@ -327,6 +345,9 @@ function Line({
         className={`py-2 ${muted ? "text-muted-foreground" : ""} ${strong ? "font-semibold" : ""}`}
       >
         {label}
+        {nota ? (
+          <span className="block text-xs font-normal text-muted-foreground">{nota}</span>
+        ) : null}
       </td>
       <td className={`py-2 text-right ${strong ? "font-semibold" : ""}`}>{brl(value ?? 0)}</td>
     </tr>

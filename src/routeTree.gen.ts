@@ -19,6 +19,7 @@ import { Route as AuthenticatedAReceberRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedAgendaConfigRouteImport } from './routes/_authenticated/agenda-config'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
+import { Route as AuthenticatedComissoesRouteImport } from './routes/_authenticated/comissoes'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
@@ -136,6 +137,11 @@ const AuthenticatedAgendaConfigRoute =
 const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
   id: '/avisos',
   path: '/avisos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedComissoesRoute = AuthenticatedComissoesRouteImport.update({
+  id: '/comissoes',
+  path: '/comissoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
@@ -530,6 +536,7 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
+  '/comissoes': typeof AuthenticatedComissoesRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -609,6 +616,7 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
+  '/comissoes': typeof AuthenticatedComissoesRoute
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -690,6 +698,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
+  '/_authenticated/comissoes': typeof AuthenticatedComissoesRoute
   '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
@@ -771,6 +780,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-config'
     | '/avisos'
+    | '/comissoes'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -850,6 +860,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/agenda-config'
     | '/avisos'
+    | '/comissoes'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -930,6 +941,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/agenda-config'
     | '/_authenticated/avisos'
+    | '/_authenticated/comissoes'
     | '/_authenticated/design'
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
@@ -1093,6 +1105,13 @@ declare module '@tanstack/react-router' {
       path: '/avisos'
       fullPath: '/avisos'
       preLoaderRoute: typeof AuthenticatedAvisosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/comissoes': {
+      id: '/_authenticated/comissoes'
+      path: '/comissoes'
+      fullPath: '/comissoes'
+      preLoaderRoute: typeof AuthenticatedComissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/design': {
@@ -1579,6 +1598,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAgendaConfigRoute: typeof AuthenticatedAgendaConfigRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
+  AuthenticatedComissoesRoute: typeof AuthenticatedComissoesRoute
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
@@ -1640,6 +1660,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedAgendaConfigRoute: AuthenticatedAgendaConfigRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
+  AuthenticatedComissoesRoute: AuthenticatedComissoesRoute,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,

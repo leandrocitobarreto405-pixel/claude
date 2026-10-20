@@ -2,8 +2,8 @@
  * Comissão da Nexa.
  *
  * As atendentes da Nexa (Carol, Maria…) vendem para as empresas clientes. Cada empresa paga à
- * Nexa a comissão do contrato (ex.: Turbine 3%, demais 5%) sobre o que recebeu dos serviços
- * vendidos por elas — é a mesma "Comissão Nexa" do DRE da empresa (percentual gravado na OS).
+ * Nexa a comissão do contrato (percentual gravado na OS) sobre o valor CHEIO que recebeu, no mês
+ * do recebimento, dos serviços vendidos por elas — é a mesma "Comissão Nexa" do DRE da empresa.
  * A Nexa repassa às atendentes um percentual próprio (ex.: 3%) sobre o que cada uma vendeu,
  * somando todas as empresas.
  */
@@ -13,6 +13,8 @@ export type AlocacaoComissao = {
   salespersonNexa: boolean;
   salespersonIa: boolean;
   received: number;
+  /** Valor cheio pago pelo cliente: base da comissão (o repasse ao parceiro não sai). */
+  receivedGross?: number;
   commissionPct: number;
 };
 
@@ -31,9 +33,10 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export function resumoNexaDaEmpresa(alocacoes: AlocacaoComissao[]): ResumoNexaEmpresa {
   const out: ResumoNexaEmpresa = { recebido: 0, comissao: 0, percentuais: [], porVendedora: {} };
   for (const a of alocacoes) {
-    if (!a.salespersonNexa || a.received === 0) continue;
-    const comissao = r2((a.received * a.commissionPct) / 100);
-    out.recebido = r2(out.recebido + a.received);
+    const base = a.receivedGross ?? a.received;
+    if (!a.salespersonNexa || base === 0) continue;
+    const comissao = r2((base * a.commissionPct) / 100);
+    out.recebido = r2(out.recebido + base);
     out.comissao = r2(out.comissao + comissao);
     if (a.commissionPct > 0 && !out.percentuais.includes(a.commissionPct))
       out.percentuais.push(a.commissionPct);
@@ -42,7 +45,7 @@ export function resumoNexaDaEmpresa(alocacoes: AlocacaoComissao[]): ResumoNexaEm
       comissao: 0,
       ia: a.salespersonIa,
     });
-    v.recebido = r2(v.recebido + a.received);
+    v.recebido = r2(v.recebido + base);
     v.comissao = r2(v.comissao + comissao);
   }
   out.percentuais.sort((a, b) => a - b);

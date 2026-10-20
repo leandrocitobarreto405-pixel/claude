@@ -82,10 +82,10 @@ test("endereços antigos têm destino", () => {
   for (const r of Object.values(REDIRECIONAMENTOS)) assert.ok(podeAcessar("admin", r.to), r.to);
 });
 
-test("abas do Financeiro: admin vê as cinco; atendente só A receber", () => {
+test("abas do Financeiro: admin vê as seis (com Comissões); atendente só A receber", () => {
   assert.deepEqual(
     abasPermitidas(ABAS_DE_TELA.financeiro, "admin").map((a) => a.to),
-    ["/financeiro", "/a-receber", "/pagamentos", "/despesas", "/dre"],
+    ["/financeiro", "/a-receber", "/pagamentos", "/despesas", "/dre", "/comissoes"],
   );
   assert.deepEqual(
     abasPermitidas(ABAS_DE_TELA.financeiro, "atendente").map((a) => a.to),

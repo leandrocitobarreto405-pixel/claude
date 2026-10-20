@@ -76,7 +76,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
         to: "/financeiro",
         rotulo: "Financeiro",
         icone: HandCoins,
-        ativoEm: ["/a-receber", "/pagamentos", "/despesas", "/dre", "/origens"],
+        ativoEm: ["/a-receber", "/pagamentos", "/despesas", "/dre", "/origens", "/comissoes"],
         papeis: ["admin"],
       },
       { to: "/a-receber", rotulo: "A receber", icone: HandCoins, papeis: ["atendente"] },
@@ -184,6 +184,7 @@ export const ABAS_DE_TELA = {
     { to: "/pagamentos", rotulo: "Recebidos" },
     { to: "/despesas", rotulo: "Despesas" },
     { to: "/dre", rotulo: "DRE" },
+    { to: "/comissoes", rotulo: "Comissões" },
   ],
 } as const;
 

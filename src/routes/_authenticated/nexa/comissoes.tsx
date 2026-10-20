@@ -9,7 +9,7 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, currentMonth, monthEnd, monthLabelPT, monthStart, parseNumberBR } from "@/lib/format";
 import { useContextoTenant } from "@/lib/tenant";
-import { fetchServiceMonthRevenue } from "@/lib/reports";
+import { fetchRecebidoDoPeriodo } from "@/lib/reports";
 import {
   repasseAtendentes,
   resumoNexaDaEmpresa,
@@ -84,7 +84,7 @@ function ComissoesNexa() {
       // Uma empresa por vez, cada uma no próprio contexto (o mesmo cálculo do DRE dela).
       return Promise.all(
         (lista.data ?? []).map(async (e) => {
-          const base = await fetchServiceMonthRevenue(from, to, undefined, e.id);
+          const base = await fetchRecebidoDoPeriodo(from, to, undefined, e.id);
           // Contrato que valia no fim do mês.
           const contrato = (contratos.data ?? []).find(
             (c) =>

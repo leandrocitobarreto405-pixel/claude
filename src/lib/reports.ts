@@ -7,10 +7,12 @@ import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
 import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
 import { monthEnd, monthStart, todayISO } from "@/lib/format";
 import { vendidoNoPeriodo } from "@/lib/vendido";
-import { buscarOsDoPeriodo } from "@/lib/vendido-dados";
+import { buscarOsDoPeriodo, buscarOsPorId } from "@/lib/vendido-dados";
+import { alocarRecebimentos, type OsRecebido, type RevenueAllocation } from "@/lib/recebido";
+import { despesaDeComissao } from "@/lib/comissoes";
 import { cashPaidAmount } from "@/lib/expenses";
 import { despesaDeRota } from "@/lib/dre-quilometragem";
-import { fetchReceivables } from "@/lib/receivables";
+import { fetchReceivables, saldosDaOs, type VisitRaw } from "@/lib/receivables";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import {
   despesaDeRepasse,
@@ -286,38 +288,14 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-/** Recebimento atribuído a um atendimento concluído do período. */
-export type RevenueAllocation = {
-  visitId: string | null;
-  workOrderId: string;
-  osNumber: string;
-  customerId: string | null;
-  saleDate: string | null;
-  origin: string;
-  salesperson: string;
-  /** Vendedora é atendente da Nexa (a comissão dela é paga à Nexa). */
-  salespersonNexa: boolean;
-  /** Vendedora é a IA (Alice). */
-  salespersonIa: boolean;
-  service: string;
-  serviceValue: number;
-  discount: number;
-  /**
-   * Recebido que fica com a empresa: o pago pelo cliente menos a parte do repasse ao parceiro
-   * (itens terceirizados). Faturamento, comissões e Comissão Nexa usam este valor.
-   */
-  received: number;
-  /** Parte do repasse ao parceiro correspondente ao recebido (já descontada de `received`). */
-  repasse: number;
-  mileage: number;
-  commissionPct: number;
-};
+export type { RevenueAllocation } from "@/lib/recebido";
 
-export type ServiceMonthRevenue = {
+export type RecebidoDoPeriodo = {
   from: string;
   to: string;
   completed: CompletedVisit[];
   payments: PaymentRow[];
+  /** Um item por pagamento recebido no período (data do pagamento). */
   allocations: RevenueAllocation[];
   received: number;
   receivedNet: number;
@@ -325,7 +303,7 @@ export type ServiceMonthRevenue = {
   repasse: number;
   fees: number;
   feesByChannel: Record<string, number>;
-  /** Valor dos serviços concluídos, já sem o repasse a parceiros. */
+  /** Valor dos serviços concluídos no período (informativo), já sem o repasse a parceiros. */
   servicesValue: number;
   servicesCount: number;
   ordersCount: number;
@@ -334,226 +312,90 @@ export type ServiceMonthRevenue = {
   pendingValue: number;
 };
 
+const OS_RECEBIDO_SELECT = `id, os_number, sale_date, customer_id, total_gross_value,
+  commission_percentage_snapshot,
+  salesperson:salesperson_id ( id, name, atendente_nexa, eh_ia, commission_percentage ),
+  sales_origin:sales_origin_id ( name ),
+  visits!visits_work_order_id_fkey ( id, status, repasse_parceiro, service_type:service_type_id ( name ) )`;
+
 /**
- * Base financeira única: pagamentos ativos e pagos, atribuídos ao mês em que o
- * serviço foi concluído, rateados entre os atendimentos concluídos da OS.
- * Nada que não foi recebido entra como receita.
+ * Base financeira única (DRE, origens, Comissão Nexa e comissões): pagamentos ativos "Pago" ou
+ * "Parcialmente pago" com DATA DO PAGAMENTO no período, pelo valor recebido. A receita sai sem a
+ * parte do repasse ao parceiro; a comissão usa o valor cheio. Nada que não foi recebido entra.
  */
-export async function fetchServiceMonthRevenue(
+export async function fetchRecebidoDoPeriodo(
   from: string,
   to: string,
   completedInput?: CompletedVisit[],
   empresaId?: string,
   db: Banco = supabase,
-): Promise<ServiceMonthRevenue> {
-  const completed = completedInput ?? (await fetchCompletedVisits(from, to, empresaId, db));
-  const payments = await fetchPaymentsByServiceMonth(from, to, completed, empresaId, db);
-
-  const orderIds = [
-    ...new Set([
-      ...completed.map((v) => v.work_order?.id).filter(Boolean),
-      ...payments.map((p) => p.work_order_id),
-    ]),
-  ] as string[];
-
-  // Atendimentos concluídos (qualquer data) das OSs envolvidas, para o rateio.
-  const allCompleted = new Map<
-    string,
-    {
-      id: string;
-      work_order_id: string;
-      completion_date: string | null;
-      value: number;
-      discount: number;
-    }[]
-  >();
-  if (orderIds.length > 0) {
-    const { data, error } = await naEmpresa(
-      db
-        .from("visits")
-        .select("id, work_order_id, completion_date, visit_value, final_value, discount_amount")
-        .eq("status", "Concluído")
-        .in("work_order_id", orderIds),
-      empresaId,
-    );
-    if (error) throw error;
-    for (const v of data ?? []) {
-      const wo = v.work_order_id as string;
-      const list = allCompleted.get(wo) ?? [];
-      list.push({
-        id: v.id as string,
-        work_order_id: wo,
-        completion_date: (v.completion_date as string | null) ?? null,
-        value: round2(
-          effectiveVisitValue(v as { final_value: number | null; visit_value: number }),
-        ),
-        discount: round2(Math.max(0, Number(v.discount_amount ?? 0))),
-      });
-      allCompleted.set(wo, list);
-    }
-    for (const [wo, list] of allCompleted) {
-      list.sort((a, b) => (a.completion_date ?? "").localeCompare(b.completion_date ?? ""));
-      allCompleted.set(wo, list);
-    }
-  }
-
-  // Pagamentos ativos e pagos de qualquer data, para saber o que já foi recebido.
-  const paidByOrder = new Map<string, number>();
-  if (orderIds.length > 0) {
-    const { data, error } = await naEmpresa(
+): Promise<RecebidoDoPeriodo> {
+  const [completed, pagRes] = await Promise.all([
+    completedInput ?? fetchCompletedVisits(from, to, empresaId, db),
+    naEmpresa(
       db
         .from("payments")
-        .select("work_order_id, gross_amount")
+        .select(
+          `id, work_order_id, visit_id, payment_date, payment_channel, payment_type, installments,
+           gross_amount, applied_rate, payment_fee_amount, net_amount, payment_status, notes,
+           is_active, reopened_at, reopen_reason,
+           work_order:work_order_id ( id, os_number, eh_teste, customer:customer_id ( full_name ) )`,
+        )
         .eq("is_active", true)
         .in("payment_status", STATUS_RECEBIDOS)
-        .in("work_order_id", orderIds),
+        .gte("payment_date", from)
+        .lte("payment_date", to)
+        .order("payment_date"),
       empresaId,
-    );
-    if (error) throw error;
-    for (const p of data ?? []) {
-      const wo = p.work_order_id as string;
-      paidByOrder.set(wo, round2((paidByOrder.get(wo) ?? 0) + Number(p.gross_amount ?? 0)));
-    }
-  }
+    ),
+  ]);
+  if (pagRes.error) throw pagRes.error;
+  const payments = semTeste((pagRes.data ?? []) as unknown as PaymentRow[]);
 
-  const visitInPeriod = new Map<string, CompletedVisit>();
-  const periodByOrder = new Map<string, CompletedVisit[]>();
-  for (const v of completed) {
-    visitInPeriod.set(v.id, v);
-    const wo = v.work_order?.id;
-    if (!wo) continue;
-    const list = periodByOrder.get(wo) ?? [];
-    list.push(v);
-    periodByOrder.set(wo, list);
-  }
-
-  const base = (v: CompletedVisit) => ({
-    visitId: v.id,
-    workOrderId: v.work_order?.id ?? "",
-    osNumber: v.work_order?.os_number ?? "",
-    customerId: v.work_order?.customer_id ?? null,
-    saleDate: v.work_order?.sale_date ?? null,
-    origin: v.work_order?.sales_origin?.name ?? "Indefinida",
-    salesperson: v.work_order?.salesperson?.name ?? "Sem vendedora",
-    salespersonNexa: v.work_order?.salesperson?.atendente_nexa === true,
-    salespersonIa: v.work_order?.salesperson?.eh_ia === true,
-    service: v.service_type?.name ?? "Sem serviço",
-    serviceValue: round2(effectiveVisitValue(v)),
-    discount: round2(Math.max(0, Number(v.discount_amount ?? 0))),
-    mileage: round2(Number(v.mileage_cost_allocated ?? 0)),
-    commissionPct: Number(v.work_order?.commission_percentage_snapshot ?? 0),
-  });
-
-  const allocations = new Map<string, RevenueAllocation>();
-  const ensure = (v: CompletedVisit) => {
-    const existing = allocations.get(v.id);
-    if (existing) return existing;
-    const created: RevenueAllocation = { ...base(v), received: 0, repasse: 0 };
-    allocations.set(v.id, created);
-    return created;
-  };
-  for (const v of completed) ensure(v);
-
-  // Pagamentos fora dos atendimentos do período (OS sem serviço concluído aqui).
-  const extras = new Map<string, RevenueAllocation>();
-
-  for (const p of payments) {
-    const gross = round2(Number(p.gross_amount ?? 0));
-    if (gross === 0) continue;
-
-    const direct = p.visit_id ? visitInPeriod.get(p.visit_id) : undefined;
-    if (direct) {
-      ensure(direct).received = round2(ensure(direct).received + gross);
-      continue;
-    }
-
-    const targets = periodByOrder.get(p.work_order_id) ?? [];
-    if (targets.length > 0) {
-      const totalValue = targets.reduce((s, v) => s + round2(effectiveVisitValue(v)), 0);
-      let left = gross;
-      targets.forEach((v, i) => {
-        const share =
-          i === targets.length - 1
-            ? left
-            : totalValue > 0
-              ? round2((gross * round2(effectiveVisitValue(v))) / totalValue)
-              : round2(gross / targets.length);
-        left = round2(left - share);
-        const row = ensure(v);
-        row.received = round2(row.received + share);
-      });
-      continue;
-    }
-
-    const key = p.work_order_id;
-    const extra =
-      extras.get(key) ??
-      ({
-        visitId: null,
-        workOrderId: p.work_order_id,
-        osNumber: p.work_order?.os_number ?? "",
-        customerId: null,
-        saleDate: null,
-        origin: "Indefinida",
-        salesperson: "Sem vendedora",
-        salespersonNexa: false,
-        salespersonIa: false,
-        service: "Sem serviço",
-        serviceValue: 0,
-        discount: 0,
-        received: 0,
-        repasse: 0,
-        mileage: 0,
-        commissionPct: 0,
-      } satisfies RevenueAllocation);
-    extra.received = round2(extra.received + gross);
-    extras.set(key, extra);
-  }
-
-  // Origem/vendedora dos pagamentos sem atendimento concluído no período.
-  if (extras.size > 0) {
+  // OS dos pagamentos (vendedora, origem, percentual, repasse).
+  const osIds = [...new Set(payments.map((p) => p.work_order_id))];
+  const oss = new Map<string, OsRecebido>();
+  if (osIds.length) {
     const { data, error } = await naEmpresa(
-      db
-        .from("work_orders")
-        .select(
-          `id, os_number, sale_date, customer_id,
-           salesperson:salesperson_id ( name, atendente_nexa, eh_ia ),
-           sales_origin:sales_origin_id ( name )`,
-        )
-        .in("id", [...extras.keys()]),
+      db.from("work_orders").select(OS_RECEBIDO_SELECT).in("id", osIds),
       empresaId,
     );
     if (error) throw error;
-    for (const w of data ?? []) {
-      const row = extras.get(w.id as string);
-      if (!row) continue;
-      const origin = (w as { sales_origin?: { name?: string } | null }).sales_origin?.name;
-      const seller = (
-        w as {
-          salesperson?: { name?: string; atendente_nexa?: boolean; eh_ia?: boolean } | null;
-        }
-      ).salesperson;
-      row.origin = origin ?? "Indefinida";
-      row.salesperson = seller?.name ?? "Sem vendedora";
-      row.salespersonNexa = seller?.atendente_nexa === true;
-      row.salespersonIa = seller?.eh_ia === true;
-      row.customerId = (w.customer_id as string | null) ?? null;
-      row.saleDate = (w.sale_date as string | null) ?? null;
-      row.osNumber = (w.os_number as string) ?? row.osNumber;
+    for (const w of (data ?? []) as unknown as Array<{
+      id: string;
+      os_number: string;
+      sale_date: string | null;
+      customer_id: string | null;
+      total_gross_value: number | null;
+      commission_percentage_snapshot: number | null;
+      salesperson: OsRecebido["vendedora"];
+      sales_origin: { name: string } | null;
+      visits: Array<{
+        id: string;
+        status: string;
+        repasse_parceiro: number | null;
+        service_type: { name: string } | null;
+      }> | null;
+    }>) {
+      oss.set(w.id, {
+        id: w.id,
+        os_number: w.os_number,
+        sale_date: w.sale_date,
+        customer_id: w.customer_id,
+        total_gross_value: w.total_gross_value,
+        commission_percentage_snapshot: w.commission_percentage_snapshot,
+        origem: w.sales_origin?.name ?? null,
+        vendedora: w.salesperson,
+        visitas: (w.visits ?? []).map((v) => ({
+          id: v.id,
+          status: v.status,
+          repasse_parceiro: v.repasse_parceiro,
+          servico: v.service_type?.name ?? null,
+        })),
+      });
     }
   }
-
-  // Pendente: valor dos serviços do período ainda sem recebimento, abatendo dispensas.
-  let pendingValue = 0;
-  for (const [wo, list] of allCompleted) {
-    let left = paidByOrder.get(wo) ?? 0;
-    for (const v of list) {
-      const paid = round2(Math.min(v.value, Math.max(0, left)));
-      left = round2(left - paid);
-      if (!visitInPeriod.has(v.id)) continue;
-      pendingValue = round2(pendingValue + Math.max(0, round2(v.value - paid - v.discount)));
-    }
-  }
+  const allocations = alocarRecebimentos(payments, oss);
 
   const feesByChannel: Record<string, number> = {};
   let fees = 0;
@@ -567,33 +409,51 @@ export async function fetchServiceMonthRevenue(
       (feesByChannel[p.payment_channel] ?? 0) + Number(p.payment_fee_amount ?? 0),
     );
   }
+  const repasse = round2(allocations.reduce((s, a) => s + a.repasse, 0));
 
-  // Terceirizados: só a receita líquida conta; o repasse sai na proporção do recebido.
-  let repasse = 0;
-  for (const v of completed) {
-    const row = allocations.get(v.id);
-    if (!row) continue;
-    row.repasse = repasseDoRecebido(
-      Number(v.repasse_parceiro ?? 0),
-      row.serviceValue,
-      row.received,
-    );
-    if (row.repasse === 0) continue;
-    row.received = round2(row.received - row.repasse);
-    repasse = round2(repasse + row.repasse);
+  // Informativo: serviços concluídos no período ainda em aberto (mesma conta do A receber).
+  let pendingValue = 0;
+  const osConcluidas = [
+    ...new Set(completed.map((v) => v.work_order?.id).filter(Boolean)),
+  ] as string[];
+  if (osConcluidas.length) {
+    const noPeriodo = new Set(completed.map((v) => v.id));
+    const [lista, { data: pagos, error: pagosErr }] = await Promise.all([
+      buscarOsPorId(db, osConcluidas),
+      naEmpresa(
+        db
+          .from("payments")
+          .select("work_order_id, gross_amount")
+          .eq("is_active", true)
+          .in("payment_status", STATUS_RECEBIDOS)
+          .in("work_order_id", osConcluidas),
+        empresaId,
+      ),
+    ]);
+    if (pagosErr) throw pagosErr;
+    const pagoPorOs = new Map<string, number>();
+    for (const p of pagos ?? [])
+      pagoPorOs.set(
+        p.work_order_id as string,
+        round2((pagoPorOs.get(p.work_order_id as string) ?? 0) + Number(p.gross_amount ?? 0)),
+      );
+    const hoje = todayISO();
+    for (const os of lista) {
+      const visitas = os.visitas.filter((v) => v.status !== "Cancelado") as unknown as VisitRaw[];
+      for (const s of saldosDaOs(os, visitas, pagoPorOs.get(os.id) ?? 0, hoje))
+        if (noPeriodo.has(s.visita.id)) pendingValue = round2(pendingValue + s.balance);
+    }
   }
 
-  const rows = [...allocations.values(), ...extras.values()];
   const customers = new Set(
     completed.map((v) => v.work_order?.customer_id).filter(Boolean) as string[],
   );
-
   return {
     from,
     to,
     completed,
     payments,
-    allocations: rows,
+    allocations,
     received,
     receivedNet,
     repasse,
@@ -653,7 +513,7 @@ export async function fetchOriginBreakdown(
   to: string,
   db: Banco = supabase,
 ): Promise<OriginBreakdown> {
-  const revenue = await fetchServiceMonthRevenue(from, to, undefined, undefined, db);
+  const revenue = await fetchRecebidoDoPeriodo(from, to, undefined, undefined, db);
   const rows = revenue.allocations;
 
   const customerIds = [...new Set(rows.map((r) => r.customerId).filter(Boolean))] as string[];
@@ -761,7 +621,7 @@ export type MonthSummary = {
   soldNet: number;
   soldCount: number;
   completedCount: number;
-  /** Receita reconhecida: pagamentos recebidos (competência do serviço) menos o repasse a parceiros. */
+  /** Receita reconhecida: pagamentos recebidos no mês (data do pagamento) menos o repasse a parceiros. */
   revenue: number;
   /** Repasse a parceiros descontado da receita (itens terceirizados). */
   repasse: number;
@@ -837,7 +697,7 @@ export async function fetchMonthSummary(
   const completed = await fetchCompletedVisits(from, to, undefined, db);
   const [revenueBase, expenses, soldRes, invoicesRes, cashOutRes, cmvRes, osDoMes] =
     await Promise.all([
-      fetchServiceMonthRevenue(from, to, completed, undefined, db),
+      fetchRecebidoDoPeriodo(from, to, completed, undefined, db),
       fetchExpenses(from, to, db),
       db
         .from("work_orders")
@@ -873,7 +733,7 @@ export async function fetchMonthSummary(
     .filter((w) => w.status === "Cancelada")
     .reduce((s, w) => s + Number(w.total_gross_value ?? 0), 0);
 
-  // Receita = somente o que foi efetivamente recebido (competência do serviço), sem o repasse a
+  // Receita = somente o que foi efetivamente recebido (pela data do pagamento), sem o repasse a
   // parceiros dos itens terceirizados.
   const repasse = revenueBase.repasse;
   const revenue = round2(revenueBase.received - repasse);
@@ -890,8 +750,9 @@ export async function fetchMonthSummary(
 
   for (const r of revenueBase.allocations) {
     const value = r.received;
-    if (value === 0) continue;
-    const comm = round2((value * r.commissionPct) / 100);
+    if (value === 0 && r.receivedGross === 0) continue;
+    // Comissão sobre o valor CHEIO pago pelo cliente (o repasse ao parceiro não sai da base).
+    const comm = round2((r.receivedGross * r.commissionPct) / 100);
     commissions = round2(commissions + comm);
     commissionsBySalesperson[r.salesperson] = round2(
       (commissionsBySalesperson[r.salesperson] ?? 0) + comm,
@@ -924,8 +785,14 @@ export async function fetchMonthSummary(
       .filter((e) => e.status !== "Cancelado" && !e.deleted_at && despesaDeRepasse(e))
       .reduce((s, e) => s + cashPaidAmount(e), 0),
   );
+  // "Comissões" lançadas em Comissões a pagar também ficam fora: a comissão já entra calculada.
   const validExpenses = expenses.filter(
-    (e) => e.status !== "Cancelado" && !e.deleted_at && !despesaDeRota(e) && !despesaDeRepasse(e),
+    (e) =>
+      e.status !== "Cancelado" &&
+      !e.deleted_at &&
+      !despesaDeRota(e) &&
+      !despesaDeRepasse(e) &&
+      !despesaDeComissao(e),
   );
   const expensesPaidList = validExpenses
     .map((e) => ({ expense: e, paid: round2(cashPaidAmount(e)) }))

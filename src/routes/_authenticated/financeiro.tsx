@@ -101,7 +101,7 @@ function Financeiro() {
         </Card>
       </div>
       <p className="text-xs text-muted-foreground">
-        Pela data do pagamento (caixa). O DRE conta por competência do serviço.
+        Pela data do pagamento (caixa), a mesma competência do DRE.
       </p>
 
       <div className="grid gap-4 lg:grid-cols-2">

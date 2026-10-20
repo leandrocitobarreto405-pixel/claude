@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
 import { brl, currentMonth, monthEnd, monthLabelPT, monthStart, parseNumberBR } from "@/lib/format";
 import { useContextoTenant } from "@/lib/tenant";
-import { fetchServiceMonthRevenue } from "@/lib/reports";
+import { fetchRecebidoDoPeriodo } from "@/lib/reports";
 import { resumoNexaDaEmpresa } from "@/lib/comissao-nexa";
 import {
   resumirAlice,
@@ -134,7 +134,7 @@ function AliceNexa() {
         (lista ?? []).map(async (e) => {
           const [execs, base] = await Promise.all([
             execucoesDaEmpresa(e.id, inicioDoDia(from), inicioDoDia(diaSeguinte(to))),
-            fetchServiceMonthRevenue(from, to, undefined, e.id),
+            fetchRecebidoDoPeriodo(from, to, undefined, e.id),
           ]);
           const ids = [...new Set(execs.map((x) => x.crm_lead_id).filter((x): x is string => !!x))];
           const leads = await leadsDaEmpresa(e.id, ids);
