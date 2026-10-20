@@ -1,3 +1,4 @@
+import { SELECT_VISITA_SEM_TESTE } from "@/lib/consultas";
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import { montarAvisos, type Aviso, type FontesDeAvisos } from "@/lib/avisos";
@@ -49,12 +50,14 @@ export const listarAvisos = createServerFn({ method: "GET" })
           : Promise.resolve(vazio),
         db
           .from("visits")
-          .select("id", { count: "exact", head: true })
+          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+          .eq("work_order.eh_teste", false)
           .lt("scheduled_date", hoje)
           .in("status", ["Agendado", "Em execução", "Reagendado"]),
         db
           .from("visits")
-          .select("id", { count: "exact", head: true })
+          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+          .eq("work_order.eh_teste", false)
           .is("technician_id", null)
           .neq("status", "Cancelado"),
         db

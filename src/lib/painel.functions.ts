@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { SELECT_VISITA_SEM_TESTE } from "@/lib/consultas";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import { addDaysISO, monthEnd, monthStart, todayISO } from "@/lib/format";
 import type { Indicadores } from "@/lib/funil";
@@ -88,21 +89,24 @@ export const resumoPainel = createServerFn({ method: "GET" })
       contar(
         db
           .from("visits")
-          .select("id", { count: "exact", head: true })
+          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+          .eq("work_order.eh_teste", false)
           .eq("scheduled_date", hoje)
           .neq("status", "Cancelado"),
       ),
       contar(
         db
           .from("visits")
-          .select("id", { count: "exact", head: true })
+          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+          .eq("work_order.eh_teste", false)
           .eq("scheduled_date", amanha)
           .neq("status", "Cancelado"),
       ),
       contar(
         db
           .from("visits")
-          .select("id", { count: "exact", head: true })
+          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+          .eq("work_order.eh_teste", false)
           .lte("scheduled_date", hoje)
           .neq("status", "Concluído")
           .neq("status", "Cancelado"),

@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Banco } from "@/lib/banco";
 import { STATUS_RECEBIDOS } from "@/lib/payments";
-import { effectiveVisitValue } from "@/lib/visit-value";
+import { todayISO } from "@/lib/format";
+import { visitasComValor } from "@/lib/vendido";
 
-/** Serviços ainda em aberto na agenda (contam como a receber futuro). */
+/** Situações de visita ainda por fazer (agenda). */
 export const RECEIVABLE_SCHEDULED_STATUSES = [
   "Agendado",
   "Confirmado",
@@ -41,7 +42,7 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-type VisitRaw = {
+export type VisitRaw = {
   id: string;
   status: string;
   scheduled_date: string;
@@ -59,6 +60,7 @@ type VisitRaw = {
     id: string;
     os_number: string;
     status: string;
+    total_gross_value: number | null;
     deleted_at: string | null;
     eh_teste?: boolean;
     customer: { full_name: string } | null;
@@ -66,9 +68,58 @@ type VisitRaw = {
 };
 
 /**
- * A receber = serviços agendados ainda não pagos + serviços concluídos ainda não pagos.
- * Pagamentos ativos da OS são abatidos primeiro dos serviços concluídos e depois
- * dos agendados, para que o saldo reflita o que realmente falta receber.
+ * Saldo em aberto de UMA OS, por visita: total da OS − pagamentos recebidos − saldos dispensados.
+ * O valor de cada visita já vem com o desconto da OS repartido (vendido.ts), então a soma das
+ * visitas é o total da OS. O pago é abatido primeiro das concluídas, depois das agendadas.
+ */
+export function saldosDaOs(
+  os: { total_gross_value: number | null },
+  visitas: VisitRaw[],
+  pago: number,
+  hoje: string,
+): Array<{ visita: VisitRaw; value: number; paid: number; discount: number; balance: number }> {
+  const comValor = visitasComValor(
+    {
+      id: "",
+      os_number: "",
+      total_gross_value: os.total_gross_value,
+      status: "",
+      eh_teste: false,
+      deleted_at: null,
+      visitas: visitas.map((v) => ({ ...v, repasse_parceiro: 0 })),
+    },
+    hoje,
+  );
+  const porId = new Map(visitas.map((v) => [v.id, v]));
+  const ordem = [...comValor].sort((a, b) => {
+    const ka = a.situacao === "realizado" ? 0 : 1;
+    const kb = b.situacao === "realizado" ? 0 : 1;
+    if (ka !== kb) return ka - kb;
+    return (porId.get(a.visitaId)?.scheduled_date ?? "").localeCompare(
+      porId.get(b.visitaId)?.scheduled_date ?? "",
+    );
+  });
+  let restante = round2(Math.max(0, pago));
+  return ordem.map((c) => {
+    const value = round2(c.valor);
+    const discount = round2(c.dispensado);
+    const devido = round2(Math.max(0, value - discount));
+    const paid = round2(Math.min(devido, restante));
+    restante = round2(restante - paid);
+    return {
+      visita: porId.get(c.visitaId)!,
+      value,
+      paid,
+      discount,
+      balance: round2(devido - paid),
+    };
+  });
+}
+
+/**
+ * A receber = para cada OS, total da OS − pagamentos recebidos (− saldos dispensados), aberto por
+ * visita em "concluído" e "agendado". A soma bate com total das OS − pagos. OS de teste, cancelada
+ * ou excluída fica fora; visita cancelada também.
  */
 export async function fetchReceivables(db: Banco = supabase): Promise<Receivables> {
   const [visitsRes, paymentsRes] = await Promise.all([
@@ -82,10 +133,11 @@ export async function fetchReceivables(db: Banco = supabase): Promise<Receivable
          service_type:service_type_id ( name ),
          upholstery_type:upholstery_type_id ( name ),
          work_order:work_orders!visits_work_order_id_fkey (
-           id, os_number, status, deleted_at, eh_teste, customer:customer_id ( full_name )
+           id, os_number, status, total_gross_value, deleted_at, eh_teste,
+           customer:customer_id ( full_name )
          )`,
       )
-      .in("status", [...RECEIVABLE_SCHEDULED_STATUSES, "Concluído"])
+      .neq("status", "Cancelado")
       .order("scheduled_date"),
     db
       .from("payments")
@@ -118,38 +170,28 @@ export async function fetchReceivables(db: Banco = supabase): Promise<Receivable
     byOs.set(v.work_order_id, list);
   }
 
+  const hoje = todayISO();
   const items: ReceivableItem[] = [];
   for (const [osId, list] of byOs) {
-    // Abate o pago primeiro nos concluídos, depois nos agendados.
-    const ordered = [...list].sort((a, b) => {
-      const ka = a.status === "Concluído" ? 0 : 1;
-      const kb = b.status === "Concluído" ? 0 : 1;
-      if (ka !== kb) return ka - kb;
-      return a.scheduled_date.localeCompare(b.scheduled_date);
-    });
-    let restante = paidByOs.get(osId) ?? 0;
-    for (const v of ordered) {
-      const value = round2(effectiveVisitValue(v));
-      const discount = round2(Math.max(0, Number(v.discount_amount ?? 0)));
-      const paid = round2(Math.min(value, Math.max(0, restante)));
-      restante = round2(restante - paid);
-      const balance = round2(value - paid - discount);
-      if (balance <= 0) continue;
+    const wo = list[0]!.work_order!;
+    for (const s of saldosDaOs(wo, list, paidByOs.get(osId) ?? 0, hoje)) {
+      if (s.balance <= 0) continue;
+      const v = s.visita;
       items.push({
         visitId: v.id,
         workOrderId: osId,
-        osNumber: v.work_order?.os_number ?? "",
-        customer: v.work_order?.customer?.full_name ?? "—",
+        osNumber: wo.os_number ?? "",
+        customer: wo.customer?.full_name ?? "—",
         scheduledDate: v.scheduled_date,
         completionDate: v.completion_date,
         technician: v.technician?.name ?? null,
         serviceLabel: [v.service_type?.name, v.upholstery_description || v.upholstery_type?.name]
           .filter(Boolean)
           .join(" — "),
-        value,
-        paid,
-        discount,
-        balance,
+        value: s.value,
+        paid: s.paid,
+        discount: s.discount,
+        balance: s.balance,
         kind: v.status === "Concluído" ? "concluido" : "agendado",
         status: v.status,
       });

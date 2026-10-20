@@ -40,6 +40,7 @@ import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
+import { semOsDeTeste } from "@/lib/os-teste";
 import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import { VISIT_STATUSES, useTechnicians } from "@/lib/data";
 import {
@@ -163,7 +164,7 @@ function Agenda() {
       }
       const { data, error } = await q.order("scheduled_date").order("scheduled_time");
       if (error) throw error;
-      return (data ?? []) as unknown as VisitRow[];
+      return ((data ?? []) as unknown as VisitRow[]).filter(semOsDeTeste);
     },
   });
 

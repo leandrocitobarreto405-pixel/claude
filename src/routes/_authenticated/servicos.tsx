@@ -9,6 +9,7 @@ import { CompletionDialog, VisitDialog } from "@/components/visit-dialog";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
+import { semOsDeTeste } from "@/lib/os-teste";
 import { useTechnicians } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { useSession } from "@/lib/session";
@@ -92,7 +93,7 @@ function Servicos() {
         .order("scheduled_time");
       if (error) throw error;
       return ((data ?? []) as unknown as VisitRow[]).filter(
-        (v) => v.work_order?.status !== "Cancelada",
+        (v) => v.work_order?.status !== "Cancelada" && semOsDeTeste(v),
       );
     },
   });
@@ -108,7 +109,7 @@ function Servicos() {
         .lte("completion_date", monthEnd(mes))
         .order("completion_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as VisitRow[];
+      return ((data ?? []) as unknown as VisitRow[]).filter(semOsDeTeste);
     },
   });
 

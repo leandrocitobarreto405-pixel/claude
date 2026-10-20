@@ -21,3 +21,7 @@ export const SELECT_LEADS_ALICE_NEXA =
 /** Vendido pela data do serviço e A receber: OS com todas as visitas (work_orders). */
 export const SELECT_OS_VENDIDO =
   "id, os_number, total_gross_value, status, eh_teste, deleted_at, sale_date, sales_origin:sales_origin_id ( name ), visits!visits_work_order_id_fkey ( id, status, scheduled_date, completion_date, visit_value, final_value, repasse_parceiro, discount_amount )" as const;
+
+/** Contagem de visitas sem OS de teste (visits → work_orders, junção obrigatória). */
+export const SELECT_VISITA_SEM_TESTE =
+  "id, work_order:work_orders!visits_work_order_id_fkey!inner ( eh_teste )" as const;

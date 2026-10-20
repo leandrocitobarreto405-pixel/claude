@@ -819,7 +819,7 @@ export const VISIT_SELECT = `
   upholstery_type:upholstery_type_id ( id, name ),
   technician:technician_id ( id, name, base_address ),
   work_order:work_order_id (
-    id, os_number, sale_date, total_gross_value, status, general_notes,
+    id, os_number, sale_date, total_gross_value, status, general_notes, eh_teste,
     negotiated_payment_method, negotiated_installments,
     collection_rule, collection_visit_id, payment_instruction,
     commission_percentage_snapshot, commission_expected, commission_realized,
@@ -877,6 +877,8 @@ export type VisitRow = {
     total_gross_value: number;
     status: string;
     general_notes: string | null;
+    /** OS de teste: fica fora de todas as listas e totais. */
+    eh_teste?: boolean;
     negotiated_payment_method: string | null;
     negotiated_installments: number | null;
     collection_rule?: string | null;
