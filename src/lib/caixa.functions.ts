@@ -327,6 +327,7 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
       mime = "audio/ogg";
     }
     const { enviarAnexo, mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
+    const { MARCAR_COMO_VOZ } = await import("@/lib/audio-voz.server");
     let id: number;
     try {
       ({ id } = await enviarAnexo(
@@ -336,7 +337,7 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
         new Blob([new Uint8Array(bytes)], { type: mime }),
         nome,
         "",
-        tipo === "audio",
+        tipo === "audio" && MARCAR_COMO_VOZ,
       ));
     } catch (err) {
       console.error("Caixa: anexo falhou", err instanceof Error ? err.message : err);

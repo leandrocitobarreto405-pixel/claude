@@ -1285,7 +1285,7 @@ async function comAudio(
       // Mesmo caminho da barra de resposta: recodifica como o gravador do Chatwoot (toca como
       // voz no iPhone) e manda com a marcação de voz.
       enviarAudio: async (bytes) => {
-        const { paraOggOpus } = await import("@/lib/audio-voz.server");
+        const { MARCAR_COMO_VOZ, paraOggOpus } = await import("@/lib/audio-voz.server");
         const voz = await paraOggOpus(bytes);
         return enviarAnexo(
           d.conta,
@@ -1294,7 +1294,7 @@ async function comAudio(
           new Blob([new Uint8Array(voz)], { type: "audio/ogg" }),
           "audio.ogg",
           "",
-          true,
+          MARCAR_COMO_VOZ,
         );
       },
       enviarNota: (texto) => enviarNota(d, texto),

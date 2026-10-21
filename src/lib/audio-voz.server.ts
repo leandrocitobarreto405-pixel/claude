@@ -9,6 +9,14 @@
 import { spawn } from "node:child_process";
 
 export const MAX_AUDIO_ENTRADA = 10 * 1024 * 1024;
+/**
+ * Mandar ao Chatwoot com a marcação de voz (is_voice_message → "voice": true na Meta)? Vale
+ * para a barra de resposta e para a Alice. Desligada em 21/10: no iPhone o áudio com a marcação
+ * dava "não está mais disponível" mesmo na codificação do gravador do Chatwoot; sem ela, o
+ * OGG/Opus ainda sai com o ícone de microfone (regra da Meta).
+ */
+export const MARCAR_COMO_VOZ = false;
+
 /** Teto de segurança da saída (2 min a 128 kbit/s dão ~2 MB). */
 export const MAX_VOZ_SAIDA = 4 * 1024 * 1024;
 

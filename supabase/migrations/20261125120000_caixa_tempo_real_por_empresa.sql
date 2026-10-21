@@ -13,19 +13,27 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  -- Em jsonb porque o gatilho serve a duas tabelas: NEW.conversa_id não existe em conversas e
+  -- quebraria a gravação (aconteceu em 21/10: o webhook do Chatwoot parou de gravar).
+  linha jsonb := to_jsonb(NEW);
+  conversa text;
 BEGIN
-  -- Fora do Supabase (testes locais) não existe realtime.send: segue sem avisar.
-  IF to_regprocedure('realtime.send(jsonb,text,text,boolean)') IS NOT NULL THEN
-    PERFORM realtime.send(
-      jsonb_build_object(
-        'tabela', TG_TABLE_NAME,
-        'conversa_id', CASE WHEN TG_TABLE_NAME = 'whatsapp_messages' THEN NEW.conversa_id ELSE NEW.id END
-      ),
-      'mudou',
-      'empresa:' || NEW.empresa_id::text,
-      true
-    );
-  END IF;
+  -- Nunca derruba a gravação: qualquer erro aqui vira só um aviso no log.
+  BEGIN
+    conversa := CASE WHEN TG_TABLE_NAME = 'whatsapp_messages' THEN linha->>'conversa_id' ELSE linha->>'id' END;
+    -- Fora do Supabase (testes locais) não existe realtime.send: segue sem avisar.
+    IF to_regprocedure('realtime.send(jsonb,text,text,boolean)') IS NOT NULL THEN
+      PERFORM realtime.send(
+        jsonb_build_object('tabela', TG_TABLE_NAME, 'conversa_id', conversa),
+        'mudou',
+        'empresa:' || (linha->>'empresa_id'),
+        true
+      );
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'avisar_tempo_real: %', SQLERRM;
+  END;
   RETURN NULL;
 END $$;
 
