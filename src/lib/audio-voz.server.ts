@@ -7,6 +7,10 @@
  * troca o binário (testes).
  */
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export const MAX_AUDIO_ENTRADA = 10 * 1024 * 1024;
 /**
@@ -15,6 +19,13 @@ export const MAX_AUDIO_ENTRADA = 10 * 1024 * 1024;
  * marcação: ver normalizarOggOpus.)
  */
 export const MARCAR_COMO_VOZ = true;
+/**
+ * Taxa de bits da voz. O gravador do Chatwoot usa 128 kbit/s; para fala, 40 kbit/s (Opus VoIP)
+ * soa igual e o arquivo fica 3x menor (sobe mais rápido e cabe em gravações longas sem passar
+ * do limite do ícone de voz). Quadro de 60 ms, páginas de 3 s, tags limpas e pre-skip 0 ficam
+ * iguais ao arquivo que tocou no iPhone em 21/10.
+ */
+export const BITRATE_VOZ = "40k";
 
 /** Teto de segurança da saída (2 min a 128 kbit/s dão ~2 MB). */
 export const MAX_VOZ_SAIDA = 4 * 1024 * 1024;
@@ -154,9 +165,34 @@ export function normalizarOggOpus(bytes: Uint8Array, vendor = "nexa"): Uint8Arra
 /** Mantido pelo nome antigo. */
 export const limparOpusTags = normalizarOggOpus;
 
+/**
+ * Converte o que o navegador gravou (WebM/Opus, MP4/AAC…) em mensagem de voz OGG/Opus.
+ * A entrada vai para um arquivo temporário: um MP4 com o índice (moov) no fim não é legível pelo
+ * pipe e o ffmpeg devolvia um OGG só com cabeçalhos, sem erro. Saída sem áudio também é erro.
+ */
 export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<Uint8Array> {
   if (bytes.length > MAX_AUDIO_ENTRADA) throw new Error("Áudio grande demais (até 10 MB).");
   const bin = process.env["FFMPEG"] || "ffmpeg";
+  const entrada = join(tmpdir(), `voz-${process.pid}-${randomUUID()}`);
+  await writeFile(entrada, bytes);
+  try {
+    const bruto = await rodarFfmpeg(bin, entrada, tempoMs);
+    const out = normalizarOggOpus(bruto);
+    if (out.length > MAX_VOZ_SAIDA)
+      throw new Error("Áudio longo demais para mensagem de voz (até 2 min).");
+    if (!temAudio(out)) throw new Error("ffmpeg falhou: a saída ficou sem áudio.");
+    return out;
+  } finally {
+    await unlink(entrada).catch(() => undefined);
+  }
+}
+
+/** Há pelo menos uma página com amostras (granule > 0). */
+function temAudio(ogg: Uint8Array): boolean {
+  return (lerPaginas(Buffer.from(ogg)) ?? []).some((p) => p.cabecalho.readBigInt64LE(6) > 0n);
+}
+
+function rodarFfmpeg(bin: string, entrada: string, tempoMs: number): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     const p = spawn(
       bin,
@@ -165,7 +201,7 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
         "-loglevel",
         "error",
         "-i",
-        "pipe:0",
+        entrada,
         "-vn",
         "-map_metadata",
         "-1",
@@ -178,7 +214,7 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
         "-c:a",
         "libopus",
         "-b:a",
-        "128k",
+        BITRATE_VOZ,
         "-vbr",
         "on",
         "-frame_duration",
@@ -191,7 +227,7 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
         "ogg",
         "pipe:1",
       ],
-      { stdio: ["pipe", "pipe", "pipe"] },
+      { stdio: ["ignore", "pipe", "pipe"] },
     );
     const saida: Buffer[] = [];
     let erro = "";
@@ -208,12 +244,7 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
     p.on("close", (codigo) => {
       clearTimeout(timer);
       if (codigo !== 0) return reject(new Error(`ffmpeg falhou (${codigo}): ${erro.trim()}`));
-      const out = normalizarOggOpus(new Uint8Array(Buffer.concat(saida)));
-      if (out.length > MAX_VOZ_SAIDA)
-        return reject(new Error("Áudio longo demais para mensagem de voz (até 2 min)."));
-      resolve(out);
+      resolve(new Uint8Array(Buffer.concat(saida)));
     });
-    p.stdin.on("error", () => undefined);
-    p.stdin.end(Buffer.from(bytes));
   });
 }

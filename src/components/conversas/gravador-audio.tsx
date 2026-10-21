@@ -64,10 +64,12 @@ export function GravadorAudio({
         const tipo = r.mimeType || formato || "audio/webm";
         const blob = new Blob(partes.current, { type: tipo });
         const foiCancelado = cancelado.current;
+        // O envio começa antes de qualquer atualização da tela.
+        if (!foiCancelado && blob.size >= 1000) {
+          const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
+          aoGravar(new File([blob], `gravacao.${ext}`, { type: tipo }));
+        }
         limpar();
-        if (foiCancelado || blob.size < 1000) return;
-        const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
-        aoGravar(new File([blob], `gravacao.${ext}`, { type: tipo }));
       };
       rec.current = r;
       r.start(250);

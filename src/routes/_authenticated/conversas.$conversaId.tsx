@@ -11,6 +11,8 @@ import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
 import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
+import { casarEnvios, useEnviosLocais } from "@/lib/envios-locais";
+import { MidiaLocal, BalaoEnvioLocal } from "@/components/conversas/balao-envio-local";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +104,14 @@ function Conversa() {
   });
   useTempoRealConversas();
   const c = q.data;
-  const fimRef = useRolarParaOFim(c?.mensagens.length);
+  // Anexos que esta pessoa acabou de mandar: balão na hora ("enviando"), mídia local dentro do
+  // balão quando o servidor confirma, "falhou" com tentar de novo.
+  const locais = useEnviosLocais(conversaId);
+  const { porChatwootId, soltos } = casarEnvios(
+    locais,
+    (c?.mensagens ?? []).map((m) => m.chatwootId),
+  );
+  const fimRef = useRolarParaOFim(c ? c.mensagens.length + soltos.length : undefined);
   const navigate = useNavigate();
   const { papel } = usePapel();
   const podeEncerrar = papel === "admin" || papel === "atendente";
@@ -161,7 +170,7 @@ function Conversa() {
       </Card>
 
       <section aria-label="Mensagens" className="flex flex-col gap-2">
-        {c.mensagens.length === 0 ? (
+        {c.mensagens.length === 0 && soltos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma mensagem registrada ainda.</p>
         ) : (
           c.mensagens.map((m) => (
@@ -182,7 +191,11 @@ function Conversa() {
                     {ETIQUETA_REMETENTE[m.remetente]}
                   </p>
                 )}
-                <p className="break-words whitespace-pre-wrap">{m.texto}</p>
+                {m.chatwootId != null && porChatwootId.has(m.chatwootId) ? (
+                  <MidiaLocal envio={porChatwootId.get(m.chatwootId)!} />
+                ) : (
+                  <p className="break-words whitespace-pre-wrap">{m.texto}</p>
+                )}
                 <p className="mt-1 text-right text-[11px] text-muted-foreground">
                   {dateTimeBR(m.em)}
                   {m.doCliente ? null : <StatusEnvio status={m.status} minha={false} />}
@@ -194,6 +207,9 @@ function Conversa() {
             </div>
           ))
         )}
+        {soltos.map((e) => (
+          <BalaoEnvioLocal key={e.id} envio={e} />
+        ))}
         <div ref={fimRef} aria-hidden />
       </section>
 

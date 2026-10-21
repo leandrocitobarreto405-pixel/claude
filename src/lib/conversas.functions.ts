@@ -43,6 +43,10 @@ export type MensagemConversa = {
   minha: boolean;
   /** Quem mandou, para a etiqueta da bolha: cliente, Alice, você ou equipe (Chatwoot/colega). */
   remetente: "cliente" | "alice" | "voce" | "equipe";
+  /** Id da mensagem no Chatwoot (casa o balão otimista do anexo com a mensagem gravada). */
+  chatwootId: number | null;
+  /** Tipo da mensagem (Texto, Imagem, Documento, Áudio…). */
+  tipo: string | null;
 };
 
 export type ConversaCompleta = ConversaResumo & {
@@ -85,6 +89,7 @@ type LinhaMensagem = {
   erro_envio?: string | null;
   enviada_por?: string | null;
   remetente_tipo?: string | null;
+  chatwoot_message_id?: number | string | null;
   origem?: string | null;
 };
 
@@ -190,7 +195,7 @@ export const lerConversa = createServerFn({ method: "GET" })
       db
         .from("whatsapp_messages")
         .select(
-          "id, conversa_id, text_content, message_type, direction, message_timestamp, delivery_status, erro_envio, enviada_por, remetente_tipo, origem",
+          "id, conversa_id, text_content, message_type, direction, message_timestamp, delivery_status, erro_envio, enviada_por, remetente_tipo, origem, chatwoot_message_id",
         )
         .eq("conversa_id", c.id)
         .eq("privada", false)
@@ -224,6 +229,8 @@ export const lerConversa = createServerFn({ method: "GET" })
               : m.enviada_por && m.enviada_por === context.userId
                 ? "voce"
                 : "equipe",
+        chatwootId: m.chatwoot_message_id == null ? null : Number(m.chatwoot_message_id),
+        tipo: m.message_type ?? null,
       })),
     };
   });

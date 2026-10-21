@@ -3,7 +3,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { amostrasDoPacote, normalizarOggOpus, paraOggOpus } from "./audio-voz.server";
+import {
+  BITRATE_VOZ,
+  MARCAR_COMO_VOZ,
+  amostrasDoPacote,
+  normalizarOggOpus,
+  paraOggOpus,
+} from "./audio-voz.server";
 import { duracaoOggOpus } from "./alice/ogg-opus";
 
 function temFfmpeg() {
@@ -110,6 +116,16 @@ function granulesConsistentes(b: Uint8Array) {
   return true;
 }
 
+/**
+ * O que fez o áudio gravado no app tocar no iPhone (21/10/2026), para não regredir:
+ *  1. granule de cada página = amostras acumuladas (o ffmpeg herdava o início negativo do MP4 do
+ *     iPhone e deixava os granules 312 amostras curtos; o decodificador de referência recusava);
+ *  2. pre-skip 0 e número de série diferente de 0, como o gravador do Chatwoot;
+ *  3. OpusTags só com o vendor (sem "encoder=");
+ *  4. quadros de 60 ms em páginas de 3 s, mono 48 kHz, aplicação voip;
+ *  5. marcação de voz (is_voice_message) ligada no envio — MARCAR_COMO_VOZ.
+ * O bitrate caiu de 128 para 40 kbit/s em 21/10 (fala, arquivo 3x menor); o resto ficou igual.
+ */
 test(
   "WebM/Opus (Android) e MP4/AAC (iPhone) viram OGG/Opus mono",
   { skip: !temFfmpeg() },
@@ -122,7 +138,9 @@ test(
       assert.equal(h.taxa, 48000, `${f}: 48 kHz`);
       const dur = duracaoOggOpus(out);
       assert.ok(dur !== null && dur > 6.5 && dur < 7.5, `${f}: ~7 s (${dur})`);
-      assert.ok(out.length < 200_000, `${f}: ~7 s a até 128 kbit/s (${out.length} bytes)`);
+      // 7 s a 40 kbit/s ≈ 35 KB (a 128 kbit/s eram ~110 KB).
+      assert.ok(out.length < 60_000, `${f}: ~7 s a 40 kbit/s (${out.length} bytes)`);
+      assert.ok(out.length > 15_000, `${f}: não ficou vazio nem mudo (${out.length} bytes)`);
       assert.equal(Buffer.from(out).indexOf("encoder="), -1, `${f}: sem metadados extras`);
       const cab = opusHead(out);
       assert.equal(cab.preskip, 0, `${f}: pre-skip 0 como o gravador do Chatwoot`);
@@ -169,3 +187,36 @@ test(
     assert.equal(amostrasDoPacote(new Uint8Array([0xfb, 0x03])), 2880, "TOC: CELT FB 20 ms × 3");
   },
 );
+
+test("voz: 40 kbit/s e marcação de voz ligada (o que tocou no iPhone)", () => {
+  assert.equal(BITRATE_VOZ, "40k");
+  assert.equal(MARCAR_COMO_VOZ, true);
+});
+
+test("MP4 com o índice (moov) no fim também converte", { skip: !temFfmpeg() }, async () => {
+  // Gerado em arquivo, sem faststart: o moov fica no fim e não dá para ler pelo pipe.
+  const { mkdtempSync, readFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(`${tmpdir()}/voz-moov-`);
+  try {
+    execFileSync("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=440:duration=7",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      `${dir}/fim.m4a`,
+    ]);
+    const out = await paraOggOpus(new Uint8Array(readFileSync(`${dir}/fim.m4a`)));
+    const dur = duracaoOggOpus(out);
+    assert.ok(dur !== null && dur > 6.5 && dur < 7.5, `~7 s (${dur})`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

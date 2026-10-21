@@ -477,6 +477,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Correção do gatilho do tempo real; voz sem marcação         | `6995a2a`           | `bbb4b21`                |
 | 21/10/2026       | Voz: OGG normalizado (granules, pre-skip 0)                 | `ddf7900`           | `bed0829`                |
 | 21/10/2026       | Conversas: busca, ordem, encerramento automático, teste 530 | `5513402`           | `ddf7900`                |
+| 21/10/2026       | Voz a 40 kbit/s, balão otimista dos anexos, tempos          | `18aa69f`           | `a4bf278`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa

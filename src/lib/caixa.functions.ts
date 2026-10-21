@@ -310,6 +310,9 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
     if (!janelaDeResposta(e.ultimaDoCliente).aberta)
       throw new Error("Passou 24 h desde a última mensagem do cliente: anexo só dentro da janela.");
 
+    // Tempos de cada etapa (conversão, Chatwoot, registro) voltam ao app e vão ao log, sem dados
+    // do cliente, para medir onde o envio demora.
+    const t0 = performance.now();
     let bytes: Uint8Array = new Uint8Array(await arquivo.arrayBuffer());
     let nome = nomeSeguro(arquivo.name, tipo === "imagem" ? "foto.jpg" : "arquivo");
     let mime = arquivo.type.split(";")[0]!;
@@ -326,6 +329,7 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
       nome = "audio.ogg";
       mime = "audio/ogg";
     }
+    const t1 = performance.now();
     const { enviarAnexo, mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
     const { MARCAR_COMO_VOZ } = await import("@/lib/audio-voz.server");
     let id: number;
@@ -347,6 +351,16 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
       await mudarSituacao(e.conta, e.token, e.conversa.chatwoot_conversation_id, "open").catch(
         () => undefined,
       );
+    const t2 = performance.now();
     await registrarEnvio(ctx, e, id, tipo === "audio" ? "" : nome, v.tipoMensagem, situacao.reabre);
-    return { ok: true, chatwootMessageId: id };
+    const t3 = performance.now();
+    const tempos = {
+      conversaoMs: Math.round(t1 - t0),
+      chatwootMs: Math.round(t2 - t1),
+      registroMs: Math.round(t3 - t2),
+      totalMs: Math.round(t3 - t0),
+      bytes: bytes.length,
+    };
+    console.info("[caixa] anexo", { tipo, ...tempos });
+    return { ok: true, chatwootMessageId: id, tempos };
   });

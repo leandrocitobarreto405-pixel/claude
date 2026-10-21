@@ -10,6 +10,7 @@ import { MAX_TEXTO, classificarAnexo } from "@/lib/caixa";
 import { prepararFoto } from "@/lib/imagem-heic";
 import { marcarRespostaEmFoco, useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { GravadorAudio } from "@/components/conversas/gravador-audio";
+import { iniciarEnvio } from "@/lib/envios-locais";
 import {
   enviarAnexoFn,
   enviarModeloFn,
@@ -100,26 +101,35 @@ export function BarraResposta({
     }
   }
 
+  /**
+   * Anexo (áudio, foto, documento): o balão aparece na conversa na hora, como "enviando", e o
+   * envio corre por fora da barra (que continua livre). Confirmação e falha ficam no balão.
+   */
   function enviarArquivo(tipo: "imagem" | "documento" | "audio", arquivo: File) {
-    const fd = new FormData();
-    fd.append("conversaId", conversaId);
-    fd.append("tipo", tipo);
-    fd.append("arquivo", arquivo, arquivo.name);
-    void enviar(() => anexoFn({ data: fd }));
+    iniciarEnvio({
+      conversaId,
+      tipo,
+      arquivo,
+      enviar: async (original) => {
+        // Qualquer imagem vai como foto (HEIC convertido para JPG).
+        const pronto = tipo === "imagem" ? await prepararFoto(original) : original;
+        const fd = new FormData();
+        fd.append("conversaId", conversaId);
+        fd.append("tipo", tipo);
+        fd.append("arquivo", pronto, pronto.name);
+        return anexoFn({ data: fd });
+      },
+      aoTerminar: () => {
+        onEnviou();
+        void qc.invalidateQueries({ queryKey: CHAVE_ESTADO_RESPOSTA(conversaId) });
+      },
+    });
   }
 
-  /** Qualquer imagem vai como foto (HEIC convertido para JPG); o resto, como documento. */
+  /** Imagem vai como foto; o resto, como documento. */
   function escolheuArquivo(arquivo: File) {
     const tipo = classificarAnexo(arquivo.name, arquivo.type);
-    if (tipo === "documento") return enviarArquivo("documento", arquivo);
-    void enviar(async () => {
-      const foto = await prepararFoto(arquivo);
-      const fd = new FormData();
-      fd.append("conversaId", conversaId);
-      fd.append("tipo", "imagem");
-      fd.append("arquivo", foto, foto.name);
-      await anexoFn({ data: fd });
-    });
+    enviarArquivo(tipo === "documento" ? "documento" : "imagem", arquivo);
   }
 
   if (!e) return null;
@@ -235,7 +245,6 @@ export function BarraResposta({
           variante="neutro"
           tamanho="icone"
           aria-label="Enviar foto"
-          disabled={enviando}
           onClick={() => fotoRef.current?.click()}
         >
           <ImagemIcone aria-hidden />
@@ -244,13 +253,12 @@ export function BarraResposta({
           variante="neutro"
           tamanho="icone"
           aria-label="Enviar documento"
-          disabled={enviando}
           onClick={() => docRef.current?.click()}
         >
           <FileText aria-hidden />
         </Botao>
         <GravadorAudio
-          desabilitado={enviando}
+          desabilitado={false}
           aoGravar={(f) => enviarArquivo("audio", f)}
           aoMudarGravacao={setGravando}
         />
