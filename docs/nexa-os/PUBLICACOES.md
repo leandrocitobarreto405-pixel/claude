@@ -470,6 +470,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Conversas: abrir no fim, teclado, remetente, foto       | `b248490`           | `a5a8771`                |
 | 21/10/2026       | Empresa: logo/avatar, numeração de OS, PDF configurável | `83e8145`           | `705ce65`                |
 | 21/10/2026       | Caixa 2b: tempo real por empresa; voz como o Chatwoot   | `0e23814`           | `5325e8c`                |
+| 21/10/2026       | Correção do gatilho do tempo real; voz sem marcação     | `6995a2a`           | `bbb4b21`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
