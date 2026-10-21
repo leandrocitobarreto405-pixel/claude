@@ -23,6 +23,7 @@ import {
   type TipoAnexo,
 } from "@/lib/caixa";
 import type { Banco } from "@/lib/banco";
+import { exigirLivreOuMinha } from "@/lib/caixa-equipe.server";
 import type { Papel } from "@/lib/tenant";
 
 const ID = /^[0-9a-f-]{36}$/i;
@@ -47,6 +48,9 @@ type Envio = {
     status: string | null;
     whatsapp_contact_id: string | null;
     crm_lead_id: string | null;
+    assumida_por: string | null;
+    responsavel_id: number | string | null;
+    responsavel_nome: string | null;
   };
   conta: { baseUrl: string; accountId: number };
   token: string;
@@ -61,7 +65,7 @@ async function dadosDoEnvio(ctx: Contexto, conversaId: string): Promise<Envio> {
   const { data: conv } = await ctx.supabase
     .from("conversas")
     .select(
-      "id, chatwoot_conversation_id, conexao_id, inbox_id, status, whatsapp_contact_id, crm_lead_id, contato:whatsapp_contact_id ( profile_name )",
+      "id, chatwoot_conversation_id, conexao_id, inbox_id, status, whatsapp_contact_id, crm_lead_id, assumida_por, responsavel_id, responsavel_nome, contato:whatsapp_contact_id ( profile_name )",
     )
     .eq("id", conversaId)
     .eq("empresa_id", ctx.empresaId)
@@ -194,6 +198,7 @@ export const enviarTextoFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Contexto;
     const e = await dadosDoEnvio(ctx, data.conversaId);
+    await exigirLivreOuMinha(ctx.supabase, ctx.empresaId, ctx.userId, e.conversa);
     const situacao = situacaoParaResponder(e.conversa.status);
     if (!situacao.pode)
       throw new Error("Assuma a conversa antes de responder (ela está com a Alice).");
@@ -247,6 +252,7 @@ export const enviarModeloFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Contexto;
     const e = await dadosDoEnvio(ctx, data.conversaId);
+    await exigirLivreOuMinha(ctx.supabase, ctx.empresaId, ctx.userId, e.conversa);
     const situacao = situacaoParaResponder(e.conversa.status);
     if (!situacao.pode)
       throw new Error("Assuma a conversa antes de responder (ela está com a Alice).");
@@ -313,6 +319,7 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
         : Promise.resolve({ bytes: original, via: "original" as const });
     preparo.catch(() => undefined);
     const e = await dadosDoEnvio(ctx, conversaId);
+    await exigirLivreOuMinha(ctx.supabase, ctx.empresaId, ctx.userId, e.conversa);
     const situacao = situacaoParaResponder(e.conversa.status);
     if (!situacao.pode)
       throw new Error("Assuma a conversa antes de responder (ela está com a Alice).");

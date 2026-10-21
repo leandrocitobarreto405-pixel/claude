@@ -1,18 +1,29 @@
 // Barra de resposta da conversa (celular primeiro): texto dentro da janela de 24 h; fora dela, o
-// seletor de modelos aprovados. Fica presa no rodapé, acima da barra de navegação.
+// seletor de modelos aprovados. Fica presa no rodapé, acima da barra de navegação. Se a conversa
+// está com outra pessoa da equipe, qualquer toque na barra pergunta "Assumir mesmo assim?".
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Clock, FileText, Image as ImagemIcone, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Botao } from "@/components/nexa";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MAX_TEXTO, classificarAnexo } from "@/lib/caixa";
 import { prepararFoto } from "@/lib/imagem-heic";
 import { marcarRespostaEmFoco, useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { GravadorAudio } from "@/components/conversas/gravador-audio";
 import { iniciarEnvio } from "@/lib/envios-locais";
 import { podeAvisarDigitando } from "@/lib/caixa-equipe";
-import { avisarDigitandoFn } from "@/lib/caixa-equipe.functions";
+import { assumirConversaFn, avisarDigitandoFn } from "@/lib/caixa-equipe.functions";
 import {
   enviarAnexoFn,
   enviarModeloFn,
@@ -29,9 +40,14 @@ export const CHAVE_ESTADO_RESPOSTA = (id: string) => ["conversas", "resposta", i
 export function BarraResposta({
   conversaId,
   onEnviou,
+  colega = null,
+  onAssumiu,
 }: {
   conversaId: string;
   onEnviou: () => void;
+  /** Primeiro nome de quem está com a conversa, quando é outra pessoa da equipe. */
+  colega?: string | null;
+  onAssumiu?: () => void;
 }) {
   const qc = useQueryClient();
   const estadoFn = useServerFn(estadoRespostaFn);
@@ -63,6 +79,34 @@ export function BarraResposta({
   const raizRef = useRef<HTMLDivElement>(null);
   const emFoco = useRespostaEmFoco();
 
+  // Duas atendentes: com a conversa nas mãos de uma colega, a barra pergunta antes de qualquer
+  // coisa (focar, gravar, anexar, enviar) e só libera depois de assumir.
+  const assumirFn = useServerFn(assumirConversaFn);
+  const [perguntando, setPerguntando] = useState(false);
+  const [assumindo, setAssumindo] = useState(false);
+  function comColega(): boolean {
+    if (!colega) return false;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setPerguntando(true);
+    return true;
+  }
+  async function assumirAgora() {
+    setAssumindo(true);
+    try {
+      const r = await assumirFn({ data: { conversaId } });
+      toast.success(`Agora a conversa é sua (estava com ${colega}).`);
+      if (!r.noChatwoot)
+        toast.info("No Chatwoot ela fica sem responsável (você não tem usuário lá).");
+      setPerguntando(false);
+      onAssumiu?.();
+      setTimeout(() => areaRef.current?.focus(), 50);
+    } catch (err) {
+      toast.error(mensagemDeErro(err, "Não foi possível assumir.", "caixa"));
+    } finally {
+      setAssumindo(false);
+    }
+  }
+
   // Teclado aberto ou gravando: a navegação inferior some e a barra cola no teclado.
   useEffect(() => {
     if (gravando) marcarRespostaEmFoco(true);
@@ -92,6 +136,7 @@ export function BarraResposta({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gravando]);
   function focou() {
+    if (comColega()) return;
     marcarRespostaEmFoco(true);
     avisarDigitando();
   }
@@ -112,6 +157,7 @@ export function BarraResposta({
   }, [texto]);
 
   async function enviar(acao: () => Promise<unknown>) {
+    if (comColega()) return;
     setEnviando(true);
     try {
       await acao();
@@ -131,6 +177,7 @@ export function BarraResposta({
    * envio corre por fora da barra (que continua livre). Confirmação e falha ficam no balão.
    */
   function enviarArquivo(tipo: "imagem" | "documento" | "audio", arquivo: File) {
+    if (comColega()) return;
     iniciarEnvio({
       conversaId,
       tipo,
@@ -271,7 +318,7 @@ export function BarraResposta({
           variante="neutro"
           tamanho="icone"
           aria-label="Enviar foto"
-          onClick={() => fotoRef.current?.click()}
+          onClick={() => comColega() || fotoRef.current?.click()}
         >
           <ImagemIcone aria-hidden />
         </Botao>
@@ -279,15 +326,22 @@ export function BarraResposta({
           variante="neutro"
           tamanho="icone"
           aria-label="Enviar documento"
-          onClick={() => docRef.current?.click()}
+          onClick={() => comColega() || docRef.current?.click()}
         >
           <FileText aria-hidden />
         </Botao>
-        <GravadorAudio
-          desabilitado={false}
-          aoGravar={(f) => enviarArquivo("audio", f)}
-          aoMudarGravacao={setGravando}
-        />
+        <span
+          className="contents"
+          onClickCapture={(ev) => {
+            if (!gravando && comColega()) ev.stopPropagation();
+          }}
+        >
+          <GravadorAudio
+            desabilitado={false}
+            aoGravar={(f) => enviarArquivo("audio", f)}
+            aoMudarGravacao={setGravando}
+          />
+        </span>
         <textarea
           ref={areaRef}
           aria-label="Mensagem"
@@ -322,6 +376,34 @@ export function BarraResposta({
       <p className="text-[11px] text-muted-foreground">
         {enviando ? "Enviando… " : ""}Janela aberta até {dateTimeBR(e.janela.fechaEm)}.
       </p>
+      <AlertDialog
+        open={perguntando}
+        onOpenChange={(aberto) => !assumindo && setPerguntando(aberto)}
+      >
+        <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>A {colega} está nesta conversa.</AlertDialogTitle>
+            <AlertDialogDescription>
+              Assumir mesmo assim? A conversa passa para você e sai das "Minhas" de {colega}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="min-h-11" disabled={assumindo}>
+              Só olhar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="min-h-11 bg-marca text-marca-foreground hover:bg-marca/90"
+              disabled={assumindo}
+              onClick={(ev) => {
+                ev.preventDefault();
+                void assumirAgora();
+              }}
+            >
+              {assumindo ? "Assumindo…" : "Assumir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

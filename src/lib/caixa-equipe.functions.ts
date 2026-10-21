@@ -1,7 +1,7 @@
 /**
  * Caixa de entrada › equipe: assumir a conversa (Chatwoot primeiro; se falhar, nada muda e a
- * tela avisa), marcar como lida, "digitando… e lido" na Meta, ligação de cada pessoa ao seu
- * usuário do Chatwoot e o interruptor do "digitando".
+ * tela avisa), marcar como lida, "digitando… e lido" na Meta, presença na conversa (duas
+ * atendentes), ligação de cada pessoa ao seu usuário do Chatwoot e o interruptor do "digitando".
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
@@ -15,12 +15,14 @@ const validarConversa = (i: { conversaId: string }) => {
 
 type Conta = { baseUrl: string; accountId: number };
 
-async function conexaoDaConversa(conexaoId: string): Promise<{ conta: Conta; token: string }> {
+async function conexaoDaConversa(
+  conexaoId: string,
+): Promise<{ conta: Conta; token: string; botId: number | null }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const [{ data: cx }, { data: sg }] = await Promise.all([
     supabaseAdmin
       .from("chatwoot_conexoes")
-      .select("base_url, account_id, ativo")
+      .select("base_url, account_id, ativo, alice_bot_id")
       .eq("id", conexaoId)
       .maybeSingle(),
     supabaseAdmin
@@ -31,13 +33,18 @@ async function conexaoDaConversa(conexaoId: string): Promise<{ conta: Conta; tok
   ]);
   if (!cx?.ativo || !sg?.api_token)
     throw new Error("A conexão do Chatwoot desta conversa está sem token de API.");
-  return { conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) }, token: sg.api_token };
+  return {
+    conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
+    token: sg.api_token,
+    botId: cx.alice_bot_id == null ? null : Number(cx.alice_bot_id),
+  };
 }
 
 /**
  * Assumir: a conversa sai da Alice (se estava com ela) e passa a ser minha. No Chatwoot, vira
  * "open" e é atribuída ao meu usuário de lá, quando existe; sem usuário no Chatwoot, fica "sem
- * responsável" lá e minha aqui. Se o Chatwoot falhar, nada é gravado.
+ * responsável" lá (tira a atribuição de quem estava, para as duas fontes baterem) e minha aqui.
+ * Se o Chatwoot falhar, nada é gravado.
  */
 export const assumirConversaFn = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
@@ -50,7 +57,7 @@ export const assumirConversaFn = createServerFn({ method: "POST" })
     const [{ data: conv }, { data: eu }] = await Promise.all([
       db
         .from("conversas")
-        .select("id, status, chatwoot_conversation_id, conexao_id, assumida_por")
+        .select("id, status, chatwoot_conversation_id, conexao_id, assumida_por, responsavel_id")
         .eq("id", data.conversaId)
         .eq("empresa_id", context.empresaId)
         .maybeSingle(),
@@ -64,11 +71,13 @@ export const assumirConversaFn = createServerFn({ method: "POST" })
     if (!conv) throw new Error("Conversa não encontrada.");
     if (conv.status === "resolved")
       throw new Error("A conversa está encerrada. Responda para reabrir ou espere o cliente.");
-    const { conta, token } = await conexaoDaConversa(conv.conexao_id);
+    const { conta, token, botId } = await conexaoDaConversa(conv.conexao_id);
     const { atribuir, enviarMensagem, mudarSituacao } =
       await import("@/lib/alice/chatwoot-api.server");
     const cw = Number(conv.chatwoot_conversation_id);
     const agente = eu?.chatwoot_agent_id ?? null;
+    const responsavel = conv.responsavel_id == null ? null : Number(conv.responsavel_id);
+    const pessoaNoChatwoot = responsavel != null && responsavel !== botId;
     // Chatwoot primeiro: qualquer falha aqui interrompe sem mexer no app.
     if (conv.status === "pending") {
       await enviarMensagem(
@@ -81,10 +90,19 @@ export const assumirConversaFn = createServerFn({ method: "POST" })
       await mudarSituacao(conta, token, cw, "open");
     }
     if (agente != null) await atribuir(conta, token, cw, agente);
+    // Sem usuário no Chatwoot e a conversa estava com outra pessoa lá: fica "sem responsável".
+    else if (pessoaNoChatwoot && responsavel !== agente) await atribuir(conta, token, cw, null);
     const agora = new Date().toISOString();
     const { error } = await db
       .from("conversas")
-      .update({ status: "open", assumida_por: context.userId, assumida_em: agora })
+      .update({
+        status: "open",
+        assumida_por: context.userId,
+        assumida_em: agora,
+        ...(agente == null && pessoaNoChatwoot
+          ? { responsavel_id: null, responsavel_nome: null }
+          : {}),
+      })
       .eq("id", conv.id)
       .eq("empresa_id", context.empresaId);
     if (error) throw new Error("O Chatwoot aceitou, mas o app não gravou. Recarregue a tela.");
@@ -107,6 +125,32 @@ export const marcarLidaFn = createServerFn({ method: "POST" })
     );
     if (error) throw new Error("Não foi possível marcar como lida.");
     return { ok: true };
+  });
+
+/**
+ * Presença: avisa a equipe (canal da empresa no Realtime) que estou com esta conversa aberta
+ * ("aqui", renovado a cada 25 s) ou que saí. Nada vai ao cliente nem ao banco.
+ */
+export const presencaFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((i: { conversaId: string; estado: "aqui" | "saiu" }) => ({
+    ...validarConversa(i),
+    estado: i?.estado === "saiu" ? ("saiu" as const) : ("aqui" as const),
+  }))
+  .handler(async ({ data, context }) => {
+    const { data: perfil } = await context.supabase
+      .from("users_profiles")
+      .select("full_name")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const { avisarCanalDaEmpresa } = await import("@/lib/tempo-real.server");
+    const ok = await avisarCanalDaEmpresa(context.empresaId, "presenca", {
+      conversaId: data.conversaId,
+      userId: context.userId,
+      nome: perfil?.full_name || "Colega",
+      estado: data.estado,
+    });
+    return { ok };
   });
 
 /**

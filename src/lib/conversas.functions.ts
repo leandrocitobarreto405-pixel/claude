@@ -1,5 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { contarNaoLidas, ehMinha } from "@/lib/caixa-equipe";
+import {
+  contarNaoLidas,
+  desdeQuando,
+  ehMinha,
+  quemEstaCom,
+  type Eu,
+  type Posse,
+} from "@/lib/caixa-equipe";
 import type { Banco } from "@/lib/banco";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import {
@@ -40,6 +47,10 @@ export type ConversaResumo = {
   /** Quem está com a conversa: nome no Chatwoot ou quem assumiu pelo app. */
   responsavelNome: string | null;
   assumidaPor: string | null;
+  /** Quando foi assumida pelo app (a faixa "Com Maria desde HH:MM"). */
+  assumidaEm: string | null;
+  /** Com quem está: eu, outra pessoa da equipe ou ninguém (Alice e encerradas: ninguém). */
+  posse: Posse;
 };
 
 export type MensagemConversa = {
@@ -65,7 +76,7 @@ export type ConversaCompleta = ConversaResumo & {
   mensagens: MensagemConversa[];
 };
 
-const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por,
+const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em,
   contato:whatsapp_contact_id ( profile_name, display_phone, normalized_phone, ia_desligada ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
@@ -80,6 +91,7 @@ type LinhaConversa = {
   responsavel_id?: number | string | null;
   responsavel_nome?: string | null;
   assumida_por?: string | null;
+  assumida_em?: string | null;
   contato: {
     profile_name: string | null;
     display_phone: string | null;
@@ -107,8 +119,6 @@ type LinhaMensagem = {
   chatwoot_message_id?: number | string | null;
   origem?: string | null;
 };
-
-type Eu = { userId: string; chatwootAgentId: number | null };
 
 function resumir(
   c: LinhaConversa,
@@ -140,29 +150,51 @@ function resumir(
     leadId: c.crm_lead_id,
     urlChatwoot: c.url_chatwoot,
     encerradaPorTempo: c.status === "resolved" && Boolean(c.encerrada_em),
-    minha: ehMinha(
-      {
-        assumidaPor: c.assumida_por ?? null,
-        responsavelId: c.responsavel_id == null ? null : Number(c.responsavel_id),
-        grupo,
-      },
-      eu,
-    ),
+    minha: ehMinha(posseDe(c, grupo), eu),
     naoLidas,
-    responsavelNome: (c.assumida_por && nomes.get(c.assumida_por)) || c.responsavel_nome || null,
+    responsavelNome: nomeDeQuemEsta(c, nomes),
     assumidaPor: c.assumida_por ?? null,
+    assumidaEm: desdeQuando({ ...posseDe(c, grupo), assumidaEm: c.assumida_em ?? null }, eu),
+    posse: quemEstaCom(posseDe(c, grupo), eu),
   };
 }
 
-/** Meu usuário do Chatwoot nesta empresa (para "Minhas"). */
-async function quemSouEu(db: Banco, empresaId: string, userId: string): Promise<Eu> {
-  const { data } = await db
-    .from("usuarios_empresa")
-    .select("chatwoot_agent_id")
-    .eq("empresa_id", empresaId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return { userId, chatwootAgentId: data?.chatwoot_agent_id ?? null };
+function posseDe(c: LinhaConversa, grupo: string) {
+  return {
+    assumidaPor: c.assumida_por ?? null,
+    responsavelId: c.responsavel_id == null ? null : Number(c.responsavel_id),
+    grupo,
+  };
+}
+
+/** Nome de quem está com a conversa: a pessoa do Chatwoot, senão quem assumiu pelo app. */
+function nomeDeQuemEsta(c: LinhaConversa, nomes: Map<string, string>): string | null {
+  if (c.responsavel_id != null && c.responsavel_nome) return c.responsavel_nome;
+  return (c.assumida_por && nomes.get(c.assumida_por)) || c.responsavel_nome || null;
+}
+
+/** Meu usuário do Chatwoot nesta empresa (para "Minhas") e os ids da Alice (não contam como pessoa). */
+async function quemSouEu(empresaId: string, userId: string): Promise<Eu> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: vinculos }, { data: conexoes }] = await Promise.all([
+    // Ligações da equipe com o Chatwoot (pelo admin: a pessoa só enxerga o próprio vínculo).
+    supabaseAdmin
+      .from("usuarios_empresa")
+      .select("user_id, chatwoot_agent_id")
+      .eq("empresa_id", empresaId)
+      .not("chatwoot_agent_id", "is", null),
+    // As conexões são globais (sem empresa_id): são poucas, e só o id do robô interessa.
+    supabaseAdmin.from("chatwoot_conexoes").select("alice_bot_id"),
+  ]);
+  const usuarioDoAgente = new Map<number, string>();
+  for (const v of vinculos ?? [])
+    if (v.chatwoot_agent_id != null) usuarioDoAgente.set(Number(v.chatwoot_agent_id), v.user_id);
+  const botIds = (conexoes ?? [])
+    .map((c) => c.alice_bot_id)
+    .filter((id): id is number => id != null)
+    .map(Number);
+  const meuAgente = [...usuarioDoAgente].find(([, u]) => u === userId)?.[0] ?? null;
+  return { userId, chatwootAgentId: meuAgente, botIds, usuarioDoAgente };
 }
 
 /** Conversas dos últimos 7 dias, já separadas por aba. */
@@ -232,7 +264,7 @@ export const listarConversas = createServerFn({ method: "GET" })
       ...new Set(conversas.map((c) => c.assumida_por).filter(Boolean)),
     ] as string[];
     const [eu, leituras, perfis] = await Promise.all([
-      quemSouEu(db, context.empresaId, context.userId),
+      quemSouEu(context.empresaId, context.userId),
       ids.length
         ? db.from("conversas_leituras").select("conversa_id, lida_em").in("conversa_id", ids)
         : Promise.resolve({ data: [] }),
@@ -298,11 +330,21 @@ export const lerConversa = createServerFn({ method: "GET" })
         .limit(50),
     ]);
     const lista = ((msgs.data ?? []) as LinhaMensagem[]).slice().reverse();
+    const [eu, perfil] = await Promise.all([
+      quemSouEu(context.empresaId, context.userId),
+      c.assumida_por
+        ? db.from("users_profiles").select("full_name").eq("id", c.assumida_por).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const nomes = new Map<string, string>();
+    if (c.assumida_por && perfil.data?.full_name) nomes.set(c.assumida_por, perfil.data.full_name);
     const resumo = resumir(
       c,
       lista[lista.length - 1],
       ultimaPassagem(execs.data ?? []),
-      await quemSouEu(db, context.empresaId, context.userId),
+      eu,
+      0,
+      nomes,
     );
     return {
       ...resumo,

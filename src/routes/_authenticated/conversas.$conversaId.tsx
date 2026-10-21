@@ -7,11 +7,15 @@ import { CabecalhoDeTela, Card } from "@/components/nexa";
 import { AcoesConversa } from "@/components/conversas/acoes-conversa";
 import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
 import { BarraResposta } from "@/components/conversas/barra-resposta";
+import { FaixaColega } from "@/components/conversas/faixa-colega";
 import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
 import { marcarLidaFn } from "@/lib/caixa-equipe.functions";
 import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
+import { useAvisarPresenca, useColegasNaConversa } from "@/lib/presenca";
+import { primeiroNome } from "@/lib/caixa-equipe";
+import { useSession } from "@/lib/session";
 import { casarEnvios, useEnviosLocais } from "@/lib/envios-locais";
 import { MidiaLocal, BalaoEnvioLocal } from "@/components/conversas/balao-envio-local";
 import { AudioMensagem, ImagemMensagem } from "@/components/conversas/anexo-mensagem";
@@ -107,6 +111,10 @@ function Conversa() {
   });
   useTempoRealConversas();
   const c = q.data;
+  // Duas atendentes: aviso que estou aqui e vejo quem mais está (item 4).
+  useAvisarPresenca(c?.id);
+  const { user } = useSession();
+  const colegas = useColegasNaConversa(conversaId, user?.id ?? null);
   // Anexos que esta pessoa acabou de mandar: balão na hora ("enviando"), mídia local dentro do
   // balão quando o servidor confirma, "falhou" com tentar de novo.
   const locais = useEnviosLocais(conversaId);
@@ -162,6 +170,7 @@ function Conversa() {
             </span>
           </div>
         </div>
+        <FaixaColega c={c} colegas={colegas} />
         {c.passagem?.resumo ? (
           <div className="rounded-botao bg-atencao px-3 py-2.5 text-sm text-atencao-foreground">
             <p className="font-bold">A Alice passou para a equipe: {c.passagem.motivo}</p>
@@ -230,7 +239,12 @@ function Conversa() {
         <div ref={fimRef} aria-hidden />
       </section>
 
-      <BarraResposta conversaId={c.id} onEnviou={mudou} />
+      <BarraResposta
+        conversaId={c.id}
+        onEnviou={mudou}
+        colega={c.posse === "outra" ? primeiroNome(c.responsavelNome) : null}
+        onAssumiu={mudou}
+      />
     </div>
   );
 }
