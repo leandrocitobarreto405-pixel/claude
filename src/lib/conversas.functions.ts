@@ -106,11 +106,16 @@ function resumir(
     id: c.id,
     nome: c.contato?.profile_name || c.lead?.lead_name || telefone || "Cliente",
     telefone,
-    grupo: grupoDaConversa(c.status, c.aguardando_desde, ultima?.direction === "Recebida"),
+    // Sem a última mensagem carregada (conversa antiga), "aguardando" já diz que o cliente espera.
+    grupo: grupoDaConversa(
+      c.status,
+      c.aguardando_desde,
+      ultima ? ultima.direction === "Recebida" : Boolean(c.aguardando_desde),
+    ),
     esperandoDesde: c.aguardando_desde,
     ultimaEm: ultima?.message_timestamp ?? c.ultima_atividade_em,
     ultimaMensagem: ultima ? textoDaMensagem(ultima.text_content, ultima.message_type) : null,
-    ultimaDoCliente: ultima?.direction === "Recebida",
+    ultimaDoCliente: ultima ? ultima.direction === "Recebida" : Boolean(c.aguardando_desde),
     passagem,
     temperatura: c.lead?.temperature ?? null,
     etapa: c.lead?.status?.name ?? null,
@@ -126,15 +131,32 @@ export const listarConversas = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<ConversaResumo[]> => {
     const db = context.supabase;
     const desde = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    const { data, error } = await db
-      .from("conversas")
-      .select(SELECT_CONVERSA)
-      .eq("empresa_id", context.empresaId)
-      .gte("ultima_atividade_em", desde)
-      .order("ultima_atividade_em", { ascending: false })
-      .limit(150);
-    if (error) throw new Error("Não foi possível carregar as conversas.");
-    const conversas = (data ?? []) as unknown as LinhaConversa[];
+    // Últimos 7 dias; mais toda conversa com o cliente esperando resposta, por mais antiga que
+    // seja (21/10: 27 clientes esperando há mais de 7 dias ficavam fora da lista).
+    const [recentes, esperando] = await Promise.all([
+      db
+        .from("conversas")
+        .select(SELECT_CONVERSA)
+        .eq("empresa_id", context.empresaId)
+        .gte("ultima_atividade_em", desde)
+        .order("ultima_atividade_em", { ascending: false })
+        .limit(150),
+      db
+        .from("conversas")
+        .select(SELECT_CONVERSA)
+        .eq("empresa_id", context.empresaId)
+        .eq("status", "open")
+        .not("aguardando_desde", "is", null)
+        .lt("ultima_atividade_em", desde)
+        .order("ultima_atividade_em", { ascending: false })
+        .limit(100),
+    ]);
+    if (recentes.error || esperando.error)
+      throw new Error("Não foi possível carregar as conversas.");
+    const conversas = [
+      ...((recentes.data ?? []) as unknown as LinhaConversa[]),
+      ...((esperando.data ?? []) as unknown as LinhaConversa[]),
+    ];
     const ids = conversas.map((c) => c.id);
     const precisam = conversas
       .filter((c) => grupoDaConversa(c.status, c.aguardando_desde) === "precisam")
@@ -147,7 +169,6 @@ export const listarConversas = createServerFn({ method: "GET" })
             .select("id, conversa_id, text_content, message_type, direction, message_timestamp")
             .in("conversa_id", ids)
             .eq("privada", false)
-            .gte("message_timestamp", desde)
             .order("message_timestamp", { ascending: false })
             .limit(1500)
         : Promise.resolve({ data: [] }),
