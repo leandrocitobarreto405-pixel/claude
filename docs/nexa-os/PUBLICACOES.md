@@ -372,9 +372,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `trg_whatsapp_messages_reabrir`: mensagem do cliente numa conversa encerrada que estava com
   a Alice cria a tarefa "devolver_para_alice" (volta para pending e ela responde); se estava com
   a equipe, só limpa a marca (o Chatwoot já reabre como open). Nada é enviado ao cliente.
-  Primeira rodada na Turbine em 21/10 (contagem antes de ligar): 612 conversas paradas há mais
-  de 24 h, 5 de fora pela regra 1 (2 follow-ups, 3 lembretes/pós-venda), 607 a encerrar em
-  lotes de 250 a cada varredura de 5 min; depois, de hora em hora.
+  Primeira rodada na Turbine em 21/10, das 13:30 às 14:35: 609 conversas paradas há mais de
+  24 h encerradas (354 que estavam com a Alice, 255 com a equipe), em três lotes; 5 ficaram de
+  fora pela regra 1 (2 follow-ups da equipe, 3 lembretes de 13º mês aguardando aprovação). Nada
+  foi enviado ao cliente. Daí em diante, de hora em hora.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
