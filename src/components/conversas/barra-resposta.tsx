@@ -123,10 +123,12 @@ export function BarraResposta({
     ultimoDigitando.current = agora;
     void digitandoFn({ data: { conversaId } })
       .then((r) => {
-        // Erro da Meta aparece uma vez por conversa, para a equipe saber o motivo.
-        if (!r.ok && r.motivo === "meta" && !avisouFalha.current) {
+        // Falha aparece uma vez por conversa, para a equipe saber o motivo (desligado não avisa).
+        if (!r.ok && r.motivo !== "desligado" && !avisouFalha.current) {
           avisouFalha.current = true;
-          toast.error(`"Digitando…" na Meta falhou: ${r.detalhe ?? "sem detalhe"}`);
+          toast.error(
+            `"Digitando…" não foi: ${r.detalhe ?? r.motivo ?? "sem detalhe"}. Veja em Configurações › Mensagens.`,
+          );
         }
       })
       .catch(() => undefined);

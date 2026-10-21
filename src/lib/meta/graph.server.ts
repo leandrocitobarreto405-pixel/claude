@@ -179,8 +179,12 @@ export async function numerosDaConta(cx: ConexaoMeta): Promise<NumeroDaConta[]> 
  * direto na API da Meta com o token do número da empresa. O indicador some sozinho em ~25 s ou
  * quando a resposta é enviada.
  */
-export async function indicarDigitando(cx: ConexaoMeta, numeroId: string, wamid: string) {
-  await chamar(cx, "POST", `${encodeURIComponent(numeroId)}/messages`, {
+export async function indicarDigitando(
+  cx: ConexaoMeta,
+  numeroId: string,
+  wamid: string,
+): Promise<unknown> {
+  return chamar<unknown>(cx, "POST", `${encodeURIComponent(numeroId)}/messages`, {
     messaging_product: "whatsapp",
     status: "read",
     message_id: wamid,

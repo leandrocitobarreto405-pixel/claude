@@ -5,6 +5,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import type { Banco } from "@/lib/banco";
 import { CHAVE_CONFIG_CAIXA, digitandoLigado } from "@/lib/caixa-encerramento";
 
 const ID = /^[0-9a-f-]{36}$/i;
@@ -172,97 +173,165 @@ export const presencaFn = createServerFn({ method: "POST" })
  * "Digitando…" para o cliente e a última mensagem dele marcada como lida, direto na Meta com o
  * token do número da empresa. Silencioso: sem conexão Meta, desligado ou erro, só não faz nada.
  */
+/** Chave em app_settings com as últimas tentativas do "digitando…" (no lugar do log do servidor). */
+const CHAVE_LOG_DIGITANDO = "caixa_digitando_log";
+const MAX_TENTATIVAS = 15;
+
+export type TentativaDigitando = {
+  em: string;
+  conversaId: string;
+  ok: boolean;
+  motivo: string | null;
+  /** Resposta da Meta (sucesso ou erro), sem token. */
+  resposta: string | null;
+};
+
+/** Guarda a tentativa (as 15 últimas), numa chave só dela para não disputar com a configuração. */
+async function registrarTentativa(empresaId: string, t: TentativaDigitando) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", empresaId)
+      .eq("key", CHAVE_LOG_DIGITANDO)
+      .maybeSingle();
+    const antes = ((data?.value as { tentativas?: TentativaDigitando[] } | null)?.tentativas ??
+      []) as TentativaDigitando[];
+    await supabaseAdmin.from("app_settings").upsert(
+      {
+        empresa_id: empresaId,
+        key: CHAVE_LOG_DIGITANDO,
+        value: { tentativas: [t, ...antes].slice(0, MAX_TENTATIVAS) } as never,
+        updated_at: t.em,
+      },
+      { onConflict: "empresa_id,key" },
+    );
+  } catch (e) {
+    console.warn("Caixa: não gravou a tentativa do digitando:", e instanceof Error ? e.message : e);
+  }
+}
+
 export const avisarDigitandoFn = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
   .inputValidator(validarConversa)
-  .handler(
-    async ({ data, context }): Promise<{ ok: boolean; motivo?: string; detalhe?: string }> => {
-      const db = context.supabase;
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const [{ data: cfg }, { data: meta }, { data: segredo }, { data: ultima }] =
-        await Promise.all([
-          db
-            .from("app_settings")
-            .select("value")
-            .eq("empresa_id", context.empresaId)
-            .eq("key", CHAVE_CONFIG_CAIXA)
-            .maybeSingle(),
-          supabaseAdmin
-            .from("meta_conexoes")
-            .select("waba_id")
-            .eq("empresa_id", context.empresaId)
-            .maybeSingle(),
-          supabaseAdmin
-            .from("meta_conexao_segredos")
-            .select("token")
-            .eq("empresa_id", context.empresaId)
-            .maybeSingle(),
-          db
-            .from("whatsapp_messages")
-            .select("whatsapp_message_id")
-            .eq("conversa_id", data.conversaId)
-            .eq("direction", "Recebida")
-            .not("whatsapp_message_id", "is", null)
-            .order("message_timestamp", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-        ]);
-      if (!digitandoLigado(cfg?.value)) return { ok: false, motivo: "desligado" };
-      if (!meta?.waba_id || !segredo?.token) return { ok: false, motivo: "sem_meta" };
-      if (!ultima?.whatsapp_message_id) return { ok: false, motivo: "sem_mensagem" };
-      const cx = { waba: meta.waba_id, token: segredo.token };
-      try {
-        const { indicarDigitando, numerosDaConta } = await import("@/lib/meta/graph.server");
-        const valor = (cfg?.value && typeof cfg.value === "object" ? cfg.value : {}) as Record<
-          string,
-          unknown
-        >;
-        let numeroId = typeof valor["meta_numero_id"] === "string" ? valor["meta_numero_id"] : null;
-        if (!numeroId) {
-          // Primeiro uso: descobre o número da conta e guarda junto com a configuração da caixa.
-          const numeros = await numerosDaConta(cx);
-          numeroId = numeros[0]?.id ?? null;
-          if (!numeroId) return { ok: false, motivo: "sem_numero" };
-          await supabaseAdmin.from("app_settings").upsert(
-            {
-              empresa_id: context.empresaId,
-              key: CHAVE_CONFIG_CAIXA,
-              value: { ...valor, meta_numero_id: numeroId } as never,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "empresa_id,key" },
-          );
-        }
-        await indicarDigitando(cx, numeroId, ultima.whatsapp_message_id);
-        return { ok: true };
-      } catch (e) {
-        const { semToken } = await import("@/lib/meta/graph.server");
-        const detalhe = semToken(e instanceof Error ? e.message : String(e)).slice(0, 200);
-        console.warn("Caixa: digitando na Meta falhou:", detalhe);
-        return { ok: false, motivo: "meta", detalhe };
-      }
-    },
-  );
+  .handler(async ({ data, context }) => {
+    const r = await tentarDigitando(data.conversaId, context);
+    await registrarTentativa(context.empresaId, {
+      em: new Date().toISOString(),
+      conversaId: data.conversaId,
+      ok: r.ok,
+      motivo: r.motivo ?? null,
+      resposta: r.detalhe ?? null,
+    });
+    return r;
+  });
+
+async function tentarDigitando(
+  conversaId: string,
+  context: { supabase: Banco; empresaId: string },
+): Promise<{ ok: boolean; motivo?: string; detalhe?: string }> {
+  const data = { conversaId };
+  const db = context.supabase;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: cfg }, { data: meta }, { data: segredo }, { data: ultima }] = await Promise.all([
+    db
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", context.empresaId)
+      .eq("key", CHAVE_CONFIG_CAIXA)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("meta_conexoes")
+      .select("waba_id")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("meta_conexao_segredos")
+      .select("token")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle(),
+    db
+      .from("whatsapp_messages")
+      .select("whatsapp_message_id")
+      .eq("conversa_id", data.conversaId)
+      .eq("direction", "Recebida")
+      .not("whatsapp_message_id", "is", null)
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (!digitandoLigado(cfg?.value)) return { ok: false, motivo: "desligado" };
+  if (!meta?.waba_id || !segredo?.token) return { ok: false, motivo: "sem_meta" };
+  if (!ultima?.whatsapp_message_id) return { ok: false, motivo: "sem_mensagem" };
+  const cx = { waba: meta.waba_id, token: segredo.token };
+  try {
+    const { indicarDigitando, numerosDaConta } = await import("@/lib/meta/graph.server");
+    const valor = (cfg?.value && typeof cfg.value === "object" ? cfg.value : {}) as Record<
+      string,
+      unknown
+    >;
+    let numeroId = typeof valor["meta_numero_id"] === "string" ? valor["meta_numero_id"] : null;
+    if (!numeroId) {
+      // Primeiro uso: descobre o número da conta e guarda junto com a configuração da caixa.
+      const numeros = await numerosDaConta(cx);
+      numeroId = numeros[0]?.id ?? null;
+      if (!numeroId) return { ok: false, motivo: "sem_numero" };
+      await supabaseAdmin.from("app_settings").upsert(
+        {
+          empresa_id: context.empresaId,
+          key: CHAVE_CONFIG_CAIXA,
+          value: { ...valor, meta_numero_id: numeroId } as never,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "empresa_id,key" },
+      );
+    }
+    const resposta = await indicarDigitando(cx, numeroId, ultima.whatsapp_message_id);
+    return { ok: true, detalhe: JSON.stringify(resposta ?? null).slice(0, 200) };
+  } catch (e) {
+    const { semToken } = await import("@/lib/meta/graph.server");
+    const detalhe = semToken(e instanceof Error ? e.message : String(e)).slice(0, 200);
+    console.warn("Caixa: digitando na Meta falhou:", detalhe);
+    return { ok: false, motivo: "meta", detalhe };
+  }
+}
 
 export const lerDigitandoFn = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
-  .handler(async ({ context }): Promise<{ ligado: boolean; temMeta: boolean }> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: cfg }, { data: meta }] = await Promise.all([
-      context.supabase
-        .from("app_settings")
-        .select("value")
-        .eq("empresa_id", context.empresaId)
-        .eq("key", CHAVE_CONFIG_CAIXA)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("meta_conexoes")
-        .select("waba_id")
-        .eq("empresa_id", context.empresaId)
-        .maybeSingle(),
-    ]);
-    return { ligado: digitandoLigado(cfg?.value), temMeta: Boolean(meta?.waba_id) };
-  });
+  .handler(
+    async ({
+      context,
+    }): Promise<{ ligado: boolean; temMeta: boolean; tentativas: TentativaDigitando[] }> => {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: cfg }, { data: meta }, { data: log }] = await Promise.all([
+        context.supabase
+          .from("app_settings")
+          .select("value")
+          .eq("empresa_id", context.empresaId)
+          .eq("key", CHAVE_CONFIG_CAIXA)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("meta_conexoes")
+          .select("waba_id")
+          .eq("empresa_id", context.empresaId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("app_settings")
+          .select("value")
+          .eq("empresa_id", context.empresaId)
+          .eq("key", CHAVE_LOG_DIGITANDO)
+          .maybeSingle(),
+      ]);
+      const tentativas =
+        (log?.value as { tentativas?: TentativaDigitando[] } | null)?.tentativas ?? [];
+      return {
+        ligado: digitandoLigado(cfg?.value),
+        temMeta: Boolean(meta?.waba_id),
+        tentativas,
+      };
+    },
+  );
 
 export const salvarDigitandoFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
