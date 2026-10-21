@@ -515,6 +515,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas        | `fb1e008`           | `76f86a4`                |
 | 21/10/2026       | Caixa 4: duas atendentes (faixa, presença, assumir antes)          | `6705084`           | `5335ab0`                |
 | 21/10/2026       | Caixa 5: push do webhook (conversa nova, cliente respondeu)        | `b2a1fc4`           | `a4de66c`                |
+| 21/10/2026       | Conversa no iPhone: barra grudada, sem vão, sem zoom no campo      | `093a559`           | `6e5ea8a`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
