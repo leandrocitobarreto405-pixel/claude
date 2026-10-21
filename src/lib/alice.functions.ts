@@ -491,7 +491,12 @@ async function mudarConversaNoChatwoot(
     .from("conversas")
     .update(
       situacao === "pending"
-        ? { status: situacao, devolvida_para_alice_em: new Date().toISOString() }
+        ? {
+            status: situacao,
+            devolvida_para_alice_em: new Date().toISOString(),
+            assumida_por: null,
+            assumida_em: null,
+          }
         : { status: situacao },
     )
     .eq("id", conv.id);

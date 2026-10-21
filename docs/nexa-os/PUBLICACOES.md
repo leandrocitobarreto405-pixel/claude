@@ -382,10 +382,15 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   falou por último; cliente por último nunca encerra por tempo. "Encerrada por tempo" (hora em
   `encerrada_em`, só pela rotina) fica separada de "Encerrada pela equipe" (botão, sem hora).
 
-Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
-tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
-com `jsonb_to_recordset` no lugar. Se não der para evitar, avisar no topo do arquivo para rodar
-sem aceitar a sugestão de RLS.
+- "Caixa de entrada 3: assumir e não lidas" (`20261128120000`, aprovada em 21/10): só acrescenta
+  `usuarios_empresa.chatwoot_agent_id` (quem é a pessoa no Chatwoot; a Maria ficou ligada ao
+  usuário atendimento@, os demais sem ligação), `conversas.assumida_por` / `assumida_em` (quem
+  assumiu pelo app) e a tabela `conversas_leituras` (até quando cada pessoa leu cada conversa;
+  RLS: cada um só vê e grava as próprias, na empresa ativa; teste 550).
+  Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
+  tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
+  com `jsonb_to_recordset` no lugar. Se não der para evitar, avisar no topo do arquivo para rodar
+  sem aceitar a sugestão de RLS.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -496,6 +501,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Player de áudio, foto com orientação, Opus no navegador            | `2841475`           | `bf7d2f5`                |
 | 21/10/2026       | Voz: OGG cru do gravador, trava de início duplo                    | `9967f00`           | `40740f2`                |
 | 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe | `2272dd4`           | `8f98a46`                |
+| 21/10/2026       | Caixa 3: Minhas, assumir, não lidas, digitando… e lido             | `PENDENTE6`         | `c0f0ec3`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa

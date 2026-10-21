@@ -29,6 +29,12 @@ export const PADRAO_ENCERRAMENTO: ConfigEncerramento = {
 
 export const CHAVE_CONFIG_CAIXA = "caixa_entrada";
 
+/** "Digitando… e lido" na Meta: ligado por padrão (só faz algo onde há conexão Meta). */
+export function digitandoLigado(salvo: unknown): boolean {
+  const s = (salvo && typeof salvo === "object" ? salvo : {}) as Record<string, unknown>;
+  return s["digitando_meta"] !== false;
+}
+
 /** Intervalo entre rodadas por empresa. */
 export const INTERVALO_RODADA_MS = 55 * 60_000;
 

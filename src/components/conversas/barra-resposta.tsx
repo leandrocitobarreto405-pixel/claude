@@ -11,6 +11,8 @@ import { prepararFoto } from "@/lib/imagem-heic";
 import { marcarRespostaEmFoco, useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { GravadorAudio } from "@/components/conversas/gravador-audio";
 import { iniciarEnvio } from "@/lib/envios-locais";
+import { podeAvisarDigitando } from "@/lib/caixa-equipe";
+import { avisarDigitandoFn } from "@/lib/caixa-equipe.functions";
 import {
   enviarAnexoFn,
   enviarModeloFn,
@@ -67,8 +69,22 @@ export function BarraResposta({
     else if (!raizRef.current?.contains(document.activeElement)) marcarRespostaEmFoco(false);
   }, [gravando]);
   useEffect(() => () => marcarRespostaEmFoco(false), []);
+  // "Digitando…" e lido na Meta: ao focar a barra ou começar a gravar, no máximo 1x a cada 20 s.
+  const digitandoFn = useServerFn(avisarDigitandoFn);
+  const ultimoDigitando = useRef<number | null>(null);
+  function avisarDigitando() {
+    const agora = Date.now();
+    if (!podeAvisarDigitando(ultimoDigitando.current, agora)) return;
+    ultimoDigitando.current = agora;
+    void digitandoFn({ data: { conversaId } }).catch(() => undefined);
+  }
+  useEffect(() => {
+    if (gravando) avisarDigitando();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gravando]);
   function focou() {
     marcarRespostaEmFoco(true);
+    avisarDigitando();
   }
   function desfocou() {
     // Espera o foco pousar: tocar num botão da própria barra não deve fazer a navegação piscar.

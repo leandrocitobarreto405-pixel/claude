@@ -998,6 +998,40 @@ export type Database = {
           },
         ];
       };
+      conversas_leituras: {
+        Row: {
+          conversa_id: string;
+          empresa_id: string;
+          lida_em: string;
+          user_id: string;
+        };
+        Insert: {
+          conversa_id: string;
+          empresa_id: string;
+          lida_em?: string;
+          user_id: string;
+        };
+        Update: {
+          conversa_id?: string;
+          empresa_id?: string;
+          lida_em?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversas_leituras_conversa_id_fkey";
+            columns: ["conversa_id"];
+            referencedRelation: "conversas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversas_leituras_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       crm_followups: {
         Row: {
           assigned_to: string | null;
@@ -5668,6 +5702,7 @@ export type Database = {
       };
       usuarios_empresa: {
         Row: {
+          chatwoot_agent_id: number | null;
           created_at: string;
           empresa_id: string;
           id: string;
@@ -5675,6 +5710,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          chatwoot_agent_id?: number | null;
           created_at?: string;
           empresa_id?: string;
           id?: string;
@@ -5682,6 +5718,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          chatwoot_agent_id?: number | null;
           created_at?: string;
           empresa_id?: string;
           id?: string;

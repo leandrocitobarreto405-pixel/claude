@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { contarNaoLidas, ehMinha } from "@/lib/caixa-equipe";
+import type { Banco } from "@/lib/banco";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import {
   grupoDaConversa,
@@ -31,6 +33,13 @@ export type ConversaResumo = {
   urlChatwoot: string | null;
   /** Encerrada pela rotina de tempo (e não pelo botão da equipe). */
   encerradaPorTempo: boolean;
+  /** Assumida por mim (pelo app ou atribuída a mim no Chatwoot). */
+  minha: boolean;
+  /** Mensagens do cliente que eu ainda não li. */
+  naoLidas: number;
+  /** Quem está com a conversa: nome no Chatwoot ou quem assumiu pelo app. */
+  responsavelNome: string | null;
+  assumidaPor: string | null;
 };
 
 export type MensagemConversa = {
@@ -56,7 +65,7 @@ export type ConversaCompleta = ConversaResumo & {
   mensagens: MensagemConversa[];
 };
 
-const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em,
+const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por,
   contato:whatsapp_contact_id ( profile_name, display_phone, normalized_phone, ia_desligada ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
@@ -68,6 +77,9 @@ type LinhaConversa = {
   url_chatwoot: string | null;
   crm_lead_id: string | null;
   encerrada_em?: string | null;
+  responsavel_id?: number | string | null;
+  responsavel_nome?: string | null;
+  assumida_por?: string | null;
   contato: {
     profile_name: string | null;
     display_phone: string | null;
@@ -96,22 +108,28 @@ type LinhaMensagem = {
   origem?: string | null;
 };
 
+type Eu = { userId: string; chatwootAgentId: number | null };
+
 function resumir(
   c: LinhaConversa,
   ultima: LinhaMensagem | undefined,
   passagem: Passagem | null,
+  eu: Eu,
+  naoLidas = 0,
+  nomes: Map<string, string> = new Map(),
 ): ConversaResumo {
   const telefone = c.contato?.display_phone || c.contato?.normalized_phone || null;
+  const grupo = grupoDaConversa(
+    c.status,
+    c.aguardando_desde,
+    ultima ? ultima.direction === "Recebida" : Boolean(c.aguardando_desde),
+  );
   return {
     id: c.id,
     nome: c.contato?.profile_name || c.lead?.lead_name || telefone || "Cliente",
     telefone,
     // Sem a última mensagem carregada (conversa antiga), "aguardando" já diz que o cliente espera.
-    grupo: grupoDaConversa(
-      c.status,
-      c.aguardando_desde,
-      ultima ? ultima.direction === "Recebida" : Boolean(c.aguardando_desde),
-    ),
+    grupo,
     esperandoDesde: c.aguardando_desde,
     ultimaEm: ultima?.message_timestamp ?? c.ultima_atividade_em,
     ultimaMensagem: ultima ? textoDaMensagem(ultima.text_content, ultima.message_type) : null,
@@ -122,7 +140,29 @@ function resumir(
     leadId: c.crm_lead_id,
     urlChatwoot: c.url_chatwoot,
     encerradaPorTempo: c.status === "resolved" && Boolean(c.encerrada_em),
+    minha: ehMinha(
+      {
+        assumidaPor: c.assumida_por ?? null,
+        responsavelId: c.responsavel_id == null ? null : Number(c.responsavel_id),
+        grupo,
+      },
+      eu,
+    ),
+    naoLidas,
+    responsavelNome: (c.assumida_por && nomes.get(c.assumida_por)) || c.responsavel_nome || null,
+    assumidaPor: c.assumida_por ?? null,
   };
+}
+
+/** Meu usuário do Chatwoot nesta empresa (para "Minhas"). */
+async function quemSouEu(db: Banco, empresaId: string, userId: string): Promise<Eu> {
+  const { data } = await db
+    .from("usuarios_empresa")
+    .select("chatwoot_agent_id")
+    .eq("empresa_id", empresaId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return { userId, chatwootAgentId: data?.chatwoot_agent_id ?? null };
 }
 
 /** Conversas dos últimos 7 dias, já separadas por aba. */
@@ -182,9 +222,30 @@ export const listarConversas = createServerFn({ method: "GET" })
         : Promise.resolve({ data: [] }),
     ]);
     const ultimaPorConversa = new Map<string, LinhaMensagem>();
+    const msgsPorConversa = new Map<string, LinhaMensagem[]>();
     for (const m of (msgs.data ?? []) as LinhaMensagem[]) {
       if (!ultimaPorConversa.has(m.conversa_id)) ultimaPorConversa.set(m.conversa_id, m);
+      msgsPorConversa.set(m.conversa_id, [...(msgsPorConversa.get(m.conversa_id) ?? []), m]);
     }
+    // Minhas e não lidas: meu usuário do Chatwoot, minhas leituras e os nomes de quem assumiu.
+    const assumidas = [
+      ...new Set(conversas.map((c) => c.assumida_por).filter(Boolean)),
+    ] as string[];
+    const [eu, leituras, perfis] = await Promise.all([
+      quemSouEu(db, context.empresaId, context.userId),
+      ids.length
+        ? db.from("conversas_leituras").select("conversa_id, lida_em").in("conversa_id", ids)
+        : Promise.resolve({ data: [] }),
+      assumidas.length
+        ? db.from("users_profiles").select("id, full_name").in("id", assumidas)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const lidaEm = new Map<string, string>();
+    for (const l of (leituras.data ?? []) as Array<{ conversa_id: string; lida_em: string }>)
+      lidaEm.set(l.conversa_id, l.lida_em);
+    const nomes = new Map<string, string>();
+    for (const p of (perfis.data ?? []) as Array<{ id: string; full_name: string | null }>)
+      if (p.full_name) nomes.set(p.id, p.full_name);
     const execsPorConversa = new Map<string, { ferramentas: unknown }[]>();
     for (const e of (execs.data ?? []) as Array<{ conversa_id: string; ferramentas: unknown }>) {
       execsPorConversa.set(e.conversa_id, [...(execsPorConversa.get(e.conversa_id) ?? []), e]);
@@ -194,6 +255,9 @@ export const listarConversas = createServerFn({ method: "GET" })
         c,
         ultimaPorConversa.get(c.id),
         precisam.includes(c.id) ? ultimaPassagem(execsPorConversa.get(c.id) ?? []) : null,
+        eu,
+        contarNaoLidas(msgsPorConversa.get(c.id) ?? [], lidaEm.get(c.id)),
+        nomes,
       ),
     );
   });
@@ -234,7 +298,12 @@ export const lerConversa = createServerFn({ method: "GET" })
         .limit(50),
     ]);
     const lista = ((msgs.data ?? []) as LinhaMensagem[]).slice().reverse();
-    const resumo = resumir(c, lista[lista.length - 1], ultimaPassagem(execs.data ?? []));
+    const resumo = resumir(
+      c,
+      lista[lista.length - 1],
+      ultimaPassagem(execs.data ?? []),
+      await quemSouEu(db, context.empresaId, context.userId),
+    );
     return {
       ...resumo,
       iaDesligadaNoCliente: Boolean(c.contato?.ia_desligada),

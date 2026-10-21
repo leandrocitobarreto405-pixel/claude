@@ -10,6 +10,7 @@ import { BarraResposta } from "@/components/conversas/barra-resposta";
 import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
+import { marcarLidaFn } from "@/lib/caixa-equipe.functions";
 import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
 import { casarEnvios, useEnviosLocais } from "@/lib/envios-locais";
 import { MidiaLocal, BalaoEnvioLocal } from "@/components/conversas/balao-envio-local";
@@ -114,6 +115,16 @@ function Conversa() {
     (c?.mensagens ?? []).map((m) => m.chatwootId),
   );
   const fimRef = useRolarParaOFim(c ? c.mensagens.length + soltos.length : undefined);
+  // Abrir (e cada mensagem nova enquanto aberta) marca a conversa como lida para mim.
+  const marcarLida = useServerFn(marcarLidaFn);
+  const totalMensagens = c?.mensagens.length ?? 0;
+  useEffect(() => {
+    if (!c) return;
+    void marcarLida({ data: { conversaId } })
+      .then(() => qc.invalidateQueries({ queryKey: ["conversas", "lista"] }))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversaId, totalMensagens, Boolean(c)]);
   const navigate = useNavigate();
   const { papel } = usePapel();
   const podeEncerrar = papel === "admin" || papel === "atendente";

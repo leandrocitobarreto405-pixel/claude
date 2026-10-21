@@ -18,18 +18,26 @@ import { cn } from "@/lib/utils";
 
 export const CHAVE_CONVERSAS = ["conversas", "lista"] as const;
 
-const ABAS: { id: GrupoConversa; rotulo: string; vazio: string }[] = [
+/** Abas: os grupos da conversa mais "Minhas" (as que eu assumi, em qualquer grupo aberto). */
+type Aba = GrupoConversa | "minhas";
+
+const ABAS: { id: Aba; rotulo: string; vazio: string }[] = [
   {
     id: "precisam",
     rotulo: "Precisam",
     vazio: "Nenhum cliente esperando a equipe. A Alice está dando conta.",
   },
-  { id: "alice", rotulo: "Com a Alice", vazio: "Nenhuma conversa com a Alice agora." },
+  {
+    id: "minhas",
+    rotulo: "Minhas",
+    vazio: "Nenhuma conversa assumida por você. Toque em Assumir dentro de uma conversa.",
+  },
+  { id: "alice", rotulo: "Alice", vazio: "Nenhuma conversa com a Alice agora." },
   { id: "equipe", rotulo: "Equipe", vazio: "Nenhuma conversa com a equipe nos últimos 7 dias." },
   {
     id: "finalizadas",
-    rotulo: "Finalizadas",
-    vazio: "Nenhuma conversa finalizada nos últimos 7 dias.",
+    rotulo: "Encerradas",
+    vazio: "Nenhuma conversa encerrada nos últimos 7 dias.",
   },
 ];
 
@@ -37,7 +45,7 @@ export const Route = createFileRoute("/_authenticated/conversas/")({
   validateSearch: (search: Record<string, unknown>) => {
     const aba = String(search["aba"] ?? "");
     return {
-      aba: ABAS.some((a) => a.id === aba) ? (aba as GrupoConversa) : undefined,
+      aba: ABAS.some((a) => a.id === aba) ? (aba as Aba) : undefined,
     };
   },
   head: () => ({ meta: [{ title: "Conversas — Nexa OS" }] }),
@@ -62,12 +70,15 @@ function Conversas() {
   });
   const [busca, setBusca] = useState("");
   const porGrupo = useMemo(() => {
-    const m = new Map<GrupoConversa, ConversaResumo[]>();
+    const m = new Map<Aba, ConversaResumo[]>();
     // Em toda aba, a conversa com mensagem mais recente primeiro.
     const ordenadas = [...(q.data ?? [])].sort((a, b) =>
       (b.ultimaEm ?? "").localeCompare(a.ultimaEm ?? ""),
     );
-    for (const c of ordenadas) m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]);
+    for (const c of ordenadas) {
+      m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]);
+      if (c.minha) m.set("minhas", [...(m.get("minhas") ?? []), c]);
+    }
     return m;
   }, [q.data]);
   // Busca por nome ou telefone (só dígitos), em todas as abas de uma vez.
@@ -85,7 +96,7 @@ function Conversas() {
   }, [q.data, busca]);
 
   const precisam = porGrupo.get("precisam")?.length ?? 0;
-  const [aba, setAba] = useState<GrupoConversa>(
+  const [aba, setAba] = useState<Aba>(
     search.aba ?? (precisam > 0 || !q.data ? "precisam" : "alice"),
   );
   const atual = ABAS.find((a) => a.id === aba)!;
@@ -163,11 +174,13 @@ function Conversas() {
       <div
         role="tablist"
         aria-label="Conversas"
-        className="grid grid-cols-4 gap-1 rounded-botao bg-muted p-1"
+        className="grid grid-cols-5 gap-1 rounded-botao bg-muted p-1"
       >
         {ABAS.map((t) => {
           const sel = t.id === aba;
-          const n = porGrupo.get(t.id)?.length ?? 0;
+          const lista = porGrupo.get(t.id) ?? [];
+          // Contador: mensagens do cliente que eu ainda não li, somadas na aba.
+          const n = lista.reduce((soma, c) => soma + c.naoLidas, 0);
           return (
             <button
               key={t.id}
@@ -179,14 +192,14 @@ function Conversas() {
                 sairDaSelecao();
               }}
               className={cn(
-                "relative flex min-h-11 items-center justify-center gap-1 rounded-[0.625rem] px-1 text-[13px] leading-tight",
+                "relative flex min-h-11 items-center justify-center gap-1 rounded-[0.625rem] px-0.5 text-[12px] leading-tight",
                 sel
                   ? "bg-card font-bold text-marca shadow-sm"
                   : "font-medium text-muted-foreground",
               )}
             >
               {t.rotulo}
-              {t.id === "precisam" && n > 0 ? <BadgeAlerta numero={n} /> : null}
+              {n > 0 ? <BadgeAlerta numero={n} rotulo={`${n} não lidas`} /> : null}
             </button>
           );
         })}

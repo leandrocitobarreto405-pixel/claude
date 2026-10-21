@@ -74,6 +74,14 @@ export function enviarAnexo(
   });
 }
 
+/** Atribui a conversa a um agente (null = sem responsável). */
+export function atribuir(conta: Conta, token: string, conversa: number, agente: number | null) {
+  return chamar(conta, token, `/conversations/${conversa}/assignments`, {
+    method: "POST",
+    body: { assignee_id: agente },
+  });
+}
+
 /** "open" = atendimento humano; "pending" = com o robô. */
 export function mudarSituacao(
   conta: Conta,

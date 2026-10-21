@@ -173,3 +173,17 @@ export async function numerosDaConta(cx: ConexaoMeta): Promise<NumeroDaConta[]> 
   );
   return r.data ?? [];
 }
+
+/**
+ * "Digitando…" para o cliente e a última mensagem dele marcada como lida (os dois ticks azuis),
+ * direto na API da Meta com o token do número da empresa. O indicador some sozinho em ~25 s ou
+ * quando a resposta é enviada.
+ */
+export async function indicarDigitando(cx: ConexaoMeta, numeroId: string, wamid: string) {
+  await chamar(cx, "POST", `${encodeURIComponent(numeroId)}/messages`, {
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: wamid,
+    typing_indicator: { type: "text" },
+  });
+}

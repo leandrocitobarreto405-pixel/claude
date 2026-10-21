@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ScrollText } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Mensagem, MensagemNota } from "@/components/configuracoes/mensagens";
+import { DigitandoMeta } from "@/components/configuracoes/digitando-meta";
 import { EncerramentoAutomatico } from "@/components/configuracoes/encerramento-automatico";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")({
@@ -14,6 +15,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")(
         descricao="Textos aprovados pela Meta e rascunhos"
         icone={ScrollText}
       />
+      <SecaoConfig titulo="Conversas: digitando… e lido (Meta)">
+        <DigitandoMeta />
+      </SecaoConfig>
       <SecaoConfig titulo="Conversas: encerramento automático">
         <EncerramentoAutomatico />
       </SecaoConfig>

@@ -13,6 +13,7 @@ import { dateBR } from "@/lib/format";
 import { useSalespeople, useTechnicians } from "@/lib/data";
 import { useMinhaEmpresa, type Papel } from "@/lib/tenant";
 import { convidarPorEmailFn, type ResultadoConvite } from "@/lib/convite.functions";
+import { agentesChatwootFn, ligarAgenteChatwootFn } from "@/lib/caixa-equipe.functions";
 import { enviarFotoTecnico } from "@/lib/equipe-fotos";
 import { useServerFn } from "@tanstack/react-start";
 import { AcoesConvite } from "@/components/usuarios/acoes-convite";
@@ -61,7 +62,7 @@ export function Acessos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("usuarios_empresa")
-        .select("id, user_id, papel, created_at")
+        .select("id, user_id, papel, created_at, chatwoot_agent_id")
         .eq("empresa_id", empresaId!)
         .order("created_at");
       if (error) throw error;
@@ -338,6 +339,13 @@ export function Acessos() {
                 {admin && (m.papel === "tecnico" || m.papel === "atendente") ? (
                   <CadastroDoLogin userId={m.user_id} papel={m.papel} aoMudar={recarregarTudo} />
                 ) : null}
+                {admin && m.papel !== "tecnico" ? (
+                  <UsuarioNoChatwoot
+                    vinculoId={m.id}
+                    atual={m.chatwoot_agent_id ?? null}
+                    aoMudar={recarregarTudo}
+                  />
+                ) : null}
               </div>
             ))}
           </div>
@@ -455,6 +463,60 @@ function CadastroDoLogin({
           <option key={c.id} value={c.id}>
             {c.name}
             {c.active ? "" : " (inativo)"}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Quem é esta pessoa no Chatwoot. Com a ligação, assumir pelo app atribui lá e o que ela assume
+ * no Chatwoot aparece em "Minhas" aqui. Sem ligação, assumir pelo app deixa a conversa "sem
+ * responsável" no Chatwoot (a meta é ninguém mais precisar de conta lá).
+ */
+function UsuarioNoChatwoot({
+  vinculoId,
+  atual,
+  aoMudar,
+}: {
+  vinculoId: string;
+  atual: number | null;
+  aoMudar: () => void;
+}) {
+  const agentesFn = useServerFn(agentesChatwootFn);
+  const ligarFn = useServerFn(ligarAgenteChatwootFn);
+  const agentes = useQuery({ queryKey: ["agentes_chatwoot"], queryFn: () => agentesFn() });
+  const [ocupado, setOcupado] = useState(false);
+  const lista = agentes.data ?? [];
+  if (!lista.length) return null;
+  return (
+    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      Usuário no Chatwoot
+      <select
+        aria-label="Usuário no Chatwoot"
+        className="min-h-11 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+        value={atual ?? ""}
+        disabled={ocupado}
+        onChange={(e) => {
+          setOcupado(true);
+          const agenteId = e.target.value ? Number(e.target.value) : null;
+          void ligarFn({ data: { vinculoId, agenteId } })
+            .then(() => {
+              toast.success(agenteId ? "Ligação com o Chatwoot salva." : "Ligação removida.");
+              aoMudar();
+            })
+            .catch((err) =>
+              toast.error(err instanceof Error ? err.message : "Não foi possível salvar."),
+            )
+            .finally(() => setOcupado(false));
+        }}
+      >
+        <option value="">Sem ligação (assume só pelo app)</option>
+        {lista.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.nome}
+            {a.email ? ` · ${a.email}` : ""}
           </option>
         ))}
       </select>

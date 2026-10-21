@@ -3,7 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Bot, ExternalLink, Hand, MessageCircle } from "lucide-react";
 import { Botao } from "@/components/nexa";
-import { devolverParaAlice, pararAliceNaConversa } from "@/lib/alice.functions";
+import { devolverParaAlice } from "@/lib/alice.functions";
+import { assumirConversaFn } from "@/lib/caixa-equipe.functions";
 import type { ConversaCompleta } from "@/lib/conversas.functions";
 import { whatsappLink } from "@/lib/format";
 
@@ -13,7 +14,7 @@ import { whatsappLink } from "@/lib/format";
  * Chatwoot for trocado pela API oficial do WhatsApp.
  */
 export function AcoesConversa({ c, onMudou }: { c: ConversaCompleta; onMudou: () => void }) {
-  const pararFn = useServerFn(pararAliceNaConversa);
+  const assumirFn = useServerFn(assumirConversaFn);
   const devolverFn = useServerFn(devolverParaAlice);
   const [ocupado, setOcupado] = useState(false);
   const whats = whatsappLink(c.telefone);
@@ -57,21 +58,31 @@ export function AcoesConversa({ c, onMudou }: { c: ConversaCompleta; onMudou: ()
           </Botao>
         )}
       </div>
-      {c.grupo === "alice" ? (
+      {c.grupo !== "finalizadas" && !c.minha ? (
         <Botao
           variante="neutro"
           larguraTotal
           disabled={ocupado}
           onClick={() =>
             void executar(
-              () => pararFn({ data: { conversaId: c.id } }),
-              "Pronto: a Alice saiu da conversa. Agora é com a equipe.",
+              () =>
+                assumirFn({ data: { conversaId: c.id } }).then((r) => {
+                  if (!r.noChatwoot)
+                    toast.info("No Chatwoot ela fica sem responsável (você não tem usuário lá).");
+                }),
+              c.grupo === "alice"
+                ? "Pronto: a Alice saiu e a conversa é sua."
+                : c.responsavelNome
+                  ? `Agora é sua (estava com ${c.responsavelNome.split(" ")[0]}).`
+                  : "Agora a conversa é sua.",
             )
           }
         >
-          <Hand /> {ocupado ? "Assumindo…" : "Assumir a conversa"}
+          <Hand />{" "}
+          {ocupado ? "Assumindo…" : c.grupo === "alice" ? "Assumir a conversa" : "Assumir para mim"}
         </Botao>
-      ) : c.grupo !== "finalizadas" ? (
+      ) : null}
+      {c.grupo !== "finalizadas" && c.grupo !== "alice" ? (
         <Botao
           variante="neutro"
           larguraTotal

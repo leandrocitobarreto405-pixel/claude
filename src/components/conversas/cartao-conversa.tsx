@@ -35,18 +35,32 @@ export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
     );
   }
   if (c.grupo === "precisam") {
-    return c.passagem?.posVenda ? (
-      <Chip tom="problema">Pós-venda</Chip>
-    ) : c.passagem ? (
-      <Chip tom="atencao" className="max-w-full truncate">
-        {c.passagem.motivo}
-      </Chip>
-    ) : (
-      <Chip tom="atencao">Esperando resposta</Chip>
+    return (
+      <>
+        {c.passagem?.posVenda ? (
+          <Chip tom="problema">Pós-venda</Chip>
+        ) : c.passagem ? (
+          <Chip tom="atencao" className="max-w-full truncate">
+            {c.passagem.motivo}
+          </Chip>
+        ) : (
+          <Chip tom="atencao">Esperando resposta</Chip>
+        )}
+        {c.minha ? (
+          <Chip tom="sucesso">Com você</Chip>
+        ) : c.responsavelNome ? (
+          <Chip tom="neutro">Com {c.responsavelNome.split(" ")[0]}</Chip>
+        ) : null}
+      </>
     );
   }
   return (
     <>
+      {c.minha ? (
+        <Chip tom="sucesso">Com você</Chip>
+      ) : c.responsavelNome ? (
+        <Chip tom="neutro">Com {c.responsavelNome.split(" ")[0]}</Chip>
+      ) : null}
       {c.temperatura === "QUENTE" ? <Chip tom="problema">Quente</Chip> : null}
       {c.etapa ? <Chip tom="neutro">{c.etapa}</Chip> : null}
     </>
@@ -96,6 +110,14 @@ export function CartaoConversa({
           >
             {haQuanto(c.ultimaEm, agora)}
           </span>
+          {c.naoLidas > 0 ? (
+            <span
+              aria-label={`${c.naoLidas} não lidas`}
+              className="grid min-h-6 min-w-6 shrink-0 place-items-center rounded-full bg-marca px-1.5 text-[11px] font-bold text-marca-foreground"
+            >
+              {c.naoLidas > 99 ? "99+" : c.naoLidas}
+            </span>
+          ) : null}
         </span>
         {espera ? (
           <span
