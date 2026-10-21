@@ -329,6 +329,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - Cadastro da Ecoprime (dado, aprovado em 20/10): Carol e Maria marcadas como atendentes da Nexa
   (`salespeople.atendente_nexa` false → true; percentual 5% sem mudança). Nenhuma estrutura mudou.
   Para voltar: desmarcar "atendente da Nexa" nas duas em Configurações › Equipe.
+- "Caixa de entrada, item 1" (`20261123120000`, aplicada em 21/10): só acréscimos —
+  `whatsapp_messages.enviada_por` e `erro_envio`, `conversas.assumida_por`, `assumida_em` e
+  `lida_por` (vazio), índice por conversa/hora. Nenhum dado muda; o Chatwoot continua recebendo
+  tudo pelo webhook. Para voltar: o app anterior ignora as colunas.
 - Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões
   lança despesas "Comissões" com `reference_key` `comissao:<vendedora>:<mês>` (índice único já
   existente impede duplicar); essas despesas ficam fora das despesas do DRE.

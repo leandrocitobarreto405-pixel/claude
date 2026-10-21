@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { CabecalhoDeTela, Card } from "@/components/nexa";
 import { AcoesConversa } from "@/components/conversas/acoes-conversa";
 import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
+import { BarraResposta } from "@/components/conversas/barra-resposta";
 import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
@@ -113,6 +114,8 @@ function Conversa() {
           ))
         )}
       </section>
+
+      <BarraResposta conversaId={c.id} onEnviou={mudou} />
     </div>
   );
 }

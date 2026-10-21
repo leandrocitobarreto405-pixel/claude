@@ -797,6 +797,9 @@ export type Database = {
         Row: {
           aguardando_desde: string | null;
           alice_so_texto_em: string | null;
+          assumida_em: string | null;
+          assumida_por: string | null;
+          lida_por: Json;
           atualizado_chatwoot_em: string | null;
           chatwoot_conversation_id: number;
           conexao_id: string;
@@ -821,6 +824,9 @@ export type Database = {
         Insert: {
           aguardando_desde?: string | null;
           alice_so_texto_em?: string | null;
+          assumida_em?: string | null;
+          assumida_por?: string | null;
+          lida_por?: Json;
           atualizado_chatwoot_em?: string | null;
           chatwoot_conversation_id: number;
           conexao_id: string;
@@ -844,6 +850,9 @@ export type Database = {
         Update: {
           aguardando_desde?: string | null;
           alice_so_texto_em?: string | null;
+          assumida_em?: string | null;
+          assumida_por?: string | null;
+          lida_por?: Json;
           atualizado_chatwoot_em?: string | null;
           chatwoot_conversation_id?: number;
           conexao_id?: string;
@@ -5984,6 +5993,8 @@ export type Database = {
           crm_lead_id: string | null;
           delivery_status: string | null;
           direction: string;
+          enviada_por: string | null;
+          erro_envio: string | null;
           empresa_id: string;
           id: string;
           media_id: string | null;
@@ -6011,6 +6022,8 @@ export type Database = {
           crm_lead_id?: string | null;
           delivery_status?: string | null;
           direction?: string;
+          enviada_por?: string | null;
+          erro_envio?: string | null;
           empresa_id?: string;
           id?: string;
           media_id?: string | null;
@@ -6038,6 +6051,8 @@ export type Database = {
           crm_lead_id?: string | null;
           delivery_status?: string | null;
           direction?: string;
+          enviada_por?: string | null;
+          erro_envio?: string | null;
           empresa_id?: string;
           id?: string;
           media_id?: string | null;
