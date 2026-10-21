@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Search, X } from "lucide-react";
 import { BadgeAlerta, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { CartaoAlice } from "@/components/conversas/cartao-alice";
 import { CartaoConversa } from "@/components/conversas/cartao-conversa";
@@ -60,25 +60,36 @@ function Conversas() {
     queryFn: () => resumoFn(),
     refetchInterval: 60_000,
   });
+  const [busca, setBusca] = useState("");
   const porGrupo = useMemo(() => {
     const m = new Map<GrupoConversa, ConversaResumo[]>();
-    for (const c of q.data ?? []) m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]);
-    // Quem espera há mais tempo primeiro.
-    m.set(
-      "precisam",
-      (m.get("precisam") ?? []).sort((a, b) =>
-        (a.esperandoDesde ?? "").localeCompare(b.esperandoDesde ?? ""),
-      ),
+    // Em toda aba, a conversa com mensagem mais recente primeiro.
+    const ordenadas = [...(q.data ?? [])].sort((a, b) =>
+      (b.ultimaEm ?? "").localeCompare(a.ultimaEm ?? ""),
     );
+    for (const c of ordenadas) m.set(c.grupo, [...(m.get(c.grupo) ?? []), c]);
     return m;
   }, [q.data]);
+  // Busca por nome ou telefone (só dígitos), em todas as abas de uma vez.
+  const encontradas = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return null;
+    const digitos = termo.replace(/\D/g, "");
+    return [...(q.data ?? [])]
+      .filter(
+        (c) =>
+          c.nome.toLowerCase().includes(termo) ||
+          (digitos.length >= 3 && (c.telefone ?? "").replace(/\D/g, "").includes(digitos)),
+      )
+      .sort((a, b) => (b.ultimaEm ?? "").localeCompare(a.ultimaEm ?? ""));
+  }, [q.data, busca]);
 
   const precisam = porGrupo.get("precisam")?.length ?? 0;
   const [aba, setAba] = useState<GrupoConversa>(
     search.aba ?? (precisam > 0 || !q.data ? "precisam" : "alice"),
   );
   const atual = ABAS.find((a) => a.id === aba)!;
-  const itens = porGrupo.get(aba) ?? [];
+  const itens = encontradas ?? porGrupo.get(aba) ?? [];
   const agora = new Date();
   const { papel } = usePapel();
   const { data: tenant } = useContextoTenant();
@@ -116,6 +127,32 @@ function Conversas() {
       />
 
       {papel === "admin" ? <EncerrarParadas /> : null}
+
+      <label className="relative block">
+        <span className="sr-only">Buscar por nome ou telefone</span>
+        <Search
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+        <input
+          type="search"
+          inputMode="search"
+          placeholder="Buscar por nome ou telefone"
+          value={busca}
+          onChange={(ev) => setBusca(ev.target.value)}
+          className="min-h-11 w-full rounded-[22px] border border-input bg-card pr-10 pl-9 text-[15px] focus-visible:ring-2 focus-visible:ring-marca focus-visible:outline-none"
+        />
+        {busca ? (
+          <button
+            type="button"
+            aria-label="Limpar busca"
+            onClick={() => setBusca("")}
+            className="absolute top-1/2 right-1 grid size-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        ) : null}
+      </label>
 
       <div
         role="tablist"
@@ -162,7 +199,11 @@ function Conversas() {
           <span className="grid size-12 place-items-center rounded-full bg-marca-claro text-marca">
             <MessageCircle className="size-6" aria-hidden />
           </span>
-          <p className="max-w-xs text-sm text-muted-foreground">{atual.vazio}</p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            {encontradas
+              ? "Nenhuma conversa dos últimos 7 dias com esse nome ou telefone."
+              : atual.vazio}
+          </p>
           {empresaAberta && outrasEmpresas.length ? (
             <div className="flex flex-col items-center gap-2 pt-2">
               <p className="text-xs text-muted-foreground">

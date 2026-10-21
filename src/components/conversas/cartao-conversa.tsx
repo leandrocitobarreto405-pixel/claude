@@ -86,9 +86,10 @@ export function CartaoConversa({
               espera ? "font-bold text-atencao-foreground" : "text-muted-foreground",
             )}
           >
-            {espera
-              ? `esperando ${haQuanto(c.esperandoDesde, agora)}`
-              : haQuanto(c.ultimaEm, agora)}
+            {haQuanto(c.ultimaEm, agora)}
+            {espera && c.esperandoDesde !== c.ultimaEm
+              ? ` · esperando ${haQuanto(c.esperandoDesde, agora)}`
+              : ""}
           </span>
         </span>
         {c.ultimaMensagem ? (

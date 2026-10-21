@@ -69,7 +69,7 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
 type ParaEncerrar = { id: string; chatwoot_conversation_id: number | string; conexao_id: string };
 
 /** Encerra no Chatwoot e marca como resolvida (lotes paralelos de 5). */
-async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: string, origem: string) {
+export async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: string, origem: string) {
   if (!lista.length) return { encerradas: 0, falhas: 0 };
   const { dbServico, log } = await import("@/lib/mkt/contexto.server");
   const { mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ScrollText } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Mensagem, MensagemNota } from "@/components/configuracoes/mensagens";
+import { EncerramentoAutomatico } from "@/components/configuracoes/encerramento-automatico";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")({
   head: () => ({ meta: [{ title: "Configurações: mensagens — Nexa OS" }] }),
@@ -13,6 +14,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")(
         descricao="Textos aprovados pela Meta e rascunhos"
         icone={ScrollText}
       />
+      <SecaoConfig titulo="Conversas: encerramento automático">
+        <EncerramentoAutomatico />
+      </SecaoConfig>
       <SecaoConfig titulo="Mensagem padrão" aberta>
         <div className="grid gap-6">
           <Mensagem />

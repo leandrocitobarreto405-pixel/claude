@@ -33,6 +33,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Alice: falha no pós-atendimento", e);
             return null;
           });
+          // Encerramento automático de conversas paradas (cada empresa liga em Configurações).
+          const { rodarEncerramentoAutomatico } = await import("@/lib/caixa-encerramento.server");
+          const encerramento = await rodarEncerramentoAutomatico().catch((e) => {
+            console.error("Conversas: falha no encerramento automático", e);
+            return null;
+          });
           // Leads do site: planilhas das LPs, quem chamou, avisos só no app (envio desligado).
           const { rodarLeadsSite } = await import("@/lib/leads-site.server");
           const leadsSite = await rodarLeadsSite().catch((e) => {
@@ -73,6 +79,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             });
           return json({
             ok: true,
+            encerramento,
             ...fila,
             anuncios,
             posAtendimento,
