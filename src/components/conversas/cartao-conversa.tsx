@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Check, User } from "lucide-react";
 import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
 import { Chip } from "@/components/nexa";
-import { haQuanto, iniciais } from "@/lib/conversas";
+import { haQuanto, iniciais, semRespostaHaMuito } from "@/lib/conversas";
 import type { ConversaResumo } from "@/lib/conversas.functions";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,16 @@ export function Avatar({ nome, className }: { nome: string; className?: string }
 
 /** Etiqueta da conversa: motivo da passagem, temperatura/etapa do lead ou situação. */
 export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
+  if (c.grupo === "finalizadas") {
+    return (
+      <>
+        <Chip tom="neutro">
+          {c.encerradaPorTempo ? "Encerrada por tempo" : "Encerrada pela equipe"}
+        </Chip>
+        {c.etapa ? <Chip tom="sucesso">{c.etapa}</Chip> : null}
+      </>
+    );
+  }
   if (c.grupo === "precisam") {
     return c.passagem?.posVenda ? (
       <Chip tom="problema">Pós-venda</Chip>
@@ -38,9 +48,7 @@ export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
   return (
     <>
       {c.temperatura === "QUENTE" ? <Chip tom="problema">Quente</Chip> : null}
-      {c.etapa ? (
-        <Chip tom={c.grupo === "finalizadas" ? "sucesso" : "neutro"}>{c.etapa}</Chip>
-      ) : null}
+      {c.etapa ? <Chip tom="neutro">{c.etapa}</Chip> : null}
     </>
   );
 }
@@ -87,11 +95,20 @@ export function CartaoConversa({
             )}
           >
             {haQuanto(c.ultimaEm, agora)}
-            {espera && c.esperandoDesde !== c.ultimaEm
-              ? ` · esperando ${haQuanto(c.esperandoDesde, agora)}`
-              : ""}
           </span>
         </span>
+        {espera ? (
+          <span
+            className={cn(
+              "text-xs font-bold",
+              semRespostaHaMuito(c.esperandoDesde, agora)
+                ? "text-problema-foreground"
+                : "text-atencao-foreground",
+            )}
+          >
+            sem resposta {haQuanto(c.esperandoDesde, agora)}
+          </span>
+        ) : null}
         {c.ultimaMensagem ? (
           <span className="line-clamp-2 text-sm text-muted-foreground">
             {c.ultimaDoCliente ? "" : "Enviada: "}

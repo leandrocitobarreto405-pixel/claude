@@ -29,6 +29,8 @@ export type ConversaResumo = {
   etapa: string | null;
   leadId: string | null;
   urlChatwoot: string | null;
+  /** Encerrada pela rotina de tempo (e não pelo botão da equipe). */
+  encerradaPorTempo: boolean;
 };
 
 export type MensagemConversa = {
@@ -54,7 +56,7 @@ export type ConversaCompleta = ConversaResumo & {
   mensagens: MensagemConversa[];
 };
 
-const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id,
+const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em,
   contato:whatsapp_contact_id ( profile_name, display_phone, normalized_phone, ia_desligada ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
@@ -65,6 +67,7 @@ type LinhaConversa = {
   ultima_atividade_em: string | null;
   url_chatwoot: string | null;
   crm_lead_id: string | null;
+  encerrada_em?: string | null;
   contato: {
     profile_name: string | null;
     display_phone: string | null;
@@ -113,6 +116,7 @@ function resumir(
     etapa: c.lead?.status?.name ?? null,
     leadId: c.crm_lead_id,
     urlChatwoot: c.url_chatwoot,
+    encerradaPorTempo: c.status === "resolved" && Boolean(c.encerrada_em),
   };
 }
 

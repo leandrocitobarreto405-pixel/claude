@@ -1,6 +1,9 @@
 /**
- * Encerramento automático de conversas (regras puras, sem banco): conversa sem mensagem há N
- * horas vai para Encerradas no Nexa e "resolved" no Chatwoot. Regras:
+ * Encerramento automático de conversas (regras puras, sem banco): conversa em que a EMPRESA
+ * (equipe ou Alice) falou por último e o cliente não respondeu em N horas vai para Encerradas no
+ * Nexa e "resolved" no Chatwoot. Regras:
+ *  0. conversa com o cliente falando por último NUNCA é encerrada por tempo: fica em "Precisam"
+ *     com "sem resposta há X h" destacado (21/10: 48 clientes esperando foram encerrados);
  *  1. conversa com follow-up, lembrete, pós-venda ou campanha agendados e ainda não enviados
  *     (ou com tarefa da Alice pendente) NÃO encerra até sair;
  *  2. ao reabrir por mensagem do cliente, volta para quem estava com ela (Alice ou equipe) e
@@ -103,6 +106,8 @@ export type Candidata = {
 };
 
 export type Pendencias = {
+  /** Conversas em que a última mensagem é do cliente (ele espera resposta). */
+  clientePorUltimo: Iterable<string>;
   /** Follow-ups pendentes (da Alice ou da equipe): por conversa ou por lead. */
   followups: Array<{ conversa_id: string | null; crm_lead_id: string | null }>;
   /** Envios de marketing ainda não enviados (lembretes 6 m/13º mês, pós-venda, campanhas). */
@@ -116,13 +121,13 @@ export type Pendencias = {
 
 export type Selecao<T extends Candidata> = {
   encerrar: T[];
-  /** Quantas ficaram de fora pela regra 1 e por quê. */
-  protegidas: { total: number; followup: number; envio: number; tarefa: number };
+  /** Quantas ficaram de fora e por quê (cliente = regra 0; o resto, regra 1). */
+  protegidas: { total: number; cliente: number; followup: number; envio: number; tarefa: number };
   /** O lote encheu (vieram tantas candidatas quanto o limite): ainda há fila. */
   lotada: boolean;
 };
 
-/** Regra 1: separa as que podem encerrar das que têm algo agendado e ainda não enviado. */
+/** Regras 0 e 1: separa as que podem encerrar das que têm o cliente esperando ou algo agendado. */
 export function aplicarRegra1<T extends Candidata>(
   candidatas: T[],
   p: Pendencias,
@@ -138,9 +143,15 @@ export function aplicarRegra1<T extends Candidata>(
       .map(String),
   );
   const conversasComTarefa = new Set(p.tarefas.map((t) => t.conversa_id).filter(Boolean));
-  const protegidas = { total: 0, followup: 0, envio: 0, tarefa: 0 };
+  const clientePorUltimo = new Set(p.clientePorUltimo);
+  const protegidas = { total: 0, cliente: 0, followup: 0, envio: 0, tarefa: 0 };
   const encerrar: T[] = [];
   for (const c of candidatas) {
+    if (clientePorUltimo.has(c.id)) {
+      protegidas.total++;
+      protegidas.cliente++;
+      continue;
+    }
     const followup =
       conversasComFollowup.has(c.id) ||
       (c.crm_lead_id != null && leadsComFollowup.has(c.crm_lead_id));

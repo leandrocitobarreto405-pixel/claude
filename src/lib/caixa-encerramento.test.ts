@@ -63,6 +63,7 @@ test("regra 1: follow-up, lembrete/pós-venda/campanha ou tarefa pendente proteg
     c("c6", { crm_lead_id: "lead-6", normalized_phone: null }),
   ];
   const sel = aplicarRegra1(candidatas, {
+    clientePorUltimo: [],
     followups: [
       { conversa_id: "c1", crm_lead_id: "lead-x" },
       { conversa_id: null, crm_lead_id: "lead-2" },
@@ -77,11 +78,15 @@ test("regra 1: follow-up, lembrete/pós-venda/campanha ou tarefa pendente proteg
     sel.encerrar.map((x) => x.id),
     ["c6"],
   );
-  assert.deepEqual(sel.protegidas, { total: 5, followup: 2, envio: 2, tarefa: 1 });
+  assert.deepEqual(sel.protegidas, { total: 5, cliente: 0, followup: 2, envio: 2, tarefa: 1 });
   assert.equal(sel.lotada, false);
   // Lote cheio conta pelas candidatas, não pelas que sobraram para encerrar (21/10: 250
   // candidatas, 2 protegidas, 248 encerradas e a rodada parou por 55 min sem precisar).
-  const cheio = aplicarRegra1(candidatas, { followups: [], envios: [], tarefas: [] }, 6);
+  const cheio = aplicarRegra1(
+    candidatas,
+    { clientePorUltimo: [], followups: [], envios: [], tarefas: [] },
+    6,
+  );
   assert.equal(cheio.lotada, true);
 });
 
@@ -89,4 +94,40 @@ test("regra 2: quem estava com a conversa", () => {
   assert.equal(encerradaDe("pending"), "alice");
   assert.equal(encerradaDe("open"), "equipe");
   assert.equal(encerradaDe(null), "equipe");
+});
+
+test("regra 0: cliente por último nunca encerra; empresa por último encerra após o prazo", () => {
+  const c = (id: string, status = "open") => ({
+    id,
+    status,
+    crm_lead_id: null,
+    chatwoot_conversation_id: 1,
+    normalized_phone: null,
+  });
+  // As candidatas já passaram do prazo (consulta por ultima_atividade_em < limite).
+  const sel = aplicarRegra1(
+    [
+      c("cliente-equipe"),
+      c("cliente-alice", "pending"),
+      c("empresa-equipe"),
+      c("empresa-alice", "pending"),
+    ],
+    {
+      clientePorUltimo: ["cliente-equipe", "cliente-alice"],
+      followups: [],
+      envios: [],
+      tarefas: [],
+    },
+  );
+  assert.deepEqual(
+    sel.encerrar.map((x) => x.id),
+    ["empresa-equipe", "empresa-alice"],
+    "só quem teve a empresa falando por último",
+  );
+  assert.deepEqual(sel.protegidas, { total: 2, cliente: 2, followup: 0, envio: 0, tarefa: 0 });
+  // Dentro do prazo nada é candidata: o limite é pela hora da última atividade.
+  assert.equal(
+    limiteParada({ ligado: true, horas: 24, incluirAlice: true }, new Date("2026-10-21T12:00:00Z")),
+    "2026-10-20T12:00:00.000Z",
+  );
 });

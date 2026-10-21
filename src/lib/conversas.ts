@@ -74,6 +74,12 @@ export function textoDaMensagem(texto: string | null, tipo: string | null): stri
   return "(mídia)";
 }
 
+/** Cliente esperando resposta há mais de 24 h (destaque no cartão). */
+export function semRespostaHaMuito(desde: string | null, agora = new Date(), horas = 24): boolean {
+  if (!desde) return false;
+  return agora.getTime() - new Date(desde).getTime() >= horas * 3_600_000;
+}
+
 /** Tipo de mensagem (message_type) é áudio / imagem. */
 export function ehAudio(tipo: string | null): boolean {
   const t = (tipo ?? "").toLowerCase();

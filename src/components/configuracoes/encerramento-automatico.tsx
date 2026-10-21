@@ -72,6 +72,11 @@ export function EncerramentoAutomatico() {
         </p>
         <ul className="list-disc space-y-0.5 pl-5">
           <li>
+            Só encerra quando a empresa (equipe ou Alice) falou por último e o cliente não respondeu
+            no prazo. Cliente falando por último nunca é encerrado por tempo: fica em Precisam com
+            "sem resposta há X h".
+          </li>
+          <li>
             Conversa com follow-up, lembrete, pós-venda ou campanha agendados e ainda não enviados
             não encerra até sair.
           </li>
@@ -115,9 +120,10 @@ export function EncerramentoAutomatico() {
             {previa.protegidas.total ? (
               <>
                 {" "}
-                Ficam de fora {previa.protegidas.total} com algo agendado (
-                {previa.protegidas.followup} follow-up, {previa.protegidas.envio}{" "}
-                lembrete/pós-venda/campanha, {previa.protegidas.tarefa} tarefa da Alice).
+                Ficam de fora {previa.protegidas.total}: {previa.protegidas.cliente} com o cliente
+                esperando resposta, {previa.protegidas.followup} com follow-up,{" "}
+                {previa.protegidas.envio} com lembrete/pós-venda/campanha e{" "}
+                {previa.protegidas.tarefa} com tarefa da Alice.
               </>
             ) : null}
           </span>

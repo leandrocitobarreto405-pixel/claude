@@ -123,7 +123,8 @@ export async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: strin
           status: "resolved",
           aguardando_desde: null,
           encerrada_de: encerradaDe(c.status),
-          encerrada_em: agora,
+          // "Encerrada por tempo" (rotina) x "pela equipe" (botão): só a rotina marca a hora.
+          encerrada_em: origem === "automatico" ? agora : null,
         })
         .eq("id", c.id)
         .eq("empresa_id", empresaId);

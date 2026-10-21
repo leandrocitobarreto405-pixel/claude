@@ -89,7 +89,13 @@ function Conversas() {
     search.aba ?? (precisam > 0 || !q.data ? "precisam" : "alice"),
   );
   const atual = ABAS.find((a) => a.id === aba)!;
-  const itens = encontradas ?? porGrupo.get(aba) ?? [];
+  // Encerradas: por tempo (rotina) ou pela equipe (botão).
+  const [filtroEncerradas, setFiltroEncerradas] = useState<"todas" | "tempo" | "equipe">("todas");
+  const itensDaAba = encontradas ?? porGrupo.get(aba) ?? [];
+  const itens =
+    aba === "finalizadas" && filtroEncerradas !== "todas"
+      ? itensDaAba.filter((c) => c.encerradaPorTempo === (filtroEncerradas === "tempo"))
+      : itensDaAba;
   const agora = new Date();
   const { papel } = usePapel();
   const { data: tenant } = useContextoTenant();
@@ -185,6 +191,33 @@ function Conversas() {
           );
         })}
       </div>
+
+      {aba === "finalizadas" && !encontradas ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtro das encerradas">
+          {(
+            [
+              ["todas", "Todas"],
+              ["tempo", "Por tempo"],
+              ["equipe", "Pela equipe"],
+            ] as const
+          ).map(([id, rotulo]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={filtroEncerradas === id}
+              onClick={() => setFiltroEncerradas(id)}
+              className={cn(
+                "min-h-11 rounded-full border px-4 text-sm",
+                filtroEncerradas === id
+                  ? "border-marca bg-marca-claro font-bold text-marca"
+                  : "border-border bg-card text-muted-foreground",
+              )}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {q.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>

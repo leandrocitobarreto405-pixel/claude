@@ -73,11 +73,15 @@ export async function selecionarParaEncerrar(
   if (!candidatas.length)
     return {
       encerrar: [],
-      protegidas: { total: 0, followup: 0, envio: 0, tarefa: 0 },
+      protegidas: { total: 0, cliente: 0, followup: 0, envio: 0, tarefa: 0 },
       lotada: false,
     };
 
-  const [followups, envios, tarefas] = await Promise.all([
+  const [clientePorUltimo, followups, envios, tarefas] = await Promise.all([
+    conversasComClientePorUltimo(
+      db,
+      candidatas.map((c) => c.id),
+    ),
     db
       .from("crm_followups")
       .select("conversa_id, crm_lead_id, lead:crm_lead_id!inner ( empresa_id )")
@@ -99,12 +103,41 @@ export async function selecionarParaEncerrar(
   return aplicarRegra1(
     candidatas,
     {
+      clientePorUltimo,
       followups: followups.data ?? [],
       envios: envios.data ?? [],
       tarefas: tarefas.data ?? [],
     },
     limite,
   );
+}
+
+/**
+ * Regra 0: quais conversas têm o cliente falando por último (uma consulta leve por conversa,
+ * em lotes de 10; índice por conversa e hora).
+ */
+async function conversasComClientePorUltimo(db: Db, ids: string[]): Promise<string[]> {
+  const resultado: string[] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    const lote = ids.slice(i, i + 10);
+    const ultimas = await Promise.all(
+      lote.map((id) =>
+        db
+          .from("whatsapp_messages")
+          .select("direction")
+          .eq("conversa_id", id)
+          .eq("privada", false)
+          .order("message_timestamp", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ),
+    );
+    ultimas.forEach((r: { data: { direction: string } | null; error: unknown }, k: number) => {
+      if (r.error) throw new Error("última mensagem: falha ao consultar");
+      if (r.data?.direction === "Recebida") resultado.push(lote[k]!);
+    });
+  }
+  return resultado;
 }
 
 export async function rodarEncerramentoAutomatico(agora = new Date()): Promise<ResumoEncerramento> {

@@ -37,7 +37,7 @@ export type PreviaEncerramento = {
   alice: number;
   total: number;
   /** Ficam de fora pela regra 1 (follow-up, lembrete, pós-venda, campanha ou tarefa pendente). */
-  protegidas: { total: number; followup: number; envio: number; tarefa: number };
+  protegidas: { total: number; cliente: number; followup: number; envio: number; tarefa: number };
 };
 
 /** Quantas conversas a regra pegaria agora (equipe e, se marcado, Alice) e quantas ficam de fora. */
