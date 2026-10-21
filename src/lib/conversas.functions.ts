@@ -51,6 +51,8 @@ export type ConversaResumo = {
   assumidaEm: string | null;
   /** Com quem está: eu, outra pessoa da equipe ou ninguém (Alice e encerradas: ninguém). */
   posse: Posse;
+  /** Nome do perfil do WhatsApp quando difere do nome confirmado (só referência). */
+  nomePerfil: string | null;
 };
 
 export type MensagemConversa = {
@@ -76,8 +78,8 @@ export type ConversaCompleta = ConversaResumo & {
   mensagens: MensagemConversa[];
 };
 
-const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em,
-  contato:whatsapp_contact_id ( profile_name, display_phone, normalized_phone, ia_desligada ),
+const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado,
+  contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone, normalized_phone, ia_desligada ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
 type LinhaConversa = {
@@ -92,8 +94,10 @@ type LinhaConversa = {
   responsavel_nome?: string | null;
   assumida_por?: string | null;
   assumida_em?: string | null;
+  nome_confirmado?: string | null;
   contato: {
     profile_name: string | null;
+    nome_confirmado?: string | null;
     display_phone: string | null;
     normalized_phone: string | null;
     ia_desligada: boolean | null;
@@ -136,7 +140,15 @@ function resumir(
   );
   return {
     id: c.id,
-    nome: c.contato?.profile_name || c.lead?.lead_name || telefone || "Cliente",
+    // Nome confirmado (o cliente disse, perfil aceito, cadastro) vem antes do nome do perfil.
+    nome:
+      c.nome_confirmado ||
+      c.contato?.nome_confirmado ||
+      c.contato?.profile_name ||
+      c.lead?.lead_name ||
+      telefone ||
+      "Cliente",
+    nomePerfil: perfilDeReferencia(c),
     telefone,
     // Sem a última mensagem carregada (conversa antiga), "aguardando" já diz que o cliente espera.
     grupo,
@@ -157,6 +169,13 @@ function resumir(
     assumidaEm: desdeQuando({ ...posseDe(c, grupo), assumidaEm: c.assumida_em ?? null }, eu),
     posse: quemEstaCom(posseDe(c, grupo), eu),
   };
+}
+
+/** Nome do perfil do WhatsApp, só quando é diferente do nome confirmado (referência na tela). */
+function perfilDeReferencia(c: LinhaConversa): string | null {
+  const confirmado = c.nome_confirmado || c.contato?.nome_confirmado;
+  const perfil = c.contato?.profile_name?.trim() || null;
+  return confirmado && perfil && perfil !== confirmado ? perfil : null;
 }
 
 function posseDe(c: LinhaConversa, grupo: string) {

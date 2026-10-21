@@ -813,6 +813,9 @@ export type Database = {
           etiquetas: string[];
           id: string;
           inbox_id: number | null;
+          nome_confirmado: string | null;
+          nome_confirmado_origem: string | null;
+          nome_perguntas: number;
           primeira_resposta_em: string | null;
           responsavel_id: number | null;
           responsavel_nome: string | null;
@@ -842,6 +845,9 @@ export type Database = {
           etiquetas?: string[];
           id?: string;
           inbox_id?: number | null;
+          nome_confirmado?: string | null;
+          nome_confirmado_origem?: string | null;
+          nome_perguntas?: number;
           primeira_resposta_em?: string | null;
           responsavel_id?: number | null;
           responsavel_nome?: string | null;
@@ -870,6 +876,9 @@ export type Database = {
           etiquetas?: string[];
           id?: string;
           inbox_id?: number | null;
+          nome_confirmado?: string | null;
+          nome_confirmado_origem?: string | null;
+          nome_perguntas?: number;
           primeira_resposta_em?: string | null;
           responsavel_id?: number | null;
           responsavel_nome?: string | null;
@@ -5962,6 +5971,9 @@ export type Database = {
           id: string;
           is_existing_customer: boolean;
           last_contact_at: string;
+          nome_confirmado: string | null;
+          nome_confirmado_em: string | null;
+          nome_confirmado_origem: string | null;
           last_message_at: string | null;
           normalized_phone: string;
           origem: string;
@@ -5984,6 +5996,9 @@ export type Database = {
           id?: string;
           is_existing_customer?: boolean;
           last_contact_at?: string;
+          nome_confirmado?: string | null;
+          nome_confirmado_em?: string | null;
+          nome_confirmado_origem?: string | null;
           last_message_at?: string | null;
           normalized_phone: string;
           origem?: string;
@@ -6006,6 +6021,9 @@ export type Database = {
           id?: string;
           is_existing_customer?: boolean;
           last_contact_at?: string;
+          nome_confirmado?: string | null;
+          nome_confirmado_em?: string | null;
+          nome_confirmado_origem?: string | null;
           last_message_at?: string | null;
           normalized_phone?: string;
           origem?: string;

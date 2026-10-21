@@ -795,6 +795,19 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
     for (const id of visitIds) await syncEvent("visit", id);
   }).catch((e) => console.error("Alice: agenda Google não sincronizada", e));
 
+  // Nome completo da OS vale como nome confirmado, se o cliente ainda não tinha um.
+  const { nomeDaOs } = await import("./nome.server");
+  await nomeDaOs(
+    ctx.admin,
+    {
+      empresaId: ctx.empresaId,
+      conversaId: ctx.conversaId,
+      contatoId: ctx.contatoId,
+      leadId: ctx.leadId,
+    },
+    input.nome_completo,
+  ).catch((e) => console.error("Alice: nome da OS não gravado", e));
+
   // 8. Aviso à equipe (Avisos no app e notificação no celular).
   const aviso = avisoAgendamento({
     cliente: input.nome_completo,

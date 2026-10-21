@@ -33,6 +33,7 @@ import {
 } from "./prompt";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
+import { primeiroNomeLimpo } from "./nome";
 
 type Admin = SupabaseClient<Database>;
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
@@ -46,6 +47,9 @@ const MAX_MENSAGENS_POR_RESPOSTA = 10;
 const MAX_BYTES_IMAGEM = 4_500_000;
 const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 /** Modelos que aceitam o fallback automático do servidor quando recusam ("default"). */
+/** Regra do nome do cliente (nome confirmado x perfil), para todas as empresas. */
+const REGRA_NOME = true;
+
 export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
 export const SEM_SISTEMA_NO_MEIO = ["claude-sonnet-5"];
@@ -411,6 +415,7 @@ async function contextoLead(
       resumo: l.summary,
       etapa: l.status?.name ?? null,
       clienteExistente: Boolean(l.customer_id),
+      clienteId: l.customer_id,
       semPosVenda,
       cupomCitado,
     } satisfies ContextoLead,
@@ -824,7 +829,10 @@ async function conversar(
   // Confirmação ou pós-venda da Alice esperando resposta nesta conversa.
   const { posPendente, instrucoesPos } = await import("./pos-resposta.server");
   const pos = ehFollowup ? null : await posPendente(db, tarefa.empresa_id, d.conversa);
-  const ferramentas = ferramentasDisponiveis(cfg, etapas, { posAtendimento: Boolean(pos) });
+  const ferramentas = ferramentasDisponiveis(cfg, etapas, {
+    posAtendimento: Boolean(pos),
+    regraNome: REGRA_NOME,
+  });
   const [empresa, { lead, salesperson }, hist] = await Promise.all([
     contextoEmpresa(
       db,
@@ -837,6 +845,23 @@ async function conversar(
   ]);
   const turnos = montarTurnos(hist.mensagens, avisoFollowup ?? undefined);
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
+  empresa.regraNome = REGRA_NOME;
+  // Nome do cliente: confirmado (contato/conversa/cadastro) x nome do perfil.
+  const nomeCliente = REGRA_NOME
+    ? await (
+        await import("./nome.server")
+      ).situacaoDoNome(
+        db,
+        tarefa.empresa_id,
+        d.conversa.id,
+        d.conversa.whatsapp_contact_id,
+        lead?.clienteId ?? null,
+      )
+    : null;
+  if (lead && nomeCliente) lead.nomeCliente = nomeCliente;
+  const nomeParaChamar = nomeCliente
+    ? primeiroNomeLimpo(nomeCliente.confirmado)
+    : (lead?.nome ?? null);
 
   const ctx: ContextoFerramenta = {
     admin: db,
@@ -859,7 +884,10 @@ async function conversar(
   // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
   // automático (top-level), que avança a cada rodada. A hora e os dados do lead mudam a cada
   // resposta, então ficam DEPOIS da conversa (mensagem de sistema no fim), para não quebrar o cache.
-  const momento = [instrucoesDoMomento(new Date(), lead), pos ? instrucoesPos(pos) : null]
+  const momento = [
+    instrucoesDoMomento(new Date(), lead, lead ? null : nomeCliente),
+    pos ? instrucoesPos(pos) : null,
+  ]
     .filter(Boolean)
     .join("\n");
   const momentoNoMeio = !SEM_SISTEMA_NO_MEIO.includes(cfg.modelo);
@@ -927,7 +955,7 @@ async function conversar(
     // ferramentas pediram (enviar_mensagem, vídeo, áudio), na ordem das chamadas.
     for (const b of resposta.content) {
       if (b.type !== "text" || !b.text.trim()) continue;
-      if (textoInterno(b.text, lead?.nome)) retidos.push(b.text.trim());
+      if (textoInterno(b.text, nomeParaChamar)) retidos.push(b.text.trim());
       else saida.push({ tipo: "texto", texto: b.text.trim() });
     }
     const chamadas = resposta.content.filter(

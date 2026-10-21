@@ -187,14 +187,19 @@ async function contatoDoTelefone(db: Db, empresaId: string, fone: string) {
   const chave = chaveTelefone(fone);
   const { data } = await db
     .from("whatsapp_contacts")
-    .select("id, ia_desligada, normalized_phone")
+    .select("id, ia_desligada, normalized_phone, nome_confirmado")
     .eq("empresa_id", empresaId)
     .like("normalized_phone", `%${fone.slice(-8)}`)
     .limit(10);
   return (
-    ((data ?? []) as Array<{ id: string; ia_desligada: boolean; normalized_phone: string }>).find(
-      (c) => chaveTelefone(c.normalized_phone) === chave,
-    ) ?? null
+    (
+      (data ?? []) as Array<{
+        id: string;
+        ia_desligada: boolean;
+        normalized_phone: string;
+        nome_confirmado: string | null;
+      }>
+    ).find((c) => chaveTelefone(c.normalized_phone) === chave) ?? null
   );
 }
 
@@ -313,7 +318,8 @@ async function enviarUm(
   if (!(await reservar(db, cfg.empresa_id, tipo, c, "enviado", null))) return "pulado";
 
   // Variáveis: nome e janela (confirmação); nome, link, técnico e estofado (pós-venda).
-  const nome = primeiroNome(c.cliente) || "tudo bem";
+  // Nome confirmado do contato (o cliente disse / perfil aceito); senão, o da OS.
+  const nome = primeiroNome(contato?.nome_confirmado || c.cliente) || "tudo bem";
   let vars: string[];
   let semLink = false;
   if (tipo === "confirmacao") {

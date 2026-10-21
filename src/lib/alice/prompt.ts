@@ -90,6 +90,8 @@ export type ContextoLead = {
   resumo: string | null;
   etapa: string | null;
   clienteExistente: boolean;
+  /** Cliente cadastrado ligado ao lead (para o nome do cadastro). */
+  clienteId?: string | null;
   semPosVenda: boolean;
   /** Cupom cadastrado citado na primeira mensagem do cliente (ex.: BLOG50). */
   cupomCitado?: string | null;
@@ -166,7 +168,12 @@ ${c.perguntasFrequentes.trim() || "(nenhuma cadastrada)"}`;
 }
 
 /** Parte variável: data/hora e o que já se sabe do lead (fica fora do cache). */
-export function instrucoesDoMomento(agora: Date, lead: ContextoLead | null): string {
+export function instrucoesDoMomento(
+  agora: Date,
+  lead: ContextoLead | null,
+  /** Nome do cliente quando a conversa não tem lead no CRM. */
+  nomeSemLead?: SituacaoNome | null,
+): string {
   const data = agora.toLocaleString("pt-BR", {
     timeZone: "America/Sao_Paulo",
     weekday: "long",
@@ -199,6 +206,8 @@ export function instrucoesDoMomento(agora: Date, lead: ContextoLead | null): str
         : null,
     ].filter(Boolean);
     linhas.push(`Sobre este cliente: ${dados.join("; ")}.`);
+  } else if (nomeSemLead) {
+    linhas.push(`Sobre este cliente: ${linhaDoNome(nomeSemLead)}.`);
   }
   return linhas.join("\n");
 }

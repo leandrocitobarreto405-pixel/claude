@@ -65,7 +65,7 @@ async function dadosDoEnvio(ctx: Contexto, conversaId: string): Promise<Envio> {
   const { data: conv } = await ctx.supabase
     .from("conversas")
     .select(
-      "id, chatwoot_conversation_id, conexao_id, inbox_id, status, whatsapp_contact_id, crm_lead_id, assumida_por, responsavel_id, responsavel_nome, contato:whatsapp_contact_id ( profile_name )",
+      "id, chatwoot_conversation_id, conexao_id, inbox_id, status, whatsapp_contact_id, crm_lead_id, assumida_por, responsavel_id, responsavel_nome, nome_confirmado, contato:whatsapp_contact_id ( profile_name, nome_confirmado )",
     )
     .eq("id", conversaId)
     .eq("empresa_id", ctx.empresaId)
@@ -95,12 +95,16 @@ async function dadosDoEnvio(ctx: Contexto, conversaId: string): Promise<Envio> {
   ]);
   if (!cx?.ativo || !sg?.api_token)
     throw new Error("A conexão do Chatwoot desta conversa está sem token de API.");
-  const contato = conv.contato as { profile_name: string | null } | null;
+  const contato = conv.contato as {
+    profile_name: string | null;
+    nome_confirmado: string | null;
+  } | null;
   return {
     conversa: conv,
     conta: { baseUrl: cx.base_url, accountId: Number(cx.account_id) },
     token: sg.api_token,
-    primeiroNome: primeiroNomeDoContato(contato?.profile_name),
+    // Modelos da barra: só com nome confirmado (o do perfil pode não ser nome de pessoa).
+    primeiroNome: primeiroNomeDoContato(conv.nome_confirmado || contato?.nome_confirmado),
     ultimaDoCliente: ultima?.message_timestamp ?? null,
   };
 }

@@ -31,7 +31,7 @@ export async function avisarEquipeMensagemNova(
     db
       .from("conversas")
       .select(
-        "status, aguardando_desde, assumida_por, responsavel_id, contato:whatsapp_contact_id ( profile_name, display_phone )",
+        "status, aguardando_desde, assumida_por, responsavel_id, contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone )",
       )
       .eq("id", ids.conversaId)
       .maybeSingle(),
@@ -50,6 +50,7 @@ export async function avisarEquipeMensagemNova(
   if (!msg || !conv) return { enviados: 0 };
   const contato = conv.contato as {
     profile_name: string | null;
+    nome_confirmado: string | null;
     display_phone: string | null;
   } | null;
   const usuarioDoAgente = new Map<number, string>();
@@ -70,7 +71,8 @@ export async function avisarEquipeMensagemNova(
     direction: msg.direction,
     privada: Boolean(msg.privada),
     texto: textoDaMensagem(msg.text_content, msg.message_type),
-    clienteNome: contato?.profile_name || contato?.display_phone || "Cliente",
+    clienteNome:
+      contato?.nome_confirmado || contato?.profile_name || contato?.display_phone || "Cliente",
     status: conv.status,
     aguardandoDesde: conv.aguardando_desde,
     comAlguem,
@@ -125,7 +127,9 @@ export async function avisarEquipePassagem(
     const [{ data: conv }, { data: leituras }] = await Promise.all([
       db
         .from("conversas")
-        .select("aguardando_desde, contato:whatsapp_contact_id ( profile_name, display_phone )")
+        .select(
+          "aguardando_desde, contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone )",
+        )
         .eq("id", ids.conversaId)
         .maybeSingle(),
       db
@@ -137,6 +141,7 @@ export async function avisarEquipePassagem(
     if (!conv) return { enviados: 0 };
     const contato = conv.contato as {
       profile_name: string | null;
+      nome_confirmado: string | null;
       display_phone: string | null;
     } | null;
     const vendoEm = new Map<string, string>();
@@ -148,7 +153,8 @@ export async function avisarEquipePassagem(
         direction: "Recebida",
         privada: false,
         texto: `a Alice passou para a equipe (${ids.motivo})`,
-        clienteNome: contato?.profile_name || contato?.display_phone || "Cliente",
+        clienteNome:
+          contato?.nome_confirmado || contato?.profile_name || contato?.display_phone || "Cliente",
         status: "open",
         aguardandoDesde: conv.aguardando_desde,
         comAlguem: false,

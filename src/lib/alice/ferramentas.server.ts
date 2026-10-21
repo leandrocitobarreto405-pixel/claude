@@ -1147,6 +1147,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     })),
   });
   const existente = lead ? await orcamentoIgualRecente(ctx, lead.id, assinatura) : null;
+  // Nome no orçamento: o confirmado (o cliente disse, perfil aceito ou cadastro); senão o do CRM.
+  const { nomeConfirmado } = await import("./nome.server");
+  const nomeOrcamento =
+    (await nomeConfirmado(ctx.admin, ctx.empresaId, ctx.conversaId, ctx.contatoId)) ||
+    lead?.lead_name?.trim() ||
+    "Cliente do WhatsApp";
 
   const { saveQuote } = await import("@/lib/quotes.server");
   const salvo =
@@ -1154,7 +1160,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     (await saveQuote(
       ctx.admin,
       {
-        cliente_nome: lead?.lead_name?.trim() || "Cliente do WhatsApp",
+        cliente_nome: nomeOrcamento,
         cliente_telefone: lead?.phone ?? null,
         cliente_cep: cep,
         cliente_endereco: endereco,
@@ -1617,6 +1623,24 @@ export async function executarFerramenta(
       }
       case "consultar_cliente":
         return { conteudo: await consultarCliente(ctx), erro: false };
+      case "registrar_nome_cliente": {
+        const p = RegistrarNome.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        const { registrarNomeCliente } = await import("./nome.server");
+        return r(
+          await registrarNomeCliente(
+            ctx.admin,
+            {
+              empresaId: ctx.empresaId,
+              conversaId: ctx.conversaId,
+              contatoId: ctx.contatoId,
+              leadId: ctx.leadId,
+            },
+            p.data.acao,
+            p.data.nome,
+          ),
+        );
+      }
       case "consultar_cep": {
         const p = ConsultarCep.safeParse(entrada);
         return p.success

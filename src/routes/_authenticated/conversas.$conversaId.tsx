@@ -165,6 +165,11 @@ function Conversa() {
             <span className="truncate text-sm text-muted-foreground">
               {c.telefone ?? "Sem telefone"}
             </span>
+            {c.nomePerfil ? (
+              <span className="truncate text-xs text-muted-foreground">
+                Perfil no WhatsApp: {c.nomePerfil}
+              </span>
+            ) : null}
             <span className="flex flex-wrap gap-1.5">
               <EtiquetasConversa c={c} />
             </span>

@@ -207,9 +207,16 @@ export async function respostaPosAtendimento(
       .select("nome")
       .eq("id", ctx.empresaId)
       .maybeSingle();
+    const { nomeConfirmado } = await import("./nome.server");
+    const confirmado = await nomeConfirmado(
+      ctx.admin,
+      ctx.empresaId,
+      ctx.conversaId,
+      ctx.contatoId,
+    );
     const texto = textoAvaliacao(
       cfg.avaliacao_texto,
-      primeiroNome(lead?.lead_name) || "",
+      primeiroNome(confirmado || lead?.lead_name) || "",
       empresa?.nome ?? "",
       cfg.avaliacao_link,
     ).replace(/^Que bom, !/, "Que bom!");
