@@ -147,7 +147,7 @@ function Conversa() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 overflow-x-hidden">
       <CabecalhoDeTela voltarPara="/conversas" sobretitulo={NOME_GRUPO[c.grupo]} titulo={c.nome} />
 
       <Card className="gap-3">
@@ -193,7 +193,7 @@ function Conversa() {
             >
               <div
                 className={cn(
-                  "max-w-[85%] rounded-card px-3.5 py-2.5 text-[15px] leading-snug",
+                  "min-w-0 max-w-[85%] rounded-card px-3.5 py-2.5 text-[15px] leading-snug",
                   m.doCliente
                     ? "mr-auto rounded-bl-md border border-border bg-card"
                     : "ml-auto rounded-br-md bg-marca-claro text-foreground",

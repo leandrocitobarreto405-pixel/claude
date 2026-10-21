@@ -116,73 +116,74 @@ export const marcarLidaFn = createServerFn({ method: "POST" })
 export const avisarDigitandoFn = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
   .inputValidator(validarConversa)
-  .handler(async ({ data, context }): Promise<{ ok: boolean; motivo?: string }> => {
-    const db = context.supabase;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: cfg }, { data: meta }, { data: segredo }, { data: ultima }] = await Promise.all([
-      db
-        .from("app_settings")
-        .select("value")
-        .eq("empresa_id", context.empresaId)
-        .eq("key", CHAVE_CONFIG_CAIXA)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("meta_conexoes")
-        .select("waba_id")
-        .eq("empresa_id", context.empresaId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("meta_conexao_segredos")
-        .select("token")
-        .eq("empresa_id", context.empresaId)
-        .maybeSingle(),
-      db
-        .from("whatsapp_messages")
-        .select("whatsapp_message_id")
-        .eq("conversa_id", data.conversaId)
-        .eq("direction", "Recebida")
-        .not("whatsapp_message_id", "is", null)
-        .order("message_timestamp", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    if (!digitandoLigado(cfg?.value)) return { ok: false, motivo: "desligado" };
-    if (!meta?.waba_id || !segredo?.token) return { ok: false, motivo: "sem_meta" };
-    if (!ultima?.whatsapp_message_id) return { ok: false, motivo: "sem_mensagem" };
-    const cx = { waba: meta.waba_id, token: segredo.token };
-    try {
-      const { indicarDigitando, numerosDaConta } = await import("@/lib/meta/graph.server");
-      const valor = (cfg?.value && typeof cfg.value === "object" ? cfg.value : {}) as Record<
-        string,
-        unknown
-      >;
-      let numeroId = typeof valor["meta_numero_id"] === "string" ? valor["meta_numero_id"] : null;
-      if (!numeroId) {
-        // Primeiro uso: descobre o número da conta e guarda junto com a configuração da caixa.
-        const numeros = await numerosDaConta(cx);
-        numeroId = numeros[0]?.id ?? null;
-        if (!numeroId) return { ok: false, motivo: "sem_numero" };
-        await supabaseAdmin.from("app_settings").upsert(
-          {
-            empresa_id: context.empresaId,
-            key: CHAVE_CONFIG_CAIXA,
-            value: { ...valor, meta_numero_id: numeroId } as never,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "empresa_id,key" },
-        );
+  .handler(
+    async ({ data, context }): Promise<{ ok: boolean; motivo?: string; detalhe?: string }> => {
+      const db = context.supabase;
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: cfg }, { data: meta }, { data: segredo }, { data: ultima }] =
+        await Promise.all([
+          db
+            .from("app_settings")
+            .select("value")
+            .eq("empresa_id", context.empresaId)
+            .eq("key", CHAVE_CONFIG_CAIXA)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("meta_conexoes")
+            .select("waba_id")
+            .eq("empresa_id", context.empresaId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("meta_conexao_segredos")
+            .select("token")
+            .eq("empresa_id", context.empresaId)
+            .maybeSingle(),
+          db
+            .from("whatsapp_messages")
+            .select("whatsapp_message_id")
+            .eq("conversa_id", data.conversaId)
+            .eq("direction", "Recebida")
+            .not("whatsapp_message_id", "is", null)
+            .order("message_timestamp", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+      if (!digitandoLigado(cfg?.value)) return { ok: false, motivo: "desligado" };
+      if (!meta?.waba_id || !segredo?.token) return { ok: false, motivo: "sem_meta" };
+      if (!ultima?.whatsapp_message_id) return { ok: false, motivo: "sem_mensagem" };
+      const cx = { waba: meta.waba_id, token: segredo.token };
+      try {
+        const { indicarDigitando, numerosDaConta } = await import("@/lib/meta/graph.server");
+        const valor = (cfg?.value && typeof cfg.value === "object" ? cfg.value : {}) as Record<
+          string,
+          unknown
+        >;
+        let numeroId = typeof valor["meta_numero_id"] === "string" ? valor["meta_numero_id"] : null;
+        if (!numeroId) {
+          // Primeiro uso: descobre o número da conta e guarda junto com a configuração da caixa.
+          const numeros = await numerosDaConta(cx);
+          numeroId = numeros[0]?.id ?? null;
+          if (!numeroId) return { ok: false, motivo: "sem_numero" };
+          await supabaseAdmin.from("app_settings").upsert(
+            {
+              empresa_id: context.empresaId,
+              key: CHAVE_CONFIG_CAIXA,
+              value: { ...valor, meta_numero_id: numeroId } as never,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "empresa_id,key" },
+          );
+        }
+        await indicarDigitando(cx, numeroId, ultima.whatsapp_message_id);
+        return { ok: true };
+      } catch (e) {
+        const { semToken } = await import("@/lib/meta/graph.server");
+        const detalhe = semToken(e instanceof Error ? e.message : String(e)).slice(0, 200);
+        console.warn("Caixa: digitando na Meta falhou:", detalhe);
+        return { ok: false, motivo: "meta", detalhe };
       }
-      await indicarDigitando(cx, numeroId, ultima.whatsapp_message_id);
-      return { ok: true };
-    } catch (e) {
-      const { semToken } = await import("@/lib/meta/graph.server");
-      console.warn(
-        "Caixa: digitando na Meta falhou:",
-        semToken(e instanceof Error ? e.message : String(e)),
-      );
-      return { ok: false, motivo: "meta" };
-    }
-  });
+    },
+  );
 
 export const lerDigitandoFn = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])

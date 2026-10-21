@@ -216,9 +216,7 @@ export function PlayerAudio({
   const total = duracao || 0;
   const cor = escuro ? "text-foreground" : "text-foreground";
   return (
-    <div
-      className={cn("flex w-full min-w-[220px] max-w-[320px] items-center gap-2", cor, className)}
-    >
+    <div className={cn("flex w-full min-w-0 max-w-[320px] items-center gap-2", cor, className)}>
       <button
         type="button"
         aria-label={tocando ? "Pausar" : "Tocar"}

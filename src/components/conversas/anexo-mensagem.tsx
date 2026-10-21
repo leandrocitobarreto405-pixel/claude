@@ -13,7 +13,7 @@ export function AudioMensagem({
   transcricao?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex w-[min(280px,70vw)] flex-col gap-1">
       <PlayerAudio fonte={() => baixarAnexo(mensagemId)} />
       {transcricao && transcricao !== "(áudio)" ? (
         <p className="text-[13px] text-muted-foreground break-words whitespace-pre-wrap">

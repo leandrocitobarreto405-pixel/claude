@@ -204,6 +204,20 @@
     input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]) {
       min-height: 2.75rem;
     }
+    /* Safari no iPhone dá zoom ao focar campo com fonte menor que 16 px (e às vezes deixa a
+       tela deslocada ao sair). Fonte mínima de 16 px em todo campo no celular. */
+    select,
+    textarea,
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]) {
+      font-size: max(1rem, 1em);
+    }
+  }
+
+  /* Nada pode alargar a tela além da largura do aparelho (balão, player, barra). */
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 

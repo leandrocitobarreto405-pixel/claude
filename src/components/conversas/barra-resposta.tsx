@@ -72,11 +72,20 @@ export function BarraResposta({
   // "Digitando…" e lido na Meta: ao focar a barra ou começar a gravar, no máximo 1x a cada 20 s.
   const digitandoFn = useServerFn(avisarDigitandoFn);
   const ultimoDigitando = useRef<number | null>(null);
+  const avisouFalha = useRef(false);
   function avisarDigitando() {
     const agora = Date.now();
     if (!podeAvisarDigitando(ultimoDigitando.current, agora)) return;
     ultimoDigitando.current = agora;
-    void digitandoFn({ data: { conversaId } }).catch(() => undefined);
+    void digitandoFn({ data: { conversaId } })
+      .then((r) => {
+        // Erro da Meta aparece uma vez por conversa, para a equipe saber o motivo.
+        if (!r.ok && r.motivo === "meta" && !avisouFalha.current) {
+          avisouFalha.current = true;
+          toast.error(`"Digitando…" na Meta falhou: ${r.detalhe ?? "sem detalhe"}`);
+        }
+      })
+      .catch(() => undefined);
   }
   useEffect(() => {
     if (gravando) avisarDigitando();
@@ -152,10 +161,11 @@ export function BarraResposta({
   if (!e.podeResponder) return null;
 
   const base = cn(
-    "sticky z-10 -mx-4 border-t border-border bg-background px-4 pt-2 pb-2 lg:static lg:mx-0 lg:rounded-card lg:border lg:p-3",
+    "sticky z-10 -mx-4 max-w-[100vw] border-t border-border bg-background px-4 pt-2 pb-2 lg:static lg:mx-0 lg:rounded-card lg:border lg:p-3",
     emFoco
       ? "bottom-0 pb-[max(env(safe-area-inset-bottom),0.5rem)]"
-      : "bottom-[calc(4.5rem+env(safe-area-inset-bottom))]",
+      : // Pinta o vão entre a barra e a navegação inferior (a página rolava à mostra ali).
+        "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-background lg:after:hidden",
   );
 
   if (!e.situacao.pode) {
@@ -298,7 +308,7 @@ export function BarraResposta({
               if (texto.trim()) void enviar(() => textoFn({ data: { conversaId, texto } }));
             }
           }}
-          className="min-h-11 flex-1 resize-none rounded-[22px] border border-input bg-card px-4 py-2.5 text-[15px] leading-snug focus-visible:ring-2 focus-visible:ring-marca focus-visible:outline-none"
+          className="min-h-11 min-w-0 flex-1 resize-none rounded-[22px] border border-input bg-card px-4 py-2.5 text-base leading-snug focus-visible:ring-2 focus-visible:ring-marca focus-visible:outline-none"
         />
         <Botao
           tamanho="icone"

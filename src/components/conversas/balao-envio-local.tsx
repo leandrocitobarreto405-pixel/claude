@@ -52,7 +52,7 @@ export function BalaoEnvioLocal({ envio }: { envio: EnvioLocal }) {
     <div className="flex w-full justify-end pl-8">
       <div
         className={cn(
-          "ml-auto max-w-[85%] rounded-card rounded-br-md px-3.5 py-2.5 text-[15px] leading-snug",
+          "ml-auto min-w-0 max-w-[85%] rounded-card rounded-br-md px-3.5 py-2.5 text-[15px] leading-snug",
           falhou ? "border border-problema-foreground/40 bg-problema/15" : "bg-marca-claro",
         )}
         aria-live="polite"
@@ -70,7 +70,7 @@ export function BalaoEnvioLocal({ envio }: { envio: EnvioLocal }) {
           </span>
         </p>
         {envio.estado === "enviada" && envio.tempos && envio.segundos != null ? (
-          <p className="mt-0.5 text-right text-[10px] text-muted-foreground">
+          <p className="mt-0.5 break-words text-right text-[10px] text-muted-foreground">
             {linhaDeTempos(envio.segundos, envio.tempos)}
           </p>
         ) : null}

@@ -157,7 +157,7 @@ function Conversas() {
           placeholder="Buscar por nome ou telefone"
           value={busca}
           onChange={(ev) => setBusca(ev.target.value)}
-          className="min-h-11 w-full rounded-[22px] border border-input bg-card pr-10 pl-9 text-[15px] focus-visible:ring-2 focus-visible:ring-marca focus-visible:outline-none"
+          className="min-h-11 w-full rounded-[22px] border border-input bg-card pr-10 pl-9 text-base focus-visible:ring-2 focus-visible:ring-marca focus-visible:outline-none"
         />
         {busca ? (
           <button
@@ -179,8 +179,9 @@ function Conversas() {
         {ABAS.map((t) => {
           const sel = t.id === aba;
           const lista = porGrupo.get(t.id) ?? [];
-          // Contador: mensagens do cliente que eu ainda não li, somadas na aba.
-          const n = lista.reduce((soma, c) => soma + c.naoLidas, 0);
+          // Contador da aba: quantas conversas têm mensagem não lida (o total de mensagens fica
+          // só na bolinha do cartão).
+          const n = lista.filter((c) => c.naoLidas > 0).length;
           return (
             <button
               key={t.id}
@@ -199,7 +200,9 @@ function Conversas() {
               )}
             >
               {t.rotulo}
-              {n > 0 ? <BadgeAlerta numero={n} rotulo={`${n} não lidas`} /> : null}
+              {n > 0 ? (
+                <BadgeAlerta numero={n} rotulo={`${n} conversas com mensagem não lida`} />
+              ) : null}
             </button>
           );
         })}
