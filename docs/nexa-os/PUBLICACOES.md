@@ -502,7 +502,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Voz: OGG cru do gravador, trava de início duplo                    | `9967f00`           | `40740f2`                |
 | 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe | `2272dd4`           | `8f98a46`                |
 | 21/10/2026       | Caixa 3: Minhas, assumir, não lidas, digitando… e lido             | `a84c99c`           | `c0f0ec3`                |
-| 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas        | `PENDENTE7`         | `76f86a4`                |
+| 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas        | `fb1e008`           | `76f86a4`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
