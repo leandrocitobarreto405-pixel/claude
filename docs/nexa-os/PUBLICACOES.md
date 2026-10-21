@@ -453,6 +453,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Caixa de entrada 2: tempo real e status            | `2b48bb7`           | `7761283`                |
 | 21/10/2026       | Caixa de entrada 1b: foto, documento e áudio (voz) | `bc88f85`           | `b371c77`                |
 | 21/10/2026       | Conversas: abrir no fim, teclado, remetente, foto   | `b248490`           | `a5a8771`                |
+| 21/10/2026       | Empresa: logo/avatar, numeração de OS, PDF configurável | `83e8145`           | `705ce65`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
