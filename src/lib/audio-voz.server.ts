@@ -11,11 +11,10 @@ import { spawn } from "node:child_process";
 export const MAX_AUDIO_ENTRADA = 10 * 1024 * 1024;
 /**
  * Mandar ao Chatwoot com a marcação de voz (is_voice_message → "voice": true na Meta)? Vale
- * para a barra de resposta e para a Alice. Desligada em 21/10: no iPhone o áudio com a marcação
- * dava "não está mais disponível" mesmo na codificação do gravador do Chatwoot; sem ela, o
- * OGG/Opus ainda sai com o ícone de microfone (regra da Meta).
+ * para a barra de resposta e para a Alice. (Em 21/10 o problema do iPhone era o arquivo, não a
+ * marcação: ver normalizarOggOpus.)
  */
-export const MARCAR_COMO_VOZ = false;
+export const MARCAR_COMO_VOZ = true;
 
 /** Teto de segurança da saída (2 min a 128 kbit/s dão ~2 MB). */
 export const MAX_VOZ_SAIDA = 4 * 1024 * 1024;
@@ -37,41 +36,123 @@ function crcOgg(pagina: Uint8Array): number {
   return crc >>> 0;
 }
 
+type PaginaOgg = { cabecalho: Buffer; segmentos: Buffer; corpo: Buffer };
+
+function lerPaginas(b: Buffer): PaginaOgg[] | null {
+  const paginas: PaginaOgg[] = [];
+  let i = 0;
+  while (i < b.length) {
+    if (b.subarray(i, i + 4).toString() !== "OggS" || i + 27 > b.length) return null;
+    const nseg = b[i + 26]!;
+    const segmentos = b.subarray(i + 27, i + 27 + nseg);
+    let corpo = 0;
+    for (const s of segmentos) corpo += s;
+    const fim = i + 27 + nseg + corpo;
+    if (fim > b.length) return null;
+    paginas.push({
+      cabecalho: Buffer.from(b.subarray(i, i + 27)),
+      segmentos: Buffer.from(segmentos),
+      corpo: Buffer.from(b.subarray(i + 27 + nseg, fim)),
+    });
+    i = fim;
+  }
+  return paginas;
+}
+
+/** Amostras (a 48 kHz) de um pacote Opus, pelo byte TOC (RFC 6716 §3.1). */
+export function amostrasDoPacote(pacote: Uint8Array): number {
+  if (!pacote.length) return 0;
+  const toc = pacote[0]!;
+  const config = toc >> 3;
+  const codigo = toc & 3;
+  let quadro: number;
+  if (config < 12) quadro = [480, 960, 1920, 2880][config % 4]!;
+  else if (config < 16) quadro = [480, 960][config % 2]!;
+  else quadro = [120, 240, 480, 960][config % 4]!;
+  const quadros = codigo === 0 ? 1 : codigo < 3 ? 2 : (pacote[1] ?? 0) & 0x3f;
+  return quadro * quadros;
+}
+
+/** Pacotes de uma página: a tabela de segmentos junta os pedaços (255 = continua). */
+function pacotesDaPagina(p: PaginaOgg): Uint8Array[] {
+  const pacotes: Uint8Array[] = [];
+  let pos = 0;
+  let inicio = 0;
+  for (const s of p.segmentos) {
+    pos += s;
+    if (s < 255) {
+      pacotes.push(p.corpo.subarray(inicio, pos));
+      inicio = pos;
+    }
+  }
+  return pacotes;
+}
+
 /**
- * Troca a página OpusTags (a 2ª do arquivo) por uma sem comentários, como o gravador do
- * Chatwoot: o ffmpeg sempre grava "encoder=Lavc… libopus", e a ideia é mandar o mesmo que o
- * Chatwoot manda. Se o arquivo não tiver a estrutura esperada, devolve como está.
+ * Deixa o OGG/Opus do ffmpeg exatamente como o gravador do Chatwoot (que toca como voz no
+ * iPhone) e dentro do que o libopusfile aceita:
+ * - pre-skip 0 no OpusHead e granule de cada página = amostras acumuladas (o ffmpeg herda o
+ *   deslocamento negativo do MP4 do iPhone e grava granules menores que as amostras; o Android
+ *   tolera, o iPhone recusa com "áudio não está mais disponível");
+ * - OpusTags só com o vendor, sem "encoder=…";
+ * - número de série diferente de 0 (o modo bitexact do ffmpeg grava 0);
+ * - CRC de todas as páginas refeito.
+ * Se o arquivo não tiver a estrutura esperada, devolve como está.
  */
-export function limparOpusTags(bytes: Uint8Array, vendor = "nexa"): Uint8Array {
-  const b = Buffer.from(bytes);
-  const p0 = b.indexOf("OggS");
-  if (p0 !== 0) return bytes;
-  const nseg0 = b[26]!;
-  let corpo0 = 0;
-  for (let i = 0; i < nseg0; i++) corpo0 += b[27 + i]!;
-  const p1 = 27 + nseg0 + corpo0;
-  if (b.subarray(p1, p1 + 4).toString() !== "OggS") return bytes;
-  const nseg1 = b[p1 + 26]!;
-  let corpo1 = 0;
-  for (let i = 0; i < nseg1; i++) corpo1 += b[p1 + 27 + i]!;
-  const inicioCorpo1 = p1 + 27 + nseg1;
-  if (b.subarray(inicioCorpo1, inicioCorpo1 + 8).toString() !== "OpusTags") return bytes;
-  const fim1 = inicioCorpo1 + corpo1;
+export function normalizarOggOpus(bytes: Uint8Array, vendor = "nexa"): Uint8Array {
+  const paginas = lerPaginas(Buffer.from(bytes));
+  if (!paginas || paginas.length < 3) return bytes;
+  const [cab, tags] = [paginas[0]!, paginas[1]!];
+  if (cab.corpo.subarray(0, 8).toString() !== "OpusHead") return bytes;
+  if (tags.corpo.subarray(0, 8).toString() !== "OpusTags") return bytes;
+  // OpusHead: pre-skip (bytes 10-11) = 0.
+  cab.corpo.writeUInt16LE(0, 10);
+  // OpusTags: só o vendor.
   const v = Buffer.from(vendor, "utf8");
-  const tags = Buffer.concat([
+  tags.corpo = Buffer.concat([
     Buffer.from("OpusTags"),
     Buffer.from(new Uint32Array([v.length]).buffer),
     v,
     Buffer.from([0, 0, 0, 0]),
   ]);
-  if (tags.length >= 255) return bytes;
-  const cabecalho = Buffer.from(b.subarray(p1, p1 + 27));
-  cabecalho[26] = 1;
-  const pagina = Buffer.concat([cabecalho, Buffer.from([tags.length]), tags]);
-  pagina.writeUInt32LE(0, 22);
-  pagina.writeUInt32LE(crcOgg(pagina), 22);
-  return new Uint8Array(Buffer.concat([b.subarray(0, p1), pagina, b.subarray(fim1)]));
+  if (tags.corpo.length >= 255) return bytes;
+  tags.segmentos = Buffer.from([tags.corpo.length]);
+  // Granules acumulados a partir dos pacotes; a última página respeita o corte do ffmpeg
+  // (granule original menor que o acumulado = áudio termina antes).
+  let acumulado = 0;
+  const ultima = paginas.length - 1;
+  for (let k = 2; k <= ultima; k++) {
+    const p = paginas[k]!;
+    const original = Number(p.cabecalho.readBigInt64LE(6));
+    const amostras = pacotesDaPagina(p).reduce((s, pk) => s + amostrasDoPacote(pk), 0);
+    const continuacao = (p.cabecalho[5]! & 1) !== 0 && p.segmentos[p.segmentos.length - 1] === 255;
+    acumulado += amostras;
+    let granule = acumulado;
+    if (k === ultima && original >= 0) {
+      const anterior = k > 2 ? Number(paginas[k - 1]!.cabecalho.readBigInt64LE(6)) : 0;
+      const duracaoOriginal = original - anterior;
+      if (duracaoOriginal > 0 && duracaoOriginal < amostras)
+        granule = acumulado - amostras + duracaoOriginal;
+    }
+    if (continuacao) granule = -1;
+    p.cabecalho.writeBigInt64LE(BigInt(granule), 6);
+  }
+  // Série diferente de zero (fixa, para o arquivo ser reproduzível).
+  const serie = cab.cabecalho.readUInt32LE(14) || 0x4e455841;
+  const partes: Buffer[] = [];
+  for (const p of paginas) {
+    p.cabecalho[26] = p.segmentos.length;
+    p.cabecalho.writeUInt32LE(serie, 14);
+    p.cabecalho.writeUInt32LE(0, 22);
+    const pagina = Buffer.concat([p.cabecalho, p.segmentos, p.corpo]);
+    pagina.writeUInt32LE(crcOgg(pagina), 22);
+    partes.push(pagina);
+  }
+  return new Uint8Array(Buffer.concat(partes));
 }
+
+/** Mantido pelo nome antigo. */
+export const limparOpusTags = normalizarOggOpus;
 
 export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<Uint8Array> {
   if (bytes.length > MAX_AUDIO_ENTRADA) throw new Error("Áudio grande demais (até 10 MB).");
@@ -127,7 +208,7 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
     p.on("close", (codigo) => {
       clearTimeout(timer);
       if (codigo !== 0) return reject(new Error(`ffmpeg falhou (${codigo}): ${erro.trim()}`));
-      const out = limparOpusTags(new Uint8Array(Buffer.concat(saida)));
+      const out = normalizarOggOpus(new Uint8Array(Buffer.concat(saida)));
       if (out.length > MAX_VOZ_SAIDA)
         return reject(new Error("Áudio longo demais para mensagem de voz (até 2 min)."));
       resolve(out);

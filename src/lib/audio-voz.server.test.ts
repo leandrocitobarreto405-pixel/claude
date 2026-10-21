@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { paraOggOpus } from "./audio-voz.server";
+import { amostrasDoPacote, normalizarOggOpus, paraOggOpus } from "./audio-voz.server";
 import { duracaoOggOpus } from "./alice/ogg-opus";
 
 function temFfmpeg() {
@@ -62,7 +62,52 @@ function quadrosEPaginas(b: Uint8Array) {
 function opusHead(b: Uint8Array) {
   const i = Buffer.from(b).indexOf("OpusHead");
   assert.ok(i >= 0, "OpusHead presente");
-  return { canais: b[i + 9], taxa: Buffer.from(b).readUInt32LE(i + 12) };
+  return {
+    canais: b[i + 9],
+    preskip: Buffer.from(b).readUInt16LE(i + 10),
+    taxa: Buffer.from(b).readUInt32LE(i + 12),
+  };
+}
+
+/** Páginas do Ogg: cabeçalho, segmentos e corpo. */
+function paginasOgg(b: Uint8Array) {
+  const buf = Buffer.from(b);
+  const out: Array<{ inicio: number; granule: number; segmentos: Buffer; corpo: Buffer }> = [];
+  let i = 0;
+  while (i < buf.length) {
+    const nseg = buf[i + 26]!;
+    const segmentos = buf.subarray(i + 27, i + 27 + nseg);
+    let corpo = 0;
+    for (const s of segmentos) corpo += s;
+    out.push({
+      inicio: i,
+      granule: Number(buf.readBigInt64LE(i + 6)),
+      segmentos,
+      corpo: buf.subarray(i + 27 + nseg, i + 27 + nseg + corpo),
+    });
+    i += 27 + nseg + corpo;
+  }
+  return out;
+}
+
+/** O granule de cada página de áudio bate com a soma dos pacotes (sem deslocamento). */
+function granulesConsistentes(b: Uint8Array) {
+  const pags = paginasOgg(b);
+  let soma = 0;
+  for (const p of pags.slice(2)) {
+    let pos = 0;
+    let inicio = 0;
+    for (const s of p.segmentos) {
+      pos += s;
+      if (s < 255) {
+        soma += amostrasDoPacote(p.corpo.subarray(inicio, pos));
+        inicio = pos;
+      }
+    }
+    if (p !== pags[pags.length - 1] && p.granule !== soma) return false;
+    if (p === pags[pags.length - 1] && (p.granule > soma || p.granule <= 0)) return false;
+  }
+  return true;
 }
 
 test(
@@ -79,6 +124,10 @@ test(
       assert.ok(dur !== null && dur > 6.5 && dur < 7.5, `${f}: ~7 s (${dur})`);
       assert.ok(out.length < 200_000, `${f}: ~7 s a até 128 kbit/s (${out.length} bytes)`);
       assert.equal(Buffer.from(out).indexOf("encoder="), -1, `${f}: sem metadados extras`);
+      const cab = opusHead(out);
+      assert.equal(cab.preskip, 0, `${f}: pre-skip 0 como o gravador do Chatwoot`);
+      assert.notEqual(Buffer.from(out).readUInt32LE(14), 0, `${f}: série diferente de 0`);
+      assert.ok(granulesConsistentes(out), `${f}: granule de cada página = amostras acumuladas`);
       const qp = quadrosEPaginas(out);
       assert.equal(qp.quadrosPorPagina, 50, `${f}: páginas de 3 s (50 quadros)`);
       assert.equal(Math.round(qp.msPorQuadro), 60, `${f}: quadros de 60 ms`);
@@ -89,3 +138,34 @@ test(
 test("entrada inválida: erro claro, sem travar", { skip: !temFfmpeg() }, async () => {
   await assert.rejects(paraOggOpus(new Uint8Array([1, 2, 3, 4])), /ffmpeg falhou/);
 });
+
+test(
+  "granule deslocado (MP4 do iPhone): normalizar corrige e o decodificador aceita",
+  { skip: !temFfmpeg() },
+  async () => {
+    const bom = await paraOggOpus(tom("mp4"));
+    // Simula o que o ffmpeg faz com o início negativo do MP4 do iPhone: granules 312 amostras
+    // menores que as amostras, pre-skip 312 e OpusTags com encoder.
+    const buf = Buffer.from(bom);
+    const pags = paginasOgg(bom);
+    for (const p of pags.slice(2)) buf.writeBigInt64LE(BigInt(p.granule - 312), p.inicio + 6);
+    const h = buf.indexOf("OpusHead");
+    buf.writeUInt16LE(312, h + 10);
+    assert.equal(granulesConsistentes(new Uint8Array(buf)), false, "arquivo quebrado de propósito");
+    const consertado = normalizarOggOpus(new Uint8Array(buf));
+    assert.ok(granulesConsistentes(consertado), "granules refeitos pelos pacotes");
+    assert.equal(opusHead(consertado).preskip, 0);
+    // Decodifica inteiro sem erro (ffmpeg) e com o mesmo tamanho do bom.
+    const { execFileSync } = await import("node:child_process");
+    const tmp = `${process.env["TMPDIR"] ?? "/tmp"}/voz-teste-${process.pid}.ogg`;
+    const { writeFileSync, unlinkSync } = await import("node:fs");
+    writeFileSync(tmp, consertado);
+    try {
+      execFileSync("ffmpeg", ["-v", "error", "-i", tmp, "-f", "null", "-"], { stdio: "pipe" });
+    } finally {
+      unlinkSync(tmp);
+    }
+    assert.equal(amostrasDoPacote(new Uint8Array([0x58])), 2880, "TOC: SILK WB 60 ms, 1 quadro");
+    assert.equal(amostrasDoPacote(new Uint8Array([0xfb, 0x03])), 2880, "TOC: CELT FB 20 ms × 3");
+  },
+);
