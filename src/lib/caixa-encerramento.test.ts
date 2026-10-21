@@ -78,6 +78,11 @@ test("regra 1: follow-up, lembrete/pós-venda/campanha ou tarefa pendente proteg
     ["c6"],
   );
   assert.deepEqual(sel.protegidas, { total: 5, followup: 2, envio: 2, tarefa: 1 });
+  assert.equal(sel.lotada, false);
+  // Lote cheio conta pelas candidatas, não pelas que sobraram para encerrar (21/10: 250
+  // candidatas, 2 protegidas, 248 encerradas e a rodada parou por 55 min sem precisar).
+  const cheio = aplicarRegra1(candidatas, { followups: [], envios: [], tarefas: [] }, 6);
+  assert.equal(cheio.lotada, true);
 });
 
 test("regra 2: quem estava com a conversa", () => {

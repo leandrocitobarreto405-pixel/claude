@@ -71,7 +71,11 @@ export async function selecionarParaEncerrar(
     normalized_phone: c.contato?.normalized_phone ?? null,
   }));
   if (!candidatas.length)
-    return { encerrar: [], protegidas: { total: 0, followup: 0, envio: 0, tarefa: 0 } };
+    return {
+      encerrar: [],
+      protegidas: { total: 0, followup: 0, envio: 0, tarefa: 0 },
+      lotada: false,
+    };
 
   const [followups, envios, tarefas] = await Promise.all([
     db
@@ -92,11 +96,15 @@ export async function selecionarParaEncerrar(
   ]);
   for (const r of [followups, envios, tarefas])
     if (r.error) throw new Error(`pendências: ${r.error.message}`);
-  return aplicarRegra1(candidatas, {
-    followups: followups.data ?? [],
-    envios: envios.data ?? [],
-    tarefas: tarefas.data ?? [],
-  });
+  return aplicarRegra1(
+    candidatas,
+    {
+      followups: followups.data ?? [],
+      envios: envios.data ?? [],
+      tarefas: tarefas.data ?? [],
+    },
+    limite,
+  );
 }
 
 export async function rodarEncerramentoAutomatico(agora = new Date()): Promise<ResumoEncerramento> {
@@ -158,7 +166,8 @@ export async function rodarEncerramentoAutomatico(agora = new Date()): Promise<R
           encerramento_ultimo_resultado: {
             encerradas: selecao.encerrar.length,
             protegidas: selecao.protegidas,
-            lotada: selecao.encerrar.length >= MAX_POR_RODADA,
+            // Lote cheio (mesmo que parte tenha ficado protegida): continua na próxima varredura.
+            lotada: selecao.lotada,
           },
         },
         updated_at: agora.toISOString(),

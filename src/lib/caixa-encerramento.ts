@@ -118,10 +118,16 @@ export type Selecao<T extends Candidata> = {
   encerrar: T[];
   /** Quantas ficaram de fora pela regra 1 e por quê. */
   protegidas: { total: number; followup: number; envio: number; tarefa: number };
+  /** O lote encheu (vieram tantas candidatas quanto o limite): ainda há fila. */
+  lotada: boolean;
 };
 
 /** Regra 1: separa as que podem encerrar das que têm algo agendado e ainda não enviado. */
-export function aplicarRegra1<T extends Candidata>(candidatas: T[], p: Pendencias): Selecao<T> {
+export function aplicarRegra1<T extends Candidata>(
+  candidatas: T[],
+  p: Pendencias,
+  limite = MAX_POR_RODADA,
+): Selecao<T> {
   const conversasComFollowup = new Set(p.followups.map((f) => f.conversa_id).filter(Boolean));
   const leadsComFollowup = new Set(p.followups.map((f) => f.crm_lead_id).filter(Boolean));
   const fonesComEnvio = new Set(p.envios.map((e) => e.normalized_phone).filter(Boolean));
@@ -149,7 +155,7 @@ export function aplicarRegra1<T extends Candidata>(candidatas: T[], p: Pendencia
       if (tarefa) protegidas.tarefa++;
     } else encerrar.push(c);
   }
-  return { encerrar, protegidas };
+  return { encerrar, protegidas, lotada: candidatas.length >= limite };
 }
 
 /** Marca de quem estava com a conversa ao encerrar (regra 2). */
