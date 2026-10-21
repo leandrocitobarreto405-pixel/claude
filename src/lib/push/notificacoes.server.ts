@@ -72,7 +72,7 @@ export async function enviarParaPessoa(
 }
 
 /** Registra antes de enviar: se já existia (mesmo tipo e referência), não envia de novo. */
-async function registrarUmaVez(
+export async function registrarUmaVez(
   db: Db,
   empresaId: string,
   userId: string,
@@ -91,10 +91,18 @@ async function registrarUmaVez(
   return data?.[0]?.id ?? null;
 }
 
-async function pessoasComCelular(db: Db): Promise<Map<string, Pessoa[]>> {
-  const { data: inscricoes } = await db
+export type { Pessoa };
+
+/** Pessoas com celular ativado, por empresa (ou só de uma empresa). */
+export async function pessoasComCelular(
+  db: Db,
+  empresaId?: string,
+): Promise<Map<string, Pessoa[]>> {
+  let consulta = db
     .from("push_inscricoes")
     .select("id, empresa_id, user_id, endpoint, p256dh, auth");
+  if (empresaId) consulta = consulta.eq("empresa_id", empresaId);
+  const { data: inscricoes } = await consulta;
   const porEmpresa = new Map<string, Pessoa[]>();
   if (!inscricoes?.length) return porEmpresa;
   const users = [...new Set(inscricoes.map((i) => i.user_id))];

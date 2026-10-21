@@ -129,7 +129,9 @@ export const marcarLidaFn = createServerFn({ method: "POST" })
 
 /**
  * Presença: avisa a equipe (canal da empresa no Realtime) que estou com esta conversa aberta
- * ("aqui", renovado a cada 25 s) ou que saí. Nada vai ao cliente nem ao banco.
+ * ("aqui", renovado a cada 25 s) ou que saí. "Aqui" também renova a minha leitura da conversa
+ * (conversas_leituras.lida_em): é o que diz ao push do webhook que estou vendo a tela.
+ * Nada vai ao cliente.
  */
 export const presencaFn = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
@@ -138,11 +140,24 @@ export const presencaFn = createServerFn({ method: "POST" })
     estado: i?.estado === "saiu" ? ("saiu" as const) : ("aqui" as const),
   }))
   .handler(async ({ data, context }) => {
-    const { data: perfil } = await context.supabase
-      .from("users_profiles")
-      .select("full_name")
-      .eq("id", context.userId)
-      .maybeSingle();
+    const [{ data: perfil }] = await Promise.all([
+      context.supabase
+        .from("users_profiles")
+        .select("full_name")
+        .eq("id", context.userId)
+        .maybeSingle(),
+      data.estado === "aqui"
+        ? context.supabase.from("conversas_leituras").upsert(
+            {
+              empresa_id: context.empresaId,
+              conversa_id: data.conversaId,
+              user_id: context.userId,
+              lida_em: new Date().toISOString(),
+            },
+            { onConflict: "conversa_id,user_id" },
+          )
+        : Promise.resolve(null),
+    ]);
     const { avisarCanalDaEmpresa } = await import("@/lib/tempo-real.server");
     const ok = await avisarCanalDaEmpresa(context.empresaId, "presenca", {
       conversaId: data.conversaId,

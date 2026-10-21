@@ -111,7 +111,27 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
     status?: string;
     duplicado?: boolean;
     evento_id?: string;
+    empresa_id?: string;
+    conversa_id?: string;
+    mensagem_id?: string;
+    mensagem_inserida?: boolean;
   };
+  // Mensagem do cliente recém-gravada: push para a equipe ("conversa nova" / "respondeu a sua
+  // conversa"), menos para quem está com a conversa aberta. Nunca derruba o webhook.
+  if (
+    resultado.status === "processado" &&
+    resultado.mensagem_inserida &&
+    resultado.empresa_id &&
+    resultado.conversa_id &&
+    resultado.mensagem_id
+  ) {
+    const { avisarEquipeMensagemNova } = await import("@/lib/push/avisos-conversa.server");
+    await avisarEquipeMensagemNova(supabaseAdmin, {
+      empresaId: resultado.empresa_id,
+      conversaId: resultado.conversa_id,
+      mensagemId: resultado.mensagem_id,
+    }).catch((e) => console.error("Push da conversa:", e instanceof Error ? e.message : e));
+  }
   // Mensagens novas podem ter agendado respostas da Alice: entrega à fila (nunca derruba o webhook).
   const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
   await enfileirarPendentes(supabaseAdmin).catch((e) => console.error("Alice: fila:", e));
