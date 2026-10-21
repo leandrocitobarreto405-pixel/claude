@@ -9,6 +9,7 @@ import { BarraResposta } from "@/components/conversas/barra-resposta";
 import { usePapel } from "@/lib/tenant";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import { lerConversa } from "@/lib/conversas.functions";
+import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,28 @@ export const Route = createFileRoute("/_authenticated/conversas/$conversaId")({
   head: () => ({ meta: [{ title: "Conversa — Nexa OS" }] }),
   component: Conversa,
 });
+
+/** "✓ enviada", "✓✓ entregue", "✓✓ lida" ou "falhou" (vazio quando o Chatwoot não informa). */
+function StatusEnvio({ status, minha }: { status: string | null; minha: boolean }) {
+  const texto =
+    status === "enviada"
+      ? "✓ enviada"
+      : status === "entregue"
+        ? "✓✓ entregue"
+        : status === "lida"
+          ? "✓✓ lida"
+          : status === "falhou"
+            ? "falhou"
+            : null;
+  if (!texto && !minha) return null;
+  return (
+    <span className={cn("ml-2", status === "falhou" && "font-semibold text-problema-foreground")}>
+      {minha ? "você" : ""}
+      {minha && texto ? " · " : ""}
+      {texto}
+    </span>
+  );
+}
 
 const NOME_GRUPO = {
   precisam: "Esperando a equipe",
@@ -31,8 +54,10 @@ function Conversa() {
   const q = useQuery({
     queryKey: ["conversas", "uma", conversaId],
     queryFn: () => lerFn({ data: { conversaId } }),
-    refetchInterval: 20_000,
+    // Tempo real pelo Realtime; o refetch é só garantia (e para quem tem várias empresas).
+    refetchInterval: 30_000,
   });
+  useTempoRealConversas();
   const c = q.data;
   const navigate = useNavigate();
   const { papel } = usePapel();
@@ -105,10 +130,14 @@ function Conversa() {
                     : "rounded-br-md bg-marca-claro text-foreground",
                 )}
               >
-                <p className="whitespace-pre-wrap break-words">{m.texto}</p>
+                <p className="break-words whitespace-pre-wrap">{m.texto}</p>
                 <p className="mt-1 text-right text-[11px] text-muted-foreground">
                   {dateTimeBR(m.em)}
+                  {m.doCliente ? null : <StatusEnvio status={m.status} minha={m.minha} />}
                 </p>
+                {m.status === "falhou" && m.erro ? (
+                  <p className="mt-0.5 text-[11px] text-problema-foreground">{m.erro}</p>
+                ) : null}
               </div>
             </div>
           ))

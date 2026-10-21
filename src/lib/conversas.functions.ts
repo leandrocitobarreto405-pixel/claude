@@ -36,6 +36,11 @@ export type MensagemConversa = {
   doCliente: boolean;
   texto: string;
   em: string;
+  /** Mensagem enviada pelo app: "enviada" ou "falhou" (null nas demais / quando o Chatwoot não informa). */
+  status: string | null;
+  erro: string | null;
+  /** Enviada por esta pessoa, pelo app. */
+  minha: boolean;
 };
 
 export type ConversaCompleta = ConversaResumo & {
@@ -74,6 +79,9 @@ type LinhaMensagem = {
   message_type: string | null;
   direction: string;
   message_timestamp: string;
+  delivery_status?: string | null;
+  erro_envio?: string | null;
+  enviada_por?: string | null;
 };
 
 function resumir(
@@ -177,7 +185,9 @@ export const lerConversa = createServerFn({ method: "GET" })
     const [msgs, execs] = await Promise.all([
       db
         .from("whatsapp_messages")
-        .select("id, conversa_id, text_content, message_type, direction, message_timestamp")
+        .select(
+          "id, conversa_id, text_content, message_type, direction, message_timestamp, delivery_status, erro_envio, enviada_por",
+        )
         .eq("conversa_id", c.id)
         .eq("privada", false)
         .order("message_timestamp", { ascending: false })
@@ -199,6 +209,9 @@ export const lerConversa = createServerFn({ method: "GET" })
         doCliente: m.direction === "Recebida",
         texto: textoDaMensagem(m.text_content, m.message_type),
         em: m.message_timestamp,
+        status: m.delivery_status ?? null,
+        erro: m.erro_envio ?? null,
+        minha: Boolean(m.enviada_por && m.enviada_por === context.userId),
       })),
     };
   });

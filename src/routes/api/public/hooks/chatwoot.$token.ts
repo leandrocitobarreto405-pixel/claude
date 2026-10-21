@@ -95,6 +95,18 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
     return json({ error: "Falha ao registrar o evento." }, 500);
   }
 
+  // Status de entrega: o Chatwoot avisa a falha em content_attributes.external_error; quando a
+  // versão dele mandar "status" (sent/delivered/read/failed), também entra aqui.
+  const { statusDeEntrega } = await import("@/lib/caixa-entrega");
+  const entrega = statusDeEntrega(payload as Record<string, unknown>);
+  if (entrega) {
+    await supabaseAdmin
+      .from("whatsapp_messages")
+      .update({ delivery_status: entrega.status, erro_envio: entrega.erro })
+      .eq("chatwoot_message_id", entrega.chatwootMessageId)
+      .then(({ error: e }) => e && console.error("Chatwoot: status de entrega", e.message));
+  }
+
   const resultado = (data ?? {}) as {
     status?: string;
     duplicado?: boolean;

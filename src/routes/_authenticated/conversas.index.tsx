@@ -12,6 +12,7 @@ import { usePapel } from "@/lib/tenant";
 import { resumoAliceHoje } from "@/lib/alice.functions";
 import type { GrupoConversa } from "@/lib/conversas";
 import { listarConversas, type ConversaResumo } from "@/lib/conversas.functions";
+import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
 import { cn } from "@/lib/utils";
 
 export const CHAVE_CONVERSAS = ["conversas", "lista"] as const;
@@ -49,8 +50,10 @@ function Conversas() {
   const q = useQuery({
     queryKey: CHAVE_CONVERSAS,
     queryFn: () => listarFn(),
-    refetchInterval: 30_000,
+    // Tempo real pelo Realtime; o refetch é só garantia (e para quem tem várias empresas).
+    refetchInterval: 60_000,
   });
+  useTempoRealConversas();
   const alice = useQuery({
     queryKey: ["alice_resumo_hoje"],
     queryFn: () => resumoFn(),
@@ -94,7 +97,7 @@ function Conversas() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
         titulo="Conversas"
-        descricao="Para responder, abra no WhatsApp ou no Chatwoot."
+        descricao="Responda por aqui; o Chatwoot fica como plano B."
       />
 
       {/* A Alice: veio do Início. */}

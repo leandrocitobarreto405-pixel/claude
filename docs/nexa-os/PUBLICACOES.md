@@ -333,6 +333,9 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `whatsapp_messages.enviada_por` e `erro_envio`, `conversas.assumida_por`, `assumida_em` e
   `lida_por` (vazio), índice por conversa/hora. Nenhum dado muda; o Chatwoot continua recebendo
   tudo pelo webhook. Para voltar: o app anterior ignora as colunas.
+- "Caixa de entrada, item 2" (`20261124120000`, aplicada em 21/10): `conversas` e
+  `whatsapp_messages` entram na publicação `supabase_realtime` com REPLICA IDENTITY FULL (o RLS
+  por empresa vale no Realtime). Nenhum dado muda. Para voltar: tirar as duas da publicação.
 - Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões
   lança despesas "Comissões" com `reference_key` `comissao:<vendedora>:<mês>` (índice único já
   existente impede duplicar); essas despesas ficam fora das despesas do DRE.
