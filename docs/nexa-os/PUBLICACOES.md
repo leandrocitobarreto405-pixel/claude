@@ -486,7 +486,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Voz: OGG normalizado (granules, pre-skip 0)                 | `ddf7900`           | `bed0829`                |
 | 21/10/2026       | Conversas: busca, ordem, encerramento automático, teste 530 | `5513402`           | `ddf7900`                |
 | 21/10/2026       | Voz a 40 kbit/s, balão otimista dos anexos, tempos          | `f52b421`           | `a4bf278`                |
-| 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora    | `PENDENTE2`         | `8f1101e`                |
+| 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora    | `f2eb81c`           | `8f1101e`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
