@@ -1,7 +1,9 @@
-// Gravador de áudio da barra de resposta: toque para gravar, toque para parar; o arquivo vai ao
-// servidor, que converte para mensagem de voz (OGG/Opus). O navegador grava no que o celular
-// permite (WebM/Opus ou MP4/AAC).
+// Gravador de áudio da barra de resposta: toque para gravar, toque para parar. Grava já em
+// OGG/Opus 40 kbit/s no navegador (opus-recorder, WebAssembly, o mesmo gravador do Chatwoot) e
+// o arquivo sobe pronto, sem ffmpeg. Se o navegador não suportar, grava no que ele permite
+// (WebM/Opus ou MP4/AAC) e o servidor converte.
 import { useEffect, useRef, useState } from "react";
+import type Recorder from "opus-recorder";
 import { Mic, Square, X } from "lucide-react";
 import { Botao } from "@/components/nexa";
 
@@ -36,6 +38,14 @@ export function GravadorAudio({
 
   function limpar() {
     if (timer.current) clearInterval(timer.current);
+    if (opus.current) {
+      try {
+        opus.current.close();
+      } catch {
+        /* já fechado */
+      }
+      opus.current = null;
+    }
     timer.current = null;
     rec.current?.stream.getTracks().forEach((t) => t.stop());
     rec.current = null;
@@ -47,10 +57,70 @@ export function GravadorAudio({
     aoMudarGravacao?.(gravando);
   }, [gravando, aoMudarGravacao]);
 
+  const opus = useRef<Recorder | null>(null);
+  const partesOpus = useRef<Uint8Array[]>([]);
+
+  function contar(aoEstourar: () => void) {
+    setGravando(true);
+    setSegundos(0);
+    timer.current = setInterval(() => {
+      setSegundos((s) => {
+        if (s + 1 >= MAX_SEGUNDOS) aoEstourar();
+        return s + 1;
+      });
+    }, 1000);
+  }
+
+  /** OGG/Opus direto no navegador: mono 48 kHz, 40 kbit/s, quadros de 60 ms, páginas de 3 s. */
+  async function comecarOpus(): Promise<boolean> {
+    try {
+      const { default: Recorder } = await import("opus-recorder");
+      if (!Recorder.isRecordingSupported()) return false;
+      const r = new Recorder({
+        encoderPath: "/opus-recorder/encoderWorker.min.js",
+        encoderSampleRate: 48000,
+        encoderBitRate: 40000,
+        encoderApplication: 2048,
+        encoderFrameSize: 60,
+        maxFramesPerPage: 50,
+        numberOfChannels: 1,
+        streamPages: true,
+      });
+      partesOpus.current = [];
+      cancelado.current = false;
+      r.ondataavailable = (pagina) => {
+        if (pagina.length) partesOpus.current.push(new Uint8Array(pagina));
+      };
+      r.onstop = () => {
+        const blob = new Blob(partesOpus.current as BlobPart[], { type: "audio/ogg" });
+        const foiCancelado = cancelado.current;
+        if (!foiCancelado && blob.size >= 1000)
+          aoGravar(new File([blob], "gravacao.ogg", { type: "audio/ogg" }));
+        r.close();
+        opus.current = null;
+        limpar();
+      };
+      await r.start();
+      opus.current = r;
+      contar(() => void r.stop());
+      return true;
+    } catch (e) {
+      console.warn("Gravador Opus indisponível; usando o do navegador", e);
+      opus.current?.close();
+      opus.current = null;
+      return false;
+    }
+  }
+
   async function comecar() {
     setErro(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErro("Este navegador não grava áudio. Use o Chrome ou o Safari atualizados.");
+      return;
+    }
+    if (await comecarOpus()) return;
     const formato = formatoDeGravacao();
-    if (formato === null || !navigator.mediaDevices?.getUserMedia) {
+    if (formato === null) {
       setErro("Este navegador não grava áudio. Use o Chrome ou o Safari atualizados.");
       return;
     }
@@ -73,14 +143,9 @@ export function GravadorAudio({
       };
       rec.current = r;
       r.start(250);
-      setGravando(true);
-      setSegundos(0);
-      timer.current = setInterval(() => {
-        setSegundos((s) => {
-          if (s + 1 >= MAX_SEGUNDOS && r.state === "recording") r.stop();
-          return s + 1;
-        });
-      }, 1000);
+      contar(() => {
+        if (r.state === "recording") r.stop();
+      });
     } catch {
       setErro("Sem acesso ao microfone. Libere nas permissões do navegador.");
     }
@@ -88,7 +153,8 @@ export function GravadorAudio({
 
   function parar(cancelar: boolean) {
     cancelado.current = cancelar;
-    if (rec.current?.state === "recording") rec.current.stop();
+    if (opus.current) void opus.current.stop();
+    else if (rec.current?.state === "recording") rec.current.stop();
     else limpar();
   }
 

@@ -31,6 +31,41 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+/** Cliente do Supabase da pessoa (token e empresa ativa dos cabeçalhos) ou erro. */
+export async function clienteDoPedido(headers: Headers): Promise<{
+  supabase: ReturnType<typeof createClient<Database>>;
+  userId: string;
+  claims: Record<string, unknown>;
+}> {
+  const SUPABASE_URL = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
+  const SUPABASE_PUBLISHABLE_KEY =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY)
+    throw new Error("Missing Supabase environment variable(s).");
+  const authHeader = headers.get("authorization");
+  if (!authHeader) throw new Error("Unauthorized: No authorization header provided");
+  if (!authHeader.startsWith("Bearer "))
+    throw new Error("Unauthorized: Only Bearer tokens are supported");
+  const token = authHeader.replace("Bearer ", "");
+  const empresaHeader = headers.get("x-empresa-id");
+  if (!token) throw new Error("Unauthorized: No token provided");
+  if (token.split(".").length !== 3) throw new Error("Unauthorized: Invalid token");
+  const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: {
+      fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(empresaHeader ? { "x-empresa-id": empresaHeader } : {}),
+      },
+    },
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) throw new Error("Unauthorized: Invalid token");
+  if (!data.claims.sub) throw new Error("Unauthorized: No user ID found in token");
+  return { supabase, userId: data.claims.sub, claims: data.claims as Record<string, unknown> };
+}
+
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const SUPABASE_URL = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];

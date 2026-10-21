@@ -74,6 +74,17 @@ export function textoDaMensagem(texto: string | null, tipo: string | null): stri
   return "(mídia)";
 }
 
+/** Tipo de mensagem (message_type) é áudio / imagem. */
+export function ehAudio(tipo: string | null): boolean {
+  const t = (tipo ?? "").toLowerCase();
+  return t.includes("áudio") || t.includes("audio");
+}
+
+export function ehImagem(tipo: string | null): boolean {
+  const t = (tipo ?? "").toLowerCase();
+  return t.includes("imag") || t.includes("foto");
+}
+
 export type Passagem = { motivo: string; resumo: string | null; posVenda: boolean };
 
 /**

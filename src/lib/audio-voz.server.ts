@@ -165,6 +165,37 @@ export function normalizarOggOpus(bytes: Uint8Array, vendor = "nexa"): Uint8Arra
 /** Mantido pelo nome antigo. */
 export const limparOpusTags = normalizarOggOpus;
 
+/** OGG com OpusHead na primeira página (gravado no navegador pelo opus-recorder). */
+export function ehOggOpus(bytes: Uint8Array): boolean {
+  return (
+    bytes.length > 36 &&
+    Buffer.from(bytes.subarray(0, 4)).toString() === "OggS" &&
+    Buffer.from(bytes.subarray(28, 36)).toString() === "OpusHead"
+  );
+}
+
+/**
+ * Mensagem de voz a partir do que o navegador mandou: OGG/Opus já pronto (opus-recorder) só
+ * passa pela normalização (pre-skip 0, granules, série, tags), sem ffmpeg; qualquer outro
+ * formato (ou um OGG que não dê para ler) vai pelo ffmpeg, como reserva.
+ */
+export async function prepararVoz(
+  bytes: Uint8Array,
+): Promise<{ bytes: Uint8Array; via: "opus-recorder" | "ffmpeg" }> {
+  if (ehOggOpus(bytes)) {
+    try {
+      const out = normalizarOggOpus(bytes);
+      if (out.length > MAX_VOZ_SAIDA)
+        throw new Error("Áudio longo demais para mensagem de voz (até 2 min).");
+      if (temAudio(out)) return { bytes: out, via: "opus-recorder" };
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("Áudio longo")) throw e;
+      console.warn("Voz: OGG do navegador não normalizou; indo pelo ffmpeg", e);
+    }
+  }
+  return { bytes: await paraOggOpus(bytes), via: "ffmpeg" };
+}
+
 /**
  * Converte o que o navegador gravou (WebM/Opus, MP4/AAC…) em mensagem de voz OGG/Opus.
  * A entrada vai para um arquivo temporário: um MP4 com o índice (moov) no fim não é legível pelo

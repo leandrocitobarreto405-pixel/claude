@@ -13,6 +13,8 @@ import { lerConversa } from "@/lib/conversas.functions";
 import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
 import { casarEnvios, useEnviosLocais } from "@/lib/envios-locais";
 import { MidiaLocal, BalaoEnvioLocal } from "@/components/conversas/balao-envio-local";
+import { AudioMensagem, ImagemMensagem } from "@/components/conversas/anexo-mensagem";
+import { ehAudio, ehImagem } from "@/lib/conversas";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -193,6 +195,10 @@ function Conversa() {
                 )}
                 {m.chatwootId != null && porChatwootId.has(m.chatwootId) ? (
                   <MidiaLocal envio={porChatwootId.get(m.chatwootId)!} />
+                ) : ehAudio(m.tipo) ? (
+                  <AudioMensagem mensagemId={m.id} transcricao={m.texto} />
+                ) : ehImagem(m.tipo) ? (
+                  <ImagemMensagem mensagemId={m.id} legenda={m.texto} />
                 ) : (
                   <p className="break-words whitespace-pre-wrap">{m.texto}</p>
                 )}

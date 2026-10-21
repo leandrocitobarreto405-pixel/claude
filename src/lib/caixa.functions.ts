@@ -303,6 +303,15 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
     const v = validarAnexo(tipo, arquivo.type, arquivo.size);
     if (!v.ok) throw new Error(v.motivo);
 
+    // Tempos de cada etapa (preparo, Chatwoot, registro) voltam ao app e vão ao log, sem dados
+    // do cliente. O preparo do áudio corre em paralelo com a leitura da conversa e do token.
+    const t0 = performance.now();
+    const original = new Uint8Array(await arquivo.arrayBuffer());
+    const preparo =
+      tipo === "audio"
+        ? import("@/lib/audio-voz.server").then(({ prepararVoz }) => prepararVoz(original))
+        : Promise.resolve({ bytes: original, via: "original" as const });
+    preparo.catch(() => undefined);
     const e = await dadosDoEnvio(ctx, conversaId);
     const situacao = situacaoParaResponder(e.conversa.status);
     if (!situacao.pode)
@@ -310,22 +319,17 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
     if (!janelaDeResposta(e.ultimaDoCliente).aberta)
       throw new Error("Passou 24 h desde a última mensagem do cliente: anexo só dentro da janela.");
 
-    // Tempos de cada etapa (conversão, Chatwoot, registro) voltam ao app e vão ao log, sem dados
-    // do cliente, para medir onde o envio demora.
-    const t0 = performance.now();
-    let bytes: Uint8Array = new Uint8Array(await arquivo.arrayBuffer());
+    let bytes: Uint8Array;
+    let via: string;
+    try {
+      ({ bytes, via } = await preparo);
+    } catch (err) {
+      console.error("Caixa: conversão do áudio", err instanceof Error ? err.message : err);
+      throw new Error("Não deu para preparar o áudio como mensagem de voz. Tente gravar de novo.");
+    }
     let nome = nomeSeguro(arquivo.name, tipo === "imagem" ? "foto.jpg" : "arquivo");
     let mime = arquivo.type.split(";")[0]!;
     if (tipo === "audio") {
-      const { paraOggOpus } = await import("@/lib/audio-voz.server");
-      try {
-        bytes = await paraOggOpus(bytes);
-      } catch (err) {
-        console.error("Caixa: conversão do áudio", err instanceof Error ? err.message : err);
-        throw new Error(
-          "Não deu para preparar o áudio como mensagem de voz. Tente gravar de novo.",
-        );
-      }
       nome = "audio.ogg";
       mime = "audio/ogg";
     }
@@ -347,19 +351,24 @@ export const enviarAnexoFn = createServerFn({ method: "POST" })
       console.error("Caixa: anexo falhou", err instanceof Error ? err.message : err);
       throw new Error("O WhatsApp não aceitou o arquivo agora. Tente de novo.");
     }
-    if (situacao.reabre)
-      await mudarSituacao(e.conta, e.token, e.conversa.chatwoot_conversation_id, "open").catch(
-        () => undefined,
-      );
     const t2 = performance.now();
-    await registrarEnvio(ctx, e, id, tipo === "audio" ? "" : nome, v.tipoMensagem, situacao.reabre);
+    // Registro na nossa tabela e reabertura da conversa em paralelo (os dois só dependem do id).
+    await Promise.all([
+      registrarEnvio(ctx, e, id, tipo === "audio" ? "" : nome, v.tipoMensagem, situacao.reabre),
+      situacao.reabre
+        ? mudarSituacao(e.conta, e.token, e.conversa.chatwoot_conversation_id, "open").catch(
+            () => undefined,
+          )
+        : Promise.resolve(),
+    ]);
     const t3 = performance.now();
     const tempos = {
-      conversaoMs: Math.round(t1 - t0),
+      preparoMs: Math.round(t1 - t0),
       chatwootMs: Math.round(t2 - t1),
       registroMs: Math.round(t3 - t2),
       totalMs: Math.round(t3 - t0),
       bytes: bytes.length,
+      via,
     };
     console.info("[caixa] anexo", { tipo, ...tempos });
     return { ok: true, chatwootMessageId: id, tempos };

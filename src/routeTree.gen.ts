@@ -73,6 +73,7 @@ import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
 import { Route as AuthenticatedServicoVisitIdRouteImport } from './routes/_authenticated/servico.$visitId'
+import { Route as ApiAnexoMensagemIdRouteImport } from './routes/api/anexo.$mensagemId'
 import { Route as AuthenticatedCrmLeadLeadIdRouteImport } from './routes/_authenticated/crm/lead.$leadId'
 import { Route as ApiPublicAdsLeadRouteImport } from './routes/api/public/ads/lead'
 import { Route as ApiPublicGoogleRetornoRouteImport } from './routes/api/public/google/retorno'
@@ -439,6 +440,11 @@ const AuthenticatedServicoVisitIdRoute =
     path: '/servico/$visitId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiAnexoMensagemIdRoute = ApiAnexoMensagemIdRouteImport.update({
+  id: '/api/anexo/$mensagemId',
+  path: '/api/anexo/$mensagemId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCrmLeadLeadIdRoute =
   AuthenticatedCrmLeadLeadIdRouteImport.update({
     id: '/crm/lead/$leadId',
@@ -587,6 +593,7 @@ export interface FileRoutesByFullPath {
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/api/anexo/$mensagemId': typeof ApiAnexoMensagemIdRoute
   '/configuracoes/': typeof AuthenticatedConfiguracoesIndexRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
@@ -667,6 +674,7 @@ export interface FileRoutesByTo {
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/api/anexo/$mensagemId': typeof ApiAnexoMensagemIdRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesIndexRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
   '/orcamentos': typeof AuthenticatedOrcamentosIndexRoute
@@ -749,6 +757,7 @@ export interface FileRoutesById {
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
+  '/api/anexo/$mensagemId': typeof ApiAnexoMensagemIdRoute
   '/_authenticated/configuracoes/': typeof AuthenticatedConfiguracoesIndexRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/_authenticated/orcamentos/': typeof AuthenticatedOrcamentosIndexRoute
@@ -831,6 +840,7 @@ export interface FileRouteTypes {
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
+    | '/api/anexo/$mensagemId'
     | '/configuracoes/'
     | '/conversas/'
     | '/orcamentos/'
@@ -911,6 +921,7 @@ export interface FileRouteTypes {
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
+    | '/api/anexo/$mensagemId'
     | '/configuracoes'
     | '/conversas'
     | '/orcamentos'
@@ -992,6 +1003,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/servico/$visitId'
+    | '/api/anexo/$mensagemId'
     | '/_authenticated/configuracoes/'
     | '/_authenticated/conversas/'
     | '/_authenticated/orcamentos/'
@@ -1019,6 +1031,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  ApiAnexoMensagemIdRoute: typeof ApiAnexoMensagemIdRoute
   ApiPublicAdsLeadRoute: typeof ApiPublicAdsLeadRoute
   ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
   ApiPublicHooksAdsExportarGoogleRoute: typeof ApiPublicHooksAdsExportarGoogleRoute
@@ -1485,6 +1498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedServicoVisitIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/anexo/$mensagemId': {
+      id: '/api/anexo/$mensagemId'
+      path: '/api/anexo/$mensagemId'
+      fullPath: '/api/anexo/$mensagemId'
+      preLoaderRoute: typeof ApiAnexoMensagemIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/crm/lead/$leadId': {
       id: '/_authenticated/crm/lead/$leadId'
       path: '/crm/lead/$leadId'
@@ -1731,6 +1751,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  ApiAnexoMensagemIdRoute: ApiAnexoMensagemIdRoute,
   ApiPublicAdsLeadRoute: ApiPublicAdsLeadRoute,
   ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
   ApiPublicHooksAdsExportarGoogleRoute: ApiPublicHooksAdsExportarGoogleRoute,

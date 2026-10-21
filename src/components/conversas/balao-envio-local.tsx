@@ -4,18 +4,14 @@ import { useState } from "react";
 import { FileText, RotateCcw, X } from "lucide-react";
 import { Botao } from "@/components/nexa";
 import { descartarEnvio, tentarDeNovo, type EnvioLocal } from "@/lib/envios-locais";
+import { PlayerAudio } from "@/components/conversas/player-audio";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** A mídia em si (sem balão): usada dentro do balão da mensagem confirmada e no balão local. */
 export function MidiaLocal({ envio }: { envio: EnvioLocal }) {
   const [semImagem, setSemImagem] = useState(false);
-  if (envio.tipo === "audio")
-    return (
-      <audio controls preload="metadata" src={envio.url} className="h-11 w-full max-w-[280px]">
-        Áudio gravado
-      </audio>
-    );
+  if (envio.tipo === "audio") return <PlayerAudio fonte={envio.arquivo} />;
   if (envio.tipo === "imagem" && !semImagem)
     return (
       <img
@@ -31,6 +27,23 @@ export function MidiaLocal({ envio }: { envio: EnvioLocal }) {
       {envio.nome}
     </span>
   );
+}
+
+/** "celular→servidor 1,2 s · preparo 0,3 s (opus) · Chatwoot 1,9 s · registro 0,1 s". */
+function linhaDeTempos(totalSegundos: number, t: EnvioLocal["tempos"] & object): string {
+  const seg = (ms: number) =>
+    `${(Math.max(0, ms) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
+  const celular = totalSegundos * 1000 - t.totalMs;
+  const via = t.via === "opus-recorder" ? "opus" : t.via === "ffmpeg" ? "ffmpeg" : null;
+  return [
+    `celular→servidor ${seg(celular)}`,
+    t.preparoMs > 0 ? `preparo ${seg(t.preparoMs)}${via ? ` (${via})` : ""}` : null,
+    `Chatwoot ${seg(t.chatwootMs)}`,
+    `registro ${seg(t.registroMs)}`,
+    `${Math.round(t.bytes / 1024)} KB`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function BalaoEnvioLocal({ envio }: { envio: EnvioLocal }) {
@@ -56,6 +69,11 @@ export function BalaoEnvioLocal({ envio }: { envio: EnvioLocal }) {
                 : "falhou"}
           </span>
         </p>
+        {envio.estado === "enviada" && envio.tempos && envio.segundos != null ? (
+          <p className="mt-0.5 text-right text-[10px] text-muted-foreground">
+            {linhaDeTempos(envio.segundos, envio.tempos)}
+          </p>
+        ) : null}
         {falhou ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {envio.erro ? (

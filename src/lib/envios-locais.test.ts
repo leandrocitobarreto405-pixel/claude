@@ -8,6 +8,7 @@ const base = (p: Partial<EnvioLocal>): EnvioLocal => ({
   tipo: "audio",
   nome: "gravacao.m4a",
   url: "blob:x",
+  arquivo: new File([new Uint8Array([1, 2, 3])], "gravacao.m4a", { type: "audio/mp4" }),
   em: "2026-10-21T12:00:00Z",
   estado: "enviando",
   ...p,

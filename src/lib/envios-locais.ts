@@ -12,8 +12,10 @@ export type EnvioLocal = {
   conversaId: string;
   tipo: TipoAnexo;
   nome: string;
-  /** URL local (blob:) do arquivo, para o player ou a miniatura. */
+  /** URL local (blob:) do arquivo, para a miniatura. */
   url: string;
+  /** O arquivo em si (o player decodifica a partir dele). */
+  arquivo: File;
   em: string;
   estado: EstadoEnvio;
   erro?: string | undefined;
@@ -21,14 +23,22 @@ export type EnvioLocal = {
   chatwootId?: number;
   /** Segundos entre soltar o botão e a confirmação do Chatwoot. */
   segundos?: number;
+  /** Tempos por etapa no servidor (para medir onde o envio demora). */
+  tempos?: TemposEnvio;
 };
 
 export type TemposEnvio = {
-  conversaoMs: number;
+  /** Conversão/normalização do áudio no servidor (ou 0 para foto e documento). */
+  preparoMs: number;
+  /** Subida ao Chatwoot até a confirmação. */
   chatwootMs: number;
+  /** Registro na nossa tabela (em paralelo com a reabertura da conversa). */
   registroMs: number;
+  /** Total no servidor. */
   totalMs: number;
   bytes: number;
+  /** "opus-recorder" (gravado já em OGG/Opus), "ffmpeg" (convertido) ou "original". */
+  via: string;
 };
 
 type Resultado = { chatwootMessageId: number; tempos?: TemposEnvio };
@@ -90,7 +100,12 @@ async function rodar(id: string) {
   try {
     const res = await r.enviar(r.arquivo);
     const segundos = Math.round((performance.now() - inicio) / 100) / 10;
-    atualizar(id, { estado: "enviada", chatwootId: res.chatwootMessageId, segundos });
+    atualizar(id, {
+      estado: "enviada",
+      chatwootId: res.chatwootMessageId,
+      segundos,
+      ...(res.tempos ? { tempos: res.tempos } : {}),
+    });
     if (res.tempos)
       console.info("[caixa] anexo enviado", {
         tipo: lista.find((e) => e.id === id)?.tipo,
@@ -124,6 +139,7 @@ export function iniciarEnvio(dados: {
       tipo: dados.tipo,
       nome: dados.arquivo.name,
       url: URL.createObjectURL(dados.arquivo),
+      arquivo: dados.arquivo,
       em: new Date().toISOString(),
       estado: "enviando",
     },

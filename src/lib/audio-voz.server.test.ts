@@ -7,8 +7,10 @@ import {
   BITRATE_VOZ,
   MARCAR_COMO_VOZ,
   amostrasDoPacote,
+  ehOggOpus,
   normalizarOggOpus,
   paraOggOpus,
+  prepararVoz,
 } from "./audio-voz.server";
 import { duracaoOggOpus } from "./alice/ogg-opus";
 
@@ -220,3 +222,21 @@ test("MP4 com o índice (moov) no fim também converte", { skip: !temFfmpeg() },
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test(
+  "OGG/Opus gravado no navegador vai sem ffmpeg; o resto vai pelo ffmpeg",
+  { skip: !temFfmpeg() },
+  async () => {
+    const ogg = await paraOggOpus(tom("webm"));
+    assert.equal(ehOggOpus(ogg), true);
+    assert.equal(ehOggOpus(tom("mp4")), false);
+    const direto = await prepararVoz(ogg);
+    assert.equal(direto.via, "opus-recorder");
+    assert.ok(granulesConsistentes(direto.bytes));
+    assert.equal(opusHead(direto.bytes).preskip, 0);
+    const convertido = await prepararVoz(tom("mp4"));
+    assert.equal(convertido.via, "ffmpeg");
+    // OGG quebrado (cabeçalho só) cai no ffmpeg e dá erro claro, não arquivo vazio.
+    await assert.rejects(prepararVoz(ogg.slice(0, 40)), /ffmpeg falhou|sem áudio/);
+  },
+);
