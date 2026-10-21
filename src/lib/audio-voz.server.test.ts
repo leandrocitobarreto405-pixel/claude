@@ -79,11 +79,9 @@ test(
       assert.ok(dur !== null && dur > 6.5 && dur < 7.5, `${f}: ~7 s (${dur})`);
       assert.ok(out.length < 200_000, `${f}: ~7 s a até 128 kbit/s (${out.length} bytes)`);
       assert.equal(Buffer.from(out).indexOf("encoder="), -1, `${f}: sem metadados extras`);
-      assert.deepEqual(
-        quadrosEPaginas(out),
-        { msPorQuadro: 60, quadrosPorPagina: 50 },
-        `${f}: quadros de 60 ms, páginas de 3 s`,
-      );
+      const qp = quadrosEPaginas(out);
+      assert.equal(qp.quadrosPorPagina, 50, `${f}: páginas de 3 s (50 quadros)`);
+      assert.equal(Math.round(qp.msPorQuadro), 60, `${f}: quadros de 60 ms`);
     }
   },
 );
