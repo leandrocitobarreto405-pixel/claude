@@ -392,6 +392,11 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   com `jsonb_to_recordset` no lugar. Se não der para evitar, avisar no topo do arquivo para rodar
   sem aceitar a sugestão de RLS.
 
+- "Caixa de entrada 4: duas atendentes" (21/10): sem mudança no banco. A presença ("Maria está
+  com esta conversa aberta agora") vai pelo canal privado `empresa:<id>` do Realtime que já
+  existia, mandada pelo servidor (API de broadcast com a chave de serviço); fica só na memória
+  de cada aba e some em 70 s sem aviso.
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -503,6 +508,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe | `2272dd4`           | `8f98a46`                |
 | 21/10/2026       | Caixa 3: Minhas, assumir, não lidas, digitando… e lido             | `a84c99c`           | `c0f0ec3`                |
 | 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas        | `fb1e008`           | `76f86a4`                |
+| 21/10/2026       | Caixa 4: duas atendentes (faixa, presença, assumir antes)          | `6705084`           | `5335ab0`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
