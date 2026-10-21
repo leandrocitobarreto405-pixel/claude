@@ -495,7 +495,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora           | `f2eb81c`           | `8f1101e`                |
 | 21/10/2026       | Player de áudio, foto com orientação, Opus no navegador            | `2841475`           | `bf7d2f5`                |
 | 21/10/2026       | Voz: OGG cru do gravador, trava de início duplo                    | `9967f00`           | `40740f2`                |
-| 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe | `PENDENTE5`         | `8f98a46`                |
+| 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe | `2272dd4`           | `8f98a46`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
