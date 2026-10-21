@@ -240,7 +240,7 @@ const S_ENCARDIDO = {
 export function ferramentasDisponiveis(
   cfg: ConfigIa,
   etapas: string[],
-  extras: { posAtendimento?: boolean } = {},
+  extras: { posAtendimento?: boolean; regraNome?: boolean } = {},
 ): Anthropic.Beta.BetaTool[] {
   const lista: Anthropic.Beta.BetaTool[] = [
     {
@@ -686,8 +686,37 @@ export function ferramentasDisponiveis(
       },
     },
   );
+  if (extras.regraNome) lista.push(FERRAMENTA_NOME);
   return lista;
 }
+
+/** Nome do cliente: aceitar o do perfil, guardar o que ele disse ou marcar que perguntou. */
+export const FERRAMENTA_NOME: Anthropic.Beta.BetaTool = {
+  name: "registrar_nome_cliente",
+  description:
+    "Nome do cliente. aceitei_perfil: o nome do perfil do WhatsApp parece nome de pessoa e você vai usá-lo. cliente_informou: o cliente disse como se chama (mande o nome como ele escreveu). perguntei: você perguntou o nome nesta resposta. O nome confirmado vai para o contato, a conversa, o orçamento, a OS e os modelos.",
+  input_schema: {
+    type: "object",
+    properties: {
+      acao: { type: "string", enum: ["aceitei_perfil", "cliente_informou", "perguntei"] },
+      nome: {
+        type: "string",
+        description: "O nome (obrigatório em aceitei_perfil e cliente_informou).",
+      },
+    },
+    required: ["acao"],
+    additionalProperties: false,
+  },
+};
+
+export const RegistrarNome = z
+  .object({
+    acao: z.enum(["aceitei_perfil", "cliente_informou", "perguntei"]),
+    nome: z.string().trim().max(120).optional(),
+  })
+  .refine((v) => v.acao === "perguntei" || Boolean(v.nome), {
+    message: "Mande o nome em aceitei_perfil e cliente_informou.",
+  });
 
 // ---------------------------------------------------------------- implementações
 

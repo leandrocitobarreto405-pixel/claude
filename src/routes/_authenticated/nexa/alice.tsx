@@ -1,4 +1,5 @@
 import { SELECT_LEADS_ALICE_NEXA } from "@/lib/consultas";
+import { EnsaioNome } from "@/components/alice/ensaio-nome";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -182,6 +183,10 @@ function AliceNexa() {
         title="Alice: custo e resultado"
         description="O que a Alice atendeu em cada empresa, quanto virou venda, quanto custou e a comissão da Nexa pelas vendas dela."
       />
+
+      <div className="mb-6">
+        <EnsaioNome />
+      </div>
 
       <section className="card-surface mb-6 grid gap-4 p-5 sm:grid-cols-2">
         <div className="space-y-2">

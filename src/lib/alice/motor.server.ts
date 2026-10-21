@@ -46,9 +46,9 @@ const MAX_MENSAGENS_POR_RESPOSTA = 10;
 const MAX_BYTES_IMAGEM = 4_500_000;
 const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 /** Modelos que aceitam o fallback automático do servidor quando recusam ("default"). */
-const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
+export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
-const SEM_SISTEMA_NO_MEIO = ["claude-sonnet-5"];
+export const SEM_SISTEMA_NO_MEIO = ["claude-sonnet-5"];
 /** Resposta do modelo quando o follow-up não deve ser enviado. */
 const NADA = "NADA";
 
@@ -254,7 +254,7 @@ async function socorroHumano(db: Admin, tarefa: Tarefa, nota: string) {
 }
 
 // ---------------------------------------------------------------- contexto
-async function etapasAbertas(db: Admin, empresaId: string): Promise<string[]> {
+export async function etapasAbertas(db: Admin, empresaId: string): Promise<string[]> {
   const { data } = await db
     .from("config_options")
     .select("name, metadata")
@@ -267,7 +267,7 @@ async function etapasAbertas(db: Admin, empresaId: string): Promise<string[]> {
     .map((o) => o.name);
 }
 
-async function contextoEmpresa(
+export async function contextoEmpresa(
   db: Admin,
   empresaId: string,
   cfg: ConfigIa,
@@ -544,7 +544,7 @@ async function historico(
 }
 
 // ---------------------------------------------------------------- tarefas
-async function lerConfig(db: Admin, empresaId: string) {
+export async function lerConfig(db: Admin, empresaId: string) {
   const [{ data }, { data: empresa }] = await Promise.all([
     db.from("ia_configuracoes").select("*").eq("empresa_id", empresaId).maybeSingle(),
     db.from("empresas").select("implantacao_liberada_em").eq("id", empresaId).maybeSingle(),

@@ -210,3 +210,32 @@ test("custo: cache de 1 hora custa 2× a entrada e o de 5 min 1,25×", () => {
     10.2,
   );
 });
+
+test("regra do nome: desligada não muda as instruções; ligada acrescenta a seção", async () => {
+  const { instrucoesFixas } = await import("./prompt");
+  const base = {
+    empresa: "Empresa Fictícia",
+    telefone: null,
+    instagram: null,
+    nomeAssistente: "Alice",
+    descricaoNegocio: "",
+    instrucoes: "",
+    perguntasFrequentes: "",
+    precos: [],
+    servicos: [],
+    equipe: [],
+    descontoPixPercentual: 5,
+    parcelasMax: 10,
+    validadeDias: 7,
+    horaInicio: 8,
+    horaFim: 20,
+    ferramentas: [],
+  };
+  const sem = instrucoesFixas(base);
+  assert.ok(!sem.includes("# Nome do cliente"));
+  assert.ok(sem.includes('chame pelo nome ("Me conta, Ana, o que...").'));
+  const com = instrucoesFixas({ ...base, regraNome: true });
+  assert.ok(com.includes("# Nome do cliente"));
+  assert.ok(com.includes('"Oi! Eu sou a Alice, da Empresa Fictícia 💙 Com quem eu falo?"'));
+  assert.ok(com.includes("só quando o nome estiver confirmado"));
+});
