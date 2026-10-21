@@ -7,6 +7,7 @@ import {
   BITRATE_VOZ,
   MARCAR_COMO_VOZ,
   amostrasDoPacote,
+  conferirOggGravado,
   ehOggOpus,
   normalizarOggOpus,
   paraOggOpus,
@@ -224,19 +225,48 @@ test("MP4 com o índice (moov) no fim também converte", { skip: !temFfmpeg() },
 });
 
 test(
-  "OGG/Opus gravado no navegador vai sem ffmpeg; o resto vai pelo ffmpeg",
+  "OGG/Opus gravado no navegador vai cru, sem ffmpeg; o resto vai pelo ffmpeg",
   { skip: !temFfmpeg() },
   async () => {
     const ogg = await paraOggOpus(tom("webm"));
     assert.equal(ehOggOpus(ogg), true);
     assert.equal(ehOggOpus(tom("mp4")), false);
-    const direto = await prepararVoz(ogg);
+    // Cru: byte a byte igual ao que o navegador mandou (pre-skip, granules, série e tags intactos).
+    const buf = Buffer.from(ogg);
+    buf.writeUInt16LE(312, buf.indexOf("OpusHead") + 10);
+    const direto = await prepararVoz(new Uint8Array(buf));
     assert.equal(direto.via, "opus-recorder");
-    assert.ok(granulesConsistentes(direto.bytes));
-    assert.equal(opusHead(direto.bytes).preskip, 0);
+    assert.deepEqual(Buffer.from(direto.bytes), buf, "sem normalização");
+    assert.equal(opusHead(direto.bytes).preskip, 312);
     const convertido = await prepararVoz(tom("mp4"));
     assert.equal(convertido.via, "ffmpeg");
     // OGG quebrado (cabeçalho só) cai no ffmpeg e dá erro claro, não arquivo vazio.
     await assert.rejects(prepararVoz(ogg.slice(0, 40)), /ffmpeg falhou|sem áudio/);
+  },
+);
+
+test(
+  "gravação em dobro (dois gravadores, páginas intercaladas) é recusada",
+  { skip: !temFfmpeg() },
+  async () => {
+    const ogg = await paraOggOpus(tom("webm"));
+    const pags = paginasOgg(ogg).map((p) =>
+      Buffer.from(ogg.subarray(p.inicio, p.inicio + 27 + p.segmentos.length + p.corpo.length)),
+    );
+    // Como no arquivo das 13:33 de 21/10: Head, Tags, Head, Tags, A2, B2, A3, B3…
+    const dobro = Buffer.concat([
+      pags[0]!,
+      pags[1]!,
+      pags[0]!,
+      pags[1]!,
+      pags[2]!,
+      pags[2]!,
+      pags[3]!,
+      pags[3]!,
+    ]);
+    const c = conferirOggGravado(new Uint8Array(dobro));
+    assert.equal(c.ok, false);
+    await assert.rejects(prepararVoz(new Uint8Array(dobro)), /em dobro/);
+    assert.deepEqual(conferirOggGravado(ogg), { ok: true });
   },
 );

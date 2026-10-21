@@ -175,23 +175,44 @@ export function ehOggOpus(bytes: Uint8Array): boolean {
 }
 
 /**
- * Mensagem de voz a partir do que o navegador mandou: OGG/Opus já pronto (opus-recorder) só
- * passa pela normalização (pre-skip 0, granules, série, tags), sem ffmpeg; qualquer outro
- * formato (ou um OGG que não dê para ler) vai pelo ffmpeg, como reserva.
+ * Confere a estrutura do OGG gravado no navegador: um só OpusHead (na primeira página), números
+ * de página contínuos e pelo menos uma página com amostras. Um arquivo com dois pares de
+ * cabeçalho e páginas intercaladas (dois gravadores ao mesmo tempo, 21/10) é recusado.
+ */
+export function conferirOggGravado(
+  bytes: Uint8Array,
+): { ok: true } | { ok: false; motivo: string } {
+  const pags = lerPaginas(Buffer.from(bytes));
+  if (!pags) return { ok: false, motivo: "páginas ilegíveis" };
+  const cabecas = pags.filter((p) => p.corpo.subarray(0, 8).toString() === "OpusHead").length;
+  if (cabecas !== 1)
+    return { ok: false, motivo: `${cabecas} cabeçalhos OpusHead (gravação dupla)` };
+  for (let i = 0; i < pags.length; i++)
+    if (pags[i]!.cabecalho.readUInt32LE(18) !== i)
+      return { ok: false, motivo: `página ${i} com número ${pags[i]!.cabecalho.readUInt32LE(18)}` };
+  if (!pags.some((p) => p.cabecalho.readBigInt64LE(6) > 0n))
+    return { ok: false, motivo: "sem amostras" };
+  return { ok: true };
+}
+
+/**
+ * Mensagem de voz a partir do que o navegador mandou. OGG/Opus já pronto (opus-recorder) vai
+ * CRU, exatamente como o Chatwoot manda o arquivo do gravador dele: sem reescrever pre-skip,
+ * granules, série nem tags (teste de 21/10: o normalizado não tocou no iPhone). Qualquer outro
+ * formato (ou um OGG ilegível) vai pelo ffmpeg + normalização, como reserva.
  */
 export async function prepararVoz(
   bytes: Uint8Array,
 ): Promise<{ bytes: Uint8Array; via: "opus-recorder" | "ffmpeg" }> {
   if (ehOggOpus(bytes)) {
-    try {
-      const out = normalizarOggOpus(bytes);
-      if (out.length > MAX_VOZ_SAIDA)
-        throw new Error("Áudio longo demais para mensagem de voz (até 2 min).");
-      if (temAudio(out)) return { bytes: out, via: "opus-recorder" };
-    } catch (e) {
-      if (e instanceof Error && e.message.startsWith("Áudio longo")) throw e;
-      console.warn("Voz: OGG do navegador não normalizou; indo pelo ffmpeg", e);
-    }
+    if (bytes.length > MAX_VOZ_SAIDA)
+      throw new Error("Áudio longo demais para mensagem de voz (até 2 min).");
+    const c = conferirOggGravado(bytes);
+    if (c.ok) return { bytes, via: "opus-recorder" };
+    // Dois gravadores ao mesmo tempo: nem o ffmpeg salva; melhor gravar de novo.
+    if (c.motivo.includes("gravação dupla"))
+      throw new Error(`Gravação saiu em dobro (${c.motivo}). Grave de novo.`);
+    console.warn("Voz: OGG do navegador ilegível; indo pelo ffmpeg:", c.motivo);
   }
   return { bytes: await paraOggOpus(bytes), via: "ffmpeg" };
 }

@@ -58,9 +58,12 @@ export function GravadorAudio({
   }, [gravando, aoMudarGravacao]);
 
   const opus = useRef<Recorder | null>(null);
-  const partesOpus = useRef<Uint8Array[]>([]);
+  // Trava contra início duplo (dois toques, evento repetido): em 21/10 dois gravadores Opus
+  // rodaram ao mesmo tempo e o arquivo saiu com as páginas dos dois intercaladas.
+  const iniciando = useRef(false);
 
   function contar(aoEstourar: () => void) {
+    if (timer.current) clearInterval(timer.current);
     setGravando(true);
     setSegundos(0);
     timer.current = setInterval(() => {
@@ -73,10 +76,13 @@ export function GravadorAudio({
 
   /** OGG/Opus direto no navegador: mono 48 kHz, 40 kbit/s, quadros de 60 ms, páginas de 3 s. */
   async function comecarOpus(): Promise<boolean> {
+    let r: Recorder | null = null;
     try {
       const { default: Recorder } = await import("opus-recorder");
       if (!Recorder.isRecordingSupported()) return false;
-      const r = new Recorder({
+      // Páginas deste gravador (array próprio: nunca se mistura com outro).
+      const partes: Uint8Array[] = [];
+      r = new Recorder({
         encoderPath: "/opus-recorder/encoderWorker.min.js",
         encoderSampleRate: 48000,
         encoderBitRate: 40000,
@@ -86,33 +92,47 @@ export function GravadorAudio({
         numberOfChannels: 1,
         streamPages: true,
       });
-      partesOpus.current = [];
+      const gravador = r;
       cancelado.current = false;
-      r.ondataavailable = (pagina) => {
-        if (pagina.length) partesOpus.current.push(new Uint8Array(pagina));
+      gravador.ondataavailable = (pagina) => {
+        if (pagina.length) partes.push(new Uint8Array(pagina));
       };
-      r.onstop = () => {
-        const blob = new Blob(partesOpus.current as BlobPart[], { type: "audio/ogg" });
+      gravador.onstop = () => {
+        const blob = new Blob(partes as BlobPart[], { type: "audio/ogg" });
         const foiCancelado = cancelado.current;
         if (!foiCancelado && blob.size >= 1000)
           aoGravar(new File([blob], "gravacao.ogg", { type: "audio/ogg" }));
-        r.close();
-        opus.current = null;
+        gravador.close();
+        if (opus.current === gravador) opus.current = null;
         limpar();
       };
-      await r.start();
-      opus.current = r;
-      contar(() => void r.stop());
+      opus.current = gravador;
+      await gravador.start();
+      contar(() => void gravador.stop());
       return true;
     } catch (e) {
       console.warn("Gravador Opus indisponível; usando o do navegador", e);
-      opus.current?.close();
-      opus.current = null;
+      try {
+        r?.close();
+      } catch {
+        /* já fechado */
+      }
+      if (opus.current === r) opus.current = null;
       return false;
     }
   }
 
   async function comecar() {
+    if (iniciando.current || opus.current || rec.current) return;
+    iniciando.current = true;
+    try {
+      await comecarDeFato();
+    } finally {
+      iniciando.current = false;
+    }
+  }
+
+  async function comecarDeFato() {
     setErro(null);
     if (!navigator.mediaDevices?.getUserMedia) {
       setErro("Este navegador não grava áudio. Use o Chrome ou o Safari atualizados.");
