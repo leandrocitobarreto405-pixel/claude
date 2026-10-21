@@ -437,6 +437,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 20/10/2026       | A: Vendido pela data do serviço (cheio)             | `7a6fb96`           | `3a5d85b`                |
 | 20/10/2026       | B: OS de teste fora e A receber por OS              | `8d5322e`           | `e263014`                |
 | 20/10/2026       | C: DRE pelo recebimento e Comissões a pagar         | `b731429`           | `8d5322e`                |
+| 21/10/2026       | Caixa de entrada 1: responder texto e modelo        | `f946886`           | `ed18ced`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
