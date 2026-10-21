@@ -58,7 +58,7 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
     // Confere de novo: da empresa, com a equipe e parada há mais de X dias (nada mudou no meio).
     const { data: conversas } = await context.supabase
       .from("conversas")
-      .select("id, chatwoot_conversation_id, conexao_id")
+      .select("id, chatwoot_conversation_id, conexao_id, status")
       .eq("empresa_id", context.empresaId)
       .eq("status", "open")
       .lt("ultima_atividade_em", limite(data.dias))
@@ -66,13 +66,25 @@ export const encerrarConversasFn = createServerFn({ method: "POST" })
     return encerrarNoChatwoot(conversas ?? [], context.empresaId, "lote");
   });
 
-type ParaEncerrar = { id: string; chatwoot_conversation_id: number | string; conexao_id: string };
+type ParaEncerrar = {
+  id: string;
+  chatwoot_conversation_id: number | string;
+  conexao_id: string;
+  /** Status atual: define quem estava com a conversa (pending = Alice) para a reabertura. */
+  status?: string | null;
+};
 
-/** Encerra no Chatwoot e marca como resolvida (lotes paralelos de 5). */
+/**
+ * Encerra no Chatwoot e marca como resolvida (lotes paralelos de 5), guardando quem estava com
+ * a conversa (encerrada_de): se o cliente escrever de novo, ela volta para a Alice ou fica com a
+ * equipe. Encerrar não manda nada ao cliente.
+ */
 export async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: string, origem: string) {
   if (!lista.length) return { encerradas: 0, falhas: 0 };
   const { dbServico, log } = await import("@/lib/mkt/contexto.server");
   const { mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
+  const { encerradaDe } = await import("@/lib/caixa-encerramento");
+  const agora = new Date().toISOString();
   const db = await dbServico();
   const conexoes = new Map<
     string,
@@ -107,7 +119,12 @@ export async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: strin
       await mudarSituacao(cx.conta, cx.token, Number(c.chatwoot_conversation_id), "resolved");
       await db
         .from("conversas")
-        .update({ status: "resolved", aguardando_desde: null })
+        .update({
+          status: "resolved",
+          aguardando_desde: null,
+          encerrada_de: encerradaDe(c.status),
+          encerrada_em: agora,
+        })
         .eq("id", c.id)
         .eq("empresa_id", empresaId);
       encerradas++;
@@ -140,7 +157,7 @@ export const encerrarEscolhidasFn = createServerFn({ method: "POST" })
     if (!data.ids.length) throw new Error("Escolha pelo menos uma conversa.");
     const { data: conversas } = await context.supabase
       .from("conversas")
-      .select("id, chatwoot_conversation_id, conexao_id")
+      .select("id, chatwoot_conversation_id, conexao_id, status")
       .eq("empresa_id", context.empresaId)
       .neq("status", "resolved")
       .in("id", data.ids);

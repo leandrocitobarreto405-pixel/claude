@@ -807,6 +807,8 @@ export type Database = {
           criada_em: string | null;
           crm_lead_id: string | null;
           devolvida_para_alice_em: string | null;
+          encerrada_de: string | null;
+          encerrada_em: string | null;
           empresa_id: string;
           etiquetas: string[];
           id: string;
@@ -834,6 +836,8 @@ export type Database = {
           criada_em?: string | null;
           crm_lead_id?: string | null;
           devolvida_para_alice_em?: string | null;
+          encerrada_de?: string | null;
+          encerrada_em?: string | null;
           empresa_id?: string;
           etiquetas?: string[];
           id?: string;
@@ -860,6 +864,8 @@ export type Database = {
           criada_em?: string | null;
           crm_lead_id?: string | null;
           devolvida_para_alice_em?: string | null;
+          encerrada_de?: string | null;
+          encerrada_em?: string | null;
           empresa_id?: string;
           etiquetas?: string[];
           id?: string;

@@ -367,6 +367,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões
   lança despesas "Comissões" com `reference_key` `comissao:<vendedora>:<mês>` (índice único já
   existente impede duplicar); essas despesas ficam fora das despesas do DRE.
+- "Encerramento: quem estava com a conversa" (`20261127120000`, aprovada em 21/10): só
+  acrescenta `conversas.encerrada_de` ('alice'/'equipe') e `encerrada_em`, e o gatilho
+  `trg_whatsapp_messages_reabrir`: mensagem do cliente numa conversa encerrada que estava com
+  a Alice cria a tarefa "devolver_para_alice" (volta para pending e ela responde); se estava com
+  a equipe, só limpa a marca (o Chatwoot já reabre como open). Nada é enviado ao cliente.
+  Primeira rodada na Turbine em 21/10 (contagem antes de ligar): 612 conversas paradas há mais
+  de 24 h, 5 de fora pela regra 1 (2 follow-ups, 3 lembretes/pós-venda), 607 a encerrar em
+  lotes de 250 a cada varredura de 5 min; depois, de hora em hora.
 
 Arquivos para o SQL Editor: não usar `CREATE TEMP TABLE` (o Supabase oferece "ativar RLS em
 tabela nova" e, se aceito, cola `ALTER TABLE` no meio da função e quebra). Usar variável `jsonb`
@@ -478,6 +486,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Voz: OGG normalizado (granules, pre-skip 0)                 | `ddf7900`           | `bed0829`                |
 | 21/10/2026       | Conversas: busca, ordem, encerramento automático, teste 530 | `5513402`           | `ddf7900`                |
 | 21/10/2026       | Voz a 40 kbit/s, balão otimista dos anexos, tempos          | `f52b421`           | `a4bf278`                |
+| 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora    | `PENDENTE2`         | `8f1101e`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa

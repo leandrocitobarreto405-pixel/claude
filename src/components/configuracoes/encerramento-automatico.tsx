@@ -1,4 +1,5 @@
-// Configurações › Mensagens › Encerramento automático de conversas paradas (começa desligado).
+// Configurações › Mensagens › Encerramento automático de conversas paradas (padrão: ligado,
+// 24 h, equipe e Alice; de hora em hora).
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -12,6 +13,7 @@ import {
   lerEncerramentoFn,
   previaEncerramentoFn,
   salvarEncerramentoFn,
+  type PreviaEncerramento,
 } from "@/lib/caixa-encerramento.functions";
 
 export function EncerramentoAutomatico() {
@@ -21,9 +23,7 @@ export function EncerramentoAutomatico() {
   const salvarFn = useServerFn(salvarEncerramentoFn);
   const q = useQuery({ queryKey: [...CHAVE_ENCERRAMENTO], queryFn: () => ler() });
   const [c, setC] = useState<ConfigEncerramento | null>(null);
-  const [previa, setPrevia] = useState<{ equipe: number; alice: number; total: number } | null>(
-    null,
-  );
+  const [previa, setPrevia] = useState<PreviaEncerramento | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
   useEffect(() => {
@@ -65,11 +65,23 @@ export function EncerramentoAutomatico() {
 
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">
-        Conversa sem nenhuma mensagem há mais de N horas vai para Encerradas no app e fica resolvida
-        no Chatwoot. Se o cliente escrever de novo, ela reabre sozinha. Roda a cada poucos minutos,
-        até 100 conversas por vez.
-      </p>
+      <div className="space-y-1 text-sm text-muted-foreground">
+        <p>
+          Conversa sem nenhuma mensagem há mais de N horas vai para Encerradas no app e fica
+          resolvida no Chatwoot. Roda de hora em hora. Padrão: ligado, 24 h, equipe e Alice.
+        </p>
+        <ul className="list-disc space-y-0.5 pl-5">
+          <li>
+            Conversa com follow-up, lembrete, pós-venda ou campanha agendados e ainda não enviados
+            não encerra até sair.
+          </li>
+          <li>
+            Se o cliente escrever de novo, a conversa reabre e volta para quem estava com ela (Alice
+            ou equipe), na aba certa.
+          </li>
+          <li>Encerrar não manda nada ao cliente: só muda o status.</li>
+        </ul>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="enc-horas">Horas sem mensagem</Label>
@@ -100,13 +112,21 @@ export function EncerramentoAutomatico() {
           <span className="text-sm">
             <strong>{previa.total}</strong> conversa{previa.total === 1 ? "" : "s"} ({previa.equipe}{" "}
             com a equipe{c.incluirAlice ? `, ${previa.alice} com a Alice` : ""}).
+            {previa.protegidas.total ? (
+              <>
+                {" "}
+                Ficam de fora {previa.protegidas.total} com algo agendado (
+                {previa.protegidas.followup} follow-up, {previa.protegidas.envio}{" "}
+                lembrete/pós-venda/campanha, {previa.protegidas.tarefa} tarefa da Alice).
+              </>
+            ) : null}
           </span>
         ) : null}
       </div>
       <LinhaSwitch
         id="enc-ligado"
         titulo="Encerramento automático ligado"
-        descricao="Começa desligado. Veja a prévia antes de ligar."
+        descricao="Padrão ligado. Desligue aqui se esta empresa não quiser."
         checked={c.ligado}
         onCheckedChange={(v) => setC({ ...c, ligado: v })}
       />

@@ -7,9 +7,7 @@ import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import {
   CHAVE_CONFIG_CAIXA,
   configEncerramento,
-  limiteParada,
   paraSalvar,
-  situacoesAlcancadas,
   type ConfigEncerramento,
 } from "@/lib/caixa-encerramento";
 
@@ -34,24 +32,34 @@ export const lerEncerramentoFn = createServerFn({ method: "GET" })
     return configEncerramento(data?.value);
   });
 
-/** Quantas conversas a regra pegaria agora (equipe e, se marcado, Alice). */
+export type PreviaEncerramento = {
+  equipe: number;
+  alice: number;
+  total: number;
+  /** Ficam de fora pela regra 1 (follow-up, lembrete, pós-venda, campanha ou tarefa pendente). */
+  protegidas: { total: number; followup: number; envio: number; tarefa: number };
+};
+
+/** Quantas conversas a regra pegaria agora (equipe e, se marcado, Alice) e quantas ficam de fora. */
 export const previaEncerramentoFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
   .inputValidator(validar)
-  .handler(async ({ data, context }) => {
-    const limite = limiteParada(data);
-    const contar = async (status: string) => {
-      const { count } = await context.supabase
-        .from("conversas")
-        .select("id", { count: "exact", head: true })
-        .eq("empresa_id", context.empresaId)
-        .eq("status", status)
-        .lt("ultima_atividade_em", limite);
-      return count ?? 0;
+  .handler(async ({ data, context }): Promise<PreviaEncerramento> => {
+    const { selecionarParaEncerrar } = await import("@/lib/caixa-encerramento.server");
+    const sel = await selecionarParaEncerrar(
+      context.supabase as never,
+      context.empresaId,
+      { ...data, incluirAlice: true },
+      5000,
+    );
+    const equipe = sel.encerrar.filter((c) => c.status !== "pending").length;
+    const alice = sel.encerrar.length - equipe;
+    return {
+      equipe,
+      alice,
+      total: equipe + (data.incluirAlice ? alice : 0),
+      protegidas: sel.protegidas,
     };
-    const equipe = await contar("open");
-    const alice = await contar("pending");
-    return { equipe, alice, total: equipe + (data.incluirAlice ? alice : 0) };
   });
 
 export const salvarEncerramentoFn = createServerFn({ method: "POST" })
