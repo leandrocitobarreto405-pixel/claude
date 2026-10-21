@@ -174,6 +174,12 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
   };
 }
 
+/** Push "Conversa nova para a equipe" na hora em que a Alice passa a conversa (item 5). */
+async function avisarPassagem(db: Admin, empresaId: string, conversaId: string, motivo: string) {
+  const { avisarEquipePassagem } = await import("@/lib/push/avisos-conversa.server");
+  await avisarEquipePassagem(db, { empresaId, conversaId, motivo });
+}
+
 async function passarParaHumano(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
   const d = await dadosConversa(db, tarefa);
   const token = d.tokenRobo ?? d.tokenAdmin;
@@ -182,6 +188,7 @@ async function passarParaHumano(db: Admin, tarefa: Tarefa): Promise<ResultadoTar
   if (nota) await enviarMensagem(d.conta, token, d.conversa.chatwoot_conversation_id, nota, true);
   await mudarSituacao(d.conta, token, d.conversa.chatwoot_conversation_id, "open");
   await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
+  await avisarPassagem(db, tarefa.empresa_id, d.conversa.id, tarefa.motivo ?? "atendimento humano");
   return { situacao: "concluida", detalhe: tarefa.motivo ?? "passada para atendimento humano" };
 }
 
@@ -243,6 +250,7 @@ async function socorroHumano(db: Admin, tarefa: Tarefa, nota: string) {
   await enviarMensagem(d.conta, token, d.conversa.chatwoot_conversation_id, `🤖 ${nota}`, true);
   await mudarSituacao(d.conta, token, d.conversa.chatwoot_conversation_id, "open");
   await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
+  await avisarPassagem(db, tarefa.empresa_id, d.conversa.id, nota);
 }
 
 // ---------------------------------------------------------------- contexto
@@ -1203,6 +1211,7 @@ async function conversar(
     }
     await mudarSituacao(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, "open");
     await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);
+    await avisarPassagem(db, tarefa.empresa_id, d.conversa.id, motivo);
     return { situacao: "concluida", detalhe: `transferida para a equipe: ${motivo}` };
   }
   return { situacao: "concluida", detalhe: `${enviadas.length} mensagem(ns) enviada(s)` };

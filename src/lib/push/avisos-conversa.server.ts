@@ -108,3 +108,81 @@ export async function avisarEquipeMensagemNova(
   if (enviados) log("INFO", "push.conversa", { conversa: ids.conversaId, enviados });
   return { enviados };
 }
+
+/**
+ * A Alice passou a conversa para a equipe: o mesmo "Conversa nova para a equipe" do webhook, na
+ * hora da transferência (sem esperar a rotina de 10 min). Mesma referência por espera do webhook,
+ * então a próxima mensagem do cliente na mesma espera não avisa de novo. Nunca derruba a Alice.
+ */
+export async function avisarEquipePassagem(
+  db: Db,
+  ids: { empresaId: string; conversaId: string; motivo: string },
+): Promise<{ enviados: number }> {
+  try {
+    const pessoas = (await pessoasComCelular(db, ids.empresaId)).get(ids.empresaId) ?? [];
+    if (!pessoas.length) return { enviados: 0 };
+    const agora = new Date();
+    const [{ data: conv }, { data: leituras }] = await Promise.all([
+      db
+        .from("conversas")
+        .select("aguardando_desde, contato:whatsapp_contact_id ( profile_name, display_phone )")
+        .eq("id", ids.conversaId)
+        .maybeSingle(),
+      db
+        .from("conversas_leituras")
+        .select("user_id, lida_em")
+        .eq("conversa_id", ids.conversaId)
+        .gte("lida_em", new Date(agora.getTime() - VENDO_HA_MS).toISOString()),
+    ]);
+    if (!conv) return { enviados: 0 };
+    const contato = conv.contato as {
+      profile_name: string | null;
+      display_phone: string | null;
+    } | null;
+    const vendoEm = new Map<string, string>();
+    for (const l of leituras ?? []) vendoEm.set(l.user_id, l.lida_em);
+    const avisos = avisosDaMensagem(
+      {
+        conversaId: ids.conversaId,
+        mensagemId: `passagem-${agora.toISOString()}`,
+        direction: "Recebida",
+        privada: false,
+        texto: `a Alice passou para a equipe (${ids.motivo})`,
+        clienteNome: contato?.profile_name || contato?.display_phone || "Cliente",
+        status: "open",
+        aguardandoDesde: conv.aguardando_desde,
+        comAlguem: false,
+        responsavelUserId: null,
+      },
+      pessoas.map((p) => ({
+        userId: p.userId,
+        papel: p.papel,
+        clienteEsperando: p.pref.cliente_esperando,
+      })),
+      vendoEm,
+      agora,
+    );
+    let enviados = 0;
+    for (const a of avisos) {
+      const pessoa = pessoas.find((p) => p.userId === a.userId);
+      if (!pessoa) continue;
+      const id = await registrarUmaVez(
+        db,
+        ids.empresaId,
+        a.userId,
+        "cliente_esperando",
+        a.ref,
+        a.n.titulo,
+      );
+      if (!id) continue;
+      const r = await enviarParaPessoa(db, pessoa.celulares, a.n);
+      await db.from("push_envios").update({ enviados: r.enviados }).eq("id", id);
+      enviados += r.enviados;
+    }
+    if (enviados) log("INFO", "push.passagem", { conversa: ids.conversaId, enviados });
+    return { enviados };
+  } catch (e) {
+    console.error("Push da passagem:", e instanceof Error ? e.message : e);
+    return { enviados: 0 };
+  }
+}
