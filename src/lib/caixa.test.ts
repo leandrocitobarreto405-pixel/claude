@@ -8,6 +8,8 @@ import {
   primeiroNomeDoContato,
   situacaoParaResponder,
   validarTexto,
+  classificarAnexo,
+  ehHeic,
 } from "./caixa";
 import type { ModeloMeta } from "./mkt/modelos";
 
@@ -115,4 +117,14 @@ test("anexos: tipo e tamanho por categoria; nome seguro", async () => {
     "Or_amento final (v2).pdf",
   );
   assert.equal(nomeSeguro("", "foto.jpg"), "foto.jpg");
+});
+
+test("classificarAnexo: imagem vai como foto, o resto como documento", () => {
+  assert.equal(classificarAnexo("foto.jpg", "image/jpeg"), "imagem");
+  assert.equal(classificarAnexo("IMG_0001.HEIC", ""), "imagem");
+  assert.equal(classificarAnexo("print.png", "application/octet-stream"), "imagem");
+  assert.equal(classificarAnexo("orcamento.pdf", "application/pdf"), "documento");
+  assert.equal(classificarAnexo("planilha.xlsx", ""), "documento");
+  assert.equal(ehHeic("a.heif", null), true);
+  assert.equal(ehHeic("a.jpg", "image/jpeg"), false);
 });

@@ -127,6 +127,30 @@ export function validarAnexo(
     : { ok: false, motivo: "Áudio inválido." };
 }
 
+const EXT_IMAGEM = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+
+function extensao(nome: string): string {
+  return (nome.split(".").pop() ?? "").toLowerCase();
+}
+
+export function ehHeic(nome: string, mime: string | null | undefined): boolean {
+  const m = (mime ?? "").toLowerCase();
+  return m === "image/heic" || m === "image/heif" || ["heic", "heif"].includes(extensao(nome));
+}
+
+/**
+ * Qualquer imagem escolhida (pelo botão de foto ou pelo de documento) vai como foto, com
+ * miniatura no WhatsApp; só os outros tipos vão como documento.
+ */
+export function classificarAnexo(
+  nome: string,
+  mime: string | null | undefined,
+): "imagem" | "documento" {
+  const m = (mime ?? "").toLowerCase().split(";")[0]!.trim();
+  if (m.startsWith("image/")) return "imagem";
+  return EXT_IMAGEM.includes(extensao(nome)) ? "imagem" : "documento";
+}
+
 /** Nome do arquivo sem caminho nem caracteres estranhos (vai para o Chatwoot e para o histórico). */
 export function nomeSeguro(nome: string, padrao: string): string {
   const base = nome.split(/[\\/]/).pop() ?? "";

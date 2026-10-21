@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
 import { BarraDeNavegacaoInferior } from "@/components/nexa";
+import { useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
 import { itemAtivo, menuDoPapel } from "@/lib/menu";
 import { minhaImplantacaoFn } from "@/lib/implantacao.functions";
@@ -139,6 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refetchInterval: 60_000,
   });
   const esperando = resumoAlice.data?.esperandoEquipe ?? 0;
+  const respostaEmFoco = useRespostaEmFoco();
   const abas = abasBase.map((a) =>
     a.to === "/conversas"
       ? { ...a, badge: esperando }
@@ -285,7 +287,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {abas.length > 0 ? <BarraDeNavegacaoInferior itens={abas} className="lg:hidden" /> : null}
+      {abas.length > 0 && !respostaEmFoco ? (
+        <BarraDeNavegacaoInferior itens={abas} className="lg:hidden" />
+      ) : null}
       <PainelEnvios />
     </div>
   );

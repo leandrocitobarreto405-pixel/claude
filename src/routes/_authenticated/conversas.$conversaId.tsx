@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TirarAlice } from "@/components/tirar-alice";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +41,48 @@ function StatusEnvio({ status, minha }: { status: string | null; minha: boolean 
   );
 }
 
+/**
+ * Abre a conversa já no fim (última mensagem) e, quando chega mensagem nova, rola para o fim se
+ * a pessoa já estava lá; se estava lendo mensagens antigas, não puxa a tela.
+ */
+function useRolarParaOFim(total: number | undefined) {
+  const fimRef = useRef<HTMLDivElement>(null);
+  const primeira = useRef(true);
+  const noFim = useRef(true);
+  const ultimoTotal = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const aoRolar = () => {
+      const alturaDoc = document.documentElement.scrollHeight;
+      noFim.current = window.innerHeight + window.scrollY >= alturaDoc - 160;
+    };
+    window.addEventListener("scroll", aoRolar, { passive: true });
+    return () => window.removeEventListener("scroll", aoRolar);
+  }, []);
+  useLayoutEffect(() => {
+    if (total === undefined) return;
+    const rolar = (suave: boolean) =>
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: suave ? "smooth" : "auto",
+      });
+    if (primeira.current) {
+      primeira.current = false;
+      rolar(false);
+      // Imagens e fontes ainda carregando mudam a altura: repete logo depois.
+      const t = setTimeout(() => rolar(false), 250);
+      ultimoTotal.current = total;
+      return () => clearTimeout(t);
+    }
+    if (ultimoTotal.current !== undefined && total > ultimoTotal.current && noFim.current)
+      rolar(true);
+    ultimoTotal.current = total;
+    return undefined;
+  }, [total]);
+  return fimRef;
+}
+
+const ETIQUETA_REMETENTE = { alice: "Alice", voce: "você", equipe: "equipe", cliente: "" } as const;
+
 const NOME_GRUPO = {
   precisam: "Esperando a equipe",
   alice: "Com a Alice",
@@ -59,6 +102,7 @@ function Conversa() {
   });
   useTempoRealConversas();
   const c = q.data;
+  const fimRef = useRolarParaOFim(c?.mensagens.length);
   const navigate = useNavigate();
   const { papel } = usePapel();
   const podeEncerrar = papel === "admin" || papel === "atendente";
@@ -121,19 +165,27 @@ function Conversa() {
           <p className="text-sm text-muted-foreground">Nenhuma mensagem registrada ainda.</p>
         ) : (
           c.mensagens.map((m) => (
-            <div key={m.id} className={cn("flex", m.doCliente ? "justify-start" : "justify-end")}>
+            <div
+              key={m.id}
+              className={cn("flex w-full", m.doCliente ? "justify-start pr-8" : "justify-end pl-8")}
+            >
               <div
                 className={cn(
                   "max-w-[85%] rounded-card px-3.5 py-2.5 text-[15px] leading-snug",
                   m.doCliente
-                    ? "rounded-bl-md border border-border bg-card"
-                    : "rounded-br-md bg-marca-claro text-foreground",
+                    ? "mr-auto rounded-bl-md border border-border bg-card"
+                    : "ml-auto rounded-br-md bg-marca-claro text-foreground",
                 )}
               >
+                {m.doCliente ? null : (
+                  <p className="mb-0.5 text-[11px] font-semibold text-marca">
+                    {ETIQUETA_REMETENTE[m.remetente]}
+                  </p>
+                )}
                 <p className="break-words whitespace-pre-wrap">{m.texto}</p>
                 <p className="mt-1 text-right text-[11px] text-muted-foreground">
                   {dateTimeBR(m.em)}
-                  {m.doCliente ? null : <StatusEnvio status={m.status} minha={m.minha} />}
+                  {m.doCliente ? null : <StatusEnvio status={m.status} minha={false} />}
                 </p>
                 {m.status === "falhou" && m.erro ? (
                   <p className="mt-0.5 text-[11px] text-problema-foreground">{m.erro}</p>
@@ -142,6 +194,7 @@ function Conversa() {
             </div>
           ))
         )}
+        <div ref={fimRef} aria-hidden />
       </section>
 
       <BarraResposta conversaId={c.id} onEnviou={mudou} />

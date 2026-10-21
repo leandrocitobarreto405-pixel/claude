@@ -41,6 +41,8 @@ export type MensagemConversa = {
   erro: string | null;
   /** Enviada por esta pessoa, pelo app. */
   minha: boolean;
+  /** Quem mandou, para a etiqueta da bolha: cliente, Alice, você ou equipe (Chatwoot/colega). */
+  remetente: "cliente" | "alice" | "voce" | "equipe";
 };
 
 export type ConversaCompleta = ConversaResumo & {
@@ -82,6 +84,8 @@ type LinhaMensagem = {
   delivery_status?: string | null;
   erro_envio?: string | null;
   enviada_por?: string | null;
+  remetente_tipo?: string | null;
+  origem?: string | null;
 };
 
 function resumir(
@@ -186,7 +190,7 @@ export const lerConversa = createServerFn({ method: "GET" })
       db
         .from("whatsapp_messages")
         .select(
-          "id, conversa_id, text_content, message_type, direction, message_timestamp, delivery_status, erro_envio, enviada_por",
+          "id, conversa_id, text_content, message_type, direction, message_timestamp, delivery_status, erro_envio, enviada_por, remetente_tipo, origem",
         )
         .eq("conversa_id", c.id)
         .eq("privada", false)
@@ -212,6 +216,14 @@ export const lerConversa = createServerFn({ method: "GET" })
         status: m.delivery_status ?? null,
         erro: m.erro_envio ?? null,
         minha: Boolean(m.enviada_por && m.enviada_por === context.userId),
+        remetente:
+          m.direction === "Recebida"
+            ? "cliente"
+            : m.remetente_tipo === "agent_bot"
+              ? "alice"
+              : m.enviada_por && m.enviada_por === context.userId
+                ? "voce"
+                : "equipe",
       })),
     };
   });

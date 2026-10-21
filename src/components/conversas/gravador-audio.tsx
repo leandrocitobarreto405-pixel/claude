@@ -18,10 +18,13 @@ function formatoDeGravacao(): string | null {
 export function GravadorAudio({
   desabilitado,
   aoGravar,
+  aoMudarGravacao,
 }: {
   desabilitado: boolean;
   /** Recebe o arquivo gravado (já parado). */
   aoGravar: (arquivo: File) => void;
+  /** Avisa quando começa e termina de gravar (a barra de navegação some enquanto grava). */
+  aoMudarGravacao?: (gravando: boolean) => void;
 }) {
   const [gravando, setGravando] = useState(false);
   const [segundos, setSegundos] = useState(0);
@@ -40,6 +43,9 @@ export function GravadorAudio({
     setSegundos(0);
   }
   useEffect(() => () => limpar(), []);
+  useEffect(() => {
+    aoMudarGravacao?.(gravando);
+  }, [gravando, aoMudarGravacao]);
 
   async function comecar() {
     setErro(null);

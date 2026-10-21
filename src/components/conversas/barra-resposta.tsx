@@ -6,7 +6,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { Clock, FileText, Image as ImagemIcone, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Botao } from "@/components/nexa";
-import { MAX_TEXTO } from "@/lib/caixa";
+import { MAX_TEXTO, classificarAnexo } from "@/lib/caixa";
+import { prepararFoto } from "@/lib/imagem-heic";
+import { marcarRespostaEmFoco, useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { GravadorAudio } from "@/components/conversas/gravador-audio";
 import {
   enviarAnexoFn,
@@ -53,7 +55,27 @@ export function BarraResposta({
   const [texto, setTexto] = useState("");
   const [modelo, setModelo] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [gravando, setGravando] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
+  const emFoco = useRespostaEmFoco();
+
+  // Teclado aberto ou gravando: a navegação inferior some e a barra cola no teclado.
+  useEffect(() => {
+    if (gravando) marcarRespostaEmFoco(true);
+    else if (!raizRef.current?.contains(document.activeElement)) marcarRespostaEmFoco(false);
+  }, [gravando]);
+  useEffect(() => () => marcarRespostaEmFoco(false), []);
+  function focou() {
+    marcarRespostaEmFoco(true);
+  }
+  function desfocou() {
+    // Espera o foco pousar: tocar num botão da própria barra não deve fazer a navegação piscar.
+    setTimeout(() => {
+      if (gravando) return;
+      if (!raizRef.current?.contains(document.activeElement)) marcarRespostaEmFoco(false);
+    }, 150);
+  }
 
   // Cresce com o texto até ~5 linhas.
   useEffect(() => {
@@ -86,11 +108,29 @@ export function BarraResposta({
     void enviar(() => anexoFn({ data: fd }));
   }
 
+  /** Qualquer imagem vai como foto (HEIC convertido para JPG); o resto, como documento. */
+  function escolheuArquivo(arquivo: File) {
+    const tipo = classificarAnexo(arquivo.name, arquivo.type);
+    if (tipo === "documento") return enviarArquivo("documento", arquivo);
+    void enviar(async () => {
+      const foto = await prepararFoto(arquivo);
+      const fd = new FormData();
+      fd.append("conversaId", conversaId);
+      fd.append("tipo", "imagem");
+      fd.append("arquivo", foto, foto.name);
+      await anexoFn({ data: fd });
+    });
+  }
+
   if (!e) return null;
   if (!e.podeResponder) return null;
 
-  const base =
-    "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t border-border bg-background px-4 pt-2 pb-2 lg:static lg:mx-0 lg:rounded-card lg:border lg:p-3";
+  const base = cn(
+    "sticky z-10 -mx-4 border-t border-border bg-background px-4 pt-2 pb-2 lg:static lg:mx-0 lg:rounded-card lg:border lg:p-3",
+    emFoco
+      ? "bottom-0 pb-[max(env(safe-area-inset-bottom),0.5rem)]"
+      : "bottom-[calc(4.5rem+env(safe-area-inset-bottom))]",
+  );
 
   if (!e.situacao.pode) {
     return (
@@ -162,28 +202,33 @@ export function BarraResposta({
   }
 
   return (
-    <div className={cn(base, "flex flex-col gap-1")}>
+    <div
+      ref={raizRef}
+      className={cn(base, "flex flex-col gap-1")}
+      onFocusCapture={focou}
+      onBlurCapture={desfocou}
+    >
       <div className="flex flex-wrap items-end gap-2">
         <input
           ref={fotoRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/*,.heic,.heif"
           className="hidden"
           onChange={(ev) => {
             const f = ev.target.files?.[0];
             ev.target.value = "";
-            if (f) enviarArquivo("imagem", f);
+            if (f) escolheuArquivo(f);
           }}
         />
         <input
           ref={docRef}
           type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf,image/*,.heic,.heif"
           className="hidden"
           onChange={(ev) => {
             const f = ev.target.files?.[0];
             ev.target.value = "";
-            if (f) enviarArquivo("documento", f);
+            if (f) escolheuArquivo(f);
           }}
         />
         <Botao
@@ -204,7 +249,11 @@ export function BarraResposta({
         >
           <FileText aria-hidden />
         </Botao>
-        <GravadorAudio desabilitado={enviando} aoGravar={(f) => enviarArquivo("audio", f)} />
+        <GravadorAudio
+          desabilitado={enviando}
+          aoGravar={(f) => enviarArquivo("audio", f)}
+          aoMudarGravacao={setGravando}
+        />
         <textarea
           ref={areaRef}
           aria-label="Mensagem"
