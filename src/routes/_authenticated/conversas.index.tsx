@@ -8,7 +8,8 @@ import { CartaoAlice } from "@/components/conversas/cartao-alice";
 import { CartaoConversa } from "@/components/conversas/cartao-conversa";
 import { EncerrarParadas } from "@/components/conversas/encerrar-paradas";
 import { useEncerrarConversas } from "@/lib/conversas-encerrar";
-import { usePapel } from "@/lib/tenant";
+import { useContextoTenant, usePapel } from "@/lib/tenant";
+import { useTrocarEmpresa } from "@/lib/documentos-hooks";
 import { resumoAliceHoje } from "@/lib/alice.functions";
 import type { GrupoConversa } from "@/lib/conversas";
 import { listarConversas, type ConversaResumo } from "@/lib/conversas.functions";
@@ -80,6 +81,10 @@ function Conversas() {
   const itens = porGrupo.get(aba) ?? [];
   const agora = new Date();
   const { papel } = usePapel();
+  const { data: tenant } = useContextoTenant();
+  const trocarEmpresa = useTrocarEmpresa();
+  const empresaAberta = tenant?.ativa?.empresa ?? null;
+  const outrasEmpresas = (tenant?.empresas ?? []).filter((v) => v.empresa.id !== empresaAberta?.id);
   const a = alice.data;
   const podeEncerrar = papel === "admin" || papel === "atendente";
   // Modo de seleção (só em "Precisam"): marcar várias e encerrar só as marcadas.
@@ -97,6 +102,7 @@ function Conversas() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
         titulo="Conversas"
+        sobretitulo={empresaAberta ? empresaAberta.nome : undefined}
         descricao="Responda por aqui; o Chatwoot fica como plano B."
       />
 
@@ -157,6 +163,22 @@ function Conversas() {
             <MessageCircle className="size-6" aria-hidden />
           </span>
           <p className="max-w-xs text-sm text-muted-foreground">{atual.vazio}</p>
+          {empresaAberta && outrasEmpresas.length ? (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <p className="text-xs text-muted-foreground">
+                Você está vendo as conversas da <strong>{empresaAberta.nome}</strong>.
+              </p>
+              {outrasEmpresas.map((v) => (
+                <Botao
+                  key={v.empresa.id}
+                  variante="contorno"
+                  onClick={() => trocarEmpresa(v.empresa.id, "/conversas")}
+                >
+                  Ver as conversas da {v.empresa.nome}
+                </Botao>
+              ))}
+            </div>
+          ) : null}
         </Card>
       ) : (
         <>
