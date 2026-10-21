@@ -1,14 +1,69 @@
 /**
- * Áudio gravado no celular → mensagem de voz do WhatsApp: OGG/Opus, mono, 48 kHz, ~32 kbit/s.
- * O navegador grava no que o celular permite (WebM/Opus no Android e no Chrome, MP4/AAC no
- * iPhone); o ffmpeg da imagem do Cloud Run converte tudo para o único formato que chega como voz
- * (foto de perfil + microfone), o mesmo das respostas da Alice. FFMPEG troca o binário (testes).
+ * Áudio → mensagem de voz do WhatsApp: OGG/Opus mono 48 kHz, na mesma codificação do gravador
+ * do Chatwoot (que toca como voz no iPhone): 128 kbit/s variável, quadros de 60 ms, páginas de
+ * 3 s, modo voip, sem metadados extras. Serve para o áudio gravado na barra de resposta (WebM/Opus
+ * no Android e no Chrome, MP4/AAC no iPhone) e para a fala da Alice (OGG/Opus do Google a 24 kHz):
+ * os dois passam por aqui antes de ir ao Chatwoot. O ffmpeg vem na imagem do Cloud Run; FFMPEG
+ * troca o binário (testes).
  */
 import { spawn } from "node:child_process";
 
 export const MAX_AUDIO_ENTRADA = 10 * 1024 * 1024;
-/** Acima disto o WhatsApp mostra o áudio como arquivo, não como voz. */
-export const MAX_VOZ_SAIDA = 512 * 1024;
+/** Teto de segurança da saída (2 min a 128 kbit/s dão ~2 MB). */
+export const MAX_VOZ_SAIDA = 4 * 1024 * 1024;
+
+// CRC das páginas Ogg (polinômio 0x04c11db7, sem reflexão, início 0).
+const TABELA_CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let r = i << 24;
+    for (let k = 0; k < 8; k++) r = r & 0x80000000 ? ((r << 1) ^ 0x04c11db7) >>> 0 : (r << 1) >>> 0;
+    t[i] = r >>> 0;
+  }
+  return t;
+})();
+
+function crcOgg(pagina: Uint8Array): number {
+  let crc = 0;
+  for (const b of pagina) crc = ((crc << 8) ^ TABELA_CRC[((crc >>> 24) ^ b) & 0xff]!) >>> 0;
+  return crc >>> 0;
+}
+
+/**
+ * Troca a página OpusTags (a 2ª do arquivo) por uma sem comentários, como o gravador do
+ * Chatwoot: o ffmpeg sempre grava "encoder=Lavc… libopus", e a ideia é mandar o mesmo que o
+ * Chatwoot manda. Se o arquivo não tiver a estrutura esperada, devolve como está.
+ */
+export function limparOpusTags(bytes: Uint8Array, vendor = "nexa"): Uint8Array {
+  const b = Buffer.from(bytes);
+  const p0 = b.indexOf("OggS");
+  if (p0 !== 0) return bytes;
+  const nseg0 = b[26]!;
+  let corpo0 = 0;
+  for (let i = 0; i < nseg0; i++) corpo0 += b[27 + i]!;
+  const p1 = 27 + nseg0 + corpo0;
+  if (b.subarray(p1, p1 + 4).toString() !== "OggS") return bytes;
+  const nseg1 = b[p1 + 26]!;
+  let corpo1 = 0;
+  for (let i = 0; i < nseg1; i++) corpo1 += b[p1 + 27 + i]!;
+  const inicioCorpo1 = p1 + 27 + nseg1;
+  if (b.subarray(inicioCorpo1, inicioCorpo1 + 8).toString() !== "OpusTags") return bytes;
+  const fim1 = inicioCorpo1 + corpo1;
+  const v = Buffer.from(vendor, "utf8");
+  const tags = Buffer.concat([
+    Buffer.from("OpusTags"),
+    Buffer.from(new Uint32Array([v.length]).buffer),
+    v,
+    Buffer.from([0, 0, 0, 0]),
+  ]);
+  if (tags.length >= 255) return bytes;
+  const cabecalho = Buffer.from(b.subarray(p1, p1 + 27));
+  cabecalho[26] = 1;
+  const pagina = Buffer.concat([cabecalho, Buffer.from([tags.length]), tags]);
+  pagina.writeUInt32LE(0, 22);
+  pagina.writeUInt32LE(crcOgg(pagina), 22);
+  return new Uint8Array(Buffer.concat([b.subarray(0, p1), pagina, b.subarray(fim1)]));
+}
 
 export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<Uint8Array> {
   if (bytes.length > MAX_AUDIO_ENTRADA) throw new Error("Áudio grande demais (até 10 MB).");
@@ -23,6 +78,10 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
         "-i",
         "pipe:0",
         "-vn",
+        "-map_metadata",
+        "-1",
+        "-fflags",
+        "+bitexact",
         "-ac",
         "1",
         "-ar",
@@ -30,9 +89,15 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
         "-c:a",
         "libopus",
         "-b:a",
-        "32k",
+        "128k",
+        "-vbr",
+        "on",
+        "-frame_duration",
+        "60",
         "-application",
         "voip",
+        "-page_duration",
+        "3000000",
         "-f",
         "ogg",
         "pipe:1",
@@ -54,9 +119,9 @@ export async function paraOggOpus(bytes: Uint8Array, tempoMs = 20_000): Promise<
     p.on("close", (codigo) => {
       clearTimeout(timer);
       if (codigo !== 0) return reject(new Error(`ffmpeg falhou (${codigo}): ${erro.trim()}`));
-      const out = new Uint8Array(Buffer.concat(saida));
+      const out = limparOpusTags(new Uint8Array(Buffer.concat(saida)));
       if (out.length > MAX_VOZ_SAIDA)
-        return reject(new Error("Áudio longo demais para mensagem de voz (até ~2 min)."));
+        return reject(new Error("Áudio longo demais para mensagem de voz (até 2 min)."));
       resolve(out);
     });
     p.stdin.on("error", () => undefined);

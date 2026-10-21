@@ -1282,16 +1282,21 @@ async function comAudio(
       },
       sintetizar,
       duracao: duracaoOggOpus,
-      enviarAudio: (bytes) =>
-        enviarAnexo(
+      // Mesmo caminho da barra de resposta: recodifica como o gravador do Chatwoot (toca como
+      // voz no iPhone) e manda com a marcação de voz.
+      enviarAudio: async (bytes) => {
+        const { paraOggOpus } = await import("@/lib/audio-voz.server");
+        const voz = await paraOggOpus(bytes);
+        return enviarAnexo(
           d.conta,
           d.tokenRobo!,
           conversa,
-          new Blob([new Uint8Array(bytes)], { type: "audio/ogg" }),
+          new Blob([new Uint8Array(voz)], { type: "audio/ogg" }),
           "audio.ogg",
           "",
           true,
-        ),
+        );
+      },
       enviarNota: (texto) => enviarNota(d, texto),
       registrar: async (u) => {
         const { error } = await db.from("ia_audios_uso").insert({

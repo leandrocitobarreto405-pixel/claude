@@ -336,6 +336,14 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Caixa de entrada, item 2" (`20261124120000`, aplicada em 21/10): `conversas` e
   `whatsapp_messages` entram na publicação `supabase_realtime` com REPLICA IDENTITY FULL (o RLS
   por empresa vale no Realtime). Nenhum dado muda. Para voltar: tirar as duas da publicação.
+- "Caixa de entrada, item 2b" (`20261125120000`, aplicada em 21/10): função
+  `private.avisar_tempo_real()` + gatilhos AFTER INSERT/UPDATE em `conversas` e `whatsapp_messages`
+  (mandam um aviso curto no canal privado `empresa:<id>` via `realtime.send`) e política
+  "tempo real da empresa" em `realtime.messages` (cada pessoa ouve só as empresas em que está;
+  admin da Nexa, todas). Motivo: o RLS do "postgres_changes" não tem o cabeçalho da empresa e
+  quem tem duas empresas não recebia evento. Nenhum dado muda. Para voltar: apagar os dois
+  gatilhos, a função e a política. As duas tabelas continuam na publicação `supabase_realtime`
+  (sem uso; pode tirar depois).
 - "Próximo número de OS" (`20261126120000`, aplicada em 21/10): `empresas.proximo_numero_os`
   (inteiro, opcional), função `public.proximo_numero_os(empresa)` (maior usado + 1 ou o campo, o
   que for maior) e gatilho que impede diminuir ou ficar abaixo do maior usado. Ecoprime recebeu
