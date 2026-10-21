@@ -77,7 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      // maximum-scale=1: o Safari do iPhone para de dar zoom sozinho ao tocar num campo (o zoom
+      // de pinça continua funcionando no iOS).
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+      },
       { title: "Lovable App" },
       {
         name: "description",

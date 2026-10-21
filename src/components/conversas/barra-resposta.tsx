@@ -209,10 +209,12 @@ export function BarraResposta({
 
   const base = cn(
     "sticky z-10 -mx-4 max-w-[100vw] border-t border-border bg-background px-4 pt-2 pb-2 lg:static lg:mx-0 lg:rounded-card lg:border lg:p-3",
+    // A margem negativa come o respiro do fim da página (pb do main = 6rem + área segura): no
+    // fim da conversa a barra encosta na navegação (ou no fundo, com o teclado aberto).
     emFoco
-      ? "bottom-0 pb-[max(env(safe-area-inset-bottom),0.5rem)]"
+      ? "bottom-0 -mb-[calc(6rem+env(safe-area-inset-bottom))] pb-[max(env(safe-area-inset-bottom),0.5rem)] lg:mb-0"
       : // Pinta o vão entre a barra e a navegação inferior (a página rolava à mostra ali).
-        "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-background lg:after:hidden",
+        "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] -mb-6 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-background lg:mb-0 lg:after:hidden",
   );
 
   if (!e.situacao.pode) {
@@ -345,7 +347,7 @@ export function BarraResposta({
         <textarea
           ref={areaRef}
           aria-label="Mensagem"
-          placeholder="Escreva a resposta…"
+          placeholder="Mensagem"
           rows={1}
           maxLength={MAX_TEXTO}
           value={texto}

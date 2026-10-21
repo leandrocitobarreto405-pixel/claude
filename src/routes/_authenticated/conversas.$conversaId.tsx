@@ -155,7 +155,7 @@ function Conversa() {
   }
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 overflow-x-hidden">
+    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 overflow-x-clip">
       <CabecalhoDeTela voltarPara="/conversas" sobretitulo={NOME_GRUPO[c.grupo]} titulo={c.nome} />
 
       <Card className="gap-3">

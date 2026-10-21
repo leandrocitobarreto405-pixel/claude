@@ -213,11 +213,13 @@
     }
   }
 
-  /* Nada pode alargar a tela além da largura do aparelho (balão, player, barra). */
+  /* Nada pode alargar a tela além da largura do aparelho (balão, player, barra). "clip" corta
+     sem virar caixa de rolagem: com "hidden" no html e no body, o body passava a rolar sozinho,
+     a barra de resposta deixava de grudar acima da navegação e sobrava um vão (21/10). */
   html,
   body {
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 
