@@ -402,6 +402,10 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `resp:<conversa>:<espera>`), e a presença na tela renova `conversas_leituras.lida_em` a cada
   25 s (é assim que o webhook sabe quem está vendo a conversa e não manda push).
 
+- "Digitando…: últimas tentativas" (21/10): sem mudança de estrutura. O app grava as 15 últimas
+  tentativas (hora, conversa, resultado e resposta da Meta, sem token nem dado do cliente) na
+  linha `app_settings` de chave `caixa_digitando_log` de cada empresa.
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -516,6 +520,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Caixa 4: duas atendentes (faixa, presença, assumir antes)          | `6705084`           | `5335ab0`                |
 | 21/10/2026       | Caixa 5: push do webhook (conversa nova, cliente respondeu)        | `b2a1fc4`           | `a4de66c`                |
 | 21/10/2026       | Conversa no iPhone: barra grudada, sem vão, sem zoom no campo      | `093a559`           | `6e5ea8a`                |
+| 21/10/2026       | Digitando…: tentativas com a resposta da Meta em Configurações     | `7b53ee8`           | `7d892a3`                |
+| 21/10/2026       | Push na hora da passagem da Alice para a equipe                    | `45b811d`           | `7b53ee8`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
