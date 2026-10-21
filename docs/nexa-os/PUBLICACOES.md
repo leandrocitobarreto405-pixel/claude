@@ -336,6 +336,8 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Caixa de entrada, item 2" (`20261124120000`, aplicada em 21/10): `conversas` e
   `whatsapp_messages` entram na publicação `supabase_realtime` com REPLICA IDENTITY FULL (o RLS
   por empresa vale no Realtime). Nenhum dado muda. Para voltar: tirar as duas da publicação.
+- "Caixa de entrada, item 1b" (21/10): só código e imagem (ffmpeg no Dockerfile), nenhuma
+  mudança no banco.
 - Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões
   lança despesas "Comissões" com `reference_key` `comissao:<vendedora>:<mês>` (índice único já
   existente impede duplicar); essas despesas ficam fora das despesas do DRE.
@@ -442,6 +444,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 20/10/2026       | C: DRE pelo recebimento e Comissões a pagar         | `b731429`           | `8d5322e`                |
 | 21/10/2026       | Caixa de entrada 1: responder texto e modelo        | `f946886`           | `ed18ced`                |
 | 21/10/2026       | Caixa de entrada 2: tempo real e status            | `2b48bb7`           | `7761283`                |
+| 21/10/2026       | Caixa de entrada 1b: foto, documento e áudio (voz) | `601aaa3`           | `b371c77`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa

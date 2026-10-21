@@ -89,3 +89,30 @@ test("primeiro nome do contato: limpo ou null", () => {
   assert.equal(primeiroNomeDoContato("11 99999-0000"), null);
   assert.equal(primeiroNomeDoContato(null), null);
 });
+
+test("anexos: tipo e tamanho por categoria; nome seguro", async () => {
+  const { validarAnexo, nomeSeguro } = await import("./caixa");
+  assert.deepEqual(validarAnexo("imagem", "image/jpeg", 1000), {
+    ok: true,
+    tipoMensagem: "Imagem",
+  });
+  assert.equal(validarAnexo("imagem", "image/gif", 1000).ok, false);
+  assert.equal(validarAnexo("imagem", "image/jpeg", 6 * 1024 * 1024).ok, false);
+  assert.deepEqual(validarAnexo("documento", "application/pdf", 10), {
+    ok: true,
+    tipoMensagem: "Documento",
+  });
+  assert.equal(validarAnexo("documento", "application/zip", 10).ok, false);
+  assert.deepEqual(validarAnexo("audio", "audio/webm;codecs=opus", 10), {
+    ok: true,
+    tipoMensagem: "Áudio",
+  });
+  assert.deepEqual(validarAnexo("audio", "audio/mp4", 10), { ok: true, tipoMensagem: "Áudio" });
+  assert.equal(validarAnexo("audio", "image/png", 10).ok, false);
+  assert.equal(validarAnexo("audio", "audio/mp4", 0).ok, false);
+  assert.equal(
+    nomeSeguro("../../etc/Orçamento final (v2).pdf", "arquivo"),
+    "Or_amento final (v2).pdf",
+  );
+  assert.equal(nomeSeguro("", "foto.jpg"), "foto.jpg");
+});

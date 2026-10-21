@@ -12,12 +12,15 @@ import { requireEmpresa } from "@/lib/empresa.middleware";
 import {
   janelaDeResposta,
   modelosParaResponder,
+  nomeSeguro,
   podeResponder,
   primeiroNomeDoContato,
   situacaoParaResponder,
+  validarAnexo,
   validarTexto,
   type Janela,
   type ModeloParaResponder,
+  type TipoAnexo,
 } from "@/lib/caixa";
 import type { Banco } from "@/lib/banco";
 import type { Papel } from "@/lib/tenant";
@@ -275,5 +278,74 @@ export const enviarModeloFn = createServerFn({ method: "POST" })
         () => undefined,
       );
     await registrarEnvio(ctx, e, id, escolhido.texto, "Texto", situacao.reabre);
+    return { ok: true, chatwootMessageId: id };
+  });
+
+/**
+ * Foto, documento ou áudio gravado (FormData: conversaId, tipo, arquivo). Áudio é convertido no
+ * servidor para OGG/Opus mono e vai como mensagem de voz. Só dentro da janela de 24 h: anexo não
+ * tem modelo aprovado.
+ */
+export const enviarAnexoFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((input: FormData) => {
+    if (!(input instanceof FormData)) throw new Error("Envio inválido.");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const ctx = context as unknown as Contexto;
+    const { conversaId } = validarConversa({ conversaId: String(data.get("conversaId") ?? "") });
+    const tipo = String(data.get("tipo") ?? "") as TipoAnexo;
+    if (!["imagem", "documento", "audio"].includes(tipo))
+      throw new Error("Tipo de anexo inválido.");
+    const arquivo = data.get("arquivo");
+    if (!(arquivo instanceof File)) throw new Error("Selecione o arquivo.");
+    const v = validarAnexo(tipo, arquivo.type, arquivo.size);
+    if (!v.ok) throw new Error(v.motivo);
+
+    const e = await dadosDoEnvio(ctx, conversaId);
+    const situacao = situacaoParaResponder(e.conversa.status);
+    if (!situacao.pode)
+      throw new Error("Assuma a conversa antes de responder (ela está com a Alice).");
+    if (!janelaDeResposta(e.ultimaDoCliente).aberta)
+      throw new Error("Passou 24 h desde a última mensagem do cliente: anexo só dentro da janela.");
+
+    let bytes: Uint8Array = new Uint8Array(await arquivo.arrayBuffer());
+    let nome = nomeSeguro(arquivo.name, tipo === "imagem" ? "foto.jpg" : "arquivo");
+    let mime = arquivo.type.split(";")[0]!;
+    if (tipo === "audio") {
+      const { paraOggOpus } = await import("@/lib/audio-voz.server");
+      try {
+        bytes = await paraOggOpus(bytes);
+      } catch (err) {
+        console.error("Caixa: conversão do áudio", err instanceof Error ? err.message : err);
+        throw new Error(
+          "Não deu para preparar o áudio como mensagem de voz. Tente gravar de novo.",
+        );
+      }
+      nome = "audio.ogg";
+      mime = "audio/ogg";
+    }
+    const { enviarAnexo, mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
+    let id: number;
+    try {
+      ({ id } = await enviarAnexo(
+        e.conta,
+        e.token,
+        e.conversa.chatwoot_conversation_id,
+        new Blob([new Uint8Array(bytes)], { type: mime }),
+        nome,
+        "",
+        tipo === "audio",
+      ));
+    } catch (err) {
+      console.error("Caixa: anexo falhou", err instanceof Error ? err.message : err);
+      throw new Error("O WhatsApp não aceitou o arquivo agora. Tente de novo.");
+    }
+    if (situacao.reabre)
+      await mudarSituacao(e.conta, e.token, e.conversa.chatwoot_conversation_id, "open").catch(
+        () => undefined,
+      );
+    await registrarEnvio(ctx, e, id, tipo === "audio" ? "" : nome, v.tipoMensagem, situacao.reabre);
     return { ok: true, chatwootMessageId: id };
   });

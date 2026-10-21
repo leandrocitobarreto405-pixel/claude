@@ -81,3 +81,59 @@ export function primeiroNomeDoContato(nome: string | null | undefined): string |
     ?.replace(/[^\p{L}'-]/gu, "");
   return p && p.length >= 2 ? p[0]!.toUpperCase() + p.slice(1) : null;
 }
+
+// ---------------------------------------------------------------- anexos (foto, documento, áudio)
+
+export type TipoAnexo = "imagem" | "documento" | "audio";
+
+const IMAGENS = ["image/jpeg", "image/png", "image/webp"];
+const DOCUMENTOS = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+];
+export const LIMITES_ANEXO: Record<TipoAnexo, number> = {
+  imagem: 5 * 1024 * 1024,
+  documento: 16 * 1024 * 1024,
+  audio: 10 * 1024 * 1024,
+};
+
+/** Confere tipo e tamanho do anexo; devolve o tipo da mensagem no histórico. */
+export function validarAnexo(
+  tipo: TipoAnexo,
+  mime: string | null | undefined,
+  tamanho: number,
+): { ok: true; tipoMensagem: "Imagem" | "Documento" | "Áudio" } | { ok: false; motivo: string } {
+  const m = (mime ?? "").toLowerCase().split(";")[0]!.trim();
+  if (!tamanho) return { ok: false, motivo: "Arquivo vazio." };
+  if (tamanho > LIMITES_ANEXO[tipo])
+    return {
+      ok: false,
+      motivo: `Arquivo grande demais (até ${LIMITES_ANEXO[tipo] / 1024 / 1024} MB).`,
+    };
+  if (tipo === "imagem")
+    return IMAGENS.includes(m)
+      ? { ok: true, tipoMensagem: "Imagem" }
+      : { ok: false, motivo: "Foto só em JPG, PNG ou WebP." };
+  if (tipo === "documento")
+    return DOCUMENTOS.includes(m)
+      ? { ok: true, tipoMensagem: "Documento" }
+      : { ok: false, motivo: "Documento só em PDF, Word, Excel ou texto." };
+  return m.startsWith("audio/") || m === "video/webm" || m === "video/mp4"
+    ? { ok: true, tipoMensagem: "Áudio" }
+    : { ok: false, motivo: "Áudio inválido." };
+}
+
+/** Nome do arquivo sem caminho nem caracteres estranhos (vai para o Chatwoot e para o histórico). */
+export function nomeSeguro(nome: string, padrao: string): string {
+  const base = nome.split(/[\\/]/).pop() ?? "";
+  const limpo = base
+    .replace(/[^\w.() -]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return limpo || padrao;
+}

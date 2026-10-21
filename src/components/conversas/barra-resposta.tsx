@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Clock, Send } from "lucide-react";
+import { Clock, FileText, Image as ImagemIcone, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Botao } from "@/components/nexa";
 import { MAX_TEXTO } from "@/lib/caixa";
+import { GravadorAudio } from "@/components/conversas/gravador-audio";
 import {
+  enviarAnexoFn,
   enviarModeloFn,
   enviarTextoFn,
   estadoRespostaFn,
@@ -31,6 +33,9 @@ export function BarraResposta({
   const textoFn = useServerFn(enviarTextoFn);
   const modelosFn = useServerFn(modelosParaResponderFn);
   const modeloFn = useServerFn(enviarModeloFn);
+  const anexoFn = useServerFn(enviarAnexoFn);
+  const fotoRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
   const estado = useQuery({
     queryKey: CHAVE_ESTADO_RESPOSTA(conversaId),
     queryFn: () => estadoFn({ data: { conversaId } }),
@@ -71,6 +76,14 @@ export function BarraResposta({
     } finally {
       setEnviando(false);
     }
+  }
+
+  function enviarArquivo(tipo: "imagem" | "documento" | "audio", arquivo: File) {
+    const fd = new FormData();
+    fd.append("conversaId", conversaId);
+    fd.append("tipo", tipo);
+    fd.append("arquivo", arquivo, arquivo.name);
+    void enviar(() => anexoFn({ data: fd }));
   }
 
   if (!e) return null;
@@ -150,7 +163,48 @@ export function BarraResposta({
 
   return (
     <div className={cn(base, "flex flex-col gap-1")}>
-      <div className="flex items-end gap-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <input
+          ref={fotoRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(ev) => {
+            const f = ev.target.files?.[0];
+            ev.target.value = "";
+            if (f) enviarArquivo("imagem", f);
+          }}
+        />
+        <input
+          ref={docRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf"
+          className="hidden"
+          onChange={(ev) => {
+            const f = ev.target.files?.[0];
+            ev.target.value = "";
+            if (f) enviarArquivo("documento", f);
+          }}
+        />
+        <Botao
+          variante="neutro"
+          tamanho="icone"
+          aria-label="Enviar foto"
+          disabled={enviando}
+          onClick={() => fotoRef.current?.click()}
+        >
+          <ImagemIcone aria-hidden />
+        </Botao>
+        <Botao
+          variante="neutro"
+          tamanho="icone"
+          aria-label="Enviar documento"
+          disabled={enviando}
+          onClick={() => docRef.current?.click()}
+        >
+          <FileText aria-hidden />
+        </Botao>
+        <GravadorAudio desabilitado={enviando} aoGravar={(f) => enviarArquivo("audio", f)} />
         <textarea
           ref={areaRef}
           aria-label="Mensagem"
@@ -183,7 +237,7 @@ export function BarraResposta({
         </Botao>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Janela aberta até {dateTimeBR(e.janela.fechaEm)}.
+        {enviando ? "Enviando… " : ""}Janela aberta até {dateTimeBR(e.janela.fechaEm)}.
       </p>
     </div>
   );
