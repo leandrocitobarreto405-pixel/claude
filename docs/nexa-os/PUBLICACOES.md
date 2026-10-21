@@ -336,6 +336,13 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 - "Caixa de entrada, item 2" (`20261124120000`, aplicada em 21/10): `conversas` e
   `whatsapp_messages` entram na publicação `supabase_realtime` com REPLICA IDENTITY FULL (o RLS
   por empresa vale no Realtime). Nenhum dado muda. Para voltar: tirar as duas da publicação.
+- "Próximo número de OS" (`20261126120000`, aplicada em 21/10): `empresas.proximo_numero_os`
+  (inteiro, opcional), função `public.proximo_numero_os(empresa)` (maior usado + 1 ou o campo, o
+  que for maior) e gatilho que impede diminuir ou ficar abaixo do maior usado. Ecoprime recebeu
+  1500 (próxima OS 1500; antes seria 0004); Turbine sem mudança (próxima 1694). Dados da Ecoprime
+  em `app_settings` "company": e-mail, Instagram, slogan, atividade, frase do rodapé e quem assina
+  (do modelo de orçamento dela). Para voltar: tirar coluna, função e gatilho; a numeração segue
+  pelo maior usado + 1.
 - "Caixa de entrada, item 1b" (21/10): só código e imagem (ffmpeg no Dockerfile), nenhuma
   mudança no banco.
 - Blocos A, B e C (20/10): só código, nenhuma mudança no banco. "Marcar como paga" em Comissões

@@ -661,13 +661,23 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
     .join(" ");
   let wo: { id: string; os_number: string } | null = null;
   for (let tentativa = 0; tentativa < 4 && !wo; tentativa++) {
-    const { data: ultimas } = await ctx.admin
-      .from("work_orders")
-      .select("os_number")
-      .eq("empresa_id", ctx.empresaId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    const numero = proximoNumeroOS((ultimas ?? []).map((r) => r.os_number));
+    // Função do banco (respeita o "próximo número" do Painel Nexa); sem ela, as últimas OS.
+    const { data: doBanco } = await ctx.admin.rpc(
+      "proximo_numero_os" as never,
+      {
+        _empresa_id: ctx.empresaId,
+      } as never,
+    );
+    let numero = typeof doBanco === "string" && /^\d{4,}$/.test(doBanco) ? doBanco : "";
+    if (!numero) {
+      const { data: ultimas } = await ctx.admin
+        .from("work_orders")
+        .select("os_number")
+        .eq("empresa_id", ctx.empresaId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      numero = proximoNumeroOS((ultimas ?? []).map((r) => r.os_number));
+    }
     const { data, error } = await ctx.admin
       .from("work_orders")
       .insert({

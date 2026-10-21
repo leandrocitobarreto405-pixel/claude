@@ -8,6 +8,7 @@ import { Documento } from "./layout";
 import { substituir } from "./marcacao";
 import {
   linhasCabecalho,
+  rodapeEmpresa,
   variaveis,
   type ConfigDocumentos,
   type EmpresaDocumento,
@@ -72,9 +73,23 @@ export function servicosContratados(d: { temHig: boolean; temImp: boolean }) {
 }
 
 async function cabecalho(doc: Documento, empresa: EmpresaDocumento) {
+  doc.definirRodapeColunas(rodapeEmpresa(empresa));
   const logo = empresa.logo ? await doc.imagem(empresa.logo.bytes, empresa.logo.tipo) : null;
   doc.cabecalhoEmpresa(logo, empresa.nome, linhasCabecalho(empresa));
-  doc.definirRodape(empresa.nome);
+}
+
+/** Data de hoje em São Paulo, "21/10/2026". */
+function hojeBR() {
+  return new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+/** Assinatura e data no fim do documento, quando a empresa ligou isso. */
+async function assinatura(doc: Documento, empresa: EmpresaDocumento, data?: string) {
+  if (!empresa.mostrarAssinatura) return;
+  const img = empresa.assinatura
+    ? await doc.imagem(empresa.assinatura.bytes, empresa.assinatura.tipo)
+    : null;
+  doc.assinatura(data ?? hojeBR(), img, empresa.nome, empresa.assinante ?? "");
 }
 
 export async function pdfDaOs(
@@ -154,6 +169,7 @@ export async function pdfDaOs(
     negrito: true,
     alinhamento: "centro",
   });
+  await assinatura(doc, empresa, orc?.data);
   return doc.salvar();
 }
 
@@ -187,6 +203,7 @@ export async function pdfDoTermo(
     negrito: true,
     alinhamento: "centro",
   });
+  await assinatura(doc, empresa, d.dataServico);
   return doc.salvar();
 }
 
@@ -204,6 +221,24 @@ export const EXEMPLO_OS: DadosOsPdf = {
   ],
   valorTotal: "R$ 1.784,64 em até 10x sem juros",
   formaPagamento: "Cartão de crédito",
+};
+
+/** Orçamento de exemplo (prévia das configurações). */
+export const EXEMPLO_ORCAMENTO: DadosOsPdf = {
+  ...EXEMPLO_OS,
+  valorTotal: "R$ 1.784,64",
+  formaPagamento: "Dinheiro, cartão de crédito, cartão de débito ou Pix",
+  orcamento: {
+    data: "01/01/2027",
+    validoAte: "08/01/2027",
+    validadeDias: 7,
+    desconto: {
+      subtotal: "R$ 2.230,80",
+      rotulo: "Desconto sobre serviços (20%)",
+      valor: "R$ 446,16",
+    },
+    pagamento: ["Em até 5x no cartão", "Ou R$ 1.606,18 no Pix"],
+  },
 };
 
 export const EXEMPLO_TERMO: DadosTermoPdf = {

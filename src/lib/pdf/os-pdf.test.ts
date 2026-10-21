@@ -12,7 +12,14 @@ import {
   pdfDoTermo,
   type DadosOsPdf,
 } from "./os-pdf";
-import { configDocumentos, linhasCabecalho, type EmpresaDocumento } from "./textos-padrao";
+import {
+  cnpjBonito,
+  configDocumentos,
+  linhasCabecalho,
+  rodapeEmpresa,
+  telefoneBonito,
+  type EmpresaDocumento,
+} from "./textos-padrao";
 import { blocos, substituir } from "./marcacao";
 
 async function lerPdf(bytes: Uint8Array) {
@@ -111,12 +118,13 @@ test("com impermeabilização: benefícios e garantia (meses e fluidos corporais
   assert.match(texto, /fluidos corporais/);
 });
 
-test("combinado: as duas colunas, dados da empresa no cabeçalho e Turbine em lugar nenhum", async () => {
+test("combinado: as duas colunas, dados da empresa no rodapé e Turbine em lugar nenhum", async () => {
   const { texto } = await lerPdf(await pdfDaOs(EXEMPLO_OS, empresa, config));
   assert.match(texto, /HIGIENIZAÇÃO E IMPERMEABILIZAÇÃO/);
   assert.match(texto, /Estofado Quantidade Higienização Impermeabilização/);
   assert.match(texto, /CNPJ: 00\.000\.000\/0001-00/);
-  assert.match(texto, /Instagram: @exemplo/);
+  assert.match(texto, /@exemplo/);
+  assert.match(texto, /WhatsApp: \(11\) 90000-0000/);
   assert.match(texto, /R\$ 1\.784,64 em até 10x sem juros/);
   assert.doesNotMatch(texto, /Turbine/i);
 });
@@ -131,10 +139,68 @@ test("empresa sem logo e com campos vazios: cabeçalho só com o que existe", as
     instagram: null,
     logo: null,
   };
-  assert.deepEqual(linhasCabecalho(semNada), ["Contato: (11) 91111-1111"]);
+  assert.deepEqual(linhasCabecalho(semNada), []);
+  assert.deepEqual(rodapeEmpresa(semNada), {
+    esquerda: ["Outra Fictícia"],
+    direita: ["WhatsApp: (11) 91111-1111"],
+  });
   const { texto } = await lerPdf(await pdfDaOs(soHig, semNada, config));
   assert.match(texto, /Outra Fictícia/);
-  assert.doesNotMatch(texto, /CNPJ|E-mail|Endereço|Instagram/);
+  assert.doesNotMatch(texto, /CNPJ|E-mail|Endereço|Instagram|Telefone:/);
+});
+
+test("slogan no cabeçalho, rodapé em colunas e assinatura com data", async () => {
+  const completa: EmpresaDocumento = {
+    ...empresa,
+    nome: "Fictícia Prime",
+    cnpj: "43007121000178",
+    telefone: "61998637117",
+    telefone2: "(61) 3333-0000",
+    slogan: "Limpeza & Higienização de Ambientes",
+    atividade: "Limpeza de Estofados",
+    fraseRodape: "Frase fictícia do rodapé.",
+    instagram: "ficticia_oficial",
+    assinatura: { bytes: pngMinimo(), tipo: "png" },
+    assinante: "Pessoa Fictícia",
+    mostrarAssinatura: true,
+  };
+  assert.deepEqual(rodapeEmpresa(completa), {
+    esquerda: [
+      "Fictícia Prime | Limpeza de Estofados",
+      "CNPJ: 43.007.121/0001-78",
+      "Frase fictícia do rodapé.",
+      "@ficticia_oficial",
+    ],
+    direita: [
+      "contato@exemplo.invalid",
+      "WhatsApp: (61) 99863-7117",
+      "Telefone: (61) 3333-0000",
+      "Rua Exemplo, 100 - São Paulo - SP",
+    ],
+  });
+  const orc: DadosOsPdf = {
+    ...soHig,
+    orcamento: {
+      data: "19/07/2024",
+      validoAte: "26/07/2024",
+      validadeDias: 7,
+      desconto: null,
+      pagamento: [],
+    },
+  };
+  const { texto } = await lerPdf(await pdfDaOs(orc, completa, config));
+  assert.match(texto, /Limpeza & Higienização de Ambientes/);
+  assert.match(texto, /Fictícia Prime \| Limpeza de Estofados/);
+  assert.match(texto, /19\/07\/2024 Fictícia Prime Pessoa Fictícia/);
+  // Sem a opção ligada: nada de assinatura, mesmo com a imagem salva.
+  const { texto: sem } = await lerPdf(
+    await pdfDaOs(soHig, { ...completa, mostrarAssinatura: false }, config),
+  );
+  assert.doesNotMatch(sem, /Pessoa Fictícia/);
+  assert.equal(telefoneBonito("5561998637117"), "(61) 99863-7117");
+  assert.equal(telefoneBonito("(11) 4004-0000"), "(11) 4004-0000");
+  assert.equal(cnpjBonito("43007121000178"), "43.007.121/0001-78");
+  assert.equal(cnpjBonito("12.345.678/0001-90"), "12.345.678/0001-90");
 });
 
 test("nome longo e muitos itens: quebra de página com cabeçalho da tabela repetido", async () => {

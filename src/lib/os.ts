@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getEmpresaAtiva } from "@/lib/empresa-ativa";
 import { textoQuantidade } from "@/lib/unidade";
 import { brl, buildFullAddress, dateBR, timeBR, todayISO, weekdayPT } from "@/lib/format";
 import { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/data";
@@ -100,7 +101,21 @@ export async function osNumberExists(osNumber: string): Promise<boolean> {
   return Boolean(data);
 }
 
+/**
+ * Próximo número de OS da empresa ativa: maior usado + 1 ou o "próximo número" definido no
+ * Painel Nexa (função do banco). Sem resposta do banco, cai no cálculo pelas últimas OS.
+ */
 export async function suggestOsNumber(): Promise<string> {
+  const empresaId = getEmpresaAtiva();
+  if (empresaId) {
+    const { data } = await supabase.rpc(
+      "proximo_numero_os" as never,
+      {
+        _empresa_id: empresaId,
+      } as never,
+    );
+    if (typeof data === "string" && /^\d{4,}$/.test(data)) return data;
+  }
   const { data } = await supabase
     .from("work_orders")
     .select("os_number")

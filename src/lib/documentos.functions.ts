@@ -19,6 +19,15 @@ export type DadosEmpresaForm = {
   endereco: string;
   instagram: string;
   logoPath: string | null;
+  /** Linha abaixo do nome no cabeçalho do PDF. */
+  slogan: string;
+  /** "NOME | atividade" no rodapé. */
+  atividade: string;
+  fraseRodape: string;
+  telefone2: string;
+  assinaturaPath: string | null;
+  assinante: string;
+  mostrarAssinatura: boolean;
 };
 
 type Company = {
@@ -29,10 +38,18 @@ type Company = {
   endereco?: string;
   instagram?: string;
   logo_path?: string | null;
+  slogan?: string;
+  atividade?: string;
+  frase_rodape?: string;
+  telefone2?: string;
+  assinatura_path?: string | null;
+  assinante?: string;
+  mostrar_assinatura?: boolean;
   [k: string]: unknown;
 };
 
 const LOGO = /^[0-9a-f-]{36}\/logo\.(png|jpg)$/i;
+const ASSINATURA = /^[0-9a-f-]{36}\/assinatura\.png$/i;
 
 export const lerDadosEmpresaFn = createServerFn({ method: "GET" })
   .middleware([requireEmpresa])
@@ -59,6 +76,16 @@ export const lerDadosEmpresaFn = createServerFn({ method: "GET" })
       endereco: v.endereco ?? "",
       instagram: v.instagram ?? "",
       logoPath: typeof v.logo_path === "string" && LOGO.test(v.logo_path) ? v.logo_path : null,
+      slogan: v.slogan ?? "",
+      atividade: v.atividade ?? "",
+      fraseRodape: v.frase_rodape ?? "",
+      telefone2: v.telefone2 ?? "",
+      assinaturaPath:
+        typeof v.assinatura_path === "string" && ASSINATURA.test(v.assinatura_path)
+          ? v.assinatura_path
+          : null,
+      assinante: v.assinante ?? "",
+      mostrarAssinatura: v.mostrar_assinatura === true,
     };
   });
 
@@ -70,27 +97,41 @@ const campo = (v: unknown, max: number, nome: string) => {
   return s;
 };
 
+/** Confere os campos da tela (salvar e prévia usam a mesma regra). */
+export function validarDadosEmpresa(d: DadosEmpresaForm): DadosEmpresaForm {
+  const out: DadosEmpresaForm = {
+    nome: campo(d.nome, 120, "Nome"),
+    cnpj: campo(d.cnpj, 30, "CNPJ"),
+    email: campo(d.email, 120, "E-mail"),
+    telefone: campo(d.telefone, 40, "Telefone"),
+    endereco: campo(d.endereco, 200, "Endereço"),
+    instagram: campo(d.instagram, 80, "Instagram"),
+    logoPath: d.logoPath ? String(d.logoPath) : null,
+    slogan: campo(d.slogan, 120, "Slogan"),
+    atividade: campo(d.atividade, 80, "Atividade"),
+    fraseRodape: campo(d.fraseRodape, 200, "Frase do rodapé"),
+    telefone2: campo(d.telefone2, 40, "Segundo telefone"),
+    assinaturaPath: d.assinaturaPath ? String(d.assinaturaPath) : null,
+    assinante: campo(d.assinante, 80, "Quem assina"),
+    mostrarAssinatura: d.mostrarAssinatura === true,
+  };
+  if (!out.nome) throw new Error("Informe o nome da empresa.");
+  if (out.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.email))
+    throw new Error("E-mail inválido.");
+  if (out.logoPath && !LOGO.test(out.logoPath)) throw new Error("Logo inválida.");
+  if (out.assinaturaPath && !ASSINATURA.test(out.assinaturaPath))
+    throw new Error("Assinatura inválida.");
+  return out;
+}
+
 export const salvarDadosEmpresaFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
-  .inputValidator((d: DadosEmpresaForm): DadosEmpresaForm => {
-    const out: DadosEmpresaForm = {
-      nome: campo(d.nome, 120, "Nome"),
-      cnpj: campo(d.cnpj, 30, "CNPJ"),
-      email: campo(d.email, 120, "E-mail"),
-      telefone: campo(d.telefone, 40, "Telefone"),
-      endereco: campo(d.endereco, 200, "Endereço"),
-      instagram: campo(d.instagram, 80, "Instagram"),
-      logoPath: d.logoPath ? String(d.logoPath) : null,
-    };
-    if (!out.nome) throw new Error("Informe o nome da empresa.");
-    if (out.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.email))
-      throw new Error("E-mail inválido.");
-    if (out.logoPath && !LOGO.test(out.logoPath)) throw new Error("Logo inválida.");
-    return out;
-  })
+  .inputValidator(validarDadosEmpresa)
   .handler(async ({ data: d, context }) => {
     if (d.logoPath && !d.logoPath.startsWith(`${context.empresaId}/`))
       throw new Error("Logo inválida.");
+    if (d.assinaturaPath && !d.assinaturaPath.startsWith(`${context.empresaId}/`))
+      throw new Error("Assinatura inválida.");
     const { data: atual } = await context.supabase
       .from("app_settings")
       .select("value")
@@ -106,6 +147,13 @@ export const salvarDadosEmpresaFn = createServerFn({ method: "POST" })
       endereco: d.endereco,
       instagram: d.instagram,
       logo_path: d.logoPath,
+      slogan: d.slogan,
+      atividade: d.atividade,
+      frase_rodape: d.fraseRodape,
+      telefone2: d.telefone2,
+      assinatura_path: d.assinaturaPath,
+      assinante: d.assinante,
+      mostrar_assinatura: d.mostrarAssinatura,
     };
     const { error } = await context.supabase.from("app_settings").upsert(
       {
@@ -175,24 +223,55 @@ export const salvarConfigDocumentosFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** "Ver PDF de exemplo": dados fictícios com a empresa e os textos da tela (mesmo sem salvar). */
+/**
+ * "Ver PDF de exemplo" / prévia: dados fictícios com a empresa e os textos da tela (mesmo sem
+ * salvar). `empresa` é a prévia de Configurações › Empresa; sem `config`, vale a salva.
+ */
 export const pdfExemploFn = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa])
-  .inputValidator((i: { tipo: "os" | "termo"; config: ConfigDocumentos }) => ({
-    tipo: i.tipo === "termo" ? ("termo" as const) : ("os" as const),
-    config: validarConfig(i.config),
-  }))
-  .handler(async ({ data }): Promise<ArquivoPdf> => {
-    const { empresaDocumento, paraBase64 } = await import("@/lib/documentos.server");
-    const { EXEMPLO_OS, EXEMPLO_TERMO, pdfDaOs, pdfDoTermo } = await import("@/lib/pdf/os-pdf");
-    const empresa = await empresaDocumento();
+  .inputValidator(
+    (i: {
+      tipo: "os" | "termo" | "orcamento";
+      config?: ConfigDocumentos;
+      empresa?: DadosEmpresaForm;
+    }) => ({
+      tipo:
+        i.tipo === "termo"
+          ? ("termo" as const)
+          : i.tipo === "orcamento"
+            ? ("orcamento" as const)
+            : ("os" as const),
+      config: i.config ? validarConfig(i.config) : null,
+      empresa: i.empresa ? validarDadosEmpresa(i.empresa) : null,
+    }),
+  )
+  .handler(async ({ data, context }): Promise<ArquivoPdf> => {
+    const { empresaDocumento, lerConfigDocumentos, paraBase64 } =
+      await import("@/lib/documentos.server");
+    const { EXEMPLO_OS, EXEMPLO_ORCAMENTO, EXEMPLO_TERMO, pdfDaOs, pdfDoTermo } =
+      await import("@/lib/pdf/os-pdf");
+    if (data.empresa) {
+      for (const c of [data.empresa.logoPath, data.empresa.assinaturaPath])
+        if (c && !c.startsWith(`${context.empresaId}/`)) throw new Error("Imagem inválida.");
+    }
+    const [empresa, config] = await Promise.all([
+      empresaDocumento(data.empresa ?? undefined),
+      data.config ?? lerConfigDocumentos(),
+    ]);
     const bytes =
       data.tipo === "termo"
-        ? await pdfDoTermo(EXEMPLO_TERMO, empresa, data.config)
-        : await pdfDaOs(EXEMPLO_OS, empresa, data.config);
+        ? await pdfDoTermo(EXEMPLO_TERMO, empresa, config)
+        : data.tipo === "orcamento"
+          ? await pdfDaOs(EXEMPLO_ORCAMENTO, empresa, config)
+          : await pdfDaOs(EXEMPLO_OS, empresa, config);
     return {
       base64: paraBase64(bytes),
-      nome: data.tipo === "termo" ? "Termo de garantia - exemplo.pdf" : "OS 0001 - exemplo.pdf",
+      nome:
+        data.tipo === "termo"
+          ? "Termo de garantia - exemplo.pdf"
+          : data.tipo === "orcamento"
+            ? "Orçamento 0001 - exemplo.pdf"
+            : "OS 0001 - exemplo.pdf",
     };
   });
 

@@ -116,6 +116,8 @@ export function configDocumentos(salvo: unknown): ConfigDocumentos {
   };
 }
 
+export type ImagemDocumento = { bytes: Uint8Array; tipo: "png" | "jpg" };
+
 export type EmpresaDocumento = {
   nome: string;
   cnpj: string | null;
@@ -123,7 +125,18 @@ export type EmpresaDocumento = {
   telefone: string | null;
   endereco: string | null;
   instagram: string | null;
-  logo: { bytes: Uint8Array; tipo: "png" | "jpg" } | null;
+  logo: ImagemDocumento | null;
+  /** Linha abaixo do nome no cabeçalho (ex.: "Limpeza & Higienização de Ambientes"). */
+  slogan?: string | null;
+  /** Vai ao lado do nome no rodapé: "NOME | atividade" (ex.: "Limpeza de Estofados"). */
+  atividade?: string | null;
+  /** Frase do rodapé (ex.: um versículo). */
+  fraseRodape?: string | null;
+  telefone2?: string | null;
+  /** Assinatura (PNG com fundo transparente) e quem assina; só saem com mostrarAssinatura. */
+  assinatura?: ImagemDocumento | null;
+  assinante?: string | null;
+  mostrarAssinatura?: boolean;
 };
 
 /** Variáveis dos textos ({empresa}, {meses}...). */
@@ -143,19 +156,69 @@ export function variaveis(empresa: EmpresaDocumento, c: ConfigDocumentos) {
   };
 }
 
-/** Linhas do cabeçalho: só os campos preenchidos. */
+/** "@empresa" a partir do que foi digitado (com ou sem @, ou o endereço inteiro). */
+export function instagramCurto(valor: string | null | undefined): string | null {
+  if (!valor || !valor.trim()) return null;
+  const limpo = valor
+    .trim()
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
+    .replace(/\/$/, "")
+    .replace(/^@/, "");
+  return limpo ? `@${limpo}` : null;
+}
+
+/** "(61) 99863-7117" quando vier só com dígitos; senão, como foi digitado. */
+export function telefoneBonito(valor: string | null | undefined): string | null {
+  if (!valor || !valor.trim()) return null;
+  const d = valor.replace(/\D/g, "");
+  if (d !== valor.trim() && !/^\+?[\d\s()-]+$/.test(valor.trim())) return valor.trim();
+  const n = d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return valor.trim();
+}
+
+/** "43.007.121/0001-78" quando vierem só os 14 dígitos; senão, como foi digitado. */
+export function cnpjBonito(valor: string | null | undefined): string | null {
+  if (!valor || !valor.trim()) return null;
+  const d = valor.replace(/\D/g, "");
+  if (d.length === 14)
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  if (d.length === 11) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  return valor.trim();
+}
+
+/**
+ * Linhas do cabeçalho (abaixo do nome): só o slogan; os contatos ficam no rodapé. Mantido para
+ * quem ainda monta cabeçalho antigo.
+ */
 export function linhasCabecalho(e: EmpresaDocumento): string[] {
-  const insta = e.instagram
-    ? `@${e.instagram
-        .replace(/^@/, "")
-        .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
-        .replace(/\/$/, "")}`
-    : null;
-  return [
-    e.cnpj ? `CNPJ: ${e.cnpj}` : null,
-    e.email ? `E-mail: ${e.email}` : null,
-    e.telefone ? `Contato: ${e.telefone}` : null,
-    e.endereco ? `Endereço: ${e.endereco}` : null,
-    insta ? `Instagram: ${insta}` : null,
+  return e.slogan && e.slogan.trim() ? [e.slogan.trim()] : [];
+}
+
+export type RodapeDocumento = { esquerda: string[]; direita: string[] };
+
+/**
+ * Rodapé em duas colunas, só com o que existe. Esquerda: "NOME | atividade", CNPJ, frase,
+ * Instagram. Direita: e-mail, WhatsApp, telefone, endereço.
+ */
+export function rodapeEmpresa(e: EmpresaDocumento): RodapeDocumento {
+  const limpo = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+  const nome = e.atividade && e.atividade.trim() ? `${e.nome} | ${e.atividade.trim()}` : e.nome;
+  const cnpj = cnpjBonito(e.cnpj);
+  const tel = telefoneBonito(e.telefone);
+  const tel2 = telefoneBonito(e.telefone2);
+  const esquerda = [
+    nome,
+    cnpj ? `CNPJ: ${cnpj}` : null,
+    limpo(e.fraseRodape),
+    instagramCurto(e.instagram),
   ].filter((x): x is string => Boolean(x));
+  const direita = [
+    limpo(e.email),
+    tel ? `WhatsApp: ${tel}` : null,
+    tel2 ? `Telefone: ${tel2}` : null,
+    limpo(e.endereco),
+  ].filter((x): x is string => Boolean(x));
+  return { esquerda, direita };
 }

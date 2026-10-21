@@ -20,6 +20,31 @@ type Company = {
   endereco?: string;
   instagram?: string;
   logo_path?: string | null;
+  slogan?: string;
+  atividade?: string;
+  frase_rodape?: string;
+  telefone2?: string;
+  assinatura_path?: string | null;
+  assinante?: string;
+  mostrar_assinatura?: boolean;
+};
+
+/** Campos que a tela de configurações pode mandar para a prévia antes de salvar. */
+export type EmpresaPrevia = {
+  nome: string;
+  cnpj: string;
+  email: string;
+  telefone: string;
+  endereco: string;
+  instagram: string;
+  logoPath: string | null;
+  slogan: string;
+  atividade: string;
+  fraseRodape: string;
+  telefone2: string;
+  assinaturaPath: string | null;
+  assinante: string;
+  mostrarAssinatura: boolean;
 };
 
 const vazioNulo = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
@@ -32,7 +57,24 @@ export function tipoDaImagem(bytes: Uint8Array): "png" | "jpg" | null {
   return null;
 }
 
-export async function empresaDocumento(): Promise<EmpresaDocumento> {
+async function imagemDaPasta(
+  db: ReturnType<typeof bancoDaEmpresa>,
+  empresaId: string,
+  caminho: string | null | undefined,
+): Promise<EmpresaDocumento["logo"]> {
+  if (!caminho || !caminho.startsWith(`${empresaId}/`)) return null;
+  const { data } = await db.storage.from("empresa-logos").download(caminho);
+  if (!data) return null;
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  const tipo = tipoDaImagem(bytes);
+  return tipo ? { bytes, tipo } : null;
+}
+
+/**
+ * Empresa para o PDF. Com `previa` (tela de configurações), usa os campos da tela ainda não
+ * salvos; as imagens vêm sempre da pasta da empresa.
+ */
+export async function empresaDocumento(previa?: EmpresaPrevia): Promise<EmpresaDocumento> {
   const db = bancoDaEmpresa();
   const { empresaId } = contextoEmpresa();
   const [{ data: empresa }, { data: cfg }] = await Promise.all([
@@ -44,16 +86,29 @@ export async function empresaDocumento(): Promise<EmpresaDocumento> {
       .eq("key", "company")
       .maybeSingle(),
   ]);
-  const v = (cfg?.value ?? {}) as Company;
-  let logo: EmpresaDocumento["logo"] = null;
-  if (v.logo_path && v.logo_path.startsWith(`${empresaId}/`)) {
-    const { data } = await db.storage.from("empresa-logos").download(v.logo_path);
-    if (data) {
-      const bytes = new Uint8Array(await data.arrayBuffer());
-      const tipo = tipoDaImagem(bytes);
-      if (tipo) logo = { bytes, tipo };
-    }
-  }
+  const salvo = (cfg?.value ?? {}) as Company;
+  const v: Company = previa
+    ? {
+        name: previa.nome,
+        document: previa.cnpj,
+        phone: previa.telefone,
+        email: previa.email,
+        endereco: previa.endereco,
+        instagram: previa.instagram,
+        logo_path: previa.logoPath,
+        slogan: previa.slogan,
+        atividade: previa.atividade,
+        frase_rodape: previa.fraseRodape,
+        telefone2: previa.telefone2,
+        assinatura_path: previa.assinaturaPath,
+        assinante: previa.assinante,
+        mostrar_assinatura: previa.mostrarAssinatura,
+      }
+    : salvo;
+  const [logo, assinatura] = await Promise.all([
+    imagemDaPasta(db, empresaId, v.logo_path),
+    imagemDaPasta(db, empresaId, v.assinatura_path),
+  ]);
   return {
     nome: vazioNulo(v.name) ?? vazioNulo(empresa?.nome as string | undefined) ?? "Empresa",
     cnpj: vazioNulo(v.document),
@@ -62,6 +117,13 @@ export async function empresaDocumento(): Promise<EmpresaDocumento> {
     endereco: vazioNulo(v.endereco),
     instagram: vazioNulo(v.instagram),
     logo,
+    slogan: vazioNulo(v.slogan),
+    atividade: vazioNulo(v.atividade),
+    fraseRodape: vazioNulo(v.frase_rodape),
+    telefone2: vazioNulo(v.telefone2),
+    assinatura,
+    assinante: vazioNulo(v.assinante),
+    mostrarAssinatura: v.mostrar_assinatura === true,
   };
 }
 

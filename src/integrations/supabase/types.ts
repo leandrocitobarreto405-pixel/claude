@@ -1743,6 +1743,7 @@ export type Database = {
           implantacao_liberada_por: string | null;
           nome: string;
           plano: string;
+          proximo_numero_os: number | null;
           telefone: string | null;
           updated_at: string;
         };
@@ -1758,6 +1759,7 @@ export type Database = {
           implantacao_liberada_por?: string | null;
           nome: string;
           plano?: string;
+          proximo_numero_os?: number | null;
           telefone?: string | null;
           updated_at?: string;
         };
@@ -1773,6 +1775,7 @@ export type Database = {
           implantacao_liberada_por?: string | null;
           nome?: string;
           plano?: string;
+          proximo_numero_os?: number | null;
           telefone?: string | null;
           updated_at?: string;
         };

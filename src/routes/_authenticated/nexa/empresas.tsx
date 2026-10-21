@@ -25,6 +25,13 @@ import {
   ImplantacaoDaEmpresa,
 } from "@/components/implantacao/implantacao-nexa";
 import { implantacoesNexaFn } from "@/lib/implantacao.functions";
+import {
+  CHAVE_NUMERACAO_OS,
+  definirProximoNumeroOsFn,
+  numeracaoOsNexaFn,
+  proximoNumero,
+  type NumeracaoOs,
+} from "@/lib/numeracao-os.functions";
 import { ESTADOS } from "@/lib/implantacao";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
@@ -132,6 +139,39 @@ function EmpresasNexa() {
   const [salvando, setSalvando] = useState(false);
 
   const [padraoTexto, setPadraoTexto] = useState<string | null>(null);
+
+  const numeracaoFn = useServerFn(numeracaoOsNexaFn);
+  const definirNumeroFn = useServerFn(definirProximoNumeroOsFn);
+  const numeracao = useQuery({
+    queryKey: CHAVE_NUMERACAO_OS,
+    queryFn: () => numeracaoFn(),
+    enabled: Boolean(ctx?.souNexa),
+  });
+  const [numerando, setNumerando] = useState<{ empresa: LinhaEmpresa; atual: NumeracaoOs } | null>(
+    null,
+  );
+  const [novoNumero, setNovoNumero] = useState("");
+  const [salvandoNumero, setSalvandoNumero] = useState(false);
+
+  async function salvarNumero() {
+    if (!numerando) return;
+    const n = Number(novoNumero.replace(/\D/g, ""));
+    if (!Number.isFinite(n) || n < 1) {
+      toast.error("Informe o próximo número de OS.");
+      return;
+    }
+    setSalvandoNumero(true);
+    try {
+      await definirNumeroFn({ data: { empresaId: numerando.empresa.id, proximo: n } });
+      toast.success(`Próxima OS da ${numerando.empresa.nome}: ${String(n).padStart(4, "0")}.`);
+      setNumerando(null);
+      void queryClient.invalidateQueries({ queryKey: CHAVE_NUMERACAO_OS });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível alterar.");
+    } finally {
+      setSalvandoNumero(false);
+    }
+  }
 
   function atualizar() {
     void queryClient.invalidateQueries({ queryKey: ["nexa_empresas"] });
@@ -330,6 +370,21 @@ function EmpresasNexa() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {(() => {
+                  const n = numeracao.data?.find((x) => x.empresaId === e.id);
+                  return n ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNumerando({ empresa: e, atual: n });
+                        setNovoNumero(String(n.proximoDefinido ?? Number(n.proximo)));
+                      }}
+                    >
+                      Próxima OS: {n.proximo}
+                    </Button>
+                  ) : null;
+                })()}
                 <Badge className="bg-primary/10 text-primary">
                   {e.vigente
                     ? `${pct(e.vigente.percentual)} desde ${dateBR(e.vigente.vigencia_inicio)}`
@@ -362,6 +417,52 @@ function EmpresasNexa() {
           ))}
         </div>
       )}
+
+      <Dialog open={Boolean(numerando)} onOpenChange={(aberto) => !aberto && setNumerando(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Próximo número de OS — {numerando?.empresa.nome}</DialogTitle>
+            <DialogDescription>
+              A próxima OS recebe o maior entre o maior número já usado + 1 e este campo. Só pode
+              aumentar e nunca fica abaixo do maior número já usado
+              {numerando?.atual.maiorUsado != null
+                ? ` (${String(numerando.atual.maiorUsado).padStart(4, "0")})`
+                : ""}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="proximo-os">Próximo número de OS</Label>
+            <Input
+              id="proximo-os"
+              inputMode="numeric"
+              className="min-h-11"
+              value={novoNumero}
+              onChange={(ev) => setNovoNumero(ev.target.value)}
+            />
+            {numerando ? (
+              <p className="text-sm text-muted-foreground">
+                Hoje a próxima seria {numerando.atual.proximo}. Com este valor, a próxima OS será{" "}
+                <strong>
+                  {proximoNumero(
+                    numerando.atual.maiorUsado,
+                    Number(novoNumero.replace(/\D/g, "")) || null,
+                  )}
+                </strong>
+                .
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNumerando(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={salvarNumero} disabled={salvandoNumero}>
+              {salvandoNumero ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(editando)} onOpenChange={(aberto) => !aberto && setEditando(null)}>
         <DialogContent>

@@ -8,3 +8,4 @@ export { CabecalhoDeTela } from "./cabecalho-de-tela";
 export { BarraDeNavegacaoInferior, type ItemDeNavegacao } from "./barra-de-navegacao-inferior";
 export { Recolhido } from "./recolhido";
 export { AbasDeRota, type AbaDeRota } from "./abas-de-rota";
+export { AvatarEmpresa } from "./avatar-empresa";

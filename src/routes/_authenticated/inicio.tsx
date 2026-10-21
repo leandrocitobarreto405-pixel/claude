@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronRight, Plus } from "lucide-react";
-import { Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
+import { AvatarEmpresa, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { Atalhos } from "@/components/painel/atalhos";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
@@ -97,6 +97,18 @@ function Inicio() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      {tenant?.ativa ? (
+        <div className="flex items-center gap-3">
+          <AvatarEmpresa
+            empresaId={tenant.ativa.empresa.id}
+            nome={tenant.ativa.empresa.nome}
+            tamanho={44}
+          />
+          <p className="truncate text-sm font-semibold text-muted-foreground">
+            {tenant.ativa.empresa.nome}
+          </p>
+        </div>
+      ) : null}
       <CabecalhoDeTela
         sobretitulo={`${weekdayPT(hoje)}, ${dataPorExtenso(hoje)}`}
         titulo={`${saudacao(horaEmSaoPaulo())}${nome ? `, ${nome}` : ""}`}

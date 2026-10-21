@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
-import { BarraDeNavegacaoInferior } from "@/components/nexa";
+import { AvatarEmpresa, BarraDeNavegacaoInferior } from "@/components/nexa";
 import { useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
 import { itemAtivo, menuDoPapel } from "@/lib/menu";
@@ -97,9 +97,17 @@ function Brand({ fechar = false }: { fechar?: boolean }) {
   const { data: ctx } = useContextoTenant();
   return (
     <div className="flex items-center gap-3 border-b border-navy-foreground/10 px-4 py-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-destaque text-marca">
-        <Droplets className="size-5" />
-      </span>
+      {ctx?.ativa ? (
+        <AvatarEmpresa
+          empresaId={ctx.ativa.empresa.id}
+          nome={ctx.ativa.empresa.nome}
+          tamanho={40}
+        />
+      ) : (
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-destaque text-marca">
+          <Droplets className="size-5" />
+        </span>
+      )}
       <div className="min-w-0 leading-tight">
         <p className="truncate text-sm font-semibold text-navy-foreground">Nexa OS</p>
         <p className="truncate text-xs text-navy-foreground/60">
@@ -171,12 +179,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
           <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
-            <span
-              aria-hidden
-              className="grid size-[38px] shrink-0 place-items-center rounded-xl bg-marca font-titulo text-[19px] text-destaque lg:hidden"
-            >
-              N
-            </span>
+            <AvatarEmpresa
+              empresaId={vinculo?.empresa.id}
+              nome={vinculo?.empresa.nome ?? "Nexa"}
+              tamanho={38}
+              className="lg:hidden"
+            />
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-bold">{vinculo?.empresa.nome ?? nome}</p>
@@ -313,7 +321,10 @@ function SeletorEmpresa() {
       <SelectContent>
         {(ctx?.empresas ?? []).map((v) => (
           <SelectItem key={v.empresa.id} value={v.empresa.id}>
-            {v.empresa.nome}
+            <span className="flex items-center gap-2">
+              <AvatarEmpresa empresaId={v.empresa.id} nome={v.empresa.nome} tamanho={22} />
+              {v.empresa.nome}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -9,7 +9,11 @@ import { blocos as blocosDe, type Trecho } from "./marcacao";
 
 export const A4: [number, number] = [595.28, 841.89];
 const MARGEM = 48;
-const RODAPE = 34;
+const RODAPE_ENTRE = 10.5;
+/** Altura mínima reservada ao rodapé (só "Página X de Y"). */
+const RODAPE_MINIMO = 34;
+/** 2,5 cm em pontos: altura máxima da logo no cabeçalho. */
+export const ALTURA_LOGO = 71;
 
 export const CORES = {
   texto: rgb(0.13, 0.15, 0.2),
@@ -39,6 +43,8 @@ export class Documento {
   y = 0;
   private readonly largura = A4[0] - MARGEM * 2;
   private rodape = "";
+  private rodapeColunas: { esquerda: string[]; direita: string[] } = { esquerda: [], direita: [] };
+  private rodapeAltura = RODAPE_MINIMO;
 
   private constructor(doc: PDFDocument, fontes: Fontes) {
     this.doc = doc;
@@ -65,6 +71,17 @@ export class Documento {
     this.rodape = texto;
   }
 
+  /**
+   * Rodapé em duas colunas (esquerda / direita) em todas as páginas, com "Página X de Y" abaixo.
+   * Chamar antes de desenhar: a altura reservada no fim de cada página depende das linhas.
+   */
+  definirRodapeColunas(colunas: { esquerda: string[]; direita: string[] }) {
+    this.rodapeColunas = colunas;
+    const linhas = Math.max(colunas.esquerda.length, colunas.direita.length);
+    this.rodapeAltura = linhas ? linhas * RODAPE_ENTRE + 30 : RODAPE_MINIMO;
+    this.rodape = "";
+  }
+
   novaPagina() {
     this.pagina = this.doc.addPage(A4);
     this.y = A4[1] - MARGEM;
@@ -72,7 +89,7 @@ export class Documento {
 
   /** Garante espaço; se não couber, vai para a página seguinte. */
   reservar(altura: number) {
-    if (this.y - altura < MARGEM + RODAPE) this.novaPagina();
+    if (this.y - altura < MARGEM + this.rodapeAltura) this.novaPagina();
   }
 
   espaco(pt: number) {
@@ -314,7 +331,7 @@ export class Documento {
         this.quebrar([{ texto: cel, negrito: false }], tamanho, larguras[i]! - pad * 2),
       );
       const h = Math.max(1, ...quebradas.map((q) => q.length)) * entre + pad * 2;
-      if (this.y - h < MARGEM + RODAPE) {
+      if (this.y - h < MARGEM + this.rodapeAltura) {
         this.novaPagina();
         cabecalho();
       }
@@ -378,48 +395,118 @@ export class Documento {
     }
   }
 
-  /** Cabeçalho: logo à esquerda (opcional) e as linhas da empresa ao lado. */
+  /**
+   * Cabeçalho centralizado: logo (até 2,5 cm de altura, largura proporcional) acima do nome da
+   * empresa e das linhas (slogan). Sem logo, só os textos.
+   */
   cabecalhoEmpresa(logo: PDFImage | null, nome: string, linhas: string[]) {
-    const maxH = 64;
-    const maxW = 120;
-    let lw = 0;
-    let lh = 0;
+    const maxH = ALTURA_LOGO;
+    const maxW = 220;
     if (logo) {
-      const esc = Math.min(maxW / logo.width, maxH / logo.height, 1);
-      lw = logo.width * esc;
-      lh = logo.height * esc;
+      const esc = Math.min(maxW / logo.width, maxH / logo.height);
+      const lw = logo.width * esc;
+      const lh = logo.height * esc;
+      this.pagina.drawImage(logo, { x: (A4[0] - lw) / 2, y: this.y - lh, width: lw, height: lh });
+      this.y -= lh + 8;
     }
-    const topo = this.y;
-    const xTexto = logo ? MARGEM + lw + 16 : MARGEM;
-    const largura = this.largura - (logo ? lw + 16 : 0);
-    let y = topo;
-    const desenhar = (t: string, tam: number, negrito: boolean, cor: RGB) => {
-      for (const l of this.quebrar([{ texto: t, negrito }], tam, largura)) {
-        y -= tam;
-        this.y = y;
-        this.desenharLinha(l, xTexto, tam, cor, "esquerda", largura);
-        y -= tam * 0.45;
-      }
-    };
-    desenhar(nome, 13, true, CORES.texto);
-    for (const l of linhas) desenhar(l, 9, false, CORES.suave);
-    if (logo) this.pagina.drawImage(logo, { x: MARGEM, y: topo - lh, width: lw, height: lh });
-    this.y = Math.min(y, topo - lh) - 6;
+    this.texto(nome, { tamanho: 15, negrito: true, alinhamento: "centro", entrelinha: 1.2 });
+    for (const l of linhas)
+      this.texto(l, { tamanho: 10, alinhamento: "centro", cor: CORES.suave, entrelinha: 1.25 });
+    this.y -= 2;
     this.separador();
+  }
+
+  /**
+   * Bloco de assinatura no fim do documento: data, imagem da assinatura (opcional), linha,
+   * nome da empresa e de quem assina. Centralizado; não quebra no meio.
+   */
+  assinatura(data: string, imagem: PDFImage | null, empresa: string, assinante: string) {
+    const alturaImg = imagem ? 42 : 18;
+    this.reservar(alturaImg + 60);
+    this.espaco(14);
+    this.texto(data, { tamanho: 9, alinhamento: "centro", entrelinha: 1.2 });
+    if (imagem) {
+      const esc = Math.min(150 / imagem.width, alturaImg / imagem.height);
+      const w = imagem.width * esc;
+      const h = imagem.height * esc;
+      this.pagina.drawImage(imagem, { x: (A4[0] - w) / 2, y: this.y - h, width: w, height: h });
+      this.y -= h + 2;
+    } else {
+      this.y -= alturaImg;
+    }
+    const larguraLinha = 200;
+    this.pagina.drawLine({
+      start: { x: (A4[0] - larguraLinha) / 2, y: this.y },
+      end: { x: (A4[0] + larguraLinha) / 2, y: this.y },
+      thickness: 0.7,
+      color: CORES.texto,
+    });
+    this.y -= 4;
+    this.texto(empresa, { tamanho: 9.5, negrito: true, alinhamento: "centro", entrelinha: 1.2 });
+    if (assinante.trim())
+      this.texto(assinante.trim(), { tamanho: 9, alinhamento: "centro", entrelinha: 1.2 });
   }
 
   /** Rodapé e numeração em todas as páginas; devolve os bytes do PDF. */
   async salvar(): Promise<Uint8Array> {
     const paginas = this.doc.getPages();
+    const { esquerda, direita } = this.rodapeColunas;
+    const fonte = this.fontes.regular;
+    const tam = 8;
     paginas.forEach((p, i) => {
-      const t = `${this.rodape ? `${this.rodape}  ·  ` : ""}Página ${i + 1} de ${paginas.length}`;
-      const limpo = limparTexto(t, this.fontes.regular);
-      const w = this.fontes.regular.widthOfTextAtSize(limpo, 8);
-      p.drawText(limpo, {
-        x: (A4[0] - w) / 2,
-        y: MARGEM / 2,
-        size: 8,
-        font: this.fontes.regular,
+      const numero = `Página ${i + 1} de ${paginas.length}`;
+      if (!esquerda.length && !direita.length) {
+        const t = limparTexto(`${this.rodape ? `${this.rodape}  ·  ` : ""}${numero}`, fonte);
+        const w = fonte.widthOfTextAtSize(t, tam);
+        p.drawText(t, {
+          x: (A4[0] - w) / 2,
+          y: MARGEM / 2,
+          size: tam,
+          font: fonte,
+          color: CORES.suave,
+        });
+        return;
+      }
+      const linhas = Math.max(esquerda.length, direita.length);
+      const topo = MARGEM / 2 + 12 + linhas * RODAPE_ENTRE;
+      p.drawLine({
+        start: { x: MARGEM, y: topo + 6 },
+        end: { x: A4[0] - MARGEM, y: topo + 6 },
+        thickness: 0.6,
+        color: CORES.linha,
+      });
+      const meia = this.largura / 2 - 6;
+      esquerda.forEach((l, k) => {
+        const f = k === 0 ? this.fontes.negrito : fonte;
+        let t = limparTexto(l, f);
+        while (t.length > 1 && f.widthOfTextAtSize(t, tam) > meia) t = t.slice(0, -1);
+        p.drawText(t, {
+          x: MARGEM,
+          y: topo - tam - k * RODAPE_ENTRE,
+          size: tam,
+          font: f,
+          color: CORES.suave,
+        });
+      });
+      direita.forEach((l, k) => {
+        let t = limparTexto(l, fonte);
+        while (t.length > 1 && fonte.widthOfTextAtSize(t, tam) > meia) t = t.slice(0, -1);
+        const w = fonte.widthOfTextAtSize(t, tam);
+        p.drawText(t, {
+          x: A4[0] - MARGEM - w,
+          y: topo - tam - k * RODAPE_ENTRE,
+          size: tam,
+          font: fonte,
+          color: CORES.suave,
+        });
+      });
+      const tn = limparTexto(numero, fonte);
+      const wn = fonte.widthOfTextAtSize(tn, 7.5);
+      p.drawText(tn, {
+        x: A4[0] - MARGEM - wn,
+        y: MARGEM / 2 - 2,
+        size: 7.5,
+        font: fonte,
         color: CORES.suave,
       });
     });
