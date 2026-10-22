@@ -1,4 +1,4 @@
-// Painel Nexa › Alice: ensaio da regra do nome do cliente. Roda a Alice de verdade em 5 conversas
+// Configurações › Alice, leads e marketing (e Painel Nexa › Alice): ensaio da regra do nome. Roda a Alice de verdade em 5 conversas
 // inventadas (empresa ativa), com a regra nova só em memória: nada é enviado nem gravado.
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
