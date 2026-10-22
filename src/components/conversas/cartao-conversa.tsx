@@ -3,6 +3,7 @@ import { Check, User } from "lucide-react";
 import { BotaoEncerrar } from "@/components/conversas/encerrar-conversa";
 import { Chip } from "@/components/nexa";
 import { haQuanto, iniciais, semRespostaHaMuito } from "@/lib/conversas";
+import { marcarAbertaPelaLista } from "@/lib/conversas-tela";
 import type { ConversaResumo } from "@/lib/conversas.functions";
 import { cn } from "@/lib/utils";
 
@@ -163,7 +164,9 @@ export function CartaoConversa({
         <Link
           to="/conversas/$conversaId"
           params={{ conversaId: c.id }}
-          className="flex min-h-11 gap-3 p-4"
+          onClick={marcarAbertaPelaLista}
+          className="flex min-h-11 gap-3 rounded-card p-4"
+          activeProps={{ className: "bg-marca-claro/60" }}
         >
           {conteudo}
         </Link>

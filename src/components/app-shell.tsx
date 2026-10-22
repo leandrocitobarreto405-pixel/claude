@@ -136,6 +136,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: ctx, isLoading: carregandoVinculo, error: erroVinculo } = useContextoTenant();
   const vinculo = ctx?.ativa ?? null;
   const rotaNexa = pathname === "/nexa" || pathname.startsWith("/nexa/");
+  // Conversas: no celular, a conversa aberta ocupa a tela toda (sem o topo e sem a barra de baixo);
+  // no PC, lista e conversa ficam lado a lado na altura da tela, cada uma rolando por dentro.
+  const rotaConversa = /^\/conversas\/[^/]+\/?$/.test(pathname);
+  const rotaConversas = pathname === "/conversas" || pathname.startsWith("/conversas/");
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
   const abasBase = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
   // Número na aba Conversas: clientes esperando resposta da equipe.
@@ -176,8 +180,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <div className={cn("flex min-w-0 flex-1 flex-col", rotaConversas && "lg:h-dvh")}>
+        <header
+          className={cn(
+            "sticky top-0 z-20 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur",
+            rotaConversa && "hidden lg:block",
+          )}
+        >
           <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
             <AvatarEmpresa
               empresaId={vinculo?.empresa.id}
@@ -243,9 +252,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             "mx-auto w-full max-w-[1400px] flex-1 p-4 md:p-6 lg:p-8",
             // Espaço para a barra de abas (e a barra do iPhone) não cobrir o fim da página.
             abas.length > 0 && "pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-8",
+            rotaConversa && "p-0 pb-0 md:p-0",
+            rotaConversas && "lg:max-w-none lg:min-h-0 lg:overflow-hidden lg:p-0 lg:pb-0",
           )}
         >
-          <InstallPrompt />
+          {rotaConversa ? null : (
+            <div className={rotaConversas ? "lg:hidden" : undefined}>
+              <InstallPrompt />
+            </div>
+          )}
           {carregandoVinculo ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : erroVinculo ? (
@@ -295,7 +310,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {abas.length > 0 && !respostaEmFoco ? (
+      {abas.length > 0 && !respostaEmFoco && !rotaConversa ? (
         <BarraDeNavegacaoInferior itens={abas} className="lg:hidden" />
       ) : null}
       <PainelEnvios />

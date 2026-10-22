@@ -20,6 +20,7 @@ import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAgendaConfigRouteImport } from './routes/_authenticated/agenda-config'
 import { Route as AuthenticatedAvisosRouteImport } from './routes/_authenticated/avisos'
 import { Route as AuthenticatedComissoesRouteImport } from './routes/_authenticated/comissoes'
+import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
@@ -143,6 +144,11 @@ const AuthenticatedAvisosRoute = AuthenticatedAvisosRouteImport.update({
 const AuthenticatedComissoesRoute = AuthenticatedComissoesRouteImport.update({
   id: '/comissoes',
   path: '/comissoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
+  id: '/conversas',
+  path: '/conversas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
@@ -326,15 +332,15 @@ const AuthenticatedConfiguracoesVendasRoute =
   } as any)
 const AuthenticatedConversasIndexRoute =
   AuthenticatedConversasIndexRouteImport.update({
-    id: '/conversas/',
-    path: '/conversas/',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedConversasRoute,
   } as any)
 const AuthenticatedConversasConversaIdRoute =
   AuthenticatedConversasConversaIdRouteImport.update({
-    id: '/conversas/$conversaId',
-    path: '/conversas/$conversaId',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/$conversaId',
+    path: '/$conversaId',
+    getParentRoute: () => AuthenticatedConversasRoute,
   } as any)
 const AuthenticatedCrmCampanhasRoute =
   AuthenticatedCrmCampanhasRouteImport.update({
@@ -543,6 +549,7 @@ export interface FileRoutesByFullPath {
   '/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/avisos': typeof AuthenticatedAvisosRoute
   '/comissoes': typeof AuthenticatedComissoesRoute
+  '/conversas': typeof AuthenticatedConversasRouteWithChildren
   '/design': typeof AuthenticatedDesignRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/dre': typeof AuthenticatedDreRoute
@@ -707,6 +714,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda-config': typeof AuthenticatedAgendaConfigRoute
   '/_authenticated/avisos': typeof AuthenticatedAvisosRoute
   '/_authenticated/comissoes': typeof AuthenticatedComissoesRoute
+  '/_authenticated/conversas': typeof AuthenticatedConversasRouteWithChildren
   '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/dre': typeof AuthenticatedDreRoute
@@ -790,6 +798,7 @@ export interface FileRouteTypes {
     | '/agenda-config'
     | '/avisos'
     | '/comissoes'
+    | '/conversas'
     | '/design'
     | '/despesas'
     | '/dre'
@@ -953,6 +962,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda-config'
     | '/_authenticated/avisos'
     | '/_authenticated/comissoes'
+    | '/_authenticated/conversas'
     | '/_authenticated/design'
     | '/_authenticated/despesas'
     | '/_authenticated/dre'
@@ -1125,6 +1135,13 @@ declare module '@tanstack/react-router' {
       path: '/comissoes'
       fullPath: '/comissoes'
       preLoaderRoute: typeof AuthenticatedComissoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversas': {
+      id: '/_authenticated/conversas'
+      path: '/conversas'
+      fullPath: '/conversas'
+      preLoaderRoute: typeof AuthenticatedConversasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/design': {
@@ -1360,17 +1377,17 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/conversas/': {
       id: '/_authenticated/conversas/'
-      path: '/conversas'
+      path: '/'
       fullPath: '/conversas/'
       preLoaderRoute: typeof AuthenticatedConversasIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedConversasRoute
     }
     '/_authenticated/conversas/$conversaId': {
       id: '/_authenticated/conversas/$conversaId'
-      path: '/conversas/$conversaId'
+      path: '/$conversaId'
       fullPath: '/conversas/$conversaId'
       preLoaderRoute: typeof AuthenticatedConversasConversaIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedConversasRoute
     }
     '/_authenticated/crm/campanhas': {
       id: '/_authenticated/crm/campanhas'
@@ -1613,12 +1630,30 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedConversasRouteChildren {
+  AuthenticatedConversasConversaIdRoute: typeof AuthenticatedConversasConversaIdRoute
+  AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
+}
+
+const AuthenticatedConversasRouteChildren: AuthenticatedConversasRouteChildren =
+  {
+    AuthenticatedConversasConversaIdRoute:
+      AuthenticatedConversasConversaIdRoute,
+    AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
+  }
+
+const AuthenticatedConversasRouteWithChildren =
+  AuthenticatedConversasRoute._addFileChildren(
+    AuthenticatedConversasRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAReceberRoute: typeof AuthenticatedAReceberRoute
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedAgendaConfigRoute: typeof AuthenticatedAgendaConfigRoute
   AuthenticatedAvisosRoute: typeof AuthenticatedAvisosRoute
   AuthenticatedComissoesRoute: typeof AuthenticatedComissoesRoute
+  AuthenticatedConversasRoute: typeof AuthenticatedConversasRouteWithChildren
   AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
@@ -1651,7 +1686,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesMensagensRoute: typeof AuthenticatedConfiguracoesMensagensRoute
   AuthenticatedConfiguracoesOutrosRoute: typeof AuthenticatedConfiguracoesOutrosRoute
   AuthenticatedConfiguracoesVendasRoute: typeof AuthenticatedConfiguracoesVendasRoute
-  AuthenticatedConversasConversaIdRoute: typeof AuthenticatedConversasConversaIdRoute
   AuthenticatedCrmCampanhasRoute: typeof AuthenticatedCrmCampanhasRoute
   AuthenticatedCrmFunilRoute: typeof AuthenticatedCrmFunilRoute
   AuthenticatedCrmImportarRoute: typeof AuthenticatedCrmImportarRoute
@@ -1670,7 +1704,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
   AuthenticatedServicoVisitIdRoute: typeof AuthenticatedServicoVisitIdRoute
   AuthenticatedConfiguracoesIndexRoute: typeof AuthenticatedConfiguracoesIndexRoute
-  AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
   AuthenticatedOrcamentosIndexRoute: typeof AuthenticatedOrcamentosIndexRoute
   AuthenticatedCrmLeadLeadIdRoute: typeof AuthenticatedCrmLeadLeadIdRoute
 }
@@ -1681,6 +1714,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaConfigRoute: AuthenticatedAgendaConfigRoute,
   AuthenticatedAvisosRoute: AuthenticatedAvisosRoute,
   AuthenticatedComissoesRoute: AuthenticatedComissoesRoute,
+  AuthenticatedConversasRoute: AuthenticatedConversasRouteWithChildren,
   AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedDreRoute: AuthenticatedDreRoute,
@@ -1717,7 +1751,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedConfiguracoesMensagensRoute,
   AuthenticatedConfiguracoesOutrosRoute: AuthenticatedConfiguracoesOutrosRoute,
   AuthenticatedConfiguracoesVendasRoute: AuthenticatedConfiguracoesVendasRoute,
-  AuthenticatedConversasConversaIdRoute: AuthenticatedConversasConversaIdRoute,
   AuthenticatedCrmCampanhasRoute: AuthenticatedCrmCampanhasRoute,
   AuthenticatedCrmFunilRoute: AuthenticatedCrmFunilRoute,
   AuthenticatedCrmImportarRoute: AuthenticatedCrmImportarRoute,
@@ -1736,7 +1769,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
   AuthenticatedServicoVisitIdRoute: AuthenticatedServicoVisitIdRoute,
   AuthenticatedConfiguracoesIndexRoute: AuthenticatedConfiguracoesIndexRoute,
-  AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
   AuthenticatedOrcamentosIndexRoute: AuthenticatedOrcamentosIndexRoute,
   AuthenticatedCrmLeadLeadIdRoute: AuthenticatedCrmLeadLeadIdRoute,
 }
