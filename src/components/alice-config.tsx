@@ -423,6 +423,19 @@ export function AliceConfig() {
               <input
                 type="checkbox"
                 className="mt-1"
+                checked={form.descadastro_resposta}
+                onChange={(e) => campo("descadastro_resposta", e.target.checked)}
+              />
+              <span>
+                Confirmar o descadastro de marketing: quando o cliente pede para não receber mais
+                promoções, a Alice responde uma vez &quot;Pronto, você não vai mais receber nossas
+                promoções 💙&quot;. O contato sai do marketing mesmo com isto desligado.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1"
                 checked={form.clientes_antigos_com_equipe}
                 onChange={(e) => campo("clientes_antigos_com_equipe", e.target.checked)}
               />

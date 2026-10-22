@@ -53,6 +53,9 @@ export type ConversaResumo = {
   posse: Posse;
   /** Nome do perfil do WhatsApp quando difere do nome confirmado (só referência). */
   nomePerfil: string | null;
+  /** Saiu do marketing (descadastro): desde quando e por quem (cliente, marketing, equipe). */
+  marketingSaiuEm: string | null;
+  marketingOrigem: string | null;
 };
 
 export type MensagemConversa = {
@@ -79,7 +82,7 @@ export type ConversaCompleta = ConversaResumo & {
 };
 
 const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado,
-  contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone, normalized_phone, ia_desligada ),
+  contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone, normalized_phone, ia_desligada, marketing_optout_em, marketing_optout_origem ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
 type LinhaConversa = {
@@ -101,6 +104,8 @@ type LinhaConversa = {
     display_phone: string | null;
     normalized_phone: string | null;
     ia_desligada: boolean | null;
+    marketing_optout_em?: string | null;
+    marketing_optout_origem?: string | null;
   } | null;
   lead: {
     lead_name: string | null;
@@ -149,6 +154,8 @@ function resumir(
       telefone ||
       "Cliente",
     nomePerfil: perfilDeReferencia(c),
+    marketingSaiuEm: c.contato?.marketing_optout_em ?? null,
+    marketingOrigem: c.contato?.marketing_optout_origem ?? null,
     telefone,
     // Sem a última mensagem carregada (conversa antiga), "aguardando" já diz que o cliente espera.
     grupo,

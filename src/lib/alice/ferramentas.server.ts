@@ -687,8 +687,17 @@ export function ferramentasDisponiveis(
     },
   );
   if (extras.regraNome) lista.push(FERRAMENTA_NOME);
+  lista.push(FERRAMENTA_DESCADASTRO);
   return lista;
 }
+
+/** Descadastro de marketing quando o pedido do cliente não foi reconhecido pelo gatilho do banco. */
+export const FERRAMENTA_DESCADASTRO: Anthropic.Beta.BetaTool = {
+  name: "descadastrar_marketing",
+  description:
+    'Use quando o cliente pedir para não receber mais promoções, ofertas ou mensagens de marketing (ex.: "não me manda mais promoção", "me tira dessas mensagens"). Tira o cliente das campanhas e promoções; atendimento, confirmação de horário e pós-venda continuam. Não use para quem só recusou um orçamento ou um horário.',
+  input_schema: { type: "object", properties: {}, additionalProperties: false },
+};
 
 /** Nome do cliente: aceitar o do perfil, guardar o que ele disse ou marcar que perguntou. */
 export const FERRAMENTA_NOME: Anthropic.Beta.BetaTool = {
@@ -1640,6 +1649,13 @@ export async function executarFerramenta(
             p.data.nome,
           ),
         );
+      }
+      case "descadastrar_marketing": {
+        const { descadastrarPelaAlice } = await import("./descadastro.server");
+        return {
+          conteudo: await descadastrarPelaAlice(ctx.admin, ctx.empresaId, ctx.contatoId),
+          erro: false,
+        };
       }
       case "consultar_cep": {
         const p = ConsultarCep.safeParse(entrada);

@@ -29,6 +29,7 @@ export type ConfigAlice = {
   transcrever_audio: boolean;
   espera_apos_midia_segundos: number;
   clientes_antigos_com_equipe: boolean;
+  descadastro_resposta: boolean;
 };
 
 export const CAMPOS_MIDIA = [
@@ -70,6 +71,7 @@ const PADRAO: ConfigAlice = {
   transcrever_audio: true,
   espera_apos_midia_segundos: 120,
   clientes_antigos_com_equipe: true,
+  descadastro_resposta: false,
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -179,6 +181,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             transcrever_audio: cfg.transcrever_audio,
             espera_apos_midia_segundos: cfg.espera_apos_midia_segundos,
             clientes_antigos_com_equipe: cfg.clientes_antigos_com_equipe,
+            descadastro_resposta: cfg.descadastro_resposta,
           }
         : PADRAO,
       midias: cfg
@@ -244,6 +247,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         transcrever_audio: Boolean(data.transcrever_audio),
         espera_apos_midia_segundos: inteiro(data.espera_apos_midia_segundos, 0, 600, 120),
         clientes_antigos_com_equipe: data.clientes_antigos_com_equipe !== false,
+        descadastro_resposta: Boolean(data.descadastro_resposta),
         esforco: data.esforco,
         espera_segundos: Math.min(Math.max(Math.round(Number(data.espera_segundos) || 0), 0), 120),
         limite_respostas_conversa: Math.min(

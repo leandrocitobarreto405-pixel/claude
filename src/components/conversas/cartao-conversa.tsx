@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Check, User } from "lucide-react";
+import { Check, MegaphoneOff, User } from "lucide-react";
 import { Chip } from "@/components/nexa";
 import { esperaCurta, haQuanto, horaNaLista, iniciais, semRespostaHaMuito } from "@/lib/conversas";
 import { marcarAbertaPelaLista } from "@/lib/conversas-tela";
@@ -24,6 +24,15 @@ export function Avatar({ nome, className }: { nome: string; className?: string }
 
 /** Etiqueta da conversa: motivo da passagem, temperatura/etapa do lead ou situação. */
 export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
+  return (
+    <>
+      <EtiquetasDoGrupo c={c} />
+      {c.marketingSaiuEm ? <Chip tom="neutro">Sem marketing</Chip> : null}
+    </>
+  );
+}
+
+function EtiquetasDoGrupo({ c }: { c: ConversaResumo }) {
   if (c.grupo === "finalizadas") {
     return (
       <>
@@ -116,8 +125,16 @@ export function CartaoConversa({
       <Avatar nome={c.nome} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
         <span className="flex items-baseline justify-between gap-2">
-          <span className={cn("truncate text-[15px]", naoLida ? "font-bold" : "font-semibold")}>
-            {c.nome}
+          <span className="flex min-w-0 items-center gap-1">
+            <span className={cn("truncate text-[15px]", naoLida ? "font-bold" : "font-semibold")}>
+              {c.nome}
+            </span>
+            {c.marketingSaiuEm ? (
+              <MegaphoneOff
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-label="Sem marketing"
+              />
+            ) : null}
           </span>
           <span
             className={cn(

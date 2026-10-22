@@ -2148,6 +2148,7 @@ export type Database = {
           perguntas_frequentes: string;
           raio_km: number | null;
           transcrever_audio: boolean;
+          descadastro_resposta: boolean;
           updated_at: string;
           validade_orcamento_dias: number;
           video_higienizacao: string | null;
@@ -2190,6 +2191,7 @@ export type Database = {
           perguntas_frequentes?: string;
           raio_km?: number | null;
           transcrever_audio?: boolean;
+          descadastro_resposta?: boolean;
           updated_at?: string;
           validade_orcamento_dias?: number;
           video_higienizacao?: string | null;
@@ -2232,6 +2234,7 @@ export type Database = {
           perguntas_frequentes?: string;
           raio_km?: number | null;
           transcrever_audio?: boolean;
+          descadastro_resposta?: boolean;
           updated_at?: string;
           validade_orcamento_dias?: number;
           video_higienizacao?: string | null;
@@ -5974,6 +5977,10 @@ export type Database = {
           nome_confirmado: string | null;
           nome_confirmado_em: string | null;
           nome_confirmado_origem: string | null;
+          marketing_optout_confirmado_em: string | null;
+          marketing_optout_em: string | null;
+          marketing_optout_origem: string | null;
+          marketing_optout_por: string | null;
           last_message_at: string | null;
           normalized_phone: string;
           origem: string;
@@ -5999,6 +6006,10 @@ export type Database = {
           nome_confirmado?: string | null;
           nome_confirmado_em?: string | null;
           nome_confirmado_origem?: string | null;
+          marketing_optout_confirmado_em?: string | null;
+          marketing_optout_em?: string | null;
+          marketing_optout_origem?: string | null;
+          marketing_optout_por?: string | null;
           last_message_at?: string | null;
           normalized_phone: string;
           origem?: string;
@@ -6024,6 +6035,10 @@ export type Database = {
           nome_confirmado?: string | null;
           nome_confirmado_em?: string | null;
           nome_confirmado_origem?: string | null;
+          marketing_optout_confirmado_em?: string | null;
+          marketing_optout_em?: string | null;
+          marketing_optout_origem?: string | null;
+          marketing_optout_por?: string | null;
           last_message_at?: string | null;
           normalized_phone?: string;
           origem?: string;

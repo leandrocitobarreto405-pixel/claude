@@ -34,6 +34,12 @@ import {
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
+import {
+  CONFIRMACAO_DESCADASTRO,
+  confirmacaoPendente,
+  INSTRUCAO_DESCADASTRO,
+  soPedidoDeSaida,
+} from "@/lib/descadastro";
 
 type Admin = SupabaseClient<Database>;
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
@@ -135,7 +141,14 @@ type DadosConversa = {
   conta: Conta;
   tokenRobo: string | null;
   tokenAdmin: string | null;
-  contato: { ia_desligada: boolean; sem_pos_venda: boolean; normalized_phone: string } | null;
+  contato: {
+    ia_desligada: boolean;
+    sem_pos_venda: boolean;
+    normalized_phone: string;
+    marketing_optout_em: string | null;
+    marketing_optout_origem: string | null;
+    marketing_optout_confirmado_em: string | null;
+  } | null;
 };
 
 async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> {
@@ -162,7 +175,9 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
     conversa.whatsapp_contact_id
       ? db
           .from("whatsapp_contacts")
-          .select("ia_desligada, sem_pos_venda, normalized_phone")
+          .select(
+            "ia_desligada, sem_pos_venda, normalized_phone, marketing_optout_em, marketing_optout_origem, marketing_optout_confirmado_em",
+          )
           .eq("id", conversa.whatsapp_contact_id)
           .eq("empresa_id", tarefa.empresa_id)
           .maybeSingle()
@@ -578,6 +593,27 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     );
     return { situacao: "concluida", detalhe: `dia do serviço (OS ${osHoje}): com a equipe` };
   }
+  // O cliente acabou de pedir para sair do marketing: a Alice confirma uma vez. Só o pedido →
+  // texto fixo, sem IA; pedido com outro assunto → confirma e responde o resto.
+  if (
+    d.conversa.whatsapp_contact_id &&
+    confirmacaoPendente(d.contato, Boolean(cfg.descadastro_resposta), new Date())
+  ) {
+    const { marcarConfirmado, textoDoClienteAgora } = await import("./descadastro.server");
+    const texto = await textoDoClienteAgora(db, tarefa.empresa_id, d.conversa.id);
+    await marcarConfirmado(db, tarefa.empresa_id, d.conversa.whatsapp_contact_id);
+    if (soPedidoDeSaida(texto)) {
+      if (!d.tokenRobo) throw new Error("robô da Alice não configurado no Chatwoot");
+      await enviarMensagem(
+        d.conta,
+        d.tokenRobo,
+        d.conversa.chatwoot_conversation_id,
+        CONFIRMACAO_DESCADASTRO,
+      );
+      return { situacao: "concluida", detalhe: "descadastro de marketing confirmado" };
+    }
+    return conversar(db, tarefa, cfg, d, null, INSTRUCAO_DESCADASTRO);
+  }
   return conversar(db, tarefa, cfg, d, null);
 }
 
@@ -801,6 +837,8 @@ async function conversar(
   cfg: ConfigIa,
   d: DadosConversa,
   avisoFollowup: string | null,
+  /** Instrução só desta resposta (ex.: confirmar o descadastro de marketing). */
+  instrucaoExtra?: string,
 ): Promise<ResultadoTarefa> {
   const inicio = Date.now();
   if (!d.tokenRobo) throw new Error("robô da Alice não configurado no Chatwoot");
@@ -887,6 +925,7 @@ async function conversar(
   const momento = [
     instrucoesDoMomento(new Date(), lead, lead ? null : nomeCliente),
     pos ? instrucoesPos(pos) : null,
+    instrucaoExtra ?? null,
   ]
     .filter(Boolean)
     .join("\n");
