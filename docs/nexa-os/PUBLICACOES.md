@@ -470,6 +470,28 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
 public.whatsapp_contacts; DROP TRIGGER trg_mkt_contatos_optout ON public.mkt_contatos;
 DROP TRIGGER trg_mkt_contatos_optout_entrada ON public.mkt_contatos;` As colunas novas
      podem ficar (o app anterior ignora); o código volta com `git revert a70d30f` (sem force push).
+     Em seguida (`20261130120001`): a frase escrita não pede a etiqueta "optout" quando é o próprio
+     botão da campanha (o gatilho do botão já pede); só troca `private.mkt_descadastro_mensagem`.
+
+- "Origem automática no orçamento e na OS" (`20261201120000`, aprovada em 22/10): acrescenta em
+  `work_orders` e `quotes` `origem_detectada_id` / `_como`, `origem_trocada_por` / `_em` e
+  `indicacao_nome`; `quotes.sales_origin_id` é novo. Funções `private.origem_detectada_venda` e
+  `public.origem_detectada_venda` (leitura pela tela), gatilhos `trg_work_orders_origem_troca` e
+  `trg_quotes_origem_troca` (gravam quem trocou a origem detectada). Teste 580.
+  Como desfazer: `git revert 69e414a` (sem force push) e, se quiser parar o registro de troca,
+  `DROP TRIGGER trg_work_orders_origem_troca ON public.work_orders; DROP TRIGGER
+trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
+
+- "Correção da origem de 12 OS da Turbine" (22/10, aprovada): 1667 → Instagram; 1615 e 1674-R →
+  Cliente existente / Recorrência; 1684 → Site (orgânico); 1681 → Google; 1680, 1688, 1689, 1691,
+  1692, 1693 e 1694 → Google Ads – landing. 1669 e 1676 não mudaram. Cada OS tem no histórico
+  (`work_order_history`, tipo "Edição") a origem de antes e a nova (`details.antes_id`). Nada foi
+  alterado nem reenviado ao Google Ads. Para desfazer (volta a origem de antes, exata):
+  ```sql
+  UPDATE public.work_orders w SET sales_origin_id = (h.details->>'antes_id')::uuid
+    FROM public.work_order_history h
+   WHERE h.work_order_id = w.id AND h.details->>'motivo' = 'correção aprovada em 22/10/2026';
+  ```
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -594,6 +616,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Lista compacta e respostas prontas com "/"                          | `ef476b4`           | `ac1a7fb`                |
 | 22/10/2026       | Alice: regra do nome ligada (nome confirmado em OS, orçamento etc.) | `5f363c2`           | `e4c5b9c`                |
 | 22/10/2026       | Descadastro de marketing: pedido do cliente, interruptor, listas    | `a70d30f`           | `bf584de`                |
+| 22/10/2026       | Origem automática no orçamento e na OS; troca registrada            | `69e414a`           | `b21f336`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
