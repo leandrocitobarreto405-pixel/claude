@@ -501,6 +501,13 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
   Como desfazer: `git revert ea6d4e6` (sem force push). Para desligar só a taxa:
   `UPDATE public.orcamento_configuracoes SET distancia_ligado = false WHERE empresa_id = <Turbine>;`.
   As colunas novas podem ficar (o app anterior ignora).
+  Proteção (`0b94069`): orçamento já enviado mantém a taxa com que foi enviado (inclusive R$ 0
+  nos antigos, como o nº 77); só recalcula com "Voltar à regra" ou mudança de item, distância
+  ou CEP, e a tela mostra o valor antigo e o novo antes de salvar.
+  Ligada na Turbine em 22/10 (aprovada): até 20 km sem taxa; 20 a 35 km: 20% até R$ 500, 10% até
+  R$ 1.000, 0% acima; fora da área acima de 35 km; raio da Alice 40 → 35 km. Valores de antes:
+  `distancia_ligado = false`, `distancia_sem_acrescimo_km` e `distancia_limite_km` vazios,
+  `distancia_faixas` vazio, `ia_configuracoes.raio_km = 40`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -627,6 +634,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Descadastro de marketing: pedido do cliente, interruptor, listas    | `a70d30f`           | `bf584de`                |
 | 22/10/2026       | Origem automática no orçamento e na OS; troca registrada            | `69e414a`           | `b21f336`                |
 | 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)           | `ea6d4e6`           | `3270e60`                |
+| 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine    | `0b94069`           | `cda1301`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
