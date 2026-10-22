@@ -514,6 +514,10 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
   Base da distância (`175d4d6`): técnico mais perto do cliente entre os que trabalham no dia do
   serviço (horários-base da Agenda); sem data, entre todos. Parceiro não entra. Desfazer:
   `git revert 175d4d6`.
+  Base do Josué atualizada em 22/10 (pedido): endereço com número 238 e coordenadas
+  -23.4641815, -46.699475 (ponto do nº 238 pela numeração métrica da rua; o mapa não tem o
+  número). Antes: "Rua Mercedes Baravelle Fraga, São Paulo - SP", -23.4642158, -46.6994456
+  (cerca de 5 m de diferença; as distâncias não mudaram).
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
