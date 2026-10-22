@@ -410,6 +410,34 @@ Mudanças no banco (todas aprovadas em 02/10/2026):
   `respostas_prontas` de cada empresa (`{itens: [{id, atalho, texto}], importado_chatwoot_em}`).
   Na primeira leitura, o app importa as respostas prontas do Chatwoot da empresa.
 
+- "Nome do cliente confirmado" (`20261129120000`, aprovada em 22/10): só acrescenta
+  `whatsapp_contacts.nome_confirmado` / `_origem` / `_em` e `conversas.nome_confirmado` /
+  `_origem` / `nome_perguntas` (teste 560). Origem: perfil, cliente, cadastro ou equipe.
+  No mesmo dia: roteiro da Turbine com os três trechos da regra do nome (antes e depois em
+  `docs/nexa-os/alice/turbine-nome-ate-2210.md`; md5 antes `0679e4267a2a45640508be83ab202ced`,
+  depois `afde5da465b23fb4f7473a43a016bc66`) e cópia inteira do roteiro de antes em
+  `app_settings` (chave `alice_roteiro_copia_20261022`). Regra ligada no código (`REGRA_NOME`
+  em `src/lib/alice/motor.server.ts`), para todas as empresas.
+  Como desfazer, do mais leve ao mais completo:
+  1. Só a regra da Alice: `REGRA_NOME = false` em `src/lib/alice/motor.server.ts` e publicar.
+     Os nomes já confirmados ficam guardados e continuam nos modelos e no orçamento.
+  2. Só o roteiro da Turbine (volta o texto de antes, exato):
+     ```sql
+     UPDATE public.ia_configuracoes c SET instrucoes = s.value->>'instrucoes', updated_at = now()
+       FROM public.app_settings s
+      WHERE s.empresa_id = c.empresa_id AND s.key = 'alice_roteiro_copia_20261022';
+     ```
+  3. O código todo: `git revert` dos commits da regra do nome (sem force push). As colunas
+     novas podem ficar: o app anterior não as usa. Apagar as colunas perde os nomes confirmados
+     e não é preciso para voltar.
+- "Gmail como administrador da Nexa" (22/10, aprovado): linha nova em `plataforma_usuarios`
+  (papel `nexa_admin`, ativo) para o login Gmail do dono; o login Yahoo continua igual.
+  Para desfazer:
+  ```sql
+  DELETE FROM public.plataforma_usuarios
+   WHERE user_id = (SELECT id FROM auth.users WHERE email = 'leandrocitobarreto405@gmail.com');
+  ```
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -531,6 +559,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Conversa: barra fixa, voltar à lista, lado a lado no PC            | `8ed0976`           | `31660ac`                |
 | 22/10/2026       | Ensaio do nome: cliente antigo pelo nome, também ao transferir     | `ac1a7fb`           | `e012a54`                |
 | 22/10/2026       | Lista compacta e respostas prontas com "/"                         | `ef476b4`           | `ac1a7fb`                |
+| 22/10/2026       | Alice: regra do nome ligada (nome confirmado em OS, orçamento etc.) | `5f363c2`           | `e4c5b9c`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
