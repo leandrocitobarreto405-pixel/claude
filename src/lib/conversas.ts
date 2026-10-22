@@ -113,3 +113,41 @@ export function ultimaPassagem(execucoes: { ferramentas: unknown }[]): Passagem 
   }
   return null;
 }
+
+const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/** Data no fuso de São Paulo, como "2026-10-22" (para comparar dias). */
+function diaSP(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+/**
+ * Hora na lista de conversas, como no WhatsApp: hoje "14:32", ontem "ontem", nesta semana o dia
+ * ("seg"), antes disso a data ("12/10").
+ */
+export function horaNaLista(iso: string | null, agora = new Date()): string {
+  if (!iso) return "";
+  const quando = new Date(iso);
+  if (!Number.isFinite(quando.getTime())) return "";
+  const hoje = diaSP(agora);
+  const dia = diaSP(quando);
+  if (dia === hoje)
+    return quando.toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const dias = Math.round((Date.parse(hoje) - Date.parse(dia)) / 86_400_000);
+  if (dias === 1) return "ontem";
+  if (dias > 1 && dias < 7) return DIAS_CURTOS[new Date(`${dia}T12:00:00Z`).getUTCDay()]!;
+  return quando.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+/** "há 3 h" → "3 h" (para o detalhe curto da lista). */
+export function esperaCurta(iso: string | null, agora = new Date()): string {
+  return haQuanto(iso, agora).replace(/^há /, "");
+}

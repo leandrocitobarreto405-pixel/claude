@@ -248,7 +248,10 @@ export function ListaConversas({ abaInicial }: { abaInicial?: Aba | undefined })
               </Botao>
             )
           ) : null}
-          <ul className="flex flex-col gap-2.5" aria-label={atual.rotulo}>
+          <ul
+            className="-mx-4 flex flex-col border-y border-border bg-card lg:mx-0 lg:overflow-hidden lg:rounded-card lg:border"
+            aria-label={atual.rotulo}
+          >
             {itens.map((c) => (
               <CartaoConversa
                 key={c.id}

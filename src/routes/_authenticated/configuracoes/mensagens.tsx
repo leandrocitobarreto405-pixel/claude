@@ -4,6 +4,7 @@ import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuraco
 import { Mensagem, MensagemNota } from "@/components/configuracoes/mensagens";
 import { DigitandoMeta } from "@/components/configuracoes/digitando-meta";
 import { EncerramentoAutomatico } from "@/components/configuracoes/encerramento-automatico";
+import { RespostasProntasConfig } from "@/components/configuracoes/respostas-prontas";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")({
   head: () => ({ meta: [{ title: "Configurações: mensagens — Nexa OS" }] }),
@@ -15,6 +16,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")(
         descricao="Textos aprovados pela Meta e rascunhos"
         icone={ScrollText}
       />
+      <SecaoConfig titulo="Respostas prontas">
+        <RespostasProntasConfig />
+      </SecaoConfig>
       <SecaoConfig titulo="Conversas: digitando… e lido (Meta)">
         <DigitandoMeta />
       </SecaoConfig>

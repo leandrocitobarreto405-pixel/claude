@@ -74,3 +74,16 @@ test("ultimaPassagem pega a mais nova com transferência", () => {
     "Passada pela Alice",
   );
 });
+
+test("hora na lista como no WhatsApp: hoje, ontem, dia da semana, data", async () => {
+  const { horaNaLista, esperaCurta } = await import("./conversas");
+  // Quarta-feira, 22/10/2026, 15:00 em São Paulo (18:00 UTC).
+  const agora = new Date("2026-10-22T18:00:00Z");
+  assert.equal(horaNaLista("2026-10-22T17:32:00Z", agora), "14:32");
+  assert.equal(horaNaLista("2026-10-22T03:10:00Z", agora), "00:10", "madrugada de hoje em SP");
+  assert.equal(horaNaLista("2026-10-22T02:59:00Z", agora), "ontem", "23:59 de ontem em SP");
+  assert.equal(horaNaLista("2026-10-19T15:00:00Z", agora), "seg");
+  assert.equal(horaNaLista("2026-10-12T15:00:00Z", agora), "12/10");
+  assert.equal(horaNaLista(null, agora), "");
+  assert.equal(esperaCurta("2026-10-22T15:00:00Z", agora), "3 h");
+});
