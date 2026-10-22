@@ -26,7 +26,14 @@ import { PageHeader } from "@/components/app-shell";
 import { SugestaoDiasCep } from "@/components/sugestao-dias-cep";
 import { MargemOrcamento } from "@/components/margem-orcamento";
 import { brl, decimal, onlyDigits } from "@/lib/format";
-import { findRate, usePaymentRates, useSetting } from "@/lib/data";
+import { findRate, useConfigOptions, usePaymentRates, useSetting } from "@/lib/data";
+import { CampoOrigem, type ValorOrigem } from "@/components/origem/campo-origem";
+import {
+  codigoDaOrigem,
+  erroDaOrigem,
+  lerDeteccao,
+  type OrigemDetectada,
+} from "@/lib/origem-venda";
 import { usePapel } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
@@ -182,6 +189,15 @@ function OrcamentoDetalhe() {
   const [metodoKm, setMetodoKm] = useState<"ruas" | "linha_reta" | null>(null);
   const [cepCalculado, setCepCalculado] = useState("");
   const [lead, setLead] = useState<{ id: string; lead_name: string | null } | null>(null);
+  // Origem da venda: vem da detecção (conversa/lead/telefone) e a Maria pode trocar.
+  const { data: origens } = useConfigOptions("sales_origin");
+  const [origem, setOrigem] = useState<ValorOrigem>({
+    origemId: "",
+    origemCodigo: "",
+    indicacaoNome: "",
+  });
+  const [detectada, setDetectada] = useState<OrigemDetectada | null>(null);
+  const [buscandoOrigem, setBuscandoOrigem] = useState(false);
   // Regras de preço da empresa.
   const [principalKey, setPrincipalKey] = useState<string | null>(null);
   const [muitoSujo, setMuitoSujo] = useState(false);
@@ -229,6 +245,16 @@ function OrcamentoDetalhe() {
     setCepCalculado(q.cliente_cep ?? "");
     setStatus(q.status);
     setLead(q.lead ?? null);
+    setOrigem({
+      origemId: q.sales_origin_id ?? "",
+      origemCodigo: "",
+      indicacaoNome: q.indicacao_nome ?? "",
+    });
+    setDetectada(
+      q.origem_detectada_id && q.origem_detectada_como
+        ? lerDeteccao({ origem_id: q.origem_detectada_id, como: q.origem_detectada_como })
+        : null,
+    );
     if (Number(q.km_ida_volta) > 0) {
       setCustoKmConfig(Number(q.custo_deslocamento ?? 0) / Number(q.km_ida_volta));
     }
@@ -323,6 +349,44 @@ function OrcamentoDetalhe() {
       ativo = false;
     };
   }, [novo, leadParam]);
+
+  // Origem detectada pela conversa/lead ou pelo telefone; preenche o campo quando está vazio.
+  const telefoneParaOrigem = onlyDigits(telefone).length >= 10 ? onlyDigits(telefone) : "";
+  const leadParaOrigem = lead?.id ?? null;
+  const prontoParaOrigem = novo || Boolean(carregado);
+  useEffect(() => {
+    if (!prontoParaOrigem || detectada || (!leadParaOrigem && !telefoneParaOrigem)) return;
+    let ativo = true;
+    const t = setTimeout(() => {
+      setBuscandoOrigem(true);
+      supabase
+        .rpc(
+          "origem_detectada_venda" as never,
+          { _lead: leadParaOrigem, _telefone: telefoneParaOrigem || null } as never,
+        )
+        .then(({ data }) => {
+          if (!ativo) return;
+          const det = lerDeteccao(data);
+          if (!det) return;
+          setDetectada(det);
+          setOrigem((o) => (o.origemId ? o : { ...o, origemId: det.origemId }));
+        })
+        .then(
+          () => ativo && setBuscandoOrigem(false),
+          () => ativo && setBuscandoOrigem(false),
+        );
+    }, 500);
+    return () => {
+      ativo = false;
+      clearTimeout(t);
+    };
+  }, [prontoParaOrigem, detectada, leadParaOrigem, telefoneParaOrigem]);
+  // Código da origem (indicação pede quem indicou), também para a que veio salva ou detectada.
+  useEffect(() => {
+    if (!origem.origemId || !origens?.length) return;
+    const codigo = codigoDaOrigem(origens, origem.origemId);
+    if (codigo !== origem.origemCodigo) setOrigem((o) => ({ ...o, origemCodigo: codigo }));
+  }, [origem.origemId, origem.origemCodigo, origens]);
 
   // Classe e acréscimos do item: % sobre a tabela e o preço já arredondado para o real de cima.
   const acrescimoDe = (l: Linha) =>
@@ -505,6 +569,11 @@ function OrcamentoDetalhe() {
       toast.error("Inclua pelo menos um item com valor.");
       return false;
     }
+    const erroOrigem = erroDaOrigem(origem);
+    if (erroOrigem) {
+      toast.error(erroOrigem);
+      return false;
+    }
 
     setSalvando(true);
     try {
@@ -530,6 +599,11 @@ function OrcamentoDetalhe() {
           taxa_percentual: taxaPct,
           preencher_agenda: preencherAgenda,
           ...(lead ? { crm_lead_id: lead.id } : {}),
+          sales_origin_id: origem.origemId,
+          origem_detectada_id: detectada?.origemId ?? null,
+          origem_detectada_como: detectada?.como ?? null,
+          indicacao_nome:
+            origem.origemCodigo === "indicacao" ? origem.indicacaoNome.trim() || null : null,
           status: novoStatus ?? status,
           cliente_novo: regras.vitrine.ligada ? clienteNovo !== false : clienteNovo,
           muito_sujo: muitoSujo,
@@ -670,6 +744,17 @@ function OrcamentoDetalhe() {
             value={telefone}
             onChange={(e) => setTelefone(e.target.value)}
             inputMode="tel"
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <CampoOrigem
+            id="orc-origem"
+            opcoes={origens ?? []}
+            valor={origem}
+            detectadaId={detectada?.origemId ?? null}
+            detectadaComo={detectada?.como ?? null}
+            buscando={buscandoOrigem}
+            onMudar={setOrigem}
           />
         </div>
         <div>

@@ -4936,6 +4936,12 @@ export type Database = {
       };
       quotes: {
         Row: {
+          indicacao_nome: string | null;
+          origem_detectada_como: string | null;
+          origem_detectada_id: string | null;
+          origem_trocada_em: string | null;
+          origem_trocada_por: string | null;
+          sales_origin_id: string | null;
           proposta_documento_id: string | null;
           proposta_gerada_em: string | null;
           proposta_url: string | null;
@@ -4996,6 +5002,12 @@ export type Database = {
           valores_editados_por: string | null;
         };
         Insert: {
+          indicacao_nome?: string | null;
+          origem_detectada_como?: string | null;
+          origem_detectada_id?: string | null;
+          origem_trocada_em?: string | null;
+          origem_trocada_por?: string | null;
+          sales_origin_id?: string | null;
           proposta_documento_id?: string | null;
           proposta_gerada_em?: string | null;
           proposta_url?: string | null;
@@ -5056,6 +5068,12 @@ export type Database = {
           valores_editados_por?: string | null;
         };
         Update: {
+          indicacao_nome?: string | null;
+          origem_detectada_como?: string | null;
+          origem_detectada_id?: string | null;
+          origem_trocada_em?: string | null;
+          origem_trocada_por?: string | null;
+          sales_origin_id?: string | null;
           proposta_documento_id?: string | null;
           proposta_gerada_em?: string | null;
           proposta_url?: string | null;
@@ -6300,6 +6318,11 @@ export type Database = {
       };
       work_orders: {
         Row: {
+          indicacao_nome: string | null;
+          origem_detectada_como: string | null;
+          origem_detectada_id: string | null;
+          origem_trocada_em: string | null;
+          origem_trocada_por: string | null;
           adjustment_reason: string | null;
           cancellation_reason: string | null;
           cancelled_at: string | null;
@@ -6341,6 +6364,11 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          indicacao_nome?: string | null;
+          origem_detectada_como?: string | null;
+          origem_detectada_id?: string | null;
+          origem_trocada_em?: string | null;
+          origem_trocada_por?: string | null;
           adjustment_reason?: string | null;
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
@@ -6382,6 +6410,11 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          indicacao_nome?: string | null;
+          origem_detectada_como?: string | null;
+          origem_detectada_id?: string | null;
+          origem_trocada_em?: string | null;
+          origem_trocada_por?: string | null;
           adjustment_reason?: string | null;
           cancellation_reason?: string | null;
           cancelled_at?: string | null;

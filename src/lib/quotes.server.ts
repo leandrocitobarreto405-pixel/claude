@@ -78,6 +78,11 @@ export type QuoteInput = {
   desconto_pct?: number | null;
   /** Cupom aplicado (desconto "manual" em reais). Omitido: mantém o atual enquanto o desconto for manual. */
   cupom?: string | null;
+  /** Origem da venda e a detectada pelo app (omitidas: mantém as atuais). */
+  sales_origin_id?: string | null;
+  origem_detectada_id?: string | null;
+  origem_detectada_como?: string | null;
+  indicacao_nome?: string | null;
 };
 
 export type MargemParams = {
@@ -485,6 +490,14 @@ export async function saveQuote(
     contribuicao_percentual: calc.contribuicao_percentual,
     status: input.status,
     ...(input.crm_lead_id !== undefined ? { crm_lead_id: input.crm_lead_id } : {}),
+    ...(input.sales_origin_id !== undefined ? { sales_origin_id: input.sales_origin_id } : {}),
+    ...(input.origem_detectada_id !== undefined
+      ? {
+          origem_detectada_id: input.origem_detectada_id,
+          origem_detectada_como: input.origem_detectada_como ?? null,
+        }
+      : {}),
+    ...(input.indicacao_nome !== undefined ? { indicacao_nome: input.indicacao_nome } : {}),
     ...(empresaId ? { empresa_id: empresaId } : {}),
   };
 
@@ -551,6 +564,10 @@ export function quoteInputDoBanco(
     desconto_tipo: (orig["desconto_tipo"] as DescontoTipo | null) ?? null,
     desconto_pct: orig["desconto_pct"] === null ? null : Number(orig["desconto_pct"]),
     cupom: (orig["cupom"] as string | null | undefined) ?? null,
+    sales_origin_id: (orig["sales_origin_id"] as string | null | undefined) ?? null,
+    origem_detectada_id: (orig["origem_detectada_id"] as string | null | undefined) ?? null,
+    origem_detectada_como: (orig["origem_detectada_como"] as string | null | undefined) ?? null,
+    indicacao_nome: (orig["indicacao_nome"] as string | null | undefined) ?? null,
     items: items.map((it) => ({
       tabela_preco_item_id: (it["tabela_preco_item_id"] as string | null) ?? null,
       nome_snapshot: String(it["nome_snapshot"] ?? ""),

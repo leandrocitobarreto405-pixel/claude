@@ -1188,6 +1188,14 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         parcelas: cond.parcelas,
         taxa_percentual: 0,
         crm_lead_id: lead?.id ?? null,
+        // Origem do orçamento da Alice: a do lead (o app já a detectou), sem troca.
+        ...(lead?.sales_origin_id
+          ? {
+              sales_origin_id: lead.sales_origin_id,
+              origem_detectada_id: lead.sales_origin_id,
+              origem_detectada_como: "alice",
+            }
+          : {}),
         status: "enviado",
         items: escolhidos.map((e) => ({
           tabela_preco_item_id: e.item.id,

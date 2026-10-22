@@ -17,6 +17,8 @@ export type ConfigOption = {
   name: string;
   active: boolean;
   display_order: number;
+  /** Código da origem e palavras-chave (só origens usam). */
+  metadata?: unknown;
 };
 
 export function useConfigOptions(kind: ConfigKind, onlyActive = true) {
@@ -25,7 +27,7 @@ export function useConfigOptions(kind: ConfigKind, onlyActive = true) {
     queryFn: async () => {
       let q = supabase
         .from("config_options")
-        .select("id, kind, name, active, display_order")
+        .select("id, kind, name, active, display_order, metadata")
         .eq("kind", kind)
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);

@@ -687,6 +687,9 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
         status: "Agendada",
         sale_date: hoje,
         sales_origin_id: origem.id,
+        // A Alice grava a origem que ela escolheu como a detectada: OS da Alice nunca conta troca.
+        origem_detectada_id: origem.id,
+        origem_detectada_como: "alice",
         salesperson_id: vendedora.vendedora.id,
         total_gross_value: valores.total,
         items_sum: valores.somaItens,

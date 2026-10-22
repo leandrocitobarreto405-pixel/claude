@@ -7,6 +7,7 @@ import { PAYMENT_TYPES } from "@/lib/data";
 import { COLLECTION_RULES, collectionRuleLabel } from "@/lib/collection";
 import { brl, dateBR } from "@/lib/format";
 import type { NovaOs } from "@/lib/nova-os/useNovaOs";
+import { CampoOrigem } from "@/components/origem/campo-origem";
 import { Campo, CampoTexto, Secao, Seletor } from "./campos";
 
 export function PassoVenda({ n, ehAdmin }: { n: NovaOs; ehAdmin: boolean }) {
@@ -44,20 +45,15 @@ export function PassoVenda({ n, ehAdmin }: { n: NovaOs; ehAdmin: boolean }) {
             />
           </Campo>
         </div>
-        <Campo id="nos-origem" rotulo="Origem da venda">
-          <Seletor
-            id="nos-origem"
-            value={e.origemId}
-            onChange={(ev) => mudar({ origemId: ev.target.value })}
-          >
-            <option value="">Selecione</option>
-            {listas.origens.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </Seletor>
-        </Campo>
+        <CampoOrigem
+          id="nos-origem"
+          opcoes={listas.origens}
+          valor={e}
+          detectadaId={e.origemDetectadaId || null}
+          detectadaComo={e.origemDetectadaComo || null}
+          buscando={n.buscandoOrigem}
+          onMudar={mudar}
+        />
         <Campo
           id="nos-vendedora"
           rotulo="Vendedora responsável"

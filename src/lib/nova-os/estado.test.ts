@@ -4,6 +4,7 @@ import {
   aplicarCotacao,
   aplicarLead,
   aplicarOrcamento,
+  comDeteccao,
   comNegociadoAtualizado,
   destinoDaNovaOs,
   ehAmbienteDeTeste,
@@ -109,9 +110,18 @@ function manual(): EstadoNovaOs {
   });
 }
 
+/** Origem detectada e quem indicou (22/10/2026) não existiam no formulário antigo. */
+function semOrigemDetectada(p: ReturnType<typeof montarPayload>) {
+  const order: Record<string, unknown> = { ...p.order };
+  delete order["origem_detectada_id"];
+  delete order["origem_detectada_como"];
+  delete order["indicacao_nome"];
+  return { ...p, order };
+}
+
 test("manual: montarPayload == montagem congelada do formulário antigo", () => {
   const e = manual();
-  assert.deepEqual(montarPayload(e, CTX), montagemAtual(e, CTX));
+  assert.deepEqual(semOrigemDetectada(montarPayload(e, CTX)), montagemAtual(e, CTX));
   const p = montarPayload(e, CTX);
   assert.equal(p.order.os_number, "1234");
   assert.equal(p.order.total_gross_value, 700);
@@ -136,7 +146,7 @@ test("manual com valor negociado diferente e cobrança em visita específica", (
     visitaCobranca: 1,
     ehTeste: true,
   };
-  assert.deepEqual(montarPayload(e, CTX), montagemAtual(e, CTX));
+  assert.deepEqual(semOrigemDetectada(montarPayload(e, CTX)), montagemAtual(e, CTX));
   const p = montarPayload(e, CTX);
   assert.equal(p.order.adjustment_reason, "desconto de pacote");
   assert.equal(p.order.collection_visit_index, 1);
@@ -172,7 +182,7 @@ test("lead: pré-preenchimento e payload iguais ao formulário antigo (sem e com
         items: v.items.map((it) => ({ ...it, unit_price: "200,00" })),
       })),
     });
-    assert.deepEqual(montarPayload(pronto, CTX), montagemAtual(pronto, CTX));
+    assert.deepEqual(semOrigemDetectada(montarPayload(pronto, CTX)), montagemAtual(pronto, CTX));
   }
   const comCadastro = aplicarLead(base, { ...LEAD, customer: CLIENTE });
   assert.equal(comCadastro.clienteExistente, "c-1");
@@ -218,7 +228,7 @@ test("visita de orçamento: pré-preenchimento e payload iguais ao formulário a
       items: v.items.map((it) => ({ ...it, unit_price: "90,00" })),
     })),
   });
-  assert.deepEqual(montarPayload(pronto, CTX), montagemAtual(pronto, CTX));
+  assert.deepEqual(semOrigemDetectada(montarPayload(pronto, CTX)), montagemAtual(pronto, CTX));
 });
 
 const COTACAO: DadosCotacao = {
@@ -289,7 +299,7 @@ test("orçamento (cotação): pré-preenchimento e payload iguais ao formulário
     uf: "SP",
     visitas: novo.visitas.map((v) => ({ ...v, service_type_id: "s-hig" })),
   });
-  assert.deepEqual(montarPayload(pronto, CTX), montagemAtual(pronto, CTX));
+  assert.deepEqual(semOrigemDetectada(montarPayload(pronto, CTX)), montagemAtual(pronto, CTX));
   const p = montarPayload(pronto, CTX);
   // Preço editável: o item com preço diferente do sugerido leva quem editou e quando.
   assert.deepEqual(
@@ -365,4 +375,29 @@ test("/nova-os vai para a janela, menos com editar ou classico", () => {
   assert.deepEqual(destinoDaNovaOs({ editar: "" }), { nova: 1 });
   assert.equal(destinoDaNovaOs({ classico: "1" }), null);
   assert.equal(destinoDaNovaOs({ classico: true }), null);
+});
+
+test("origem detectada preenche o campo vazio, não troca a escolhida e indicação pede o nome", () => {
+  const cod = (id: string) => (id === "o-ind" ? "indicacao" : "");
+  const vazio = estadoInicial({ hoje: "2026-10-22" });
+  const det = { origemId: "o-insta", como: "canal" as const };
+  const r = comDeteccao(vazio, det, cod);
+  assert.equal(r.origemId, "o-insta");
+  assert.equal(r.origemDetectadaComo, "canal");
+  const escolhida = comDeteccao({ ...vazio, origemId: "o-google" }, det, cod);
+  assert.equal(escolhida.origemId, "o-google");
+  assert.equal(escolhida.origemDetectadaId, "o-insta");
+  assert.equal(comDeteccao(vazio, null, cod), vazio);
+  const p = montarPayload(
+    { ...manual(), origemId: "o-ind", origemCodigo: "indicacao", indicacaoNome: " Rita " },
+    CTX,
+  );
+  assert.equal(p.order.indicacao_nome, "Rita");
+  assert.equal(
+    validar(
+      { ...manual(), origemId: "o-ind", origemCodigo: "indicacao", indicacaoNome: "" },
+      false,
+    ),
+    "Informe quem indicou.",
+  );
 });

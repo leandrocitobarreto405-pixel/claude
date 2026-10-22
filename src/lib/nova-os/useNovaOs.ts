@@ -19,10 +19,12 @@ import { linkQuoteToWorkOrder } from "@/lib/quotes";
 import { generateOsDocument, situacaoDocumentosFn } from "@/lib/os-docs.functions";
 import { fetchDireto } from "@/lib/enderecos";
 import { useSession } from "@/lib/session";
+import { codigoDaOrigem, lerDeteccao } from "@/lib/origem-venda";
 import {
   aplicarCotacao,
   aplicarLead,
   aplicarOrcamento,
+  comDeteccao,
   comNegociadoAtualizado,
   comissaoPrevista,
   diferencaDoNegociado,
@@ -84,6 +86,9 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   const [osDuplicada, setOsDuplicada] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [carregandoOrigem, setCarregandoOrigem] = useState(false);
+  /** Lead do orçamento que virou esta OS (para detectar a origem pela conversa). */
+  const [leadDaCotacao, setLeadDaCotacao] = useState<string | null>(null);
+  const [buscandoOrigem, setBuscandoOrigem] = useState(false);
   const [prefillPronto, setPrefillPronto] = useState(false);
   const [vendedoraAplicada, setVendedoraAplicada] = useState(false);
   const [criada, setCriada] = useState<OsCriada | null>(null);
@@ -100,6 +105,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     setOsDuplicada(false);
     setCriada(null);
     setPrefillPronto(false);
+    setLeadDaCotacao(null);
     setVendedoraAplicada(false);
     setSessao((n) => n + 1);
   }, [ambienteDeTeste]);
@@ -176,12 +182,13 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
         const { data, error } = await supabase
           .from("quotes")
           .select(
-            "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, data_servico, observacoes, total",
+            "id, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, data_servico, observacoes, total, crm_lead_id, sales_origin_id, origem_detectada_id, origem_detectada_como, indicacao_nome",
           )
           .eq("id", cotacao)
           .maybeSingle();
         if (error) throw error;
         if (!data || !ativo) return;
+        setLeadDaCotacao((data as { crm_lead_id?: string | null }).crm_lead_id ?? null);
         const { data: itens } = await supabase
           .from("quote_items")
           .select(
@@ -512,6 +519,45 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     }
   }
 
+  // Origem detectada pela conversa/lead (ou pelo telefone, na OS criada direto): preenche o campo
+  // quando ele está vazio; a escolha diferente fica registrada pelo banco.
+  const codigoDe = useCallback((id: string) => codigoDaOrigem(origens ?? [], id), [origens]);
+  const telefoneDigitos = onlyDigits(estado.telefone);
+  const telefoneParaDetectar = telefoneDigitos.length >= 10 ? telefoneDigitos : "";
+  const leadParaDetectar = leadId ?? leadDaCotacao;
+  const jaDetectada = Boolean(estado.origemDetectadaId);
+  useEffect(() => {
+    if (!aberta || !prefillPronto || jaDetectada) return;
+    if (!leadParaDetectar && !telefoneParaDetectar) return;
+    let ativo = true;
+    const t = setTimeout(() => {
+      setBuscandoOrigem(true);
+      supabase
+        .rpc(
+          "origem_detectada_venda" as never,
+          { _lead: leadParaDetectar, _telefone: telefoneParaDetectar || null } as never,
+        )
+        .then(({ data }) => {
+          if (ativo) setEstado((prev) => comDeteccao(prev, lerDeteccao(data), codigoDe));
+        })
+        .then(
+          () => ativo && setBuscandoOrigem(false),
+          () => ativo && setBuscandoOrigem(false),
+        );
+    }, 500);
+    return () => {
+      ativo = false;
+      clearTimeout(t);
+    };
+  }, [aberta, prefillPronto, jaDetectada, leadParaDetectar, telefoneParaDetectar, codigoDe]);
+
+  // Origem que veio do lead ou do orçamento: acerta o código (indicação pede quem indicou).
+  useEffect(() => {
+    if (!estado.origemId || !origens?.length) return;
+    const codigo = codigoDe(estado.origemId);
+    if (codigo !== estado.origemCodigo) setEstado((prev) => ({ ...prev, origemCodigo: codigo }));
+  }, [estado.origemId, estado.origemCodigo, origens, codigoDe]);
+
   return {
     estado,
     mudar,
@@ -521,6 +567,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     voltar,
     ambienteDeTeste,
     carregandoOrigem,
+    buscandoOrigem,
     listas: {
       origens: origens ?? [],
       servicos: listaServicos,

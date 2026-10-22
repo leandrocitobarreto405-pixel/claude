@@ -10,6 +10,7 @@ import { visitTotal } from "@/lib/os";
 import { defaultCollectionRule, type CollectionVisit } from "@/lib/collection";
 import { normalizarQuantidade, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { onlyDigits, parseNumberBR, todayISO } from "@/lib/format";
+import { erroDaOrigem, type OrigemDetectada } from "@/lib/origem-venda";
 
 export type ItemForm = {
   id?: string | null;
@@ -43,6 +44,12 @@ export type EstadoNovaOs = {
   osNumber: string;
   saleDate: string;
   origemId: string;
+  /** Código da origem escolhida (metadata.codigo): "indicacao" pede quem indicou. */
+  origemCodigo: string;
+  indicacaoNome: string;
+  /** Origem que o app detectou pela conversa/lead/telefone ("" = nada detectado). */
+  origemDetectadaId: string;
+  origemDetectadaComo: string;
   vendedoraId: string;
   nome: string;
   telefone: string;
@@ -109,6 +116,10 @@ export function estadoInicial(opcoes: { hoje?: string; ehTeste?: boolean } = {})
     osNumber: "",
     saleDate: hoje,
     origemId: "",
+    origemCodigo: "",
+    indicacaoNome: "",
+    origemDetectadaId: "",
+    origemDetectadaComo: "",
     vendedoraId: "",
     nome: "",
     telefone: "",
@@ -216,7 +227,8 @@ export function comNegociadoAtualizado(e: EstadoNovaOs): EstadoNovaOs {
 export function validar(e: EstadoNovaOs, osDuplicada: boolean): string | null {
   if (!e.osNumber.trim()) return "Informe o número da OS.";
   if (osDuplicada) return "Este número de OS já existe. Use outro número.";
-  if (!e.origemId) return "Selecione a origem da venda.";
+  const erroOrigem = erroDaOrigem(e);
+  if (erroOrigem) return erroOrigem;
   if (!e.vendedoraId) return "Selecione a vendedora responsável.";
   if (e.nome.trim().length < 3) return "Informe o nome completo do cliente.";
   if (onlyDigits(e.telefone).length < 10) return "Informe um telefone válido com DDD.";
@@ -251,6 +263,7 @@ export function validarPasso(e: EstadoNovaOs, passo: Passo): string | null {
       ...e,
       osNumber: e.osNumber || "x",
       origemId: e.origemId || "x",
+      origemCodigo: "",
       vendedoraId: e.vendedoraId || "x",
     },
     false,
@@ -305,6 +318,9 @@ export function montarPayload(e: EstadoNovaOs, ctx: ContextoPayload): PayloadNov
     os_number: e.osNumber.trim(),
     sale_date: e.saleDate,
     sales_origin_id: e.origemId,
+    origem_detectada_id: e.origemDetectadaId || null,
+    origem_detectada_como: e.origemDetectadaComo || null,
+    indicacao_nome: e.origemCodigo === "indicacao" ? e.indicacaoNome.trim() || null : null,
     salesperson_id: e.vendedoraId,
     total_gross_value: totalOS,
     os_value_text: e.valorTexto.trim() || null,
@@ -479,6 +495,10 @@ export function aplicarOrcamento(e: EstadoNovaOs, d: DadosVisitaOrcamento): Esta
 
 export type DadosCotacao = {
   cliente_nome: string;
+  sales_origin_id?: string | null;
+  origem_detectada_id?: string | null;
+  origem_detectada_como?: string | null;
+  indicacao_nome?: string | null;
   cliente_telefone: string | null;
   cliente_cep: string | null;
   cliente_endereco: string | null;
@@ -514,6 +534,11 @@ export function aplicarCotacao(
     cep: e.cep || onlyDigits(q.cliente_cep ?? ""),
     rua: q.cliente_endereco ? e.rua || q.cliente_endereco : e.rua,
     obsGerais: q.observacoes ? e.obsGerais || q.observacoes.slice(0, 1000) : e.obsGerais,
+    // A origem escolhida no orçamento (e a detectada lá) vem junto.
+    origemId: e.origemId || q.sales_origin_id || "",
+    indicacaoNome: e.indicacaoNome || q.indicacao_nome || "",
+    origemDetectadaId: e.origemDetectadaId || q.origem_detectada_id || "",
+    origemDetectadaComo: e.origemDetectadaComo || q.origem_detectada_como || "",
   };
   const linhas: ItemForm[] = itens.map((it) => {
     const tabela = Number(it.preco_tabela ?? 0) > 0 ? Number(it.preco_tabela) : null;
@@ -576,4 +601,15 @@ export function destinoDaNovaOs(
     if ((typeof v === "string" || typeof v === "number") && String(v)) r[k] = String(v);
   }
   return r;
+}
+
+/** Origem detectada: guarda a detecção e preenche o campo quando ele ainda está vazio. */
+export function comDeteccao(
+  e: EstadoNovaOs,
+  det: OrigemDetectada | null,
+  codigo: (id: string) => string,
+): EstadoNovaOs {
+  if (!det) return e;
+  const r = { ...e, origemDetectadaId: det.origemId, origemDetectadaComo: det.como };
+  return e.origemId ? r : { ...r, origemId: det.origemId, origemCodigo: codigo(det.origemId) };
 }

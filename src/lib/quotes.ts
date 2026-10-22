@@ -110,10 +110,15 @@ export type Quote = {
   numero: number;
   adicional_oferecido_em: string | null;
   adicional_aceito: boolean | null;
+  /** Origem da venda escolhida no orçamento e a que o app detectou. */
+  sales_origin_id: string | null;
+  origem_detectada_id: string | null;
+  origem_detectada_como: string | null;
+  indicacao_nome: string | null;
 };
 
 const QUOTE_SELECT =
-  "id, numero, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at, crm_lead_id, lead:crm_lead_id ( id, lead_name ), cliente_novo, muito_sujo, acrescimo_sujidade, distancia_km, distancia_base, acrescimo_distancia, fora_da_area, minimo_aplicado, valor_vitrine, valor_cartao, valor_pix, valores_editados_por, desconto_tipo, desconto_pct, cupom, adicional_oferecido_em, adicional_aceito, proposta_url";
+  "id, numero, cliente_nome, cliente_telefone, cliente_cep, cliente_endereco, customer_id, data_servico, observacoes, subtotal, desconto, total, valor_a_vista, km_ida_volta, custo_deslocamento, custo_produtos, custo_mao_obra, custo_total, margem_valor, margem_percentual, forma_pagamento, parcelas, taxa_percentual, custo_taxa, custo_imposto, custo_fixo_alocado, lucro_valor, lucro_percentual, preencher_agenda, contribuicao_valor, contribuicao_percentual, status, generated_work_order_id, created_at, crm_lead_id, lead:crm_lead_id ( id, lead_name ), cliente_novo, muito_sujo, acrescimo_sujidade, distancia_km, distancia_base, acrescimo_distancia, fora_da_area, minimo_aplicado, valor_vitrine, valor_cartao, valor_pix, valores_editados_por, desconto_tipo, desconto_pct, cupom, adicional_oferecido_em, adicional_aceito, proposta_url, sales_origin_id, origem_detectada_id, origem_detectada_como, indicacao_nome";
 
 const round2 = (v: number) => Math.round((Number.isFinite(v) ? v : 0) * 100) / 100;
 

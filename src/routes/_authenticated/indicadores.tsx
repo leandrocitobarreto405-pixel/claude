@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/app-shell";
 import { VisaoGeralCrm } from "@/components/crm/visao-geral";
+import { DeteccaoDaOrigem } from "@/components/origem/deteccao-origem";
 import { AbasDeRota, CabecalhoDeTela, Card, Recolhido } from "@/components/nexa";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
 import { FunilMini, GraficoVendasPorOrigem } from "@/components/painel/graficos";
@@ -120,6 +121,7 @@ function IndicadoresPage() {
       ) : (
         <Conteudo d={data} />
       )}
+      <DeteccaoDaOrigem de={de} ate={ate} />
       <VisaoGeralCrm />
     </div>
   );

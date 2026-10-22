@@ -76,9 +76,10 @@ VALUES ('11111111-1111-1111-1111-111111111111', 'Iara Nunes', '5511910000009', '
         now() - interval '20 days', 'impermeabilizacao', true);
 
 -- 1. Filtros acumulados.
-SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"ate": 10}}') = 'Ana Souza,Dani Alves,Gil Rocha,Hugo Dias',
+-- Gil saiu das ofertas: desde 20261130120000 não aparece nas listas.
+SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"ate": 10}}') = 'Ana Souza,Dani Alves,Hugo Dias',
   'orçamento até 10 dias: ' || pg_temp.quem('{"orcamento": {"ate": 10}}'));
-SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"ate": 60}}') = 'Ana Souza,Beto Lima,Dani Alves,Gil Rocha,Hugo Dias',
+SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"ate": 60}}') = 'Ana Souza,Beto Lima,Dani Alves,Hugo Dias',
   'orçamento até 60 dias inclui o de 45');
 SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"de": 31, "ate": 90}}') = 'Beto Lima', 'entre 31 e 90 dias');
 SELECT pg_temp.ok(pg_temp.quem('{"conversa": {"ate": 10}}') = '', 'conversa até 10 dias: ninguém');
@@ -92,7 +93,7 @@ SELECT pg_temp.ok(position('Fabi' IN pg_temp.quem('{"orcamento": {}}')) = 0, 'ag
 
 -- 2. Juntar famílias sem repetir pessoa; quem pode receber agora.
 SELECT pg_temp.ok(pg_temp.quem('{"orcamento": {"ate": 10}, "clientes": {}}')
-  = 'Ana Souza,Dani Alves,Gil Rocha,Hugo Dias,Iara Nunes', 'Dani aparece uma vez só');
+  = 'Ana Souza,Dani Alves,Hugo Dias,Iara Nunes', 'Dani aparece uma vez só');
 SELECT pg_temp.ok(pg_temp.podem('{"orcamento": {"ate": 10}, "conversa": {"ate": 30}}') = 'Ana Souza,Caio Melo,Dani Alves',
   'podem receber: ' || pg_temp.podem('{"orcamento": {"ate": 10}, "conversa": {"ate": 30}}'));
 SELECT pg_temp.ok((SELECT motivo FROM private.mkt_publico('11111111-1111-1111-1111-111111111111', '{"orcamento": {}}')

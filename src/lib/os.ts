@@ -89,6 +89,10 @@ export type WorkOrderInput = {
   payment_instruction?: string | null;
   /** OS de teste: não conta nos números nem vai para o Google Ads. */
   eh_teste?: boolean;
+  /** Origem que o app detectou (o banco registra a troca quando a escolhida é outra). */
+  origem_detectada_id?: string | null;
+  origem_detectada_como?: string | null;
+  indicacao_nome?: string | null;
 };
 
 export async function osNumberExists(osNumber: string): Promise<boolean> {
@@ -267,6 +271,13 @@ function orderPayload(order: WorkOrderInput, itemsSum: number) {
     payment_instruction: order.payment_instruction ?? null,
     eh_teste: order.eh_teste ?? false,
     collection_configuration_updated_at: new Date().toISOString(),
+    ...(order.origem_detectada_id !== undefined
+      ? {
+          origem_detectada_id: order.origem_detectada_id,
+          origem_detectada_como: order.origem_detectada_como ?? null,
+        }
+      : {}),
+    ...(order.indicacao_nome !== undefined ? { indicacao_nome: order.indicacao_nome } : {}),
   };
 }
 
