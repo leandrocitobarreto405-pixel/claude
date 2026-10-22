@@ -12,6 +12,8 @@ export type Categoria = "sofa" | "colchao" | "cadeira" | "outro" | "tapete" | "p
 /** Classe do estofado: A tem acréscimo; B (padrão) e C ficam no preço da tabela. */
 export type Classe = "A" | "B" | "C";
 export type Arredondamento = "dezena_5" | "noventa";
+/** Faixa da taxa de deslocamento: até `ate` reais (null = sem teto), `pct` sobre os itens. */
+export type FaixaValor = { ate: number | null; pct: number };
 
 export type RegrasOrcamento = {
   descontoAdicional: { ligado: boolean; pct: number; categorias: Categoria[] };
@@ -21,7 +23,10 @@ export type RegrasOrcamento = {
     ligado: boolean;
     semAcrescimoKm: number | null;
     limiteKm: number | null;
+    /** Percentual fixo (vale quando não há faixas por valor). */
     pct: number;
+    /** Faixas por valor do serviço (soma dos itens): o % da primeira faixa em que o valor cabe. */
+    faixas: FaixaValor[];
   };
   vitrine: {
     ligada: boolean;
@@ -39,7 +44,7 @@ export const REGRAS_DESLIGADAS: RegrasOrcamento = {
   descontoAdicional: { ligado: false, pct: 40, categorias: ["sofa", "colchao"] },
   minimoCadeiras: null,
   sujidade: { ligado: false, pct: 10 },
-  distancia: { ligado: false, semAcrescimoKm: null, limiteKm: null, pct: 10 },
+  distancia: { ligado: false, semAcrescimoKm: null, limiteKm: null, pct: 10, faixas: [] },
   vitrine: { ligada: false, boasVindasPct: 20, pixPct: 10, arredondamento: "dezena_5" },
   parcelasMax: null,
   validadeDias: null,
@@ -70,6 +75,7 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
       semAcrescimoKm: nn(l["distancia_sem_acrescimo_km"]),
       limiteKm: nn(l["distancia_limite_km"]),
       pct: n(l["distancia_pct"], 10),
+      faixas: faixasDaLinha(l["distancia_faixas"]),
     },
     vitrine: {
       ligada: Boolean(l["vitrine_ligada"]),
@@ -86,6 +92,28 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
       encardidoPct: n(l["encardido_pct"], 10),
     },
   };
+}
+
+/** Faixas gravadas (jsonb) → lista válida, em ordem de valor (a sem teto por último). */
+export function faixasDaLinha(v: unknown): FaixaValor[] {
+  if (!Array.isArray(v)) return [];
+  const out: FaixaValor[] = [];
+  for (const f of v as Array<Record<string, unknown>>) {
+    const pct = Number(f?.["pct"]);
+    const ateBruto = f?.["ate"];
+    const ate =
+      ateBruto === null || ateBruto === undefined || ateBruto === "" ? null : Number(ateBruto);
+    if (!Number.isFinite(pct) || pct < 0 || (ate !== null && !(Number.isFinite(ate) && ate > 0)))
+      continue;
+    out.push({ ate, pct });
+  }
+  return out.sort((a, b) => (a.ate ?? Infinity) - (b.ate ?? Infinity));
+}
+
+/** % da taxa de deslocamento para o valor dos itens (até o teto da faixa, inclusive). */
+export function pctDaFaixa(faixas: FaixaValor[], valor: number): number {
+  const f = faixas.find((x) => x.ate === null || valor <= x.ate + 1e-9);
+  return f ? f.pct : 0;
 }
 
 // ---------------------------------------------------------------- classe e acréscimos do item
@@ -291,7 +319,12 @@ export type Totais = {
   subtotalItens: number;
   minimoAplicado: number;
   acrescimoSujidade: number;
+  /** Taxa de deslocamento cobrada (a da regra, ou o valor que a equipe pôs). */
   acrescimoDistancia: number;
+  /** Taxa pela regra, para comparar com a cobrada (equipe alterou ou tirou). */
+  acrescimoDistanciaRegra: number;
+  /** % da regra para esta distância e este valor (0 sem acréscimo). */
+  distanciaPct: number;
   foraDaArea: boolean;
   desconto: number;
   /** Valor de tabela no Pix depois de todas as regras (o mínimo que a empresa recebe). */
@@ -299,12 +332,24 @@ export type Totais = {
   vitrine: Vitrine | null;
 };
 
-export function faixaDistancia(km: number | null, d: RegrasOrcamento["distancia"]) {
+/** Distância (só a ida) → % da taxa de deslocamento. Com faixas, o % depende do valor dos itens. */
+export function faixaDistancia(km: number | null, d: RegrasOrcamento["distancia"], valor = 0) {
   if (!d.ligado || km === null || !Number.isFinite(km)) return { pct: 0, foraDaArea: false };
   const sem = d.semAcrescimoKm ?? Infinity;
   const limite = d.limiteKm ?? Infinity;
   if (km <= sem) return { pct: 0, foraDaArea: false };
-  return { pct: d.pct, foraDaArea: km > limite };
+  const pct = d.faixas.length ? pctDaFaixa(d.faixas, valor) : d.pct;
+  return { pct, foraDaArea: km > limite };
+}
+
+/** Taxa de deslocamento pela regra (R$), sobre a soma dos itens antes do desconto do Pix. */
+export function taxaDeslocamento(
+  km: number | null,
+  d: RegrasOrcamento["distancia"],
+  valorItens: number,
+) {
+  const f = faixaDistancia(km, d, valorItens);
+  return { ...f, valor: r2((valorItens * f.pct) / 100) };
 }
 
 export function calcularTotais(args: {
@@ -316,6 +361,8 @@ export function calcularTotais(args: {
   /** Desconto de campanha/indicação em %: quando vem, vale sobre o valor antes do desconto. */
   descontoPct?: number | null;
   clienteNovo: boolean;
+  /** Taxa de deslocamento posta pela equipe (0 = tirou). Sem valor: a da regra. */
+  taxaDistancia?: number | null;
 }): Totais {
   const { regras } = args;
   const soma = (ls: LinhaValor[]) =>
@@ -333,17 +380,24 @@ export function calcularTotais(args: {
   const baseAdicionais = r2(subtotalNormais + minimoAplicado);
   const acrescimoSujidade =
     regras.sujidade.ligado && args.muitoSujo ? r2((baseAdicionais * regras.sujidade.pct) / 100) : 0;
-  const faixa = faixaDistancia(args.distanciaKm, regras.distancia);
-  const acrescimoDistancia = r2((baseAdicionais * faixa.pct) / 100);
-  const antes = r2(baseAdicionais + acrescimoSujidade + acrescimoDistancia);
+  const faixa = taxaDeslocamento(args.distanciaKm, regras.distancia, baseAdicionais);
+  const manual = args.taxaDistancia;
+  const acrescimoDistancia =
+    manual === null || manual === undefined || !Number.isFinite(manual)
+      ? faixa.valor
+      : r2(Math.max(manual, 0));
+  // A taxa de deslocamento não entra no desconto (campanha, indicação, cupom): só os itens.
+  const antes = r2(baseAdicionais + acrescimoSujidade);
   const pedido = args.descontoPct ? descontoPorPct(antes, args.descontoPct) : args.desconto;
   const desconto = Math.min(Math.max(r2(pedido), 0), antes);
-  const base = r2(antes - desconto + subtotalAdicional);
+  const base = r2(antes - desconto + acrescimoDistancia + subtotalAdicional);
   return {
     subtotalItens,
     minimoAplicado,
     acrescimoSujidade,
     acrescimoDistancia,
+    acrescimoDistanciaRegra: faixa.valor,
+    distanciaPct: faixa.pct,
     foraDaArea: faixa.foraDaArea,
     desconto,
     base,

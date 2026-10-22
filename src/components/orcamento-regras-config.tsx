@@ -14,7 +14,12 @@ import {
   useSalvarConfigOrcamento,
   type LinhaConfigOrcamento,
 } from "@/lib/orcamento-config";
-import { calcularVitrine, regrasDaLinha, type Categoria } from "@/lib/orcamento-regras";
+import {
+  calcularVitrine,
+  regrasDaLinha,
+  type Categoria,
+  type FaixaValor,
+} from "@/lib/orcamento-regras";
 
 const CLASSE_SELECT =
   "flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring";
@@ -73,6 +78,12 @@ export function OrcamentoRegrasConfig() {
   const set = <K extends keyof LinhaConfigOrcamento>(k: K, v: LinhaConfigOrcamento[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const num = (v: number | null) => (v === null ? 0 : Number(v));
+  const faixas = f.distancia_faixas ?? [];
+  const mudarFaixa = (i: number, patch: Partial<FaixaValor>) =>
+    set(
+      "distancia_faixas",
+      faixas.map((x, j) => (j === i ? { ...x, ...patch } : x)),
+    );
   const nulo = (v: number) => (v > 0 ? v : null);
 
   const exemplo = useMemo(() => {
@@ -267,12 +278,82 @@ export function OrcamentoRegrasConfig() {
           />
         </div>
         <div>
-          <Label className="text-xs">Acréscimo (%)</Label>
+          <Label className="text-xs">
+            Acréscimo (%){faixas.length ? " — sem uso: valem as faixas abaixo" : ""}
+          </Label>
           <DecimalInput
             value={f.distancia_pct}
             onValueChange={(v) => set("distancia_pct", v)}
-            disabled={bloqueado}
+            disabled={bloqueado || faixas.length > 0}
           />
+        </div>
+        <div className="grid gap-2 sm:col-span-3">
+          <Label className="text-xs">
+            Taxa pelo valor do serviço (soma dos itens, antes do desconto do Pix)
+          </Label>
+          {faixas.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Sem faixas: vale o acréscimo fixo acima para qualquer valor.
+            </p>
+          ) : null}
+          {faixas.map((fx, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="w-24 text-sm">{fx.ate === null ? "Acima disso" : "Até R$"}</span>
+              {fx.ate === null ? null : (
+                <MoneyInput
+                  value={fx.ate}
+                  onValueChange={(v) => mudarFaixa(i, { ate: v })}
+                  disabled={bloqueado}
+                  className="w-32"
+                  aria-label={`Teto da faixa ${i + 1}`}
+                />
+              )}
+              <DecimalInput
+                value={fx.pct}
+                onValueChange={(v) => mudarFaixa(i, { pct: v })}
+                disabled={bloqueado}
+                className="w-20"
+                aria-label={`Percentual da faixa ${i + 1}`}
+              />
+              <span className="text-sm">%</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="min-h-11"
+                disabled={bloqueado}
+                onClick={() =>
+                  set(
+                    "distancia_faixas",
+                    faixas.filter((_, j) => j !== i),
+                  )
+                }
+              >
+                Tirar
+              </Button>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11"
+              disabled={bloqueado}
+              onClick={() => {
+                const tetos = faixas.filter((x) => x.ate !== null).map((x) => x.ate as number);
+                const novo = { ate: (tetos.length ? Math.max(...tetos) : 0) + 500, pct: 0 };
+                const semTeto = faixas.filter((x) => x.ate === null);
+                set("distancia_faixas", [
+                  ...faixas.filter((x) => x.ate !== null),
+                  novo,
+                  ...(semTeto.length ? semTeto : [{ ate: null, pct: 0 }]),
+                ]);
+              }}
+            >
+              Adicionar faixa
+            </Button>
+          </div>
         </div>
       </Bloco>
 

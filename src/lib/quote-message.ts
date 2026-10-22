@@ -140,9 +140,12 @@ export function quoteWhatsappMessage(
     );
   }
   if (distancia > 0) {
-    const pct = t.regras?.distancia.pct;
+    // Com faixas por valor, o % muda de orçamento para orçamento: na vitrine vai sem o %.
+    const pct = t.regras?.distancia.faixas.length ? null : t.regras?.distancia.pct;
     adicionais.push(
-      vitrine ? `➕ Deslocamento${pct ? `: +${pct}%` : ""}` : `Deslocamento: ${brl(distancia)}`,
+      vitrine
+        ? `➕ Taxa de deslocamento${pct ? `: +${pct}%` : ""}`
+        : `Taxa de deslocamento: ${brl(distancia)}`,
     );
   }
   if (minimo > 0 && !vitrine) adicionais.push(`Ajuste para o valor mínimo: ${brl(minimo)}`);

@@ -196,3 +196,49 @@ test("tapete por m²: 3,68 m² x R$ 62,40 = R$ 229,63 no total", () => {
   });
   assert.equal(t.subtotalItens, 229.63);
 });
+
+// Turbine (22/10/2026): até 20 km sem taxa; 20–35 km pela faixa de valor; acima de 35 fora da área.
+const turbine = regrasDaLinha({
+  distancia_ligado: true,
+  distancia_sem_acrescimo_km: 20,
+  distancia_limite_km: 35,
+  distancia_pct: 10,
+  distancia_faixas: [
+    { ate: 1000, pct: 10 },
+    { ate: null, pct: 0 },
+    { ate: 500, pct: 20 },
+  ],
+});
+
+test("taxa de deslocamento por faixa de valor", () => {
+  const um = (preco: number, km: number | null, extra: object = {}) =>
+    calcularTotais({
+      linhas: [{ categoria: "sofa", precoAplicado: preco, quantidade: 1 }],
+      regras: turbine,
+      muitoSujo: false,
+      distanciaKm: km,
+      desconto: 0,
+      clienteNovo: true,
+      ...extra,
+    });
+  assert.equal(um(249.9, 15).acrescimoDistancia, 0);
+  assert.equal(um(249.9, 20).acrescimoDistancia, 0);
+  assert.equal(um(249.9, 30).acrescimoDistancia, 49.98);
+  assert.equal(um(249.9, 30).distanciaPct, 20);
+  assert.equal(um(500, 30).distanciaPct, 20);
+  assert.equal(um(700, 30).acrescimoDistancia, 70);
+  assert.equal(um(1000, 30).distanciaPct, 10);
+  assert.equal(um(1200, 30).acrescimoDistancia, 0);
+  assert.equal(um(700, 35).foraDaArea, false);
+  assert.equal(um(700, 38).foraDaArea, true);
+  // A equipe altera ou tira: a regra fica guardada para comparar.
+  const tirada = um(700, 30, { taxaDistancia: 0 });
+  assert.equal(tirada.acrescimoDistancia, 0);
+  assert.equal(tirada.acrescimoDistanciaRegra, 70);
+  assert.equal(tirada.base, 700);
+  assert.equal(um(700, 30, { taxaDistancia: 50 }).base, 750);
+  // Desconto de campanha (10%) só nos itens, não na taxa.
+  const comDesconto = um(700, 30, { descontoPct: 10 });
+  assert.equal(comDesconto.desconto, 70);
+  assert.equal(comDesconto.base, 700);
+});

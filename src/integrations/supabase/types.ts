@@ -4108,6 +4108,7 @@ export type Database = {
       };
       orcamento_configuracoes: {
         Row: {
+          distancia_faixas: Json | null;
           acrescimos_ligado: boolean;
           almofadas_soltas_pct: number;
           arredondamento: string;
@@ -4133,6 +4134,7 @@ export type Database = {
           vitrine_ligada: boolean;
         };
         Insert: {
+          distancia_faixas?: Json | null;
           acrescimos_ligado?: boolean;
           almofadas_soltas_pct?: number;
           arredondamento?: string;
@@ -4158,6 +4160,7 @@ export type Database = {
           vitrine_ligada?: boolean;
         };
         Update: {
+          distancia_faixas?: Json | null;
           acrescimos_ligado?: boolean;
           almofadas_soltas_pct?: number;
           arredondamento?: string;
@@ -4936,6 +4939,9 @@ export type Database = {
       };
       quotes: {
         Row: {
+          acrescimo_distancia_editado_em: string | null;
+          acrescimo_distancia_editado_por: string | null;
+          acrescimo_distancia_regra: number | null;
           indicacao_nome: string | null;
           origem_detectada_como: string | null;
           origem_detectada_id: string | null;
@@ -5002,6 +5008,9 @@ export type Database = {
           valores_editados_por: string | null;
         };
         Insert: {
+          acrescimo_distancia_editado_em?: string | null;
+          acrescimo_distancia_editado_por?: string | null;
+          acrescimo_distancia_regra?: number | null;
           indicacao_nome?: string | null;
           origem_detectada_como?: string | null;
           origem_detectada_id?: string | null;
@@ -5068,6 +5077,9 @@ export type Database = {
           valores_editados_por?: string | null;
         };
         Update: {
+          acrescimo_distancia_editado_em?: string | null;
+          acrescimo_distancia_editado_por?: string | null;
+          acrescimo_distancia_regra?: number | null;
           indicacao_nome?: string | null;
           origem_detectada_como?: string | null;
           origem_detectada_id?: string | null;
@@ -6318,6 +6330,10 @@ export type Database = {
       };
       work_orders: {
         Row: {
+          taxa_deslocamento: number | null;
+          taxa_deslocamento_editada_em: string | null;
+          taxa_deslocamento_editada_por: string | null;
+          taxa_deslocamento_regra: number | null;
           indicacao_nome: string | null;
           origem_detectada_como: string | null;
           origem_detectada_id: string | null;
@@ -6364,6 +6380,10 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          taxa_deslocamento?: number | null;
+          taxa_deslocamento_editada_em?: string | null;
+          taxa_deslocamento_editada_por?: string | null;
+          taxa_deslocamento_regra?: number | null;
           indicacao_nome?: string | null;
           origem_detectada_como?: string | null;
           origem_detectada_id?: string | null;
@@ -6410,6 +6430,10 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          taxa_deslocamento?: number | null;
+          taxa_deslocamento_editada_em?: string | null;
+          taxa_deslocamento_editada_por?: string | null;
+          taxa_deslocamento_regra?: number | null;
           indicacao_nome?: string | null;
           origem_detectada_como?: string | null;
           origem_detectada_id?: string | null;

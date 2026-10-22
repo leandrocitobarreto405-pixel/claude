@@ -22,7 +22,7 @@ import {
   type MotivoPerda,
 } from "./regras";
 
-import { rotulosAcrescimo } from "@/lib/orcamento-regras";
+import { rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, type Cupom } from "./cupons";
@@ -1106,6 +1106,33 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const baseDesconto =
     Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
   const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
+
+  // Distância (só a ida) e taxa de deslocamento pela regra da empresa: sempre aplicada, sem
+  // negociação; acima do limite, fora da área (não orça).
+  let km = 0;
+  let endereco: string | null = null;
+  let baseTecnico: string | null = null;
+  let kmIda: number | null = null;
+  const cep = input.cep?.replace(/\D/g, "") || null;
+  if (cep?.length === 8) {
+    const { estimateKmByCep } = await import("@/lib/quotes.server");
+    const r = await estimateKmByCep(ctx.admin, cep, ctx.empresaId).catch(() => null);
+    km = r?.km ?? 0;
+    endereco = r?.endereco ?? null;
+    baseTecnico = r?.base ?? null;
+    kmIda = r?.kmIda ?? (km > 0 ? Math.round((km / 2) * 10) / 10 : null);
+  }
+  const valorItens =
+    Math.round(
+      escolhidos.filter((e) => !e.adicional).reduce((s, e) => s + e.preco * e.quantidade, 0) * 100,
+    ) / 100;
+  const taxa = taxaDeslocamento(kmIda, regras.distancia, valorItens);
+  if (taxa.foraDaArea) {
+    return {
+      erro: true,
+      texto: `Endereço a ~${kmIda} km da base: fora da área atendida (até ${regras.distancia.limiteKm} km). Não passe valores; transfira para a equipe.`,
+    };
+  }
   const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
@@ -1116,6 +1143,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         : null,
     ctx.cfg.parcelas_max,
     Number(ctx.cfg.desconto_pix_percentual),
+    taxa.valor,
   );
   const tipoDesconto = !desconto
     ? null
@@ -1130,16 +1158,6 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         : `Só um desconto por orçamento: o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
       : null;
   const val = validade(ctx.agora, ctx.cfg.validade_orcamento_dias);
-
-  let km = 0;
-  let endereco: string | null = null;
-  const cep = input.cep?.replace(/\D/g, "") || null;
-  if (cep?.length === 8) {
-    const { estimateKmByCep } = await import("@/lib/quotes.server");
-    const r = await estimateKmByCep(ctx.admin, cep, ctx.empresaId).catch(() => null);
-    km = r?.km ?? 0;
-    endereco = r?.endereco ?? null;
-  }
 
   // O mesmo pedido de novo em 30 minutos (resposta refeita, cliente repetiu) não vira outro
   // orçamento: devolve o que já existe.
@@ -1188,6 +1206,9 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         parcelas: cond.parcelas,
         taxa_percentual: 0,
         crm_lead_id: lead?.id ?? null,
+        // A taxa vai pela regra (a Alice nunca altera nem tira).
+        distancia_km: kmIda,
+        distancia_base: baseTecnico,
         // Origem do orçamento da Alice: a do lead (o app já a detectou), sem troca.
         ...(lead?.sales_origin_id
           ? {
@@ -1246,6 +1267,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
             desconto.pct !== null
               ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
               : `${desconto.rotulo}: −${reais(desconto.valor)}`,
+          ]
+        : []),
+      ...(taxa.valor > 0
+        ? [
+            `Taxa de deslocamento: ${reais(taxa.valor)}`,
+            `(Para você, não copie: a taxa de deslocamento é regra da empresa para ~${kmIda} km da base. Não retire, não diminua e não negocie a taxa; se o cliente reclamar do valor, siga o roteiro de objeção de preço ou passe para a equipe.)`,
           ]
         : []),
       ...(avisoDesconto ? [`(Para você, não copie: ${avisoDesconto})`] : []),

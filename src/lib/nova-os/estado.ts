@@ -50,6 +50,15 @@ export type EstadoNovaOs = {
   /** Origem que o app detectou pela conversa/lead/telefone ("" = nada detectado). */
   origemDetectadaId: string;
   origemDetectadaComo: string;
+  /** Taxa de deslocamento pela regra (null: sem regra/sem distância). A cobrada é a linha
+   *  "Taxa de deslocamento" do 1º atendimento. */
+  taxaRegra: number | null;
+  /** A linha da taxa segue a regra (a equipe ainda não mexeu nela). */
+  taxaAuto: boolean;
+  /** Valor e quem alterou/tirou a taxa no orçamento de onde a OS veio. */
+  taxaDoOrcamento: number | null;
+  taxaEditadaPor: string | null;
+  taxaEditadaEm: string | null;
   vendedoraId: string;
   nome: string;
   telefone: string;
@@ -120,6 +129,11 @@ export function estadoInicial(opcoes: { hoje?: string; ehTeste?: boolean } = {})
     indicacaoNome: "",
     origemDetectadaId: "",
     origemDetectadaComo: "",
+    taxaRegra: null,
+    taxaAuto: true,
+    taxaDoOrcamento: null,
+    taxaEditadaPor: null,
+    taxaEditadaEm: null,
     vendedoraId: "",
     nome: "",
     telefone: "",
@@ -321,6 +335,7 @@ export function montarPayload(e: EstadoNovaOs, ctx: ContextoPayload): PayloadNov
     origem_detectada_id: e.origemDetectadaId || null,
     origem_detectada_como: e.origemDetectadaComo || null,
     indicacao_nome: e.origemCodigo === "indicacao" ? e.indicacaoNome.trim() || null : null,
+    ...taxaDaOs(e, ctx),
     salesperson_id: e.vendedoraId,
     total_gross_value: totalOS,
     os_value_text: e.valorTexto.trim() || null,
@@ -495,6 +510,10 @@ export function aplicarOrcamento(e: EstadoNovaOs, d: DadosVisitaOrcamento): Esta
 
 export type DadosCotacao = {
   cliente_nome: string;
+  acrescimo_distancia?: number | null;
+  acrescimo_distancia_regra?: number | null;
+  acrescimo_distancia_editado_por?: string | null;
+  acrescimo_distancia_editado_em?: string | null;
   sales_origin_id?: string | null;
   origem_detectada_id?: string | null;
   origem_detectada_como?: string | null;
@@ -568,7 +587,93 @@ export function aplicarCotacao(
       ),
     };
   }
+  // Taxa de deslocamento do orçamento: linha própria, com o valor que o cliente aceitou.
+  const taxa = Number(q.acrescimo_distancia ?? 0);
+  const regra =
+    q.acrescimo_distancia_regra === null || q.acrescimo_distancia_regra === undefined
+      ? null
+      : Number(q.acrescimo_distancia_regra);
+  if (taxa > 0 || regra !== null) {
+    r = {
+      ...comTaxa(r, taxa),
+      taxaRegra: regra ?? taxa,
+      taxaAuto: false,
+      taxaDoOrcamento: taxa,
+      taxaEditadaPor: q.acrescimo_distancia_editado_por ?? null,
+      taxaEditadaEm: q.acrescimo_distancia_editado_em ?? null,
+    };
+  }
   return r;
+}
+
+// ---------------------------------------------------------------- taxa de deslocamento
+/** Grupo fixo da linha "Taxa de deslocamento" (identifica a linha nos itens). */
+export const GRUPO_TAXA_DESLOCAMENTO = "0d15ca00-0000-4000-8000-000000000001";
+export const ehTaxaDeslocamento = (it: Pick<ItemForm, "item_group_id">) =>
+  it.item_group_id === GRUPO_TAXA_DESLOCAMENTO;
+
+/** Valor cobrado de taxa de deslocamento (as linhas da taxa). */
+export function valorDaTaxa(e: EstadoNovaOs): number {
+  const centavos = e.visitas
+    .flatMap((v) => v.items)
+    .filter(ehTaxaDeslocamento)
+    .reduce((s, it) => s + Math.round(parseNumberBR(it.unit_price) * qtdItem(it) * 100), 0);
+  return centavos / 100;
+}
+
+/** Soma dos itens sem a taxa (a base das faixas por valor). */
+export function somaSemTaxa(e: EstadoNovaOs): number {
+  const centavos = e.visitas
+    .flatMap((v) => v.items)
+    .filter((it) => !ehTaxaDeslocamento(it) && !it.adicional)
+    .reduce((s, it) => s + Math.round(parseNumberBR(it.unit_price) * qtdItem(it) * 100), 0);
+  return centavos / 100;
+}
+
+/** Põe (ou tira, com 0) a linha da taxa no 1º atendimento. */
+export function comTaxa(e: EstadoNovaOs, valor: number): EstadoNovaOs {
+  const semTaxa = e.visitas.map((v) => ({
+    ...v,
+    items: v.items.filter((it) => !ehTaxaDeslocamento(it)),
+  }));
+  const visitas =
+    valor > 0 && semTaxa.length
+      ? semTaxa.map((v, i) =>
+          i === 0
+            ? {
+                ...v,
+                items: [
+                  ...v.items,
+                  {
+                    upholstery_type_id: "",
+                    description: "Taxa de deslocamento",
+                    quantity: "1",
+                    unidade: "un" as const,
+                    unit_price: valor.toFixed(2).replace(".", ","),
+                    item_group_id: GRUPO_TAXA_DESLOCAMENTO,
+                  },
+                ],
+              }
+            : v,
+        )
+      : semTaxa;
+  return comNegociadoAtualizado({ ...e, visitas });
+}
+
+/** Campos da taxa na OS: a cobrada, a da regra e quem alterou/tirou (quando difere da regra). */
+export function taxaDaOs(e: EstadoNovaOs, ctx: { userId: string | null; agora: string }) {
+  const taxa = valorDaTaxa(e);
+  if (e.taxaRegra === null && taxa <= 0) return {};
+  const regra = e.taxaRegra;
+  const editada = regra === null ? taxa > 0 : Math.abs(taxa - regra) > 0.004;
+  const doOrcamento =
+    e.taxaDoOrcamento !== null && Math.abs(taxa - e.taxaDoOrcamento) <= 0.004 && e.taxaEditadaPor;
+  return {
+    taxa_deslocamento: taxa,
+    taxa_deslocamento_regra: regra,
+    taxa_deslocamento_editada_por: editada ? (doOrcamento ? e.taxaEditadaPor : ctx.userId) : null,
+    taxa_deslocamento_editada_em: editada ? (doOrcamento ? e.taxaEditadaEm : ctx.agora) : null,
+  };
 }
 
 /**

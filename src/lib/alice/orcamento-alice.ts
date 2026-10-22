@@ -89,13 +89,14 @@ export type Totais = {
 
 /**
  * Total: soma dos itens → um desconto (campanha OU indicação em %, ou cupom em reais, nunca
- * acima da base) → Pix e parcelas sobre o resultado.
+ * acima da base) → + taxa de deslocamento (fora do desconto) → Pix e parcelas sobre o resultado.
  */
 export function totalizar(
   linhas: LinhaOrcamento[],
   desconto: { pct: number; rotulo: string } | { valor: number; rotulo: string } | null,
   parcelasMax: number,
   pixPct: number,
+  taxaDeslocamento = 0,
 ): Totais {
   const soma = (ls: LinhaOrcamento[]) =>
     Math.round(ls.reduce((s, l) => s + l.preco * l.quantidade, 0) * 100) / 100;
@@ -115,6 +116,6 @@ export function totalizar(
           rotulo: desconto.rotulo,
           valor: Math.round(Math.min(Math.max(desconto.valor, 0), baseDesconto) * 100) / 100,
         };
-  const total = Math.round((bruto - (d?.valor ?? 0)) * 100) / 100;
+  const total = Math.round((bruto - (d?.valor ?? 0) + Math.max(taxaDeslocamento, 0)) * 100) / 100;
   return { bruto, desconto: d, cond: condicoesPagamento(total, parcelasMax, pixPct) };
 }

@@ -203,6 +203,8 @@ function OrcamentoDetalhe() {
   const [muitoSujo, setMuitoSujo] = useState(false);
   const [clienteNovo, setClienteNovo] = useState<boolean | null>(null);
   const [kmIda, setKmIda] = useState<number | null>(null);
+  /** Taxa de deslocamento posta pela equipe (0 = tirou); null = a da regra. */
+  const [taxaManual, setTaxaManual] = useState<number | null>(null);
   const [baseTecnico, setBaseTecnico] = useState<string | null>(null);
   const [cartaoEditado, setCartaoEditado] = useState<number | null>(null);
   const [pixEditado, setPixEditado] = useState<number | null>(null);
@@ -264,6 +266,7 @@ function OrcamentoDetalhe() {
       q.distancia_km === null || q.distancia_km === undefined ? null : Number(q.distancia_km),
     );
     setBaseTecnico(q.distancia_base ?? null);
+    setTaxaManual(q.acrescimo_distancia_editado_em ? Number(q.acrescimo_distancia ?? 0) : null);
     const vitrineSalva = q.valor_vitrine !== null && q.valor_vitrine !== undefined;
     setCartaoEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_cartao) : null);
     setPixEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_pix) : null);
@@ -448,9 +451,21 @@ function OrcamentoDetalhe() {
         desconto: descontoTipo === "manual" ? desconto : 0,
         descontoPct,
         clienteNovo: clienteNovo !== false,
+        taxaDistancia: taxaManual,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [linhas, sugestoes, regras, muitoSujo, kmIda, desconto, descontoTipo, descontoPct, clienteNovo],
+    [
+      linhas,
+      sugestoes,
+      regras,
+      muitoSujo,
+      kmIda,
+      desconto,
+      descontoTipo,
+      descontoPct,
+      clienteNovo,
+      taxaManual,
+    ],
   );
   const subtotal = totais.subtotalItens;
   const vitrine = totais.vitrine;
@@ -609,6 +624,7 @@ function OrcamentoDetalhe() {
           muito_sujo: muitoSujo,
           distancia_km: kmIda,
           distancia_base: baseTecnico,
+          acrescimo_distancia_manual: taxaManual,
           valor_cartao_editado: cartaoEditado,
           valor_pix_editado: pixEditado,
           items: validas.map((l) => {
@@ -1135,10 +1151,54 @@ function OrcamentoDetalhe() {
                     {kmIda === null ? "preencha o CEP do cliente" : `${decimal(kmIda, 1)} km`}
                   </strong>
                   {baseTecnico ? ` · base ${baseTecnico}` : ""}
-                  {totais.acrescimoDistancia > 0
-                    ? ` · +${pct(regras.distancia.pct)}% (+${brl(totais.acrescimoDistancia)})`
-                    : ""}
                 </p>
+                {totais.acrescimoDistanciaRegra > 0 || taxaManual !== null ? (
+                  <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-3">
+                    <div className="grid gap-1">
+                      <Label htmlFor="taxa-desl" className="text-xs">
+                        Taxa de deslocamento (linha na proposta)
+                      </Label>
+                      <MoneyInput
+                        id="taxa-desl"
+                        className="w-36"
+                        value={totais.acrescimoDistancia}
+                        onValueChange={(v) => setTaxaManual(v)}
+                      />
+                    </div>
+                    {totais.acrescimoDistancia > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => setTaxaManual(0)}
+                      >
+                        Tirar a taxa
+                      </Button>
+                    ) : null}
+                    {taxaManual !== null ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => setTaxaManual(null)}
+                      >
+                        Voltar à regra
+                      </Button>
+                    ) : null}
+                    <p className="w-full text-xs text-muted-foreground">
+                      Pela regra: {brl(totais.acrescimoDistanciaRegra)}
+                      {totais.distanciaPct > 0 ? ` (+${pct(totais.distanciaPct)}% dos itens)` : ""}
+                      {taxaManual !== null &&
+                      Math.abs(taxaManual - totais.acrescimoDistanciaRegra) > 0.004
+                        ? taxaManual === 0
+                          ? " · tirada pela equipe (fica registrado quem tirou)"
+                          : " · alterada pela equipe (fica registrado quem alterou)"
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
                 {totais.foraDaArea ? (
                   <p className="mt-1 rounded-md bg-atencao px-3 py-2 text-atencao-foreground">
                     Fora da área de atendimento (acima de{" "}

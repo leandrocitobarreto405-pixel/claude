@@ -6,6 +6,10 @@ import {
   aplicarOrcamento,
   comDeteccao,
   comNegociadoAtualizado,
+  comTaxa,
+  somaSemTaxa,
+  taxaDaOs,
+  valorDaTaxa,
   destinoDaNovaOs,
   ehAmbienteDeTeste,
   estadoInicial,
@@ -400,4 +404,23 @@ test("origem detectada preenche o campo vazio, não troca a escolhida e indicaç
     ),
     "Informe quem indicou.",
   );
+});
+
+test("taxa de deslocamento: linha própria na OS e registro de quem alterou ou tirou", () => {
+  const ctx = { userId: "u-maria", agora: AGORA };
+  const base = manual();
+  const comLinha = comTaxa({ ...base, taxaRegra: 70 }, 70);
+  assert.equal(valorDaTaxa(comLinha), 70);
+  assert.equal(somaSemTaxa(comLinha), somaSemTaxa(base));
+  assert.deepEqual(taxaDaOs(comLinha, ctx), {
+    taxa_deslocamento: 70,
+    taxa_deslocamento_regra: 70,
+    taxa_deslocamento_editada_por: null,
+    taxa_deslocamento_editada_em: null,
+  });
+  const tirada = comTaxa(comLinha, 0);
+  assert.equal(valorDaTaxa(tirada), 0);
+  assert.equal(taxaDaOs(tirada, ctx).taxa_deslocamento_editada_por, "u-maria");
+  // Sem regra e sem taxa: nada muda na OS.
+  assert.deepEqual(taxaDaOs(base, ctx), {});
 });

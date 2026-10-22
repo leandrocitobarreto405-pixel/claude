@@ -2,7 +2,12 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { REGRAS_DESLIGADAS, regrasDaLinha, type RegrasOrcamento } from "@/lib/orcamento-regras";
+import {
+  REGRAS_DESLIGADAS,
+  regrasDaLinha,
+  type FaixaValor,
+  type RegrasOrcamento,
+} from "@/lib/orcamento-regras";
 import { useContextoTenant } from "@/lib/tenant";
 
 export type LinhaConfigOrcamento = {
@@ -16,6 +21,8 @@ export type LinhaConfigOrcamento = {
   distancia_sem_acrescimo_km: number | null;
   distancia_limite_km: number | null;
   distancia_pct: number;
+  /** Faixas por valor do serviço (vazio: vale o % fixo). */
+  distancia_faixas: FaixaValor[] | null;
   vitrine_ligada: boolean;
   boas_vindas_pct: number;
   pix_pct: number;
@@ -40,6 +47,7 @@ export const CONFIG_PADRAO: LinhaConfigOrcamento = {
   distancia_sem_acrescimo_km: null,
   distancia_limite_km: null,
   distancia_pct: 10,
+  distancia_faixas: null,
   vitrine_ligada: false,
   boas_vindas_pct: 20,
   pix_pct: 10,

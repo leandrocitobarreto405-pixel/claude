@@ -716,6 +716,8 @@ export type PropostaOrcamento = {
   status: string;
   updated_at: string;
   proposta_documento_id: string | null;
+  /** Taxa de deslocamento: entra como uma linha própria na proposta (não escondida no preço). */
+  acrescimo_distancia?: number | null;
 };
 
 export type PropostaItem = {
@@ -773,6 +775,25 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
       })),
     });
   }
+  const taxa = Math.round(Number(q.acrescimo_distancia ?? 0) * 100) / 100;
+  const primeira = visits[0];
+  if (taxa > 0 && primeira) {
+    primeira.visit_value = Number(primeira.visit_value ?? 0) + taxa;
+    primeira.service_items = [
+      ...(primeira.service_items ?? []),
+      {
+        description: "Taxa de deslocamento",
+        quantity: 1,
+        unidade: "un",
+        unit_price: taxa,
+        subtotal: taxa,
+        item_group_id: "taxa-deslocamento",
+        display_order: 9999,
+        active: true,
+        upholstery_type: null,
+      },
+    ];
+  }
   return {
     id: q.id,
     os_number: "Proposta",
@@ -817,7 +838,7 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
     db
       .from("quotes")
       .select(
-        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom, numero",
+        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom, numero, acrescimo_distancia",
       )
       .eq("id", quoteId)
       .maybeSingle(),
@@ -905,7 +926,7 @@ export async function generateProposal(quoteId: string) {
   const { data: q } = await db
     .from("quotes")
     .select(
-      "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id",
+      "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, acrescimo_distancia",
     )
     .eq("id", quoteId)
     .maybeSingle();

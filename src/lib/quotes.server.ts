@@ -70,6 +70,8 @@ export type QuoteInput = {
   muito_sujo?: boolean;
   distancia_km?: number | null;
   distancia_base?: string | null;
+  /** Taxa de deslocamento posta pela equipe (0 = tirou). Omitida ou null: a da regra. */
+  acrescimo_distancia_manual?: number | null;
   /** Valores finais da vitrine editados pela atendente (sem isso, os calculados). */
   valor_cartao_editado?: number | null;
   valor_pix_editado?: number | null;
@@ -315,8 +317,16 @@ export function computeQuote(
         desconto: Number(input.desconto) || 0,
         descontoPct: descontoPct,
         clienteNovo: input.cliente_novo !== false,
+        taxaDistancia:
+          input.acrescimo_distancia_manual === null ||
+          input.acrescimo_distancia_manual === undefined
+            ? null
+            : Number(input.acrescimo_distancia_manual),
       })
     : null;
+  // A equipe alterou ou tirou a taxa de deslocamento da regra: grava quem e quando.
+  const taxaEditada =
+    totais !== null && Math.abs(totais.acrescimoDistancia - totais.acrescimoDistanciaRegra) > 0.004;
   const desconto = totais
     ? totais.desconto
     : Math.min(
@@ -389,6 +399,9 @@ export function computeQuote(
           : round(Number(input.distancia_km)),
       distancia_base: input.distancia_base?.trim() || null,
       acrescimo_distancia: totais?.acrescimoDistancia ?? 0,
+      acrescimo_distancia_regra: totais ? totais.acrescimoDistanciaRegra : null,
+      acrescimo_distancia_editado_por: taxaEditada ? (params.userId ?? null) : null,
+      acrescimo_distancia_editado_em: taxaEditada ? new Date().toISOString() : null,
       fora_da_area: totais?.foraDaArea ?? false,
       minimo_aplicado: totais?.minimoAplicado ?? 0,
       valor_vitrine: vitrine?.vitrine ?? null,

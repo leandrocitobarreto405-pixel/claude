@@ -91,6 +91,23 @@ export function PassoVenda({ n, ehAdmin }: { n: NovaOs; ehAdmin: boolean }) {
       </Secao>
 
       <Secao titulo="Valores">
+        {n.taxaInfo || e.taxaRegra !== null ? (
+          <p
+            className={
+              n.taxaInfo?.foraDaArea
+                ? "rounded-md bg-atencao px-3 py-2 text-sm text-atencao-foreground"
+                : "text-xs text-muted-foreground"
+            }
+          >
+            {n.taxaInfo?.foraDaArea
+              ? `Fora da área de atendimento (${n.taxaInfo.km ?? "?"} km; limite ${n.taxaInfo.limiteKm ?? "—"} km). Confirme com a equipe.`
+              : `Taxa de deslocamento pela regra: ${brl(e.taxaRegra ?? 0)}${
+                  n.taxaInfo?.km !== null && n.taxaInfo?.km !== undefined
+                    ? ` (${n.taxaInfo.km} km da base${n.taxaInfo.pct ? `, +${n.taxaInfo.pct}% dos itens` : ""})`
+                    : ""
+                }. Vai como a linha "Taxa de deslocamento" no 1º atendimento; se alterar ou tirar, fica registrado.`}
+          </p>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-bold">Soma dos itens</span>

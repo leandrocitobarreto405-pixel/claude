@@ -93,6 +93,11 @@ export type WorkOrderInput = {
   origem_detectada_id?: string | null;
   origem_detectada_como?: string | null;
   indicacao_nome?: string | null;
+  /** Taxa de deslocamento (linha da OS), a da regra e quem alterou ou tirou. */
+  taxa_deslocamento?: number;
+  taxa_deslocamento_regra?: number | null;
+  taxa_deslocamento_editada_por?: string | null;
+  taxa_deslocamento_editada_em?: string | null;
 };
 
 export async function osNumberExists(osNumber: string): Promise<boolean> {
@@ -278,6 +283,14 @@ function orderPayload(order: WorkOrderInput, itemsSum: number) {
         }
       : {}),
     ...(order.indicacao_nome !== undefined ? { indicacao_nome: order.indicacao_nome } : {}),
+    ...(order.taxa_deslocamento !== undefined
+      ? {
+          taxa_deslocamento: order.taxa_deslocamento,
+          taxa_deslocamento_regra: order.taxa_deslocamento_regra ?? null,
+          taxa_deslocamento_editada_por: order.taxa_deslocamento_editada_por ?? null,
+          taxa_deslocamento_editada_em: order.taxa_deslocamento_editada_em ?? null,
+        }
+      : {}),
   };
 }
 

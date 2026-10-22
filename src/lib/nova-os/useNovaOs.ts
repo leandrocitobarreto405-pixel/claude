@@ -20,11 +20,18 @@ import { generateOsDocument, situacaoDocumentosFn } from "@/lib/os-docs.function
 import { fetchDireto } from "@/lib/enderecos";
 import { useSession } from "@/lib/session";
 import { codigoDaOrigem, lerDeteccao } from "@/lib/origem-venda";
+import { useConfigOrcamento } from "@/lib/orcamento-config";
+import { taxaDeslocamento } from "@/lib/orcamento-regras";
+import { estimarKmPorCep } from "@/lib/quotes.functions";
 import {
   aplicarCotacao,
   aplicarLead,
   aplicarOrcamento,
   comDeteccao,
+  comTaxa,
+  ehTaxaDeslocamento,
+  somaSemTaxa,
+  valorDaTaxa,
   comNegociadoAtualizado,
   comissaoPrevista,
   diferencaDoNegociado,
@@ -89,6 +96,10 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   /** Lead do orçamento que virou esta OS (para detectar a origem pela conversa). */
   const [leadDaCotacao, setLeadDaCotacao] = useState<string | null>(null);
   const [buscandoOrigem, setBuscandoOrigem] = useState(false);
+  // Taxa de deslocamento na OS feita direto: distância (só a ida) pelo CEP do cliente.
+  const { regras: regrasOrc } = useConfigOrcamento();
+  const estimarKm = useServerFn(estimarKmPorCep);
+  const [kmTaxa, setKmTaxa] = useState<{ cep: string; km: number | null } | null>(null);
   const [prefillPronto, setPrefillPronto] = useState(false);
   const [vendedoraAplicada, setVendedoraAplicada] = useState(false);
   const [criada, setCriada] = useState<OsCriada | null>(null);
@@ -106,6 +117,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     setCriada(null);
     setPrefillPronto(false);
     setLeadDaCotacao(null);
+    setKmTaxa(null);
     setVendedoraAplicada(false);
     setSessao((n) => n + 1);
   }, [ambienteDeTeste]);
@@ -266,6 +278,8 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     setEstado((prev) =>
       comNegociadoAtualizado({
         ...prev,
+        // Mexeu na linha da taxa: ela deixa de seguir a regra (a troca fica registrada na OS).
+        taxaAuto: ehDaTaxa(prev, i, j) ? false : prev.taxaAuto,
         visitas: prev.visitas.map((v, idx) =>
           idx === i
             ? { ...v, items: v.items.map((it, k) => (k === j ? { ...it, ...patch } : it)) }
@@ -297,6 +311,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     setEstado((prev) =>
       comNegociadoAtualizado({
         ...prev,
+        taxaAuto: ehDaTaxa(prev, i, j) ? false : prev.taxaAuto,
         visitas: prev.visitas.map((v, idx) =>
           idx === i ? { ...v, items: v.items.filter((_, k) => k !== j) } : v,
         ),
@@ -519,6 +534,36 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     }
   }
 
+  const cepTaxa = onlyDigits(estado.cep);
+  const distanciaLigada = regrasOrc.distancia.ligado;
+  useEffect(() => {
+    if (!aberta || !distanciaLigada || cotacaoId || cepTaxa.length !== 8) return;
+    if (kmTaxa?.cep === cepTaxa) return;
+    let ativo = true;
+    estimarKm({ data: { cep: cepTaxa } })
+      .then((r) => {
+        if (!ativo) return;
+        const km = r.kmIda ?? (r.km ? Math.round((r.km / 2) * 10) / 10 : null);
+        setKmTaxa({ cep: cepTaxa, km });
+      })
+      .catch(() => ativo && setKmTaxa({ cep: cepTaxa, km: null }));
+    return () => {
+      ativo = false;
+    };
+  }, [aberta, distanciaLigada, cotacaoId, cepTaxa, kmTaxa?.cep, estimarKm]);
+  const baseTaxa = somaSemTaxa(estado);
+  const taxaPelaRegra = kmTaxa ? taxaDeslocamento(kmTaxa.km, regrasOrc.distancia, baseTaxa) : null;
+  useEffect(() => {
+    if (!estado.taxaAuto || !taxaPelaRegra) return;
+    const atual = valorDaTaxa(estado);
+    if (estado.taxaRegra === taxaPelaRegra.valor && Math.abs(atual - taxaPelaRegra.valor) <= 0.004)
+      return;
+    setEstado((prev) => ({
+      ...comTaxa(prev, taxaPelaRegra.valor),
+      taxaRegra: taxaPelaRegra.valor,
+    }));
+  }, [estado, taxaPelaRegra]);
+
   // Origem detectada pela conversa/lead (ou pelo telefone, na OS criada direto): preenche o campo
   // quando ele está vazio; a escolha diferente fica registrada pelo banco.
   const codigoDe = useCallback((id: string) => codigoDaOrigem(origens ?? [], id), [origens]);
@@ -568,6 +613,15 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     ambienteDeTeste,
     carregandoOrigem,
     buscandoOrigem,
+    taxaInfo: kmTaxa
+      ? {
+          km: kmTaxa.km,
+          regra: taxaPelaRegra?.valor ?? 0,
+          pct: taxaPelaRegra?.pct ?? 0,
+          foraDaArea: taxaPelaRegra?.foraDaArea ?? false,
+          limiteKm: regrasOrc.distancia.limiteKm,
+        }
+      : null,
     listas: {
       origens: origens ?? [],
       servicos: listaServicos,
@@ -608,3 +662,9 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
 }
 
 export type NovaOs = ReturnType<typeof useNovaOs>;
+
+/** O item (atendimento i, item j) é a linha da taxa de deslocamento? */
+function ehDaTaxa(e: EstadoNovaOs, i: number, j: number) {
+  const it = e.visitas[i]?.items[j];
+  return Boolean(it && ehTaxaDeslocamento(it));
+}
