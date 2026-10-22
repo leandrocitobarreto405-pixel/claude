@@ -156,7 +156,8 @@ function respostaDeEnsaio(c: Cenario, nome: string): string {
     case "criar_orcamento":
       return "Orçamento criado (ensaio): Sofá retrátil 3 lugares — higienização R$ 389,90. Total R$ 389,90; cartão 10x de R$ 38,99; Pix R$ 370,41; válido por 7 dias.";
     case "transferir_para_humano":
-      return "Transferido para a equipe (ensaio).";
+      // Mesmo texto da ferramenta de verdade: a Alice ainda escreve a última mensagem.
+      return "Transferência registrada: a equipe assume depois desta resposta. Se as instruções pedirem, avise o cliente numa frase curta; senão, não escreva nada.";
     default:
       return "Ok (ensaio).";
   }
@@ -251,7 +252,7 @@ export async function rodarEnsaioNome(db: Db, empresaId: string): Promise<Result
         ];
         const resposta: string[] = [];
         const usadas: Array<{ nome: string; entrada: unknown }> = [];
-        for (let rodada = 0; rodada < 4; rodada++) {
+        for (let rodada = 0; rodada < 5; rodada++) {
           const r = await cliente.beta.messages.create({
             model: cfg.modelo,
             max_tokens: 8000,
@@ -285,7 +286,6 @@ export async function rodarEnsaioNome(db: Db, empresaId: string): Promise<Result
             });
           }
           mensagens.push({ role: "user", content: resultados });
-          if (chamadas.some((ch) => ch.name === "transferir_para_humano")) break;
         }
         const texto = resposta.join("\n\n");
         return {
