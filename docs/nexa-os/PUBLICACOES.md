@@ -493,6 +493,15 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
    WHERE h.work_order_id = w.id AND h.details->>'motivo' = 'correção aprovada em 22/10/2026';
   ```
 
+- "Taxa de deslocamento" (`20261202120000`, pedida em 22/10): só acrescenta
+  `orcamento_configuracoes.distancia_faixas` (faixas por valor dos itens), em `quotes`
+  `acrescimo_distancia_regra` / `_editado_por` / `_editado_em` e em `work_orders`
+  `taxa_deslocamento`, `_regra`, `_editada_por` / `_em`. Nada liga sozinho: a Turbine continua
+  com `distancia_ligado = false` até o ok.
+  Como desfazer: `git revert ea6d4e6` (sem force push). Para desligar só a taxa:
+  `UPDATE public.orcamento_configuracoes SET distancia_ligado = false WHERE empresa_id = <Turbine>;`.
+  As colunas novas podem ficar (o app anterior ignora).
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -617,6 +626,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Alice: regra do nome ligada (nome confirmado em OS, orçamento etc.) | `5f363c2`           | `e4c5b9c`                |
 | 22/10/2026       | Descadastro de marketing: pedido do cliente, interruptor, listas    | `a70d30f`           | `bf584de`                |
 | 22/10/2026       | Origem automática no orçamento e na OS; troca registrada            | `69e414a`           | `b21f336`                |
+| 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)           | `ea6d4e6`           | `3270e60`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
