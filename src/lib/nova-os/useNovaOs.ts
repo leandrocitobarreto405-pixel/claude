@@ -99,7 +99,8 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   // Taxa de deslocamento na OS feita direto: distância (só a ida) pelo CEP do cliente.
   const { regras: regrasOrc } = useConfigOrcamento();
   const estimarKm = useServerFn(estimarKmPorCep);
-  const [kmTaxa, setKmTaxa] = useState<{ cep: string; km: number | null } | null>(null);
+  /** Distância da taxa: `chave` = "cep|data do 1º atendimento" do último cálculo. */
+  const [kmTaxa, setKmTaxa] = useState<{ chave: string; km: number | null } | null>(null);
   const [prefillPronto, setPrefillPronto] = useState(false);
   const [vendedoraAplicada, setVendedoraAplicada] = useState(false);
   const [criada, setCriada] = useState<OsCriada | null>(null);
@@ -535,22 +536,25 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   }
 
   const cepTaxa = onlyDigits(estado.cep);
+  // O técnico mais perto entre os que trabalham no dia do 1º atendimento.
+  const dataTaxa = estado.visitas[0]?.scheduled_date ?? "";
+  const chaveTaxa = `${cepTaxa}|${dataTaxa}`;
   const distanciaLigada = regrasOrc.distancia.ligado;
   useEffect(() => {
     if (!aberta || !distanciaLigada || cotacaoId || cepTaxa.length !== 8) return;
-    if (kmTaxa?.cep === cepTaxa) return;
+    if (kmTaxa?.chave === chaveTaxa) return;
     let ativo = true;
-    estimarKm({ data: { cep: cepTaxa } })
+    estimarKm({ data: { cep: cepTaxa, data: dataTaxa || null } })
       .then((r) => {
         if (!ativo) return;
         const km = r.kmIda ?? (r.km ? Math.round((r.km / 2) * 10) / 10 : null);
-        setKmTaxa({ cep: cepTaxa, km });
+        setKmTaxa({ chave: chaveTaxa, km });
       })
-      .catch(() => ativo && setKmTaxa({ cep: cepTaxa, km: null }));
+      .catch(() => ativo && setKmTaxa({ chave: chaveTaxa, km: null }));
     return () => {
       ativo = false;
     };
-  }, [aberta, distanciaLigada, cotacaoId, cepTaxa, kmTaxa?.cep, estimarKm]);
+  }, [aberta, distanciaLigada, cotacaoId, cepTaxa, dataTaxa, chaveTaxa, kmTaxa?.chave, estimarKm]);
   const baseTaxa = somaSemTaxa(estado);
   const taxaPelaRegra = kmTaxa ? taxaDeslocamento(kmTaxa.km, regrasOrc.distancia, baseTaxa) : null;
   useEffect(() => {

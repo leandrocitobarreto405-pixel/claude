@@ -210,6 +210,7 @@ function OrcamentoDetalhe() {
   const [buscandoKm, setBuscandoKm] = useState(false);
   const [avisoKm, setAvisoKm] = useState<string | null>(null);
   const [metodoKm, setMetodoKm] = useState<"ruas" | "linha_reta" | null>(null);
+  /** CEP e data do serviço do último cálculo de distância ("cep|data"). */
   const [cepCalculado, setCepCalculado] = useState("");
   const [lead, setLead] = useState<{ id: string; lead_name: string | null } | null>(null);
   // Origem da venda: vem da detecção (conversa/lead/telefone) e a Maria pode trocar.
@@ -274,7 +275,7 @@ function OrcamentoDetalhe() {
     setCustoMaoObra(Number(q.custo_mao_obra ?? 0));
     setParcelas(q.forma_pagamento === "Maquininha" ? Number(q.parcelas ?? 1) : 0);
     setPreencherAgenda(Boolean(q.preencher_agenda));
-    setCepCalculado(q.cliente_cep ?? "");
+    setCepCalculado(`${q.cliente_cep ?? ""}|${q.data_servico ?? ""}`);
     setStatus(q.status);
     setLead(q.lead ?? null);
     setOrigem({
@@ -589,12 +590,14 @@ function OrcamentoDetalhe() {
     const digitos = onlyDigits(cep);
     if (digitos.length !== 8) return;
     if (buscandoKm) return;
-    if (!forcar && digitos === cepCalculado) return;
+    const chave = `${digitos}|${dataServico}`;
+    if (!forcar && chave === cepCalculado) return;
     setBuscandoKm(true);
     setAvisoKm(null);
     try {
-      const r = await estimarKm({ data: { cep: digitos } });
-      setCepCalculado(digitos);
+      // Com dia escolhido: o técnico mais perto entre os que trabalham nesse dia.
+      const r = await estimarKm({ data: { cep: digitos, data: dataServico || null } });
+      setCepCalculado(chave);
       if (r.endereco && !endereco.trim()) setEndereco(r.endereco);
       if (r.km !== null) {
         setKm(r.km);
@@ -611,14 +614,14 @@ function OrcamentoDetalhe() {
     }
   }
 
-  // Calcula o deslocamento assim que o CEP fica completo, sem depender de sair do campo.
+  // Calcula o deslocamento assim que o CEP fica completo (ou o dia muda), sem sair do campo.
   useEffect(() => {
     const digitos = onlyDigits(cep);
-    if (digitos.length !== 8 || digitos === cepCalculado) return;
+    if (digitos.length !== 8 || `${digitos}|${dataServico}` === cepCalculado) return;
     const t = setTimeout(() => void buscarKm(), 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cep, cepCalculado]);
+  }, [cep, dataServico, cepCalculado]);
 
   async function gravar(novoStatus?: QuoteStatus) {
     if (!nome.trim()) {

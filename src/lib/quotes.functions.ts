@@ -27,10 +27,14 @@ export const duplicarOrcamento = createServerFn({ method: "POST" })
 
 export const estimarKmPorCep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { cep: string }) => ({ cep: String(input.cep ?? "") }))
+  .inputValidator((input: { cep: string; data?: string | null }) => ({
+    cep: String(input.cep ?? ""),
+    data: /^\d{4}-\d{2}-\d{2}$/.test(String(input.data ?? "")) ? String(input.data) : null,
+  }))
   .handler(async ({ data, context }) => {
     const { estimateKmByCep } = await import("./quotes.server");
-    return estimateKmByCep(context.supabase, data.cep);
+    // Com data do serviço: o técnico mais perto entre os que trabalham naquele dia.
+    return estimateKmByCep(context.supabase, data.cep, undefined, { data: data.data });
   });
 
 export const custoFixoPorServico = createServerFn({ method: "GET" })

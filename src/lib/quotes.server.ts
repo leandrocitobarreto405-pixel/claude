@@ -766,11 +766,39 @@ export async function coordenadasDoCep(cepRaw: string): Promise<Coords | null> {
   return geocodeParts(parts);
 }
 
-/** Estima o km de ida e volta entre a base do técnico e o CEP do cliente. */
+/** Dia da semana (0 = domingo) de uma data AAAA-MM-DD; null se não for data. */
+export function diaDaSemana(data: string | null | undefined): number | null {
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return null;
+  const d = new Date(`${data}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d.getUTCDay();
+}
+
+/**
+ * Técnicos que entram na conta da distância: com data, os que trabalham naquele dia da semana
+ * (horários-base da Agenda); sem data, ou se ninguém trabalha naquele dia, todos.
+ */
+export function tecnicosDaBase<T extends { id: string }>(
+  tecnicos: T[],
+  horarios: Array<{ tecnico_id: string; dia_semana: number }>,
+  data: string | null | undefined,
+): { lista: T[]; doDia: boolean } {
+  const dia = diaDaSemana(data);
+  if (dia === null) return { lista: tecnicos, doDia: false };
+  const trabalham = new Set(horarios.filter((h) => h.dia_semana === dia).map((h) => h.tecnico_id));
+  const doDia = tecnicos.filter((t) => trabalham.has(t.id));
+  return doDia.length ? { lista: doDia, doDia: true } : { lista: tecnicos, doDia: false };
+}
+
+/**
+ * Estima o km de ida e volta entre a base do técnico e o CEP do cliente. A base é a do técnico
+ * mais perto do cliente (pelas ruas) entre os que trabalham na data do serviço; sem data, entre
+ * todos. Parceiro terceirizado não entra.
+ */
 export async function estimateKmByCep(
   db: DB,
   cepRaw: string,
   empresaId?: string,
+  opcoes: { data?: string | null } = {},
 ): Promise<CepEstimate> {
   const cep = cepRaw.replace(/\D/g, "");
   if (cep.length !== 8) {
@@ -789,51 +817,69 @@ export async function estimateKmByCep(
     };
   }
 
-  const { data: tecnicos } = await daEmpresa(
-    db
-      .from("technicians")
-      .select("name, base_address, base_latitude, base_longitude")
-      .eq("active", true),
-    empresaId,
-  )
-    .order("display_order")
-    .limit(10);
+  const [{ data: tecnicos }, { data: horarios }] = await Promise.all([
+    daEmpresa(
+      db
+        .from("technicians")
+        .select("id, name, base_address, base_latitude, base_longitude, parceiro")
+        .eq("active", true),
+      empresaId,
+    )
+      .order("display_order")
+      .limit(20),
+    diaDaSemana(opcoes.data) === null
+      ? Promise.resolve({ data: [] as Array<{ tecnico_id: string; dia_semana: number }> })
+      : daEmpresa(db.from("agenda_horarios_base").select("tecnico_id, dia_semana"), empresaId),
+  ]);
 
-  // Base do técnico mais próximo do cliente (em linha reta); depois a rota pelas ruas.
-  let maisPerto: { nome: string; coords: Coords; reta: number } | null = null;
-  for (const raw of tecnicos ?? []) {
-    const t = raw as unknown as {
-      name: string;
-      base_address: string | null;
-      base_latitude: number | null;
-      base_longitude: number | null;
-    };
+  type Tecnico = {
+    id: string;
+    name: string;
+    base_address: string | null;
+    base_latitude: number | null;
+    base_longitude: number | null;
+    parceiro: boolean | null;
+  };
+  const comBase: Array<{ id: string; nome: string; coords: Coords; reta: number }> = [];
+  for (const t of (tecnicos ?? []) as unknown as Tecnico[]) {
+    if (t.parceiro) continue;
     let base: Coords | null =
       t.base_latitude !== null && t.base_longitude !== null
         ? { lat: Number(t.base_latitude), lon: Number(t.base_longitude) }
         : null;
     if (!base && t.base_address) base = await geocodeParts({ full_address: t.base_address });
     if (!base) continue;
-    const reta = haversine(base, destino);
-    if (!maisPerto || reta < maisPerto.reta) maisPerto = { nome: t.name, coords: base, reta };
+    comBase.push({ id: t.id, nome: t.name, coords: base, reta: haversine(base, destino) });
   }
-  if (maisPerto) {
-    // Pelas ruas: base → cliente → base. Sem resposta do roteador, linha reta × 2.
+  const { lista } = tecnicosDaBase(
+    comBase,
+    (horarios ?? []) as unknown as Array<{ tecnico_id: string; dia_semana: number }>,
+    opcoes.data,
+  );
+
+  // Os 3 mais perto em linha reta; entre eles, o mais perto pelas ruas (base → cliente → base).
+  // Sem resposta do roteador, linha reta × 2.
+  const candidatos = [...lista].sort((a, b) => a.reta - b.reta).slice(0, 3);
+  let melhor: { nome: string; km: number; ruas: boolean } | null = null;
+  for (const c of candidatos) {
     const rota = await drivingRoute([
-      { label: maisPerto.nome, coords: maisPerto.coords },
+      { label: c.nome, coords: c.coords },
       { label: "Cliente", coords: destino },
-      { label: maisPerto.nome, coords: maisPerto.coords },
+      { label: c.nome, coords: c.coords },
     ]);
-    const pelasRuas = rota && rota.totalKm > 0;
-    const km = pelasRuas ? rota.totalKm : Math.round(maisPerto.reta * 2 * 10) / 10;
+    const pelasRuas = Boolean(rota && rota.totalKm > 0);
+    const km = pelasRuas && rota ? rota.totalKm : Math.round(c.reta * 2 * 10) / 10;
+    if (!melhor || km < melhor.km) melhor = { nome: c.nome, km, ruas: pelasRuas };
+  }
+  if (melhor) {
     return {
       cep,
       endereco,
-      km,
-      kmIda: Math.round((km / 2) * 10) / 10,
-      base: maisPerto.nome,
+      km: melhor.km,
+      kmIda: Math.round((melhor.km / 2) * 10) / 10,
+      base: melhor.nome,
       aviso: null,
-      metodo: pelasRuas ? "ruas" : "linha_reta",
+      metodo: melhor.ruas ? "ruas" : "linha_reta",
     };
   }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeQuote, type QuoteInput } from "./quotes.server";
+import { computeQuote, diaDaSemana, tecnicosDaBase, type QuoteInput } from "./quotes.server";
 import { REGRAS_DESLIGADAS, type RegrasOrcamento } from "./orcamento-regras";
 
 const params = { custoKm: 0, impostoPct: 0, custoFixoPorServico: 0, agora: "2026-10-08T12:00:00Z" };
@@ -293,4 +293,26 @@ test("orçamento enviado mantém a taxa de deslocamento do envio até a equipe p
     { ...params, regras: turbine, userId: "carol", taxaSalva: editada },
   );
   assert.equal(outra.regrasAplicadas.acrescimo_distancia_editado_por, "carol");
+});
+
+test("base da distância: técnico que trabalha no dia do serviço; sem data, todos", () => {
+  const tecnicos = [{ id: "josue" }, { id: "ana" }];
+  // Josué de segunda a sábado; Ana só às terças.
+  const horarios = [
+    ...[1, 2, 3, 4, 5, 6].map((d) => ({ tecnico_id: "josue", dia_semana: d })),
+    { tecnico_id: "ana", dia_semana: 2 },
+  ];
+  assert.equal(diaDaSemana("2026-10-27"), 2); // terça
+  assert.equal(diaDaSemana("2026-10-25"), 0); // domingo
+  assert.deepEqual(tecnicosDaBase(tecnicos, horarios, "2026-10-27").lista, tecnicos);
+  assert.deepEqual(tecnicosDaBase(tecnicos, horarios, "2026-10-28"), {
+    lista: [{ id: "josue" }],
+    doDia: true,
+  });
+  // Sem data: todos. Ninguém trabalha no domingo: todos também.
+  assert.deepEqual(tecnicosDaBase(tecnicos, horarios, null), { lista: tecnicos, doDia: false });
+  assert.deepEqual(tecnicosDaBase(tecnicos, horarios, "2026-10-25"), {
+    lista: tecnicos,
+    doDia: false,
+  });
 });
