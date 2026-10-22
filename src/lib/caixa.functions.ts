@@ -160,6 +160,8 @@ export type EstadoResposta = {
   janela: Janela;
   situacao: ReturnType<typeof situacaoParaResponder>;
   podeResponder: boolean;
+  /** Primeiro nome do cliente para as respostas prontas ({nome}); null sem nome confiável. */
+  nomeCliente: string | null;
 };
 
 /** O que a barra de resposta mostra: janela aberta (texto) ou fechada (modelos), e se pode. */
@@ -171,7 +173,7 @@ export const estadoRespostaFn = createServerFn({ method: "GET" })
     const papel = await papelDe(ctx);
     const { data: conv } = await ctx.supabase
       .from("conversas")
-      .select("id, status")
+      .select("id, status, nome_confirmado, contato:whatsapp_contact_id ( nome_confirmado )")
       .eq("id", data.conversaId)
       .eq("empresa_id", ctx.empresaId)
       .maybeSingle();
@@ -189,6 +191,11 @@ export const estadoRespostaFn = createServerFn({ method: "GET" })
       janela: janelaDeResposta(ultima?.message_timestamp ?? null),
       situacao: situacaoParaResponder(conv.status),
       podeResponder: podeResponder(papel),
+      // Só o nome confirmado (o do perfil pode não ser nome de pessoa).
+      nomeCliente: primeiroNomeDoContato(
+        conv.nome_confirmado ||
+          (conv.contato as { nome_confirmado: string | null } | null)?.nome_confirmado,
+      ),
     };
   });
 

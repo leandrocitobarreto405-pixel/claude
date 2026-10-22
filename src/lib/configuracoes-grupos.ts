@@ -44,9 +44,9 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "mensagens",
     rotulo: "Mensagens",
-    descricao: "Modelos de mensagem · Mensagem padrão",
+    descricao: "Modelos de mensagem · Respostas prontas · Mensagem padrão",
     icone: MessageSquareText,
-    itens: ["Modelos de mensagem", "Mensagem padrão"],
+    itens: ["Modelos de mensagem", "Respostas prontas", "Mensagem padrão"],
   },
   {
     id: "documentos",
