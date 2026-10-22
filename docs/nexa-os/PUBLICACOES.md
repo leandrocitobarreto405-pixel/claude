@@ -523,6 +523,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 21/10/2026       | Digitando…: tentativas com a resposta da Meta em Configurações     | `7b53ee8`           | `7d892a3`                |
 | 21/10/2026       | Push na hora da passagem da Alice para a equipe                    | `45b811d`           | `7b53ee8`                |
 | 21/10/2026       | Alice: regra do nome (desligada) e ensaio de 5 conversas           | `61fe673`           | `2191f6c`                |
+| 22/10/2026       | Ensaio do nome em Configurações; doc da fase D                     | `2b60b02`           | `1cf51de`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
