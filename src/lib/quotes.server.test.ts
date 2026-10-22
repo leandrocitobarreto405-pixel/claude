@@ -227,3 +227,70 @@ test("adicional pós-fechamento: sem classe/acréscimos e fora do desconto de ca
   assert.equal(r.desconto, 46.5);
   assert.equal(r.total, 463.4);
 });
+
+test("orçamento enviado mantém a taxa de deslocamento do envio até a equipe pedir para recalcular", () => {
+  const turbine: RegrasOrcamento = {
+    ...REGRAS_DESLIGADAS,
+    distancia: {
+      ligado: true,
+      semAcrescimoKm: 20,
+      limiteKm: 35,
+      pct: 10,
+      faixas: [
+        { ate: 500, pct: 20 },
+        { ate: 1000, pct: 10 },
+        { ate: null, pct: 0 },
+      ],
+    },
+  };
+  const colchao = entrada({ distancia_km: 28.1, status: "enviado" });
+  colchao.items = [
+    { ...colchao.items[1]!, preco_tabela: 249.9, preco_aplicado: 249.9, preco_sugerido: 249.9 },
+  ];
+  const antigo = { valor: 0, regra: null, editadoPor: null, editadoEm: null, manter: true };
+
+  // Enviado antes da regra (R$ 0): salvar de novo não põe a taxa.
+  const mantido = computeQuote(colchao, {
+    ...params,
+    regras: turbine,
+    userId: "u1",
+    taxaSalva: antigo,
+  });
+  assert.equal(mantido.regrasAplicadas.acrescimo_distancia, 0);
+  assert.equal(mantido.total, 249.9);
+  assert.equal(mantido.regrasAplicadas.acrescimo_distancia_regra, null);
+  assert.equal(mantido.regrasAplicadas.acrescimo_distancia_editado_por, null);
+
+  // A equipe pediu para recalcular: vale a regra (+20%).
+  const novo = computeQuote(colchao, {
+    ...params,
+    regras: turbine,
+    userId: "u1",
+    taxaSalva: { ...antigo, manter: false },
+  });
+  assert.equal(novo.regrasAplicadas.acrescimo_distancia, 49.98);
+  assert.equal(novo.total, 299.88);
+  assert.equal(novo.regrasAplicadas.acrescimo_distancia_editado_por, null);
+
+  // Taxa alterada pela Maria e salva de novo sem mudar: continua com quem alterou e quando.
+  const editada = {
+    valor: 30,
+    regra: 49.98,
+    editadoPor: "maria",
+    editadoEm: "2026-10-20T10:00:00Z",
+    manter: true,
+  };
+  const deNovo = computeQuote(
+    { ...colchao, acrescimo_distancia_manual: 30 },
+    { ...params, regras: turbine, userId: "carol", taxaSalva: editada },
+  );
+  assert.equal(deNovo.regrasAplicadas.acrescimo_distancia, 30);
+  assert.equal(deNovo.regrasAplicadas.acrescimo_distancia_editado_por, "maria");
+  assert.equal(deNovo.regrasAplicadas.acrescimo_distancia_editado_em, "2026-10-20T10:00:00Z");
+  // Valor novo: quem salvou agora.
+  const outra = computeQuote(
+    { ...colchao, acrescimo_distancia_manual: 20 },
+    { ...params, regras: turbine, userId: "carol", taxaSalva: editada },
+  );
+  assert.equal(outra.regrasAplicadas.acrescimo_distancia_editado_por, "carol");
+});

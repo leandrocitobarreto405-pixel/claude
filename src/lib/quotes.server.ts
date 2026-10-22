@@ -72,6 +72,11 @@ export type QuoteInput = {
   distancia_base?: string | null;
   /** Taxa de deslocamento posta pela equipe (0 = tirou). Omitida ou null: a da regra. */
   acrescimo_distancia_manual?: number | null;
+  /**
+   * Orçamento já enviado mantém a taxa com que foi enviado; só recalcula com true (a equipe tocou
+   * em "Voltar à regra" ou mudou item, distância ou CEP).
+   */
+  taxa_recalcular?: boolean;
   /** Valores finais da vitrine editados pela atendente (sem isso, os calculados). */
   valor_cartao_editado?: number | null;
   valor_pix_editado?: number | null;
@@ -227,9 +232,24 @@ async function empresaDoUsuario(db: DB): Promise<string | null> {
 }
 
 /** Calcula subtotais, total, custos, lucro e margem a partir da entrada crua. */
+/** Taxa de deslocamento como está gravada no orçamento (para manter a do envio). */
+export type TaxaSalva = {
+  valor: number;
+  regra: number | null;
+  editadoPor: string | null;
+  editadoEm: string | null;
+  /** true: orçamento enviado sem pedido de recalcular — a taxa fica a gravada. */
+  manter: boolean;
+};
+
 export function computeQuote(
   input: QuoteInput,
-  params: MargemParams & { regras?: RegrasOrcamento; userId?: string | null; agora?: string },
+  params: MargemParams & {
+    regras?: RegrasOrcamento;
+    userId?: string | null;
+    agora?: string;
+    taxaSalva?: TaxaSalva | null;
+  },
 ) {
   const { custoKm, impostoPct, custoFixoPorServico } = params;
   const agora = params.agora ?? new Date().toISOString();
@@ -300,6 +320,12 @@ export function computeQuote(
     descontoTipo && descontoTipo !== "manual" && Number(input.desconto_pct) > 0
       ? round(Number(input.desconto_pct))
       : null;
+  const taxaManual =
+    input.acrescimo_distancia_manual === null || input.acrescimo_distancia_manual === undefined
+      ? null
+      : Number(input.acrescimo_distancia_manual);
+  // Orçamento enviado: a taxa fica a do envio (inclusive R$ 0), até a equipe pedir para recalcular.
+  const taxaMantida = taxaManual === null && params.taxaSalva?.manter ? params.taxaSalva : null;
   const totais = regras
     ? calcularTotais({
         linhas: items.map((it) => ({
@@ -317,16 +343,37 @@ export function computeQuote(
         desconto: Number(input.desconto) || 0,
         descontoPct: descontoPct,
         clienteNovo: input.cliente_novo !== false,
-        taxaDistancia:
-          input.acrescimo_distancia_manual === null ||
-          input.acrescimo_distancia_manual === undefined
-            ? null
-            : Number(input.acrescimo_distancia_manual),
+        taxaDistancia: taxaManual ?? taxaMantida?.valor ?? null,
       })
     : null;
-  // A equipe alterou ou tirou a taxa de deslocamento da regra: grava quem e quando.
+  // A equipe alterou ou tirou a taxa de deslocamento da regra: grava quem e quando. A mesma taxa
+  // salva de novo continua com quem a alterou antes.
   const taxaEditada =
     totais !== null && Math.abs(totais.acrescimoDistancia - totais.acrescimoDistanciaRegra) > 0.004;
+  const salva = params.taxaSalva ?? null;
+  const mesmaEdicao =
+    salva?.editadoEm != null &&
+    totais !== null &&
+    Math.abs(totais.acrescimoDistancia - salva.valor) < 0.005;
+  const taxaRegistro = taxaMantida
+    ? {
+        acrescimo_distancia_regra: taxaMantida.regra,
+        acrescimo_distancia_editado_por: taxaMantida.editadoPor,
+        acrescimo_distancia_editado_em: taxaMantida.editadoEm,
+      }
+    : {
+        acrescimo_distancia_regra: totais ? totais.acrescimoDistanciaRegra : null,
+        acrescimo_distancia_editado_por: !taxaEditada
+          ? null
+          : mesmaEdicao
+            ? salva.editadoPor
+            : (params.userId ?? null),
+        acrescimo_distancia_editado_em: !taxaEditada
+          ? null
+          : mesmaEdicao
+            ? salva.editadoEm
+            : (params.agora ?? new Date().toISOString()),
+      };
   const desconto = totais
     ? totais.desconto
     : Math.min(
@@ -399,9 +446,7 @@ export function computeQuote(
           : round(Number(input.distancia_km)),
       distancia_base: input.distancia_base?.trim() || null,
       acrescimo_distancia: totais?.acrescimoDistancia ?? 0,
-      acrescimo_distancia_regra: totais ? totais.acrescimoDistanciaRegra : null,
-      acrescimo_distancia_editado_por: taxaEditada ? (params.userId ?? null) : null,
-      acrescimo_distancia_editado_em: taxaEditada ? new Date().toISOString() : null,
+      ...taxaRegistro,
       fora_da_area: totais?.foraDaArea ?? false,
       minimo_aplicado: totais?.minimoAplicado ?? 0,
       valor_vitrine: vitrine?.vitrine ?? null,
@@ -435,6 +480,33 @@ export function computeQuote(
   };
 }
 
+/** Taxa gravada no orçamento; fica mantida se ele já foi enviado e ninguém pediu para recalcular. */
+async function taxaGravada(db: DB, id: string, recalcular: boolean): Promise<TaxaSalva | null> {
+  const { data, error } = await db
+    .from("quotes")
+    .select(
+      "status, acrescimo_distancia, acrescimo_distancia_regra, acrescimo_distancia_editado_por, acrescimo_distancia_editado_em",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const q = data as {
+    status: string | null;
+    acrescimo_distancia: number | string | null;
+    acrescimo_distancia_regra: number | string | null;
+    acrescimo_distancia_editado_por: string | null;
+    acrescimo_distancia_editado_em: string | null;
+  };
+  return {
+    valor: Number(q.acrescimo_distancia ?? 0),
+    regra: q.acrescimo_distancia_regra === null ? null : Number(q.acrescimo_distancia_regra),
+    editadoPor: q.acrescimo_distancia_editado_por,
+    editadoEm: q.acrescimo_distancia_editado_em,
+    manter: !recalcular && Boolean(q.status) && q.status !== "rascunho",
+  };
+}
+
 /** `empresaId`: só para quem usa a chave de serviço (a Alice); telas usam o RLS da empresa ativa. */
 export async function saveQuote(
   db: DB,
@@ -445,11 +517,12 @@ export async function saveQuote(
   if (!input.cliente_nome.trim()) throw new Error("Informe o nome do cliente.");
   if (!input.items.length) throw new Error("Inclua pelo menos um item no orçamento.");
 
-  const [custoKm, impostoPct, fixo, regras] = await Promise.all([
+  const [custoKm, impostoPct, fixo, regras, taxaSalva] = await Promise.all([
     costPerKm(db, empresaId),
     settingNumber(db, "tax_percent", 6, empresaId),
     fixedCostPerService(db, empresaId),
     regrasOrcamento(db, empresaId),
+    input.id ? taxaGravada(db, input.id, Boolean(input.taxa_recalcular)) : null,
   ]);
   const calc = computeQuote(input, {
     custoKm,
@@ -457,6 +530,7 @@ export async function saveQuote(
     custoFixoPorServico: fixo.valor,
     regras,
     userId,
+    taxaSalva,
   });
   empresaId ??= (await empresaDoUsuario(db)) ?? undefined;
 

@@ -123,6 +123,29 @@ type Linha = {
   editado_em: string | null;
 };
 
+/** O que muda a taxa de deslocamento: itens (e preços), distância e CEP. */
+function assinaturaTaxa(linhas: Linha[], kmIda: number | null, cep: string) {
+  return JSON.stringify([
+    linhas.map((l) => [
+      l.key,
+      l.tabela_preco_item_id,
+      l.nome_snapshot,
+      l.tipo_servico,
+      l.categoria,
+      l.preco_tabela,
+      l.preco_editado,
+      l.desconto,
+      l.classe,
+      l.almofadas,
+      l.encardido,
+      l.adicional,
+      l.quantidade,
+    ]),
+    kmIda,
+    cep.replace(/\D/g, ""),
+  ]);
+}
+
 function novaChave() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -205,6 +228,13 @@ function OrcamentoDetalhe() {
   const [kmIda, setKmIda] = useState<number | null>(null);
   /** Taxa de deslocamento posta pela equipe (0 = tirou); null = a da regra. */
   const [taxaManual, setTaxaManual] = useState<number | null>(null);
+  /**
+   * Orçamento já enviado: a taxa com que foi enviado (inclusive R$ 0). Fica mantida até a equipe
+   * tocar em "Voltar à regra" ou mudar item, distância ou CEP; null = orçamento novo.
+   */
+  const [taxaEnviada, setTaxaEnviada] = useState<number | null>(null);
+  const [voltouRegra, setVoltouRegra] = useState(false);
+  const [assinaturaCarregada, setAssinaturaCarregada] = useState<string | null>(null);
   const [baseTecnico, setBaseTecnico] = useState<string | null>(null);
   const [cartaoEditado, setCartaoEditado] = useState<number | null>(null);
   const [pixEditado, setPixEditado] = useState<number | null>(null);
@@ -267,49 +297,57 @@ function OrcamentoDetalhe() {
     );
     setBaseTecnico(q.distancia_base ?? null);
     setTaxaManual(q.acrescimo_distancia_editado_em ? Number(q.acrescimo_distancia ?? 0) : null);
+    setTaxaEnviada(q.status !== "rascunho" ? Number(q.acrescimo_distancia ?? 0) : null);
+    setVoltouRegra(false);
     const vitrineSalva = q.valor_vitrine !== null && q.valor_vitrine !== undefined;
     setCartaoEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_cartao) : null);
     setPixEditado(vitrineSalva && q.valores_editados_por ? Number(q.valor_pix) : null);
     setPrincipalKey(carregado.items.find((it) => it.item_principal)?.id ?? null);
-    setLinhas(
-      carregado.items.map((it) => {
-        const aplicado = Number(it.preco_aplicado ?? 0);
-        const tabela = Number(it.preco_tabela ?? 0);
-        const sugerido = it.preco_sugerido === null ? null : Number(it.preco_sugerido);
-        const ref = sugerido ?? (tabela > 0 ? tabela : null);
-        const editado =
-          Boolean(it.editado_por || it.editado_em) ||
-          (ref !== null && Math.abs(aplicado - ref) > 0.004);
-        const categoria = (it.categoria ?? "outro") as Categoria;
-        const naRegra = regras.descontoAdicional.categorias.includes(categoria);
-        const descontoRegra = Number(it.desconto_regra_valor ?? 0);
-        return {
-          key: it.id,
-          tabela_preco_item_id: it.tabela_preco_item_id ?? "",
-          nome_snapshot: it.nome_snapshot,
-          tipo_servico: it.tipo_servico,
-          categoria,
-          preco_tabela: tabela,
-          preco_editado: editado ? aplicado : null,
-          classe: (it.classe ?? "B") as Classe,
-          almofadas: Boolean(it.almofadas_soltas),
-          encardido: Boolean(it.muito_encardido),
-          adicional: Boolean(it.adicional_pos_fechamento),
-          preco_adicional:
-            it.adicional_pos_fechamento && sugerido !== null
-              ? sugerido
-              : (catalogo?.find((c) => c.id === it.tabela_preco_item_id)?.preco_adicional ?? null),
-          desconto: (descontoRegra > 0 && !naRegra
-            ? "sim"
-            : descontoRegra === 0 && naRegra && !it.item_principal && sugerido !== null
-              ? "nao"
-              : "auto") as ModoDesconto,
-          motivo_desconto: it.motivo_desconto ?? "",
-          quantidade: Number(it.quantidade ?? 1),
-          editado_por: it.editado_por ?? null,
-          editado_em: it.editado_em ?? null,
-        };
-      }),
+    const carregadas: Linha[] = carregado.items.map((it) => {
+      const aplicado = Number(it.preco_aplicado ?? 0);
+      const tabela = Number(it.preco_tabela ?? 0);
+      const sugerido = it.preco_sugerido === null ? null : Number(it.preco_sugerido);
+      const ref = sugerido ?? (tabela > 0 ? tabela : null);
+      const editado =
+        Boolean(it.editado_por || it.editado_em) ||
+        (ref !== null && Math.abs(aplicado - ref) > 0.004);
+      const categoria = (it.categoria ?? "outro") as Categoria;
+      const naRegra = regras.descontoAdicional.categorias.includes(categoria);
+      const descontoRegra = Number(it.desconto_regra_valor ?? 0);
+      return {
+        key: it.id,
+        tabela_preco_item_id: it.tabela_preco_item_id ?? "",
+        nome_snapshot: it.nome_snapshot,
+        tipo_servico: it.tipo_servico,
+        categoria,
+        preco_tabela: tabela,
+        preco_editado: editado ? aplicado : null,
+        classe: (it.classe ?? "B") as Classe,
+        almofadas: Boolean(it.almofadas_soltas),
+        encardido: Boolean(it.muito_encardido),
+        adicional: Boolean(it.adicional_pos_fechamento),
+        preco_adicional:
+          it.adicional_pos_fechamento && sugerido !== null
+            ? sugerido
+            : (catalogo?.find((c) => c.id === it.tabela_preco_item_id)?.preco_adicional ?? null),
+        desconto: (descontoRegra > 0 && !naRegra
+          ? "sim"
+          : descontoRegra === 0 && naRegra && !it.item_principal && sugerido !== null
+            ? "nao"
+            : "auto") as ModoDesconto,
+        motivo_desconto: it.motivo_desconto ?? "",
+        quantidade: Number(it.quantidade ?? 1),
+        editado_por: it.editado_por ?? null,
+        editado_em: it.editado_em ?? null,
+      };
+    });
+    setLinhas(carregadas);
+    setAssinaturaCarregada(
+      assinaturaTaxa(
+        carregadas,
+        q.distancia_km === null || q.distancia_km === undefined ? null : Number(q.distancia_km),
+        q.cliente_cep ?? "",
+      ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregado]);
@@ -434,6 +472,13 @@ function OrcamentoDetalhe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [linhas, regras, principalKey],
   );
+  // Taxa do envio mantida enquanto ninguém mexe em item, distância ou CEP nem volta à regra.
+  const mexeuNaTaxa = useMemo(
+    () => assinaturaTaxa(linhas, kmIda, cep) !== assinaturaCarregada,
+    [linhas, kmIda, cep, assinaturaCarregada],
+  );
+  const manterTaxa = taxaEnviada !== null && !voltouRegra && !mexeuNaTaxa;
+  const taxaMantida = manterTaxa && taxaManual === null ? taxaEnviada : null;
   const sugeridoDe = (l: Linha) => sugestoes.get(l.key)?.precoSugerido ?? tabelaComAcrescimo(l);
   const finalDe = (l: Linha) => l.preco_editado ?? sugeridoDe(l);
   const totais = useMemo(
@@ -451,7 +496,7 @@ function OrcamentoDetalhe() {
         desconto: descontoTipo === "manual" ? desconto : 0,
         descontoPct,
         clienteNovo: clienteNovo !== false,
-        taxaDistancia: taxaManual,
+        taxaDistancia: taxaManual ?? taxaMantida,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -465,6 +510,7 @@ function OrcamentoDetalhe() {
       descontoPct,
       clienteNovo,
       taxaManual,
+      taxaMantida,
     ],
   );
   const subtotal = totais.subtotalItens;
@@ -589,6 +635,16 @@ function OrcamentoDetalhe() {
       toast.error(erroOrigem);
       return false;
     }
+    // Orçamento enviado com outra taxa: mostra o valor antigo e o novo antes de salvar.
+    if (taxaEnviada !== null && Math.abs(totais.acrescimoDistancia - taxaEnviada) > 0.004) {
+      const totalAntes = Number(carregado?.quote.total ?? 0);
+      const ok = window.confirm(
+        `Este orçamento foi enviado com taxa de deslocamento de ${brl(taxaEnviada)} ` +
+          `(total ${brl(totalAntes)}).\nAgora a taxa fica ${brl(totais.acrescimoDistancia)} ` +
+          `(total ${brl(total)}).\n\nSalvar com o valor novo?`,
+      );
+      if (!ok) return false;
+    }
 
     setSalvando(true);
     try {
@@ -625,6 +681,7 @@ function OrcamentoDetalhe() {
           distancia_km: kmIda,
           distancia_base: baseTecnico,
           acrescimo_distancia_manual: taxaManual,
+          taxa_recalcular: !manterTaxa,
           valor_cartao_editado: cartaoEditado,
           valor_pix_editado: pixEditado,
           items: validas.map((l) => {
@@ -1152,7 +1209,9 @@ function OrcamentoDetalhe() {
                   </strong>
                   {baseTecnico ? ` · base ${baseTecnico}` : ""}
                 </p>
-                {totais.acrescimoDistanciaRegra > 0 || taxaManual !== null ? (
+                {totais.acrescimoDistanciaRegra > 0 ||
+                taxaManual !== null ||
+                (taxaEnviada ?? 0) > 0 ? (
                   <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-3">
                     <div className="grid gap-1">
                       <Label htmlFor="taxa-desl" className="text-xs">
@@ -1176,13 +1235,18 @@ function OrcamentoDetalhe() {
                         Tirar a taxa
                       </Button>
                     ) : null}
-                    {taxaManual !== null ? (
+                    {taxaManual !== null ||
+                    (taxaMantida !== null &&
+                      Math.abs(taxaMantida - totais.acrescimoDistanciaRegra) > 0.004) ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         className="min-h-11"
-                        onClick={() => setTaxaManual(null)}
+                        onClick={() => {
+                          setTaxaManual(null);
+                          setVoltouRegra(true);
+                        }}
                       >
                         Voltar à regra
                       </Button>
@@ -1197,6 +1261,18 @@ function OrcamentoDetalhe() {
                           : " · alterada pela equipe (fica registrado quem alterou)"
                         : ""}
                     </p>
+                    {taxaMantida !== null ? (
+                      <p className="w-full text-xs text-muted-foreground">
+                        Mantida a taxa com que o orçamento foi enviado ({brl(taxaMantida)}). Só
+                        recalcula se você tocar em "Voltar à regra" ou mudar item, distância ou CEP.
+                      </p>
+                    ) : taxaEnviada !== null &&
+                      Math.abs(totais.acrescimoDistancia - taxaEnviada) > 0.004 ? (
+                      <p className="w-full rounded-md bg-atencao px-3 py-2 text-xs text-atencao-foreground">
+                        Enviado com {brl(taxaEnviada)}; agora {brl(totais.acrescimoDistancia)}. Ao
+                        salvar, o app mostra os dois valores para você confirmar.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {totais.foraDaArea ? (
