@@ -508,6 +508,12 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
   R$ 1.000, 0% acima; fora da área acima de 35 km; raio da Alice 40 → 35 km. Valores de antes:
   `distancia_ligado = false`, `distancia_sem_acrescimo_km` e `distancia_limite_km` vazios,
   `distancia_faixas` vazio, `ia_configuracoes.raio_km = 40`.
+  Ajuste em 22/10 (pedido): a taxa começa a partir de 25 km (`distancia_sem_acrescimo_km`
+  20 → 25; para voltar, `UPDATE public.orcamento_configuracoes SET distancia_sem_acrescimo_km = 20`
+  na Turbine). Orçamentos já enviados não mudam.
+  Base da distância (`175d4d6`): técnico mais perto do cliente entre os que trabalham no dia do
+  serviço (horários-base da Agenda); sem data, entre todos. Parceiro não entra. Desfazer:
+  `git revert 175d4d6`.
 
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
@@ -635,6 +641,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Origem automática no orçamento e na OS; troca registrada            | `69e414a`           | `b21f336`                |
 | 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)           | `ea6d4e6`           | `3270e60`                |
 | 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine    | `0b94069`           | `cda1301`                |
+| 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia      | `175d4d6`           | `67044cc`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
