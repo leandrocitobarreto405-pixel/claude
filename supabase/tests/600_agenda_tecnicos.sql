@@ -1,5 +1,5 @@
 -- Agenda dos técnicos (migração 20261204120000): telefone validado e normalizado, envio desligado
--- por padrão, um envio por técnico e dia (teste à parte), técnico de outra empresa recusado e
+-- por padrão, um envio por técnico e dia (teste à parte), modelo aguardando o "Ver agenda", técnico de outra empresa recusado e
 -- leitura só do admin da própria empresa. Dados fictícios.
 BEGIN;
 CREATE FUNCTION pg_temp.ok(_cond boolean, _msg text) RETURNS void LANGUAGE plpgsql AS $$
@@ -54,6 +54,13 @@ SELECT pg_temp.deve_falhar($$INSERT INTO public.agenda_tecnicos_envios (empresa_
 INSERT INTO public.agenda_tecnicos_envios (empresa_id, tecnico_id, dia_agenda, situacao, teste)
 VALUES (:'E', '60000000-0000-0000-0000-0000000000a1', '2026-10-24', 'enviado', true);
 SELECT pg_temp.ok((SELECT count(*) FROM public.agenda_tecnicos_envios WHERE empresa_id = :'E') = 2, 'teste à parte');
+-- Fora da janela: modelo enviado, aguardando o "Ver agenda"; PDF e link não existem.
+SELECT pg_temp.deve_falhar($$INSERT INTO public.agenda_tecnicos_envios (empresa_id, tecnico_id, dia_agenda, via, teste)
+  VALUES ('60000000-0000-0000-0000-00000000000e', '60000000-0000-0000-0000-0000000000a1', '2026-10-26', 'modelo_pdf', true)$$,
+  'meio com PDF');
+INSERT INTO public.agenda_tecnicos_envios (empresa_id, tecnico_id, dia_agenda, via, situacao)
+VALUES (:'E', '60000000-0000-0000-0000-0000000000a1', '2026-10-26', 'modelo', 'aguardando');
+SELECT pg_temp.ok((SELECT count(*) FROM public.agenda_tecnicos_envios WHERE situacao = 'aguardando') = 1, 'aguardando o toque');
 
 -- Técnico de outra empresa: recusado.
 SELECT pg_temp.deve_falhar($$INSERT INTO public.agenda_tecnicos_envios (empresa_id, tecnico_id, dia_agenda)
@@ -75,6 +82,6 @@ SELECT pg_temp.deve_falhar($$INSERT INTO public.agenda_tecnicos_envios (empresa_
 RESET ROLE;
 SELECT pg_temp.como('admin600@e.test', :'E');
 SET ROLE authenticated;
-SELECT pg_temp.ok((SELECT count(*) FROM public.agenda_tecnicos_envios) = 2, 'admin lê os da empresa');
+SELECT pg_temp.ok((SELECT count(*) FROM public.agenda_tecnicos_envios) = 3, 'admin lê os da empresa');
 RESET ROLE;
 ROLLBACK;

@@ -4,8 +4,11 @@
 --    tela exige para técnico da equipe; parceiro fica fora) e technicians.recebe_agenda.
 -- 2. agenda_configuracoes: ligado (false), horário (18:00, São Paulo) e o modelo aprovado na Meta.
 -- 3. agenda_tecnicos_envios: cada envio (data da agenda, técnico, serviços, situação e motivo).
---    Um envio por técnico e dia (o teste não conta): rotina rodando de novo não manda duas vezes.
---    Leitura só do admin da empresa; quem grava é o servidor.
+--    O conteúdo é o texto da "Mensagem de amanhã" (Confirmar amanhã) só com os serviços do técnico.
+--    Dentro da janela de 24 h vai em texto; fora dela, o modelo curto com o botão "Ver agenda" e
+--    o texto sai quando o técnico toca no botão ou responde. Sem resposta até as 7h do dia do
+--    serviço: aviso no app. Um envio por técnico e dia (o teste não conta): rotina rodando de novo
+--    não manda duas vezes. Leitura só do admin da empresa; quem grava é o servidor.
 -- Nenhum dado existente muda.
 
 -- ================================================================ 1. telefone do técnico
@@ -45,22 +48,24 @@ CREATE TABLE IF NOT EXISTS public.agenda_tecnicos_envios (
   -- Dia dos serviços (amanhã, no horário de São Paulo, quando a rotina roda).
   dia_agenda date NOT NULL,
   servicos integer NOT NULL DEFAULT 0 CHECK (servicos >= 0),
+  -- enviando → enviado (texto entregue) ou aguardando (modelo enviado, esperando o "Ver agenda").
   situacao text NOT NULL DEFAULT 'enviando'
-    CHECK (situacao IN ('enviando', 'enviado', 'erro', 'sem_telefone')),
+    CHECK (situacao IN ('enviando', 'aguardando', 'enviado', 'erro', 'sem_telefone')),
   motivo text,
-  -- texto (dentro da janela de 24 h), modelo com PDF ou modelo com link (fora da janela).
-  via text CHECK (via IS NULL OR via IN ('texto', 'modelo_pdf', 'modelo_link')),
+  -- texto (dentro da janela de 24 h) ou modelo com o botão "Ver agenda" (fora da janela).
+  via text CHECK (via IS NULL OR via IN ('texto', 'modelo')),
   tentativas integer NOT NULL DEFAULT 0 CHECK (tentativas >= 0),
   conversa_id bigint,
   mensagem_id bigint,
   -- Envio de teste (só para um contato interno da equipe): não conta para o "um por dia".
   teste boolean NOT NULL DEFAULT false,
   destino_interno text,
-  -- Link secreto da agenda (só o resumo do token; expira no fim do dia do serviço).
-  link_token_hash text,
-  link_expira_em timestamptz,
   criado_por uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- Modelo enviado (fora da janela) e texto da agenda entregue.
   enviado_em timestamptz,
+  texto_enviado_em timestamptz,
+  -- Aviso no app de que o técnico não abriu a agenda até as 7h do dia do serviço.
+  aviso_nao_abriu_em timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -68,8 +73,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS agenda_tecnicos_envios_um_por_dia
   ON public.agenda_tecnicos_envios (empresa_id, tecnico_id, dia_agenda) WHERE NOT teste;
 CREATE INDEX IF NOT EXISTS idx_agenda_tecnicos_envios_recentes
   ON public.agenda_tecnicos_envios (empresa_id, created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS agenda_tecnicos_envios_token
-  ON public.agenda_tecnicos_envios (link_token_hash) WHERE link_token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_agenda_tecnicos_envios_aguardando
+  ON public.agenda_tecnicos_envios (empresa_id, tecnico_id) WHERE situacao = 'aguardando';
 
 ALTER TABLE public.agenda_tecnicos_envios ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.agenda_tecnicos_envios FROM anon, authenticated;
