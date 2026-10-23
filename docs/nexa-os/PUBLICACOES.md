@@ -519,6 +519,20 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
   número). Antes: "Rua Mercedes Baravelle Fraga, São Paulo - SP", -23.4642158, -46.6994456
   (cerca de 5 m de diferença; as distâncias não mudaram).
 
+- "Fase B, item 1: planos e assinaturas" (`20261203120000`, decisões A–D de 23/10; ensaio na
+  produção desfeito antes de aplicar). Acrescenta `public.planos` (catálogo global, sem
+  empresa_id: todos leem, só a Nexa altera; Básico R$ 50, Completo R$ 297, Nexa Gestão a definir
+  + 5%, Interna R$ 0), `public.assinaturas` (por empresa, com vigência; Turbine Interna ativa
+  desde 01/01/2026; Ecoprime Nexa Gestão, grátis até 02/01/2027, 1º vencimento 03/01/2027),
+  funções `definir_assinatura` (só a Nexa), `private.comissao_nexa_pct`, bucket privado
+  `contratos` (só a Nexa) e `work_orders.vendido_por` com gatilho pela vendedora (50 OS
+  preenchidas: Turbine 39 Nexa + 1 empresa, Ecoprime 10 Nexa; `updated_at` das OS conferido igual
+  antes e depois). A comissão da Nexa passa a usar o % do contrato vigente na data da venda (hoje
+  igual ao gravado nas OS: outubro da Turbine R$ 273,01 antes e depois; Ecoprime sem recebimento).
+  Como desfazer: `git revert bf9e68c` (sem force push); as tabelas e a coluna podem ficar (o app
+  anterior ignora). Para tirar o gatilho: `DROP TRIGGER trg_work_orders_vendido_por ON
+public.work_orders;`.
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -646,6 +660,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)           | `ea6d4e6`           | `3270e60`                |
 | 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine    | `0b94069`           | `cda1301`                |
 | 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia      | `175d4d6`           | `67044cc`                |
+| 23/10/2026       | Fase B item 1: planos, assinaturas, vendido por, % na data da venda | `bf9e68c`           | `7f0276c`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
