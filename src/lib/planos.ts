@@ -130,3 +130,36 @@ export function resumoAssinatura(a: Assinatura | null, planos: Plano[]): string 
   if (a.gratis_ate) partes.push(`grátis até ${dateBR(a.gratis_ate)}`);
   return partes.join(" · ");
 }
+
+/** Dias antes do fim do grátis em que o Painel Nexa começa a avisar. */
+export const DIAS_AVISO_FIM_GRATIS = 15;
+
+/**
+ * Avisos do Painel Nexa: empresa com período grátis acabando (a partir de 15 dias antes) ou já
+ * acabado e ainda sem mensalidade (vazia ou R$ 0). "Ecoprime: período grátis termina em 02/01 —
+ * defina a mensalidade". Sem mensalidade a empresa nunca fica em atraso (o banco garante); o aviso
+ * é para a Nexa definir o valor a tempo.
+ */
+export function avisosFimGratis(
+  empresas: { nome: string; assinatura: Assinatura | null }[],
+  planos: Pick<Plano, "id" | "preco_mensal">[],
+  hoje: string,
+  dias = DIAS_AVISO_FIM_GRATIS,
+): string[] {
+  const avisos: string[] = [];
+  for (const e of empresas) {
+    const a = e.assinatura;
+    if (!a?.gratis_ate || a.status === "cancelada") continue;
+    const valor = mensalidade(
+      a,
+      planos.find((p) => p.id === a.plano_id),
+    );
+    if (valor !== null && valor > 0) continue;
+    const faltam = (Date.parse(a.gratis_ate) - Date.parse(hoje)) / 86_400_000;
+    if (faltam > dias) continue;
+    const [, mes, dia] = a.gratis_ate.split("-");
+    const verbo = faltam < 0 ? "terminou" : "termina";
+    avisos.push(`${e.nome}: período grátis ${verbo} em ${dia}/${mes} — defina a mensalidade`);
+  }
+  return avisos;
+}

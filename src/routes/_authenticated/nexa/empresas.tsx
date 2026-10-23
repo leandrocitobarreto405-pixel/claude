@@ -34,7 +34,7 @@ import {
 } from "@/lib/numeracao-os.functions";
 import { ESTADOS } from "@/lib/implantacao";
 import { AssinaturaEmpresa } from "@/components/assinatura/assinatura-empresa";
-import { resumoAssinatura, usePlanos, type Assinatura } from "@/lib/planos";
+import { avisosFimGratis, resumoAssinatura, usePlanos, type Assinatura } from "@/lib/planos";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
   head: () => ({
@@ -287,6 +287,7 @@ function EmpresasNexa() {
   }
 
   const lista = empresas.data ?? [];
+  const avisosGratis = avisosFimGratis(lista, planos.data ?? [], HOJE());
 
   return (
     <>
@@ -294,6 +295,19 @@ function EmpresasNexa() {
         title="Empresas e comissões"
         description="Empresas clientes da Nexa. A comissão incide sobre o valor recebido de serviços realizados por atendentes da Nexa."
       />
+
+      {avisosGratis.length > 0 && (
+        <section
+          role="status"
+          className="mb-6 space-y-1 rounded-card border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+        >
+          {avisosGratis.map((aviso) => (
+            <p key={aviso} className="font-medium">
+              {aviso}
+            </p>
+          ))}
+        </section>
+      )}
 
       <section className="card-surface mb-6 space-y-4 p-5">
         <h2 className="text-lg font-semibold">Cadastrar empresa</h2>
