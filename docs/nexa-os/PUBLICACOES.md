@@ -550,6 +550,26 @@ public.work_orders;`.
   ```
   e recriar `private.empresa_ativa` da migração `20260925120000` (sem a conferência da situação).
 
+- "Agenda dos técnicos" (`20261204120000`, aplicada em 23/10 com o ok; ensaio desfeito antes).
+  Acrescenta `technicians.telefone` (conferido no banco: 55 + DDD + número) e
+  `technicians.recebe_agenda`, os campos `agenda_tecnicos_ativo` (**desligado** em todas as
+  empresas), `agenda_tecnicos_hora` (18:00) e `agenda_tecnicos_modelo` em `agenda_configuracoes`
+  e a tabela `agenda_tecnicos_envios` (com empresa_id e RLS: só o admin lê; quem grava é o
+  servidor). Nenhum técnico tem telefone ainda; nada é enviado.
+  Como desfazer: `DROP TABLE public.agenda_tecnicos_envios;` (os campos novos podem ficar; o app
+  anterior ignora). Para tirar a conferência do telefone:
+  `DROP TRIGGER trg_technicians_telefone ON public.technicians;`.
+
+- "Sem mensalidade não há atraso" (`20261206120000`, pedido de 23/10; ensaio na produção desfeito
+  antes de aplicar). `private.mensalidade_vigente`; `private.empresa_situacao` trata inadimplente
+  com mensalidade vazia ou R$ 0 como "ok"; gatilho `trg_assinaturas_sem_mensalidade` recusa marcar
+  inadimplente sem mensalidade; `private.instalar_travas_somente_leitura()` pôs a trava que faltava
+  em `agenda_tecnicos_envios` (agora 88 tabelas). Turbine e Ecoprime: "ok" (Ecoprime segue
+  "Grátis (teste)", mensalidade a definir).
+  Como desfazer: `git revert 6562709` (sem force push);
+  `DROP TRIGGER trg_assinaturas_sem_mensalidade ON public.assinaturas;` e recriar
+  `private.empresa_situacao` da migração `20261205120000`. As funções novas podem ficar.
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -679,6 +699,12 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia      | `175d4d6`           | `67044cc`                |
 | 23/10/2026       | Fase B item 1: planos, assinaturas, vendido por, % na data da venda | `bf9e68c`           | `7f0276c`                |
 | 23/10/2026       | Fase B item 2: portão da assinatura (carência e somente leitura)   | `bed5f09`           | `75e29d4`                |
+| 23/10/2026       | 5º dia útil das comissões pula os feriados nacionais (D9)           | `d291ae1`           | `3fb0fe5`                |
+| 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)         | `6562709`           | `d291ae1`                |
+
+5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
+mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
+Como desfazer: `git revert d291ae1` (sem force push).
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa

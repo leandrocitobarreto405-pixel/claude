@@ -138,7 +138,16 @@ As comissões (da Nexa e das vendedoras) do mês do recebimento são pagas no **
 seguinte**. Dia útil = segunda a sexta, **pulando os feriados nacionais**: 1º/1, Paixão de Cristo,
 21/4, 1º/5, 7/9, 12/10, 2/11, 15/11, 20/11 e 25/12. Carnaval e Corpus Christi (ponto facultativo)
 contam como dia útil; feriados estaduais e municipais não entram. Ex.: comissão de outubro/2026 →
-09/11/2026 (Finados em 2/11).
+09/11/2026 (Finados em 2/11). Pagamentos: outubro/2026 → 09/11/2026; novembro/2026 → 07/12/2026;
+dezembro/2026 → 08/01/2027 (1º/1 não conta).
+
+## D10 — Sem mensalidade não há atraso (23/10/2026)
+
+Empresa com mensalidade vazia (a definir) ou R$ 0 **nunca** entra em carência, somente leitura ou
+bloqueio por falta de pagamento, e nenhuma fatura é gerada sem valor. O banco recusa marcar uma
+assinatura assim como inadimplente. Cancelar pela Nexa continua bloqueando. O Painel Nexa avisa
+15 dias antes do fim do grátis quando a mensalidade ainda não foi definida (Ecoprime: grátis até
+02/01/2027).
 
 ## Plano atualizado
 
