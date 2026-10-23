@@ -163,3 +163,20 @@ export function avisosFimGratis(
   }
   return avisos;
 }
+
+/** Receita mensal recorrente: mensalidade das assinaturas ativas ou inadimplentes (com valor). */
+export function mrr(
+  assinaturas: (Assinatura | null)[],
+  planos: Pick<Plano, "id" | "preco_mensal">[],
+): number {
+  let total = 0;
+  for (const a of assinaturas) {
+    if (!a || (a.status !== "ativa" && a.status !== "inadimplente")) continue;
+    const valor = mensalidade(
+      a,
+      planos.find((p) => p.id === a.plano_id),
+    );
+    if (valor !== null && valor > 0) total += valor;
+  }
+  return Math.round(total * 100) / 100;
+}

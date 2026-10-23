@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { MetaCustos } from "@/components/configuracoes/meta-custos";
 import { DadosEmpresa } from "@/components/configuracoes/dados-empresa";
+import { AssinaturaDaEmpresa } from "@/components/assinatura/assinatura-da-empresa";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/empresa")({
   head: () => ({ meta: [{ title: "Configurações: empresa — Nexa OS" }] }),
@@ -19,6 +20,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/empresa")({
       </SecaoConfig>
       <SecaoConfig titulo="Metas e custos" aberta>
         <MetaCustos />
+      </SecaoConfig>
+      <SecaoConfig titulo="Assinatura e faturas">
+        <AssinaturaDaEmpresa />
       </SecaoConfig>
     </PaginaGrupo>
   ),

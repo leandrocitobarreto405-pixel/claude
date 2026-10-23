@@ -46,10 +46,24 @@ test("Nexa vê o grupo Nexa; sem empresa, só ele", () => {
   const comEmpresa = menuDoPapel("admin", true);
   assert.deepEqual(
     comEmpresa.at(-1)!.itens.map((i) => i.to),
-    ["/nexa/empresas", "/nexa/planos", "/nexa/comissoes", "/nexa/alice", "/nexa/chatwoot"],
+    [
+      "/nexa/empresas",
+      "/nexa/planos",
+      "/nexa/assinaturas",
+      "/nexa/comissoes",
+      "/nexa/alice",
+      "/nexa/chatwoot",
+    ],
   );
   assert.deepEqual(rotas(menuDoPapel(null, true)), {
-    Nexa: ["/nexa/empresas", "/nexa/planos", "/nexa/comissoes", "/nexa/alice", "/nexa/chatwoot"],
+    Nexa: [
+      "/nexa/empresas",
+      "/nexa/planos",
+      "/nexa/assinaturas",
+      "/nexa/comissoes",
+      "/nexa/alice",
+      "/nexa/chatwoot",
+    ],
   });
 });
 

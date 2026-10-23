@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avisosFimGratis, lerPlano, mensalidade, periodoGratis, type Assinatura } from "./planos";
+import {
+  avisosFimGratis,
+  lerPlano,
+  mensalidade,
+  mrr,
+  periodoGratis,
+  type Assinatura,
+} from "./planos";
 
 test("3 meses grátis desde o início do contrato", () => {
   assert.deepEqual(periodoGratis("2026-10-03", 3), {
@@ -77,4 +84,28 @@ test("aviso do fim do grátis: 15 dias antes, só sem mensalidade", () => {
     { nome: "S", assinatura: null },
   ];
   assert.deepEqual(avisosFimGratis(outras, planos, "2026-12-20"), []);
+});
+
+test("MRR: só ativas e inadimplentes com mensalidade", () => {
+  const planos = [
+    { id: "basico", preco_mensal: 50 },
+    { id: "gestao", preco_mensal: null },
+  ];
+  const a = (plano_id: string, status: Assinatura["status"], valor_mensal: number | null = null) =>
+    ({ plano_id, status, valor_mensal }) as Assinatura;
+  assert.equal(
+    mrr(
+      [
+        a("basico", "ativa"),
+        a("basico", "inadimplente", 297),
+        a("gestao", "trial"),
+        a("gestao", "ativa"),
+        a("basico", "cancelada"),
+        a("basico", "trial"),
+        null,
+      ],
+      planos,
+    ),
+    347,
+  );
 });

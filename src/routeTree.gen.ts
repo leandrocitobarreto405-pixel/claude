@@ -67,6 +67,7 @@ import { Route as AuthenticatedCrmRetornosRouteImport } from './routes/_authenti
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
 import { Route as AuthenticatedNexaAliceRouteImport } from './routes/_authenticated/nexa/alice'
+import { Route as AuthenticatedNexaAssinaturasRouteImport } from './routes/_authenticated/nexa/assinaturas'
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
 import { Route as AuthenticatedNexaComissoesRouteImport } from './routes/_authenticated/nexa/comissoes'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
@@ -86,6 +87,7 @@ import { Route as ApiPublicHooksChatwootReprocessarRouteImport } from './routes/
 import { Route as ApiPublicHooksMktDiariaRouteImport } from './routes/api/public/hooks/mkt-diaria'
 import { Route as ApiPublicHooksMktDisparoRouteImport } from './routes/api/public/hooks/mkt-disparo'
 import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './routes/api/public/hooks/monthly-mileage-closing'
+import { Route as ApiPublicHooksPagamentosRouteImport } from './routes/api/public/hooks/pagamentos'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
 import { Route as ApiPublicHooksWhatsappRouteImport } from './routes/api/public/hooks/whatsapp'
 import { Route as ApiPublicHooksAliceRoboTokenRouteImport } from './routes/api/public/hooks/alice-robo.$token'
@@ -406,6 +408,12 @@ const AuthenticatedNexaAliceRoute = AuthenticatedNexaAliceRouteImport.update({
   path: '/nexa/alice',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNexaAssinaturasRoute =
+  AuthenticatedNexaAssinaturasRouteImport.update({
+    id: '/nexa/assinaturas',
+    path: '/nexa/assinaturas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNexaChatwootRoute =
   AuthenticatedNexaChatwootRouteImport.update({
     id: '/nexa/chatwoot',
@@ -514,6 +522,12 @@ const ApiPublicHooksMonthlyMileageClosingRoute =
     path: '/api/public/hooks/monthly-mileage-closing',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksPagamentosRoute =
+  ApiPublicHooksPagamentosRouteImport.update({
+    id: '/api/public/hooks/pagamentos',
+    path: '/api/public/hooks/pagamentos',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRecurringExpensesRoute =
   ApiPublicHooksRecurringExpensesRouteImport.update({
     id: '/api/public/hooks/recurring-expenses',
@@ -600,6 +614,7 @@ export interface FileRoutesByFullPath {
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/alice': typeof AuthenticatedNexaAliceRoute
+  '/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
@@ -621,6 +636,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
   '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
+  '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
@@ -682,6 +698,7 @@ export interface FileRoutesByTo {
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/alice': typeof AuthenticatedNexaAliceRoute
+  '/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
@@ -703,6 +720,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
   '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
+  '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
@@ -767,6 +785,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/_authenticated/nexa/alice': typeof AuthenticatedNexaAliceRoute
+  '/_authenticated/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/_authenticated/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
@@ -788,6 +807,7 @@ export interface FileRoutesById {
   '/api/public/hooks/mkt-diaria': typeof ApiPublicHooksMktDiariaRoute
   '/api/public/hooks/mkt-disparo': typeof ApiPublicHooksMktDisparoRoute
   '/api/public/hooks/monthly-mileage-closing': typeof ApiPublicHooksMonthlyMileageClosingRoute
+  '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
@@ -852,6 +872,7 @@ export interface FileRouteTypes {
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/alice'
+    | '/nexa/assinaturas'
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
     | '/nexa/empresas'
@@ -873,6 +894,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/mkt-diaria'
     | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
+    | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
     | '/api/public/hooks/alice-robo/$token'
@@ -934,6 +956,7 @@ export interface FileRouteTypes {
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/alice'
+    | '/nexa/assinaturas'
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
     | '/nexa/empresas'
@@ -955,6 +978,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/mkt-diaria'
     | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
+    | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
     | '/api/public/hooks/alice-robo/$token'
@@ -1018,6 +1042,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
     | '/_authenticated/nexa/alice'
+    | '/_authenticated/nexa/assinaturas'
     | '/_authenticated/nexa/chatwoot'
     | '/_authenticated/nexa/comissoes'
     | '/_authenticated/nexa/empresas'
@@ -1039,6 +1064,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/mkt-diaria'
     | '/api/public/hooks/mkt-disparo'
     | '/api/public/hooks/monthly-mileage-closing'
+    | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
     | '/api/public/hooks/alice-robo/$token'
@@ -1063,6 +1089,7 @@ export interface RootRouteChildren {
   ApiPublicHooksMktDiariaRoute: typeof ApiPublicHooksMktDiariaRoute
   ApiPublicHooksMktDisparoRoute: typeof ApiPublicHooksMktDisparoRoute
   ApiPublicHooksMonthlyMileageClosingRoute: typeof ApiPublicHooksMonthlyMileageClosingRoute
+  ApiPublicHooksPagamentosRoute: typeof ApiPublicHooksPagamentosRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
   ApiPublicHooksWhatsappRoute: typeof ApiPublicHooksWhatsappRoute
   ApiPublicHooksAliceRoboTokenRoute: typeof ApiPublicHooksAliceRoboTokenRoute
@@ -1478,6 +1505,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNexaAliceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/assinaturas': {
+      id: '/_authenticated/nexa/assinaturas'
+      path: '/nexa/assinaturas'
+      fullPath: '/nexa/assinaturas'
+      preLoaderRoute: typeof AuthenticatedNexaAssinaturasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nexa/chatwoot': {
       id: '/_authenticated/nexa/chatwoot'
       path: '/nexa/chatwoot'
@@ -1611,6 +1645,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMonthlyMileageClosingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/pagamentos': {
+      id: '/api/public/hooks/pagamentos'
+      path: '/api/public/hooks/pagamentos'
+      fullPath: '/api/public/hooks/pagamentos'
+      preLoaderRoute: typeof ApiPublicHooksPagamentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/recurring-expenses': {
       id: '/api/public/hooks/recurring-expenses'
       path: '/api/public/hooks/recurring-expenses'
@@ -1716,6 +1757,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
   AuthenticatedNexaAliceRoute: typeof AuthenticatedNexaAliceRoute
+  AuthenticatedNexaAssinaturasRoute: typeof AuthenticatedNexaAssinaturasRoute
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
   AuthenticatedNexaComissoesRoute: typeof AuthenticatedNexaComissoesRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
@@ -1782,6 +1824,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
   AuthenticatedNexaAliceRoute: AuthenticatedNexaAliceRoute,
+  AuthenticatedNexaAssinaturasRoute: AuthenticatedNexaAssinaturasRoute,
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
   AuthenticatedNexaComissoesRoute: AuthenticatedNexaComissoesRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
@@ -1816,6 +1859,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksMktDisparoRoute: ApiPublicHooksMktDisparoRoute,
   ApiPublicHooksMonthlyMileageClosingRoute:
     ApiPublicHooksMonthlyMileageClosingRoute,
+  ApiPublicHooksPagamentosRoute: ApiPublicHooksPagamentosRoute,
   ApiPublicHooksRecurringExpensesRoute: ApiPublicHooksRecurringExpensesRoute,
   ApiPublicHooksWhatsappRoute: ApiPublicHooksWhatsappRoute,
   ApiPublicHooksAliceRoboTokenRoute: ApiPublicHooksAliceRoboTokenRoute,

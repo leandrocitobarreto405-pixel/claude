@@ -299,7 +299,7 @@ function EmpresasNexa() {
       {avisosGratis.length > 0 && (
         <section
           role="status"
-          className="mb-6 space-y-1 rounded-card border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+          className="mb-6 space-y-1 rounded-md bg-atencao px-4 py-3 text-sm text-atencao-foreground"
         >
           {avisosGratis.map((aviso) => (
             <p key={aviso} className="font-medium">

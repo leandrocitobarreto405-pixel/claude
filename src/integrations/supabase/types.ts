@@ -8,6 +8,114 @@ export type Database = {
   };
   public: {
     Tables: {
+      pagamentos_eventos: {
+        Row: {
+          cobranca_id: string | null;
+          empresa_id: string | null;
+          evento: string;
+          evento_id: string;
+          fatura_id: string | null;
+          gateway: string;
+          id: string;
+          payload: Json;
+          recebido_em: string;
+          resultado: string;
+        };
+        Insert: {
+          cobranca_id?: string | null;
+          empresa_id?: string | null;
+          evento: string;
+          evento_id: string;
+          fatura_id?: string | null;
+          gateway?: string;
+          id?: string;
+          payload?: Json;
+          recebido_em?: string;
+          resultado?: string;
+        };
+        Update: {
+          cobranca_id?: string | null;
+          empresa_id?: string | null;
+          evento?: string;
+          evento_id?: string;
+          fatura_id?: string | null;
+          gateway?: string;
+          id?: string;
+          payload?: Json;
+          recebido_em?: string;
+          resultado?: string;
+        };
+        Relationships: [];
+      };
+      faturas: {
+        Row: {
+          assinatura_id: string;
+          boleto_url: string | null;
+          competencia: string;
+          created_at: string;
+          created_by: string | null;
+          empresa_id: string;
+          forma: string;
+          gateway: string;
+          gateway_cobranca_id: string | null;
+          id: string;
+          link_pagamento: string | null;
+          nota_fiscal_numero: string | null;
+          nota_fiscal_status: string;
+          nota_fiscal_url: string | null;
+          pago_em: string | null;
+          status: string;
+          updated_at: string;
+          valor: number;
+          valor_pago: number | null;
+          vencimento: string;
+        };
+        Insert: {
+          assinatura_id: string;
+          boleto_url?: string | null;
+          competencia: string;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id: string;
+          forma?: string;
+          gateway?: string;
+          gateway_cobranca_id?: string | null;
+          id?: string;
+          link_pagamento?: string | null;
+          nota_fiscal_numero?: string | null;
+          nota_fiscal_status?: string;
+          nota_fiscal_url?: string | null;
+          pago_em?: string | null;
+          status?: string;
+          updated_at?: string;
+          valor: number;
+          valor_pago?: number | null;
+          vencimento: string;
+        };
+        Update: {
+          assinatura_id?: string;
+          boleto_url?: string | null;
+          competencia?: string;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id?: string;
+          forma?: string;
+          gateway?: string;
+          gateway_cobranca_id?: string | null;
+          id?: string;
+          link_pagamento?: string | null;
+          nota_fiscal_numero?: string | null;
+          nota_fiscal_status?: string;
+          nota_fiscal_url?: string | null;
+          pago_em?: string | null;
+          status?: string;
+          updated_at?: string;
+          valor?: number;
+          valor_pago?: number | null;
+          vencimento?: string;
+        };
+        Relationships: [];
+      };
       assinaturas: {
         Row: {
           contrato_pdf_em: string | null;
@@ -6741,6 +6849,15 @@ export type Database = {
       };
     };
     Functions: {
+      registrar_evento_pagamento: {
+        Args: {
+          _evento_id: string;
+          _evento: string;
+          _cobranca_id: string;
+          _payload?: Json;
+        };
+        Returns: Json;
+      };
       empresa_pode_gravar: {
         Args: never;
         Returns: boolean;
