@@ -2,7 +2,13 @@
 // duplicar. Dados fictícios.
 import { mock, test } from "node:test";
 import assert from "node:assert/strict";
-import { comissoesDoMes, despesaDeComissao, quintoDiaUtil, referenciaComissao } from "./comissoes";
+import {
+  comissoesDoMes,
+  despesaDeComissao,
+  feriadosNacionais,
+  quintoDiaUtil,
+  referenciaComissao,
+} from "./comissoes";
 import { alocarRecebimentos, type OsRecebido, type PagamentoRecebido } from "./recebido";
 
 const VENDEDORA = {
@@ -38,10 +44,15 @@ const pag = (id: string, data: string, valor: number, w = "w1"): PagamentoRecebi
 const doMes = (lista: PagamentoRecebido[], mes: string) =>
   lista.filter((p) => (p.payment_date ?? "").startsWith(mes));
 
-test("5º dia útil do mês seguinte (seg a sex)", () => {
-  assert.equal(quintoDiaUtil("2026-10"), "2026-11-06"); // nov/2026 começa num domingo
+test("5º dia útil do mês seguinte (seg a sex, pulando feriado nacional)", () => {
+  assert.equal(quintoDiaUtil("2026-10"), "2026-11-09"); // 2/11 (Finados) não conta
+  assert.equal(quintoDiaUtil("2026-11"), "2026-12-07");
+  assert.equal(quintoDiaUtil("2026-12"), "2027-01-08"); // 1º/1 não conta
   assert.equal(quintoDiaUtil("2026-07"), "2026-08-07"); // ago/2026 começa num sábado
-  assert.equal(quintoDiaUtil("2026-12"), "2027-01-07"); // virada do ano
+  // Paixão de Cristo (3/4/2026) conta como feriado; Carnaval e Corpus Christi não.
+  assert.ok(feriadosNacionais(2026).has("2026-04-03"));
+  assert.ok(!feriadosNacionais(2027).has("2027-02-09"));
+  assert.equal(quintoDiaUtil("2026-03"), "2026-04-08"); // 1, 2, (3 Paixão), 6, 7, 8
 });
 
 test("venda num mês, recebimento no outro: a comissão é do mês do recebimento", () => {
@@ -148,7 +159,7 @@ test("marcar como paga: lança uma vez; repetir não duplica", async () => {
   assert.equal(despesas.length, 1);
   assert.equal(despesas[0]!["status"], "Pago");
   assert.equal(despesas[0]!["paid_amount"], 30);
-  assert.equal(despesas[0]!["due_date"], "2026-11-06");
+  assert.equal(despesas[0]!["due_date"], "2026-11-09");
   assert.equal(despesas[0]!["beneficiary"], "Nexa");
 });
 

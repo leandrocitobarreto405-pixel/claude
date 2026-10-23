@@ -132,6 +132,14 @@ num projeto Supabase de desenvolvimento.
 - Estão disponíveis: **Webhooks** (desativado), **Robôs** (Agent Bot), caixa de entrada **WhatsApp**
   e canal **API**. O token de acesso à API só aparece no plano pago.
 
+## D9 — 5º dia útil sem feriado nacional (23/10/2026)
+
+As comissões (da Nexa e das vendedoras) do mês do recebimento são pagas no **5º dia útil do mês
+seguinte**. Dia útil = segunda a sexta, **pulando os feriados nacionais**: 1º/1, Paixão de Cristo,
+21/4, 1º/5, 7/9, 12/10, 2/11, 15/11, 20/11 e 25/12. Carnaval e Corpus Christi (ponto facultativo)
+contam como dia útil; feriados estaduais e municipais não entram. Ex.: comissão de outubro/2026 →
+09/11/2026 (Finados em 2/11).
+
 ## Plano atualizado
 
 | Etapa | Entrega | Depende de você |
