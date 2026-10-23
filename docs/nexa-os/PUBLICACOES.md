@@ -570,6 +570,17 @@ public.work_orders;`.
   `DROP TRIGGER trg_assinaturas_sem_mensalidade ON public.assinaturas;` e recriar
   `private.empresa_situacao` da migração `20261205120000`. As funções novas podem ficar.
 
+- "Fase B, item 3: faturas do Asaas" (`20261207120000`, decisão G; parte que não depende da chave;
+  ensaio na produção desfeito antes de aplicar). Acrescenta `public.faturas` (valor sempre maior que
+  zero; assinatura sem mensalidade não gera fatura: no ensaio, a da Ecoprime foi recusada; uma por
+  mês; RLS: admin da empresa e Nexa leem, só o servidor grava), `public.pagamentos_eventos` (cada
+  aviso do Asaas uma vez; só a Nexa lê), `public.registrar_evento_pagamento` (só o servidor) e
+  `cobranca_emails_ativo = false` em `configuracoes_plataforma`. Trava de somente leitura nas duas
+  tabelas (90 no total). Nenhuma fatura foi gerada; o Asaas ainda não tem chave no Cloud Run.
+  Como desfazer: `git revert fe63886` (sem force push) e, no banco,
+  `DROP TABLE public.pagamentos_eventos; DROP TABLE public.faturas;
+DROP FUNCTION public.registrar_evento_pagamento(text, text, text, jsonb);`.
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -701,6 +712,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 23/10/2026       | Fase B item 2: portão da assinatura (carência e somente leitura)   | `bed5f09`           | `75e29d4`                |
 | 23/10/2026       | 5º dia útil das comissões pula os feriados nacionais (D9)           | `d291ae1`           | `3fb0fe5`                |
 | 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)         | `6562709`           | `d291ae1`                |
+| 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)      | `fe63886`           | `48551f8`                |
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
