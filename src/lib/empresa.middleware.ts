@@ -19,6 +19,22 @@ export const requireEmpresa = createMiddleware({ type: "function" })
     );
   });
 
+/**
+ * Como requireEmpresa, para o que envia mensagem: empresa em somente leitura (assinatura em
+ * atraso há mais de 7 dias) não envia nada.
+ */
+export const requireEmpresaGravavel = createMiddleware({ type: "function" })
+  .middleware([requireEmpresa])
+  .server(async ({ next, context }) => {
+    const { data, error } = await context.supabase.rpc("empresa_pode_gravar" as never);
+    if (error) throw error;
+    if (data !== true)
+      throw new Error(
+        "Empresa em modo somente leitura: a assinatura está em atraso. Fale com a Nexa para regularizar.",
+      );
+    return next();
+  });
+
 /** Como requireEmpresa, mas só para administradores da empresa (ou da Nexa). */
 export const requireAdminEmpresa = createMiddleware({ type: "function" })
   .middleware([requireEmpresa])

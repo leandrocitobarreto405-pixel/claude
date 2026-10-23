@@ -6741,6 +6741,22 @@ export type Database = {
       };
     };
     Functions: {
+      empresa_pode_gravar: {
+        Args: never;
+        Returns: boolean;
+      };
+      empresa_operante: {
+        Args: {
+          _emp: string;
+        };
+        Returns: boolean;
+      };
+      situacao_assinatura: {
+        Args: {
+          _emp: string;
+        };
+        Returns: Json;
+      };
       definir_assinatura: {
         Args: {
           _empresa_id: string;

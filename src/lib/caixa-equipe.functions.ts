@@ -4,7 +4,11 @@
  * atendentes), ligação de cada pessoa ao seu usuário do Chatwoot e o interruptor do "digitando".
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import {
+  requireAdminEmpresa,
+  requireEmpresa,
+  requireEmpresaGravavel,
+} from "@/lib/empresa.middleware";
 import type { Banco } from "@/lib/banco";
 import { CHAVE_CONFIG_CAIXA, digitandoLigado } from "@/lib/caixa-encerramento";
 
@@ -48,7 +52,7 @@ async function conexaoDaConversa(
  * Se o Chatwoot falhar, nada é gravado.
  */
 export const assumirConversaFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresaGravavel])
   .inputValidator(validarConversa)
   .handler(async ({ data, context }) => {
     const db = context.supabase;

@@ -3,7 +3,7 @@
  * o Nexa envia sem aprovação. O token da Meta entra por aqui uma vez e nunca volta para a tela.
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdminEmpresa } from "@/lib/empresa.middleware";
+import { requireAdminEmpresa, requireEmpresaGravavel } from "@/lib/empresa.middleware";
 import {
   CHAVES_TEXTOS,
   FORM_VAZIO,
@@ -145,7 +145,7 @@ function limparFormulario(f: Partial<FormModelo> | undefined): FormModelo {
 }
 
 export const enviarModeloFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, requireEmpresaGravavel])
   .inputValidator((i: { id?: string | null; form: FormModelo }) => ({
     id: i.id && /^\d+$/.test(i.id) ? i.id : null,
     form: limparFormulario(i.form),

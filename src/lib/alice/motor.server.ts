@@ -565,12 +565,13 @@ async function historico(
 
 // ---------------------------------------------------------------- tarefas
 export async function lerConfig(db: Admin, empresaId: string) {
-  const [{ data }, { data: empresa }] = await Promise.all([
+  const [{ data }, { data: operante }] = await Promise.all([
     db.from("ia_configuracoes").select("*").eq("empresa_id", empresaId).maybeSingle(),
-    db.from("empresas").select("implantacao_liberada_em").eq("id", empresaId).maybeSingle(),
+    db.rpc("empresa_operante" as never, { _emp: empresaId } as never),
   ]);
-  // Empresa ainda em implantação (não liberada pela Nexa): a Alice não atende.
-  if (data && !empresa?.implantacao_liberada_em) return { ...data, ativo: false };
+  // Empresa em implantação (não liberada pela Nexa), em somente leitura ou cancelada: a Alice não
+  // atende.
+  if (data && operante !== true) return { ...data, ativo: false };
   return data;
 }
 

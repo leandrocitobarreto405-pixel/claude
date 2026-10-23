@@ -8,7 +8,7 @@
  * do próprio envio voltar, cai na mesma linha (chave empresa + chatwoot_message_id).
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireEmpresa } from "@/lib/empresa.middleware";
+import { requireEmpresa, requireEmpresaGravavel } from "@/lib/empresa.middleware";
 import {
   janelaDeResposta,
   modelosParaResponder,
@@ -201,7 +201,7 @@ export const estadoRespostaFn = createServerFn({ method: "GET" })
 
 /** Texto livre, só dentro da janela de 24 h. */
 export const enviarTextoFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresaGravavel])
   .inputValidator((i: { conversaId: string; texto: string }) => ({
     ...validarConversa(i),
     texto: validarTexto(i.texto),
@@ -252,7 +252,7 @@ export const modelosParaResponderFn = createServerFn({ method: "GET" })
 
 /** Modelo aprovado (fora da janela de 24 h). O texto gravado é o que o cliente vai ler. */
 export const enviarModeloFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresaGravavel])
   .inputValidator((i: { conversaId: string; nome: string; idioma: string }) => {
     const nome = String(i?.nome ?? "").trim();
     const idioma = String(i?.idioma ?? "").trim();
@@ -304,7 +304,7 @@ export const enviarModeloFn = createServerFn({ method: "POST" })
  * tem modelo aprovado.
  */
 export const enviarAnexoFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresaGravavel])
   .inputValidator((input: FormData) => {
     if (!(input instanceof FormData)) throw new Error("Envio inválido.");
     return input;

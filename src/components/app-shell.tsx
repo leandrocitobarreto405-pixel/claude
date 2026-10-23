@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { AvisoAssinatura, EmpresaBloqueada } from "@/components/assinatura/aviso-assinatura";
+import { useSituacaoAssinatura } from "@/lib/assinatura-situacao";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronLeft, Droplets, Inbox, LogOut, X } from "lucide-react";
@@ -141,6 +143,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const rotaConversa = /^\/conversas\/[^/]+\/?$/.test(pathname);
   const rotaConversas = pathname === "/conversas" || pathname.startsWith("/conversas/");
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
+  const { data: assinatura } = useSituacaoAssinatura(vinculo?.empresa.id);
+  const bloqueada = assinatura?.situacao === "bloqueada" && !ctx?.souNexa && !rotaNexa;
   const abasBase = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
   // Número na aba Conversas: clientes esperando resposta da equipe.
   const temConversas = abasBase.some((a) => a.to === "/conversas");
@@ -261,6 +265,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <InstallPrompt />
             </div>
           )}
+          {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}
           {carregandoVinculo ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : erroVinculo ? (
@@ -291,6 +296,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Button>
               ) : null}
             </div>
+          ) : bloqueada && vinculo ? (
+            <EmpresaBloqueada nome={vinculo.empresa.nome} />
           ) : liberado ? (
             children
           ) : (

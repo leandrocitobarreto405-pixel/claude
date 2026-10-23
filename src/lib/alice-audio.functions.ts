@@ -4,7 +4,11 @@
  * ouvir (que gera custo) só o admin.
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import {
+  requireAdminEmpresa,
+  requireEmpresa,
+  requireEmpresaGravavel,
+} from "@/lib/empresa.middleware";
 import {
   FRASE_EXEMPLO,
   VOZES_CONHECIDAS,
@@ -280,7 +284,7 @@ export const contatosTesteAudio = createServerFn({ method: "GET" })
  * pelo mesmo caminho das respostas (anexo .ogg + nota privada). Nunca vai para cliente.
  */
 export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, requireEmpresaGravavel])
   .inputValidator((i: { contatoId: string; frase?: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i?.contatoId ?? ""))) throw new Error("Contato inválido.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;

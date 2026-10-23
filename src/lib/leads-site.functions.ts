@@ -6,7 +6,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import {
+  requireAdminEmpresa,
+  requireEmpresa,
+  requireEmpresaGravavel,
+} from "@/lib/empresa.middleware";
 
 export type SituacaoLeadSite = "nao_chamou" | "chamou" | "invalido" | "chamado_equipe";
 
@@ -151,7 +155,7 @@ export const marcarLeadChamado = createServerFn({ method: "POST" })
 
 /** Manda o modelo aprovado ao lead (só quando alguém toca). Uma vez por lead. */
 export const chamarLeadPeloModelo = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresaGravavel])
   .inputValidator((input: { id: string }) => {
     if (!ID.test(input.id)) throw new Error("Lead inválido.");
     return input;
