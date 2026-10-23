@@ -70,6 +70,7 @@ import { Route as AuthenticatedNexaAliceRouteImport } from './routes/_authentica
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
 import { Route as AuthenticatedNexaComissoesRouteImport } from './routes/_authenticated/nexa/comissoes'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
+import { Route as AuthenticatedNexaPlanosRouteImport } from './routes/_authenticated/nexa/planos'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
 import { Route as AuthenticatedOsOsNumberRouteImport } from './routes/_authenticated/os.$osNumber'
@@ -423,6 +424,11 @@ const AuthenticatedNexaEmpresasRoute =
     path: '/nexa/empresas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNexaPlanosRoute = AuthenticatedNexaPlanosRouteImport.update({
+  id: '/nexa/planos',
+  path: '/nexa/planos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedOrcamentosIndexRoute =
   AuthenticatedOrcamentosIndexRouteImport.update({
     id: '/orcamentos/',
@@ -597,6 +603,7 @@ export interface FileRoutesByFullPath {
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
@@ -678,6 +685,7 @@ export interface FileRoutesByTo {
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
@@ -762,6 +770,7 @@ export interface FileRoutesById {
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/_authenticated/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/_authenticated/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
   '/_authenticated/servico/$visitId': typeof AuthenticatedServicoVisitIdRoute
@@ -846,6 +855,7 @@ export interface FileRouteTypes {
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
     | '/nexa/empresas'
+    | '/nexa/planos'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
@@ -927,6 +937,7 @@ export interface FileRouteTypes {
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
     | '/nexa/empresas'
+    | '/nexa/planos'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
     | '/servico/$visitId'
@@ -1010,6 +1021,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nexa/chatwoot'
     | '/_authenticated/nexa/comissoes'
     | '/_authenticated/nexa/empresas'
+    | '/_authenticated/nexa/planos'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
     | '/_authenticated/servico/$visitId'
@@ -1487,6 +1499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNexaEmpresasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/planos': {
+      id: '/_authenticated/nexa/planos'
+      path: '/nexa/planos'
+      fullPath: '/nexa/planos'
+      preLoaderRoute: typeof AuthenticatedNexaPlanosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/orcamentos/': {
       id: '/_authenticated/orcamentos/'
       path: '/orcamentos'
@@ -1700,6 +1719,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
   AuthenticatedNexaComissoesRoute: typeof AuthenticatedNexaComissoesRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
+  AuthenticatedNexaPlanosRoute: typeof AuthenticatedNexaPlanosRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
   AuthenticatedServicoVisitIdRoute: typeof AuthenticatedServicoVisitIdRoute
@@ -1765,6 +1785,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
   AuthenticatedNexaComissoesRoute: AuthenticatedNexaComissoesRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
+  AuthenticatedNexaPlanosRoute: AuthenticatedNexaPlanosRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
   AuthenticatedServicoVisitIdRoute: AuthenticatedServicoVisitIdRoute,

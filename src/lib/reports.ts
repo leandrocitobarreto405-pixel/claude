@@ -4,7 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Banco } from "@/lib/banco";
 import { STATUS_RECEBIDOS } from "@/lib/payments";
 import { EMPRESA_HEADER } from "@/lib/empresa-ativa";
-import { resumoNexaDaEmpresa, type ResumoNexaEmpresa } from "@/lib/comissao-nexa";
+import {
+  pctNaData,
+  resumoNexaDaEmpresa,
+  type ResumoNexaEmpresa,
+  type VigenciaComissao,
+} from "@/lib/comissao-nexa";
 import { monthEnd, monthStart, todayISO } from "@/lib/format";
 import { vendidoNoPeriodo } from "@/lib/vendido";
 import { buscarOsDoPeriodo, buscarOsPorId } from "@/lib/vendido-dados";
@@ -312,8 +317,8 @@ export type RecebidoDoPeriodo = {
   pendingValue: number;
 };
 
-const OS_RECEBIDO_SELECT = `id, os_number, sale_date, customer_id, total_gross_value,
-  commission_percentage_snapshot,
+const OS_RECEBIDO_SELECT = `id, empresa_id, os_number, sale_date, customer_id, total_gross_value,
+  commission_percentage_snapshot, vendido_por,
   salesperson:salesperson_id ( id, name, atendente_nexa, eh_ia, commission_percentage ),
   sales_origin:sales_origin_id ( name ),
   visits!visits_work_order_id_fkey ( id, status, repasse_parceiro, service_type:service_type_id ( name ) )`;
@@ -356,13 +361,23 @@ export async function fetchRecebidoDoPeriodo(
   const osIds = [...new Set(payments.map((p) => p.work_order_id))];
   const oss = new Map<string, OsRecebido>();
   if (osIds.length) {
-    const { data, error } = await naEmpresa(
-      db.from("work_orders").select(OS_RECEBIDO_SELECT).in("id", osIds),
-      empresaId,
-    );
+    // % da Nexa: o do contrato vigente na data da venda (só o admin lê os contratos; sem eles,
+    // vale o % gravado na OS).
+    const [{ data, error }, { data: contratos }] = await Promise.all([
+      naEmpresa(db.from("work_orders").select(OS_RECEBIDO_SELECT).in("id", osIds), empresaId),
+      naEmpresa(
+        db
+          .from("contratos_comissao")
+          .select("empresa_id, percentual, vigencia_inicio, vigencia_fim"),
+        empresaId,
+      ),
+    ]);
     if (error) throw error;
+    const vigencias = (contratos ?? []) as VigenciaComissao[];
     for (const w of (data ?? []) as unknown as Array<{
       id: string;
+      empresa_id: string;
+      vendido_por: string | null;
       os_number: string;
       sale_date: string | null;
       customer_id: string | null;
@@ -384,6 +399,8 @@ export async function fetchRecebidoDoPeriodo(
         customer_id: w.customer_id,
         total_gross_value: w.total_gross_value,
         commission_percentage_snapshot: w.commission_percentage_snapshot,
+        vendido_por: w.vendido_por,
+        nexaPct: pctNaData(vigencias, w.empresa_id, w.sale_date),
         origem: w.sales_origin?.name ?? null,
         vendedora: w.salesperson,
         visitas: (w.visits ?? []).map((v) => ({

@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { repasseAtendentes, resumoNexaDaEmpresa, textoPercentuais } from "./comissao-nexa";
+import {
+  pctNaData,
+  repasseAtendentes,
+  resumoNexaDaEmpresa,
+  textoPercentuais,
+} from "./comissao-nexa";
 
 const a = (
   salesperson: string,
@@ -61,4 +66,19 @@ test("repasse às atendentes: soma as empresas pelo nome e deixa a IA de fora", 
     { empresa: "Turbine Clean", recebido: 1000 },
     { empresa: "Ecoprime", recebido: 400 },
   ]);
+});
+
+test("% da Nexa: o do contrato vigente na data da venda", () => {
+  const contratos = [
+    { empresa_id: "e", percentual: 5, vigencia_inicio: "2026-10-03", vigencia_fim: "2026-11-30" },
+    { empresa_id: "e", percentual: 7, vigencia_inicio: "2026-12-01", vigencia_fim: null },
+    { empresa_id: "f", percentual: 3, vigencia_inicio: "2026-01-01", vigencia_fim: null },
+  ];
+  assert.equal(pctNaData(contratos, "e", "2026-11-30"), 5);
+  // Pagamento depois da mudança: vale a data da venda.
+  assert.equal(pctNaData(contratos, "e", "2026-11-20T10:00:00"), 5);
+  assert.equal(pctNaData(contratos, "e", "2026-12-01"), 7);
+  assert.equal(pctNaData(contratos, "e", "2026-10-01"), null);
+  assert.equal(pctNaData(contratos, "f", "2026-10-01"), 3);
+  assert.equal(pctNaData(contratos, "e", null), null);
 });

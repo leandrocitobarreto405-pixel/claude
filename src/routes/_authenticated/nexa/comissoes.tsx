@@ -7,9 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, currentMonth, monthEnd, monthLabelPT, monthStart, parseNumberBR } from "@/lib/format";
+import {
+  brl,
+  currentMonth,
+  dateBR,
+  monthEnd,
+  monthLabelPT,
+  monthStart,
+  parseNumberBR,
+} from "@/lib/format";
 import { useContextoTenant } from "@/lib/tenant";
 import { fetchRecebidoDoPeriodo } from "@/lib/reports";
+import { quintoDiaUtil } from "@/lib/comissoes";
 import {
   repasseAtendentes,
   resumoNexaDaEmpresa,
@@ -186,12 +195,17 @@ function ComissoesNexa() {
             <Total titulo={`Comissão das atendentes (${pct(pctRepasse)})`} valor={repasseTotal} />
             <Total titulo="Fica para a Nexa" valor={nexaRecebe - repasseTotal} destaque />
           </div>
+          <p className="-mt-3 mb-6 text-sm text-muted-foreground">
+            A comissão de {monthLabelPT(mes)} (recebimentos do mês) é paga à Nexa até{" "}
+            <strong>{dateBR(quintoDiaUtil(mes))}</strong>, o 5º dia útil do mês seguinte. O
+            percentual de cada venda é o do contrato vigente na data da venda.
+          </p>
 
           <section className="card-surface mb-6 p-5">
             <h2 className="mb-1 text-lg font-semibold">Por empresa — {monthLabelPT(mes)}</h2>
             <p className="mb-3 text-sm text-muted-foreground">
-              Recebido dos serviços vendidos pelas atendentes da Nexa e a comissão que a empresa
-              paga (a mesma linha "Comissão Nexa" do DRE dela).
+              Recebido dos serviços vendidos pela equipe Nexa (atendentes e Alice) e a comissão que
+              a empresa paga (a mesma linha "Comissão Nexa" do DRE dela).
             </p>
             <div className="space-y-3">
               {linhas.map((l) => (
@@ -201,11 +215,11 @@ function ComissoesNexa() {
                     <p className="font-semibold">{brl(l.resumo.comissao)}</p>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Contrato {l.contrato !== null ? pct(l.contrato) : "não definido"} · recebido{" "}
-                    {brl(l.resumo.recebido)}
+                    Contrato atual {l.contrato !== null ? pct(l.contrato) : "não definido"} ·
+                    recebido {brl(l.resumo.recebido)}
                     {l.resumo.percentuais.length &&
                     !(l.resumo.percentuais.length === 1 && l.resumo.percentuais[0] === l.contrato)
-                      ? ` · nas OS: ${textoPercentuais(l.resumo.percentuais)}`
+                      ? ` · pelas datas das vendas: ${textoPercentuais(l.resumo.percentuais)}`
                       : ""}
                   </p>
                   {Object.keys(l.resumo.porVendedora).length ? (
@@ -223,7 +237,7 @@ function ComissoesNexa() {
                     </ul>
                   ) : (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Nenhuma venda de atendente da Nexa recebida no mês.
+                      Nenhuma venda da equipe Nexa recebida no mês.
                     </p>
                   )}
                 </div>

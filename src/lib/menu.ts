@@ -10,6 +10,7 @@ import {
   Filter,
   Bot,
   HandCoins,
+  Layers,
   Home,
   ListChecks,
   MessageCircle,
@@ -98,6 +99,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     soNexa: true,
     itens: [
       { to: "/nexa/empresas", rotulo: "Empresas e comissões", icone: Building2 },
+      { to: "/nexa/planos", rotulo: "Planos", icone: Layers },
       { to: "/nexa/comissoes", rotulo: "Comissão da Nexa", icone: HandCoins },
       { to: "/nexa/alice", rotulo: "Alice: custo e resultado", icone: Bot },
       { to: "/nexa/chatwoot", rotulo: "Chatwoot", icone: MessagesSquare },

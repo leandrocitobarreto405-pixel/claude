@@ -91,3 +91,30 @@ export function repasseAtendentes(
     .map((a) => ({ ...a, repasse: r2((a.recebido * pctAtendente) / 100) }))
     .sort((a, b) => b.recebido - a.recebido);
 }
+
+/** Vigência do percentual da Nexa numa empresa (contratos_comissao). */
+export type VigenciaComissao = {
+  empresa_id: string;
+  percentual: number;
+  vigencia_inicio: string;
+  vigencia_fim: string | null;
+};
+
+/** Percentual do contrato vigente na data da venda (decisão D); null sem contrato na data. */
+export function pctNaData(
+  contratos: VigenciaComissao[],
+  empresaId: string | null | undefined,
+  data: string | null | undefined,
+): number | null {
+  if (!empresaId || !data) return null;
+  const dia = data.slice(0, 10);
+  const vigente = contratos
+    .filter(
+      (c) =>
+        c.empresa_id === empresaId &&
+        c.vigencia_inicio <= dia &&
+        (c.vigencia_fim === null || c.vigencia_fim >= dia),
+    )
+    .sort((a, b) => b.vigencia_inicio.localeCompare(a.vigencia_inicio))[0];
+  return vigente ? Number(vigente.percentual) : null;
+}

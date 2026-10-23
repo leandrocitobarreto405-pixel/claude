@@ -4,7 +4,8 @@
  * recebido. É a base do DRE (receita, taxas, repasse) e das comissões.
  *  - receita (faturamento) = recebido − parte do repasse ao parceiro (itens terceirizados);
  *  - base da comissão = o valor CHEIO pago pelo cliente (o repasse NÃO sai da base);
- *  - percentual = o gravado na OS na venda; sem ele, o da vendedora.
+ *  - percentual = o gravado na OS na venda; sem ele, o da vendedora. Venda da equipe Nexa
+ *    (atendente da Nexa ou Alice): o % do contrato vigente na data da venda, quando há contrato.
  * Funções puras: quem busca os dados é reports.ts.
  */
 import { repasseDoRecebido } from "@/lib/terceirizados";
@@ -32,6 +33,10 @@ export type OsRecebido = {
   customer_id: string | null;
   total_gross_value: number | null;
   commission_percentage_snapshot: number | null;
+  /** "nexa" (atendente da Nexa ou Alice) ou "empresa"; sem ele, pela vendedora. */
+  vendido_por?: string | null;
+  /** % do contrato da Nexa vigente na data da venda (só vendas da equipe Nexa). */
+  nexaPct?: number | null;
   origem: string | null;
   vendedora: VendedoraOs | null;
   visitas: Array<{
@@ -73,7 +78,15 @@ export type RevenueAllocation = {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Venda da equipe Nexa: a gravada na OS; sem ela, pela vendedora (atendente da Nexa). */
+export function vendaDaNexa(os: OsRecebido | undefined): boolean {
+  if (os?.vendido_por === "nexa" || os?.vendido_por === "empresa") return os.vendido_por === "nexa";
+  return os?.vendedora?.atendente_nexa === true;
+}
+
 export function percentualDaComissao(os: OsRecebido | undefined): number {
+  if (vendaDaNexa(os) && os?.nexaPct !== null && os?.nexaPct !== undefined)
+    return Number(os.nexaPct);
   const snap = os?.commission_percentage_snapshot;
   if (snap !== null && snap !== undefined) return Number(snap);
   return Number(os?.vendedora?.commission_percentage ?? 0);
@@ -103,7 +116,7 @@ export function alocarRecebimentos(
         origin: os?.origem ?? "Indefinida",
         salespersonId: os?.vendedora?.id ?? null,
         salesperson: os?.vendedora?.name ?? "Sem vendedora",
-        salespersonNexa: os?.vendedora?.atendente_nexa === true,
+        salespersonNexa: vendaDaNexa(os),
         salespersonIa: os?.vendedora?.eh_ia === true,
         service: (visita ?? ativas[0])?.servico ?? "Sem serviço",
         serviceValue: r2(Number(os?.total_gross_value ?? 0)),

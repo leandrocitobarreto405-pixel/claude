@@ -33,6 +33,8 @@ import {
   type NumeracaoOs,
 } from "@/lib/numeracao-os.functions";
 import { ESTADOS } from "@/lib/implantacao";
+import { AssinaturaEmpresa } from "@/components/assinatura/assinatura-empresa";
+import { resumoAssinatura, usePlanos, type Assinatura } from "@/lib/planos";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
   head: () => ({
@@ -65,6 +67,8 @@ type LinhaEmpresa = {
   ativo: boolean;
   vigente: Contrato | null;
   historico: Contrato[];
+  assinatura: Assinatura | null;
+  assinaturas: Assinatura[];
 };
 
 const HOJE = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -99,7 +103,7 @@ function EmpresasNexa() {
   const empresas = useQuery({
     queryKey: ["nexa_empresas"],
     queryFn: async (): Promise<LinhaEmpresa[]> => {
-      const [lista, contratos] = await Promise.all([
+      const [lista, contratos, assinaturas] = await Promise.all([
         supabase
           .from("empresas")
           .select("id, nome, cnpj, telefone, cidade, estado, ativo")
@@ -108,12 +112,28 @@ function EmpresasNexa() {
           .from("contratos_comissao")
           .select("id, empresa_id, percentual, vigencia_inicio, vigencia_fim")
           .order("vigencia_inicio", { ascending: false }),
+        supabase
+          .from("assinaturas")
+          .select(
+            "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em",
+          )
+          .order("vigencia_inicio", { ascending: false }),
       ]);
       if (lista.error) throw lista.error;
       if (contratos.error) throw contratos.error;
+      if (assinaturas.error) throw assinaturas.error;
       return (lista.data ?? []).map((e) => {
         const historico = (contratos.data ?? []).filter((c) => c.empresa_id === e.id);
-        return { ...e, historico, vigente: historico.find((c) => c.vigencia_fim === null) ?? null };
+        const daEmpresa = ((assinaturas.data ?? []) as Assinatura[]).filter(
+          (a) => a.empresa_id === e.id,
+        );
+        return {
+          ...e,
+          historico,
+          vigente: historico.find((c) => c.vigencia_fim === null) ?? null,
+          assinaturas: daEmpresa,
+          assinatura: daEmpresa.find((a) => a.vigencia_fim === null) ?? null,
+        };
       });
     },
   });
@@ -134,6 +154,8 @@ function EmpresasNexa() {
   const [criando, setCriando] = useState(false);
 
   const [editando, setEditando] = useState<LinhaEmpresa | null>(null);
+  const [assinando, setAssinando] = useState<LinhaEmpresa | null>(null);
+  const planos = usePlanos(Boolean(ctx?.souNexa));
   const [novoPct, setNovoPct] = useState("");
   const [inicio, setInicio] = useState(HOJE());
   const [salvando, setSalvando] = useState(false);
@@ -385,6 +407,12 @@ function EmpresasNexa() {
                     </Button>
                   ) : null;
                 })()}
+                <Badge className="bg-secondary text-foreground">
+                  {resumoAssinatura(e.assinatura, planos.data ?? [])}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={() => setAssinando(e)}>
+                  Assinatura
+                </Button>
                 <Badge className="bg-primary/10 text-primary">
                   {e.vigente
                     ? `${pct(e.vigente.percentual)} desde ${dateBR(e.vigente.vigencia_inicio)}`
@@ -417,6 +445,18 @@ function EmpresasNexa() {
           ))}
         </div>
       )}
+
+      <AssinaturaEmpresa
+        empresa={assinando}
+        vigente={assinando ? (lista.find((x) => x.id === assinando.id)?.assinatura ?? null) : null}
+        historico={assinando ? (lista.find((x) => x.id === assinando.id)?.assinaturas ?? []) : []}
+        planos={planos.data ?? []}
+        aoFechar={() => setAssinando(null)}
+        aoSalvar={() => {
+          setAssinando(null);
+          atualizar();
+        }}
+      />
 
       <Dialog open={Boolean(numerando)} onOpenChange={(aberto) => !aberto && setNumerando(null)}>
         <DialogContent>

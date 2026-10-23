@@ -8,6 +8,117 @@ export type Database = {
   };
   public: {
     Tables: {
+      assinaturas: {
+        Row: {
+          contrato_pdf_em: string | null;
+          contrato_pdf_path: string | null;
+          contrato_pdf_por: string | null;
+          created_at: string;
+          created_by: string | null;
+          empresa_id: string;
+          gateway: string | null;
+          gateway_assinatura_id: string | null;
+          gateway_cliente_id: string | null;
+          gratis_ate: string | null;
+          id: string;
+          inadimplente_desde: string | null;
+          observacoes: string | null;
+          plano_id: string;
+          proximo_vencimento: string | null;
+          status: string;
+          updated_at: string;
+          valor_mensal: number | null;
+          vigencia_fim: string | null;
+          vigencia_inicio: string;
+        };
+        Insert: {
+          contrato_pdf_em?: string | null;
+          contrato_pdf_path?: string | null;
+          contrato_pdf_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id: string;
+          gateway?: string | null;
+          gateway_assinatura_id?: string | null;
+          gateway_cliente_id?: string | null;
+          gratis_ate?: string | null;
+          id?: string;
+          inadimplente_desde?: string | null;
+          observacoes?: string | null;
+          plano_id: string;
+          proximo_vencimento?: string | null;
+          status?: string;
+          updated_at?: string;
+          valor_mensal?: number | null;
+          vigencia_fim?: string | null;
+          vigencia_inicio: string;
+        };
+        Update: {
+          contrato_pdf_em?: string | null;
+          contrato_pdf_path?: string | null;
+          contrato_pdf_por?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          empresa_id?: string;
+          gateway?: string | null;
+          gateway_assinatura_id?: string | null;
+          gateway_cliente_id?: string | null;
+          gratis_ate?: string | null;
+          id?: string;
+          inadimplente_desde?: string | null;
+          observacoes?: string | null;
+          plano_id?: string;
+          proximo_vencimento?: string | null;
+          status?: string;
+          updated_at?: string;
+          valor_mensal?: number | null;
+          vigencia_fim?: string | null;
+          vigencia_inicio?: string;
+        };
+        Relationships: [];
+      };
+      planos: {
+        Row: {
+          ativo: boolean;
+          codigo: string;
+          comissao_pct: number;
+          created_at: string;
+          descricao: string | null;
+          id: string;
+          nome: string;
+          ordem: number;
+          preco_mensal: number | null;
+          recursos: Json;
+          updated_at: string;
+        };
+        Insert: {
+          ativo?: boolean;
+          codigo: string;
+          comissao_pct?: number;
+          created_at?: string;
+          descricao?: string | null;
+          id?: string;
+          nome: string;
+          ordem?: number;
+          preco_mensal?: number | null;
+          recursos?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          ativo?: boolean;
+          codigo?: string;
+          comissao_pct?: number;
+          created_at?: string;
+          descricao?: string | null;
+          id?: string;
+          nome?: string;
+          ordem?: number;
+          preco_mensal?: number | null;
+          recursos?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       ads_clicks: {
         Row: {
           alice_contato_em: string | null;
@@ -6330,6 +6441,7 @@ export type Database = {
       };
       work_orders: {
         Row: {
+          vendido_por: string | null;
           taxa_deslocamento: number | null;
           taxa_deslocamento_editada_em: string | null;
           taxa_deslocamento_editada_por: string | null;
@@ -6380,6 +6492,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          vendido_por?: string | null;
           taxa_deslocamento?: number | null;
           taxa_deslocamento_editada_em?: string | null;
           taxa_deslocamento_editada_por?: string | null;
@@ -6430,6 +6543,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          vendido_por?: string | null;
           taxa_deslocamento?: number | null;
           taxa_deslocamento_editada_em?: string | null;
           taxa_deslocamento_editada_por?: string | null;
@@ -6627,6 +6741,18 @@ export type Database = {
       };
     };
     Functions: {
+      definir_assinatura: {
+        Args: {
+          _empresa_id: string;
+          _plano: string;
+          _inicio: string;
+          _valor?: number | null;
+          _status?: string | null;
+          _gratis_ate?: string | null;
+          _proximo_vencimento?: string | null;
+        };
+        Returns: string;
+      };
       ads_registrar_clique: {
         Args: { _dados: Json; _host: string; _ip_hash: string };
         Returns: Json;

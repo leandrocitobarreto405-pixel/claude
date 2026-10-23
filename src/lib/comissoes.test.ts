@@ -171,3 +171,33 @@ test("marcar como paga a despesa já lançada como pendente: atualiza, não cria
   assert.equal(despesas.filter((d) => d["reference_key"] === "comissao:v2:2026-10").length, 1);
   assert.equal(despesas.find((d) => d["id"] === "dx")!["status"], "Pago");
 });
+
+test("venda da equipe Nexa: % do contrato na data da venda; vendedora da empresa: % da OS", () => {
+  const pagamentos = [pag("p1", "2026-12-05", 1000), pag("p2", "2026-12-05", 1000, "w2")];
+  const oss = new Map([
+    // Vendida em novembro (contrato de 5%), paga em dezembro (contrato já de 7%): vale 5%.
+    ["w1", os({ vendido_por: "nexa", nexaPct: 5, commission_percentage_snapshot: 3 })],
+    // Vendedora da empresa: o % gravado na OS, sem olhar o contrato da Nexa.
+    [
+      "w2",
+      os({
+        id: "w2",
+        vendido_por: "empresa",
+        nexaPct: 5,
+        commission_percentage_snapshot: 2,
+        vendedora: { ...VENDEDORA, atendente_nexa: false },
+      }),
+    ],
+  ]);
+  const [nexa, empresa] = alocarRecebimentos(pagamentos, oss);
+  assert.equal(nexa!.salespersonNexa, true);
+  assert.equal(nexa!.commissionPct, 5);
+  assert.equal(empresa!.salespersonNexa, false);
+  assert.equal(empresa!.commissionPct, 2);
+  // Sem contrato legível (quem não é admin): o % gravado na OS.
+  const semContrato = alocarRecebimentos(
+    pagamentos.slice(0, 1),
+    new Map([["w1", os({ vendido_por: "nexa", nexaPct: null })]]),
+  );
+  assert.equal(semContrato[0]!.commissionPct, 3);
+});
