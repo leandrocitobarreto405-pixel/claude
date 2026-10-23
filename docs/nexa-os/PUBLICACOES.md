@@ -533,6 +533,23 @@ trg_quotes_origem_troca ON public.quotes;`. As colunas novas podem ficar.
   anterior ignora). Para tirar o gatilho: `DROP TRIGGER trg_work_orders_vendido_por ON
 public.work_orders;`.
 
+- "Fase B, item 2: portão da assinatura" (`20261205120000`, decisão F; ensaio na produção desfeito
+  antes de aplicar). Funções `private.empresa_situacao` (ok / aviso / somente_leitura / bloqueada),
+  `private.empresa_operante`, `public.empresa_pode_gravar`, `public.situacao_assinatura`;
+  `private.empresa_ativa` passa a não abrir empresa bloqueada (menos para o admin da Nexa);
+  gatilho `trg_zz_somente_leitura` em 87 tabelas com empresa_id (fora: assinaturas,
+  contratos_comissao, conversas_leituras, push_inscricoes, push_preferencias);
+  `mkt_reservar_envios` confere `private.empresa_operante`. Turbine e Ecoprime: situação "ok"
+  (conferido com um usuário de cada uma no ensaio). Empresa sem assinatura vigente: ok.
+  Como desfazer: `git revert bed5f09` (sem force push) e, no banco, tirar as travas:
+  ```sql
+  DO $$ DECLARE t record; BEGIN
+    FOR t IN SELECT tgrelid::regclass AS tab FROM pg_trigger WHERE tgname = 'trg_zz_somente_leitura' LOOP
+      EXECUTE format('DROP TRIGGER trg_zz_somente_leitura ON %s', t.tab);
+    END LOOP; END $$;
+  ```
+  e recriar `private.empresa_ativa` da migração `20260925120000` (sem a conferência da situação).
+
 Voltar a versão do app continua seguro: o app anterior não usa as tabelas novas, e as funções
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
@@ -661,6 +678,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine    | `0b94069`           | `cda1301`                |
 | 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia      | `175d4d6`           | `67044cc`                |
 | 23/10/2026       | Fase B item 1: planos, assinaturas, vendido por, % na data da venda | `bf9e68c`           | `7f0276c`                |
+| 23/10/2026       | Fase B item 2: portão da assinatura (carência e somente leitura)   | `bed5f09`           | `75e29d4`                |
 
 Para desfazer o merge da repaginada pelo código (sem force push): na branch principal,
 `git revert -m 1 db7a286` (ensaiado em 15/10: aplica sem conflito) e enviar. O banco não precisa
