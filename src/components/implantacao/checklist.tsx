@@ -211,6 +211,9 @@ function CartaoEtapa({ etapa, editavel }: { etapa: Etapa; editavel: boolean }) {
               <h3 className="font-bold leading-tight">{etapa.titulo}</h3>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{etapa.detalhe}</p>
+            {etapa.lembrete ? (
+              <p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">{etapa.lembrete}</p>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Chip tom={s.tom}>{s.rotulo}</Chip>
               <Chip>Responsável: {ROTULO_RESPONSAVEL[etapa.responsavel]}</Chip>

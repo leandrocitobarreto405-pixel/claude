@@ -37,9 +37,9 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "agenda",
     rotulo: "Agenda",
-    descricao: "Agenda e promoção · Google Agenda",
+    descricao: "Agenda e promoção · Agenda dos técnicos no WhatsApp · Google Agenda",
     icone: CalendarCog,
-    itens: ["Agenda e promoção", "Google Agenda"],
+    itens: ["Agenda e promoção", "Agenda dos técnicos no WhatsApp", "Google Agenda"],
   },
   {
     id: "mensagens",

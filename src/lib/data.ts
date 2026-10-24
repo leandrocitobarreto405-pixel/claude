@@ -83,6 +83,8 @@ export type Technician = {
   foto_path?: string | null;
   /** Parceiro terceirizado: sem login, e-mail ou avisos; fora do km e dos horários da Alice. */
   parceiro?: boolean;
+  /** WhatsApp (55 + DDD + número), recebe a agenda do dia seguinte. */
+  telefone?: string | null;
 };
 
 export function useTechnicians(onlyActive = true) {
@@ -92,7 +94,7 @@ export function useTechnicians(onlyActive = true) {
       let q = supabase
         .from("technicians")
         .select(
-          "id, name, email, base_address, vehicle, include_return, active, user_id, foto_path, parceiro",
+          "id, name, email, base_address, vehicle, include_return, active, user_id, foto_path, parceiro, telefone",
         )
         .order("display_order");
       if (onlyActive) q = q.eq("active", true);
@@ -251,16 +253,4 @@ export const PAYMENT_TYPES = [
   "Outro",
 ] as const;
 
-export const DEFAULT_MESSAGE_TEMPLATE = `{{dia_da_semana}}, {{data}}, às {{horario}}
-
-OS {{numero_os}}
-{{nome_cliente}}
-
-{{descricao_estofado}}
-
-Serviço: {{servico}}
-
-Endereço:
-{{endereco_completo}}
-
-{{INSTRUCAO_PAGAMENTO}}`;
+export { DEFAULT_MESSAGE_TEMPLATE } from "@/lib/mensagem-confirmacao";

@@ -42,6 +42,12 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         const { gerarAvisosDeEspera } = await import("@/lib/mkt/avisos-equipe.server");
         await passo("espera", () => gerarAvisosDeEspera());
         await passo("avisos", () => processarAvisosWhatsapp());
+        // Agenda dos técnicos (só empresas com a agenda ligada; a resposta "Ver agenda" e o aviso
+        // das 7h valem também para os envios de teste).
+        const { rotinaAgendaTecnicos } = await import("@/lib/agenda-tecnicos.server");
+        await passo("agenda_tecnicos", () =>
+          rotinaAgendaTecnicos(agora ? new Date(agora) : undefined),
+        );
         // Notificações no celular (Web Push da Nexa; não usa WhatsApp).
         const { processarNotificacoes } = await import("@/lib/push/notificacoes.server");
         await passo("notificacoes", () =>

@@ -8,6 +8,72 @@ export type Database = {
   };
   public: {
     Tables: {
+      agenda_tecnicos_envios: {
+        Row: {
+          aviso_nao_abriu_em: string | null;
+          conversa_id: number | null;
+          created_at: string;
+          criado_por: string | null;
+          destino_interno: string | null;
+          dia_agenda: string;
+          empresa_id: string;
+          enviado_em: string | null;
+          id: string;
+          mensagem_id: number | null;
+          motivo: string | null;
+          servicos: number;
+          situacao: string;
+          tecnico_id: string;
+          tentativas: number;
+          teste: boolean;
+          texto_enviado_em: string | null;
+          updated_at: string;
+          via: string | null;
+        };
+        Insert: {
+          aviso_nao_abriu_em?: string | null;
+          conversa_id?: number | null;
+          created_at?: string;
+          criado_por?: string | null;
+          destino_interno?: string | null;
+          dia_agenda: string;
+          empresa_id: string;
+          enviado_em?: string | null;
+          id?: string;
+          mensagem_id?: number | null;
+          motivo?: string | null;
+          servicos?: number;
+          situacao?: string;
+          tecnico_id: string;
+          tentativas?: number;
+          teste?: boolean;
+          texto_enviado_em?: string | null;
+          updated_at?: string;
+          via?: string | null;
+        };
+        Update: {
+          aviso_nao_abriu_em?: string | null;
+          conversa_id?: number | null;
+          created_at?: string;
+          criado_por?: string | null;
+          destino_interno?: string | null;
+          dia_agenda?: string;
+          empresa_id?: string;
+          enviado_em?: string | null;
+          id?: string;
+          mensagem_id?: number | null;
+          motivo?: string | null;
+          servicos?: number;
+          situacao?: string;
+          tecnico_id?: string;
+          tentativas?: number;
+          teste?: boolean;
+          texto_enviado_em?: string | null;
+          updated_at?: string;
+          via?: string | null;
+        };
+        Relationships: [];
+      };
       pagamentos_eventos: {
         Row: {
           cobranca_id: string | null;
@@ -437,6 +503,9 @@ export type Database = {
       };
       agenda_configuracoes: {
         Row: {
+          agenda_tecnicos_modelo: string | null;
+          agenda_tecnicos_hora: string;
+          agenda_tecnicos_ativo: boolean;
           custo_produto_higienizacao: number;
           custo_produto_impermeabilizacao: number;
           deslocamento_volta_min: number;
@@ -460,6 +529,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          agenda_tecnicos_modelo?: string | null;
+          agenda_tecnicos_hora?: string;
+          agenda_tecnicos_ativo?: boolean;
           custo_produto_higienizacao?: number;
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
@@ -483,6 +555,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          agenda_tecnicos_modelo?: string | null;
+          agenda_tecnicos_hora?: string;
+          agenda_tecnicos_ativo?: boolean;
           custo_produto_higienizacao?: number;
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
@@ -5848,6 +5923,8 @@ export type Database = {
       };
       technicians: {
         Row: {
+          recebe_agenda: boolean;
+          telefone: string | null;
           parceiro: boolean;
           active: boolean;
           base_address: string | null;
@@ -5866,6 +5943,8 @@ export type Database = {
           vehicle: string | null;
         };
         Insert: {
+          recebe_agenda?: boolean;
+          telefone?: string | null;
           parceiro?: boolean;
           active?: boolean;
           base_address?: string | null;
@@ -5884,6 +5963,8 @@ export type Database = {
           vehicle?: string | null;
         };
         Update: {
+          recebe_agenda?: boolean;
+          telefone?: string | null;
           parceiro?: boolean;
           active?: boolean;
           base_address?: string | null;

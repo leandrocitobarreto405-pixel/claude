@@ -583,6 +583,13 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
   if (d.conversa.status !== "pending")
     return { situacao: "ignorada", detalhe: "conversa com atendente humano" };
+  // Técnico da equipe (agenda no WhatsApp): a Alice não responde.
+  const { conversaDaAgenda, numeroEhDeTecnico } = await import("@/lib/agenda-tecnicos.server");
+  if (
+    (await numeroEhDeTecnico(db, tarefa.empresa_id, d.contato?.normalized_phone)) ||
+    (await conversaDaAgenda(db, tarefa.empresa_id, d.conversa.chatwoot_conversation_id))
+  )
+    return { situacao: "ignorada", detalhe: "técnico da equipe (agenda)" };
   // Dia do serviço: fica com a equipe (chegada do técnico, dúvidas); a Alice não manda nada.
   const { servicoHoje } = await import("./pos-resposta.server");
   const osHoje = await servicoHoje(db, tarefa.empresa_id, d.contato?.normalized_phone);

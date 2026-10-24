@@ -1,6 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { renderMessage } from "@/lib/os";
-import { brl, dateBR, timeBR, weekdayPT } from "@/lib/format";
 import { cancelarEventoAgenda, sincronizarEventoAgenda } from "@/lib/calendar";
 
 /** Visita técnica de orçamento: agendada sem abrir OS. */
@@ -172,36 +170,4 @@ export async function searchCustomers(term: string) {
  * Mensagem de confirmação da visita de orçamento, usando o mesmo modelo
  * dos atendimentos. Sem taxa de visita, a mensagem não fala de valor.
  */
-export function budgetVisitMessageContext(v: BudgetVisitRow, template?: unknown): string {
-  const fee = Number(v.visit_fee ?? 0);
-  const valorTexto = fee > 0 ? brl(fee) : "sem custo";
-  const instrucao =
-    fee > 0
-      ? `Cobrar a taxa de visita de ${brl(fee)} no atendimento.`
-      : "Visita de orçamento sem cobrança.";
-
-  return renderMessage(template, {
-    weekday: weekdayPT(v.scheduled_date),
-    date: dateBR(v.scheduled_date),
-    time: timeBR(v.scheduled_time),
-    osNumber: "",
-    customer: v.customer?.full_name ?? "",
-    phone: v.customer?.phone ?? "",
-    upholstery: v.upholstery_description ?? "",
-    service: "Visita de orçamento",
-    address: v.customer?.full_address ?? "",
-    value: fee,
-    technician: v.technician?.name ?? "",
-    notes: v.notes ?? "",
-    collection: {
-      instrucaoPagamento: instrucao,
-      valorACobrar: valorTexto,
-      valorTotalCombinado: valorTexto,
-      valorDoServico: valorTexto,
-      formaPagamentoCombinada: fee > 0 ? "A combinar" : "",
-      dataVisitaCobranca: "",
-      servicoVisitaCobranca: "",
-      isCollectionVisit: fee > 0,
-    },
-  });
-}
+export { budgetVisitMessageContext } from "@/lib/mensagem-confirmacao";

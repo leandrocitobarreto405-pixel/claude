@@ -149,6 +149,22 @@ assinatura assim como inadimplente. Cancelar pela Nexa continua bloqueando. O Pa
 15 dias antes do fim do grátis quando a mensalidade ainda não foi definida (Ecoprime: grátis até
 02/01/2027).
 
+## D11 — Agenda dos técnicos: um modelo por número e custo da Meta com a empresa (24/10/2026)
+
+- A agenda do dia seguinte no WhatsApp do técnico vale para todas as empresas. O modelo
+  `agenda_tecnico_dia` (Utilidade, pt_BR, botão de resposta rápida "Ver agenda") é por número:
+  cada empresa cadastra no próprio WhatsApp (Configurações › Agenda › "Cadastrar modelo na Meta"),
+  e "Ativar" só libera com ele aprovado no número da própria empresa. Se a Meta reclassificar para
+  Marketing, não serve.
+- Nunca se envia a agenda de uma empresa pelo número de outra. Sem número conectado, a tela
+  mostra "Conecte o WhatsApp da empresa para usar a agenda".
+- **Custo da Meta:** fica com o dono do número. A empresa cadastra o próprio cartão na conta do
+  WhatsApp dela na Meta; a Nexa não paga mensagens de clientes. (Também no checklist de
+  implantação, etapa "WhatsApp conectado".)
+- A agenda não usa IA e não conta no consumo de IA da empresa. No consumo (Fase B, item 7) entra
+  só o número de mensagens enviadas.
+- O envio automático nasce desligado; o teste vai só para contato interno da equipe.
+
 ## Plano atualizado
 
 | Etapa | Entrega | Depende de você |

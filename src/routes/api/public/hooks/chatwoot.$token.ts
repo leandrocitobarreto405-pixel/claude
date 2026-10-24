@@ -132,6 +132,13 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
       mensagemId: resultado.mensagem_id,
     }).catch((e) => console.error("Push da conversa:", e instanceof Error ? e.message : e));
   }
+  // Técnico respondeu ao modelo da agenda ("Ver agenda" ou qualquer texto): manda a agenda.
+  if (resultado.mensagem_inserida && resultado.empresa_id && resultado.conversa_id) {
+    const { responderPedidoDaAgenda } = await import("@/lib/agenda-tecnicos.server");
+    await responderPedidoDaAgenda(supabaseAdmin, resultado.empresa_id, resultado.conversa_id).catch(
+      (e) => console.error("Agenda dos técnicos:", e instanceof Error ? e.message : e),
+    );
+  }
   // Mensagens novas podem ter agendado respostas da Alice: entrega à fila (nunca derruba o webhook).
   const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
   await enfileirarPendentes(supabaseAdmin).catch((e) => console.error("Alice: fila:", e));

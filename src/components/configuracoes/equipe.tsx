@@ -80,6 +80,26 @@ export function Equipe() {
     toast.success("Endereço base atualizado.");
   }
 
+  async function salvarTelefone(id: string, valor: string) {
+    const digitos = valor.replace(/\D/g, "");
+    if (digitos && (digitos.length < 10 || digitos.length > 13)) {
+      toast.error("Informe o WhatsApp com DDD, ex.: (11) 98888-7777.");
+      return;
+    }
+    const { error } = await supabase
+      .from("technicians")
+      .update({ telefone: digitos || null })
+      .eq("id", id);
+    if (error) {
+      toast.error(
+        error.message.includes("inválido") ? error.message : "Não foi possível salvar o telefone.",
+      );
+      return;
+    }
+    invalidate("technicians");
+    toast.success("Telefone do técnico atualizado.");
+  }
+
   async function salvarEmail(id: string, valor: string) {
     const email = valor.trim();
     if (email && !email.includes("@")) {
@@ -211,6 +231,24 @@ export function Equipe() {
                       defaultValue={t.base_address ?? ""}
                       onBlur={(e) => salvarBase(t.id, e.target.value)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>WhatsApp (recebe a agenda do dia seguinte)</Label>
+                    <Input
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="(11) 98888-7777"
+                      defaultValue={t.telefone ?? ""}
+                      onBlur={(e) => {
+                        if (e.target.value.replace(/\D/g, "") !== (t.telefone ?? ""))
+                          void salvarTelefone(t.id, e.target.value);
+                      }}
+                    />
+                    {t.telefone ? null : (
+                      <p className="rounded-md bg-atencao px-3 py-2 text-sm text-atencao-foreground">
+                        Sem telefone — não vai receber a agenda.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>E-mail (recebe o convite do Google Agenda)</Label>
@@ -479,6 +517,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
   const [nome, setNome] = useState("");
   const [base, setBase] = useState("");
   const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [parceiro, setParceiro] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -486,6 +525,11 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
     const name = nome.trim();
     if (name.length < 2) {
       toast.error("Informe o nome do técnico.");
+      return;
+    }
+    const fone = parceiro ? "" : telefone.replace(/\D/g, "");
+    if (!parceiro && (fone.length < 10 || fone.length > 13)) {
+      toast.error("Informe o WhatsApp do técnico com DDD (é por ele que vai a agenda).");
       return;
     }
     const mail = parceiro ? "" : email.trim();
@@ -508,6 +552,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
       name,
       base_address: parceiro ? null : base.trim() || null,
       email: mail || null,
+      telefone: fone || null,
       display_order: ordem,
       parceiro,
     } as never);
@@ -520,6 +565,7 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
     setNome("");
     setBase("");
     setEmail("");
+    setTelefone("");
     setParceiro(false);
     aoSalvar();
   }
@@ -549,6 +595,17 @@ function NovoTecnico({ ordem, aoSalvar }: { ordem: number; aoSalvar: () => void 
           <div className="space-y-1">
             <Label htmlFor="novo-tecnico-base">Endereço base (de onde sai)</Label>
             <Input id="novo-tecnico-base" value={base} onChange={(e) => setBase(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="novo-tecnico-telefone">WhatsApp (obrigatório: recebe a agenda)</Label>
+            <Input
+              id="novo-tecnico-telefone"
+              type="tel"
+              inputMode="tel"
+              placeholder="(11) 98888-7777"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="novo-tecnico-email">E-mail (opcional)</Label>

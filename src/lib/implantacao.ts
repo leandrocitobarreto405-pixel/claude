@@ -77,6 +77,8 @@ export type Etapa = {
   /** A etapa aceita "Não se aplica" (só opcionais). */
   podeNaoSeAplica: boolean;
   marcada: Marcacao | null;
+  /** Lembrete fixo da etapa (combinado com a empresa). */
+  lembrete?: string;
 };
 
 export const ROTULO_RESPONSAVEL: Record<Responsavel, string> = { nexa: "Nexa", empresa: "Empresa" };
@@ -205,6 +207,8 @@ const DEFS: Def[] = [
   {
     chave: "whatsapp",
     titulo: "WhatsApp conectado",
+    lembrete:
+      "A empresa cadastra o próprio cartão na conta do WhatsApp dela na Meta; a Nexa não paga mensagens de clientes.",
     responsavel: "nexa",
     obrigatoria: true,
     resolver: null,
