@@ -382,6 +382,31 @@ export function AliceConfig() {
           })}
         </div>
         <div className="space-y-1">
+          <Label htmlFor="alice-tecido">Tecido padrão quando não identificado</Label>
+          <select
+            id="alice-tecido"
+            className={SELECT_CLASS}
+            value={form.tecido_nao_identificado}
+            onChange={(e) =>
+              campo(
+                "tecido_nao_identificado",
+                e.target.value as ConfigAlice["tecido_nao_identificado"],
+              )
+            }
+          >
+            <option value="equipe">Passar para a equipe (padrão)</option>
+            <option value="B">Seguir com a classe B</option>
+            <option value="A">Seguir com a classe A</option>
+            <option value="C">Seguir com a classe C</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Quando o cliente não sabe o tecido e a foto não deixa claro. Com uma classe, a{" "}
+            {form.nome || "Alice"} segue o orçamento sem falar de classe com o cliente e pode dizer
+            que o técnico confere o tecido no local. Só vale com a classe de tecido ligada nas
+            regras de orçamento.
+          </p>
+        </div>
+        <div className="space-y-1">
           <Label htmlFor="alice-faq">Perguntas frequentes e respostas</Label>
           <Textarea
             id="alice-faq"

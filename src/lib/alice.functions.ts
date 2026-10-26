@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { camposFaltando, limparCampos } from "@/lib/alice/campos-roteiro";
+import { tecidoDaConfig, type TecidoNaoIdentificado } from "@/lib/alice/prompt";
 import { requireRecurso } from "@/lib/recurso.middleware";
 
 /** Alice: recurso do plano (Profissional + Alice, Nexa Gestão, Interna). */
@@ -39,6 +40,8 @@ export type ConfigAlice = {
   espera_apos_midia_segundos: number;
   clientes_antigos_com_equipe: boolean;
   descadastro_resposta: boolean;
+  /** Tecido não identificado: "equipe" (passa para a equipe) ou a classe usada no orçamento. */
+  tecido_nao_identificado: TecidoNaoIdentificado;
 };
 
 export const CAMPOS_MIDIA = [
@@ -84,6 +87,7 @@ const PADRAO: ConfigAlice = {
   espera_apos_midia_segundos: 120,
   clientes_antigos_com_equipe: true,
   descadastro_resposta: false,
+  tecido_nao_identificado: "equipe",
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -197,6 +201,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             espera_apos_midia_segundos: cfg.espera_apos_midia_segundos,
             clientes_antigos_com_equipe: cfg.clientes_antigos_com_equipe,
             descadastro_resposta: cfg.descadastro_resposta,
+            tecido_nao_identificado: tecidoDaConfig(cfg.tecido_nao_identificado),
           }
         : PADRAO,
       midias: cfg
@@ -266,6 +271,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         espera_apos_midia_segundos: inteiro(data.espera_apos_midia_segundos, 0, 600, 120),
         clientes_antigos_com_equipe: data.clientes_antigos_com_equipe !== false,
         descadastro_resposta: Boolean(data.descadastro_resposta),
+        tecido_nao_identificado: tecidoDaConfig(data.tecido_nao_identificado),
         esforco: data.esforco,
         espera_segundos: Math.min(Math.max(Math.round(Number(data.espera_segundos) || 0), 0), 120),
         limite_respostas_conversa: Math.min(

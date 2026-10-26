@@ -7,22 +7,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { ferramentasDisponiveis } from "./ferramentas.server";
-import {
-  COM_FALLBACK,
-  SEM_SISTEMA_NO_MEIO,
-  contextoEmpresa,
-  etapasAbertas,
-  lerConfig,
-} from "./motor.server";
+import { contextoEmpresa, etapasAbertas, lerConfig } from "./motor.server";
+import { rodarAliceEnsaio } from "./ensaio-rodar.server";
 import { aplicarRoteiroNome } from "./nome-roteiro";
 import type { SituacaoNome } from "./nome";
-import {
-  instrucoesDoMomento,
-  instrucoesFixas,
-  montarTurnos,
-  type ContextoLead,
-  type MensagemHistorico,
-} from "./prompt";
+import { instrucoesDoMomento, instrucoesFixas, type ContextoLead } from "./prompt";
 
 type Db = SupabaseClient<Database>;
 
@@ -233,60 +222,16 @@ export async function rodarEnsaioNome(db: Db, empresaId: string): Promise<Result
           semPosVenda: false,
           nomeCliente: c.nome,
         };
-        const hist: MensagemHistorico[] = c.historico.map((m) => ({
-          direcao: m.de === "cliente" ? "Recebida" : "Enviada",
-          texto: m.texto,
-          tipo: "Texto",
-          remetente: m.de === "cliente" ? null : "agent_bot",
-          imagens: [],
-        }));
-        const turnos = montarTurnos(hist) ?? [];
-        const momento = instrucoesDoMomento(new Date(), lead);
-        const noMeio = !SEM_SISTEMA_NO_MEIO.includes(cfg.modelo);
-        const mensagens: Anthropic.Beta.BetaMessageParam[] = noMeio
-          ? [...turnos, { role: "system", content: momento } as never]
-          : [...turnos];
-        const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
-          { type: "text", text: fixas },
-          ...(noMeio ? [] : [{ type: "text" as const, text: momento }]),
-        ];
-        const resposta: string[] = [];
-        const usadas: Array<{ nome: string; entrada: unknown }> = [];
-        for (let rodada = 0; rodada < 5; rodada++) {
-          const r = await cliente.beta.messages.create({
-            model: cfg.modelo,
-            max_tokens: 8000,
-            thinking: { type: "adaptive" },
-            output_config: { effort: cfg.esforco as "low" | "medium" | "high" },
-            ...(COM_FALLBACK.includes(cfg.modelo)
-              ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
-              : {}),
-            system: sistema,
-            tools: ferramentas,
-            messages: mensagens,
-          });
-          for (const b of r.content)
-            if (b.type === "text" && b.text.trim()) resposta.push(b.text.trim());
-          const chamadas = r.content.filter(
-            (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
-          );
-          if (r.stop_reason !== "tool_use" || !chamadas.length) break;
-          mensagens.push({ role: "assistant", content: r.content });
-          const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-          for (const ch of chamadas) {
-            usadas.push({ nome: ch.name, entrada: ch.input });
-            if (ch.name === "enviar_mensagem") {
-              const t = (ch.input as { texto?: string }).texto;
-              if (t) resposta.push(t.trim());
-            }
-            resultados.push({
-              type: "tool_result",
-              tool_use_id: ch.id,
-              content: respostaDeEnsaio(c, ch.name),
-            });
-          }
-          mensagens.push({ role: "user", content: resultados });
-        }
+        const { resposta, ferramentas: usadas } = await rodarAliceEnsaio({
+          cliente,
+          modelo: cfg.modelo,
+          esforco: cfg.esforco,
+          ferramentas,
+          fixas,
+          momento: instrucoesDoMomento(new Date(), lead),
+          historico: c.historico,
+          respostaDeEnsaio: (nome) => respostaDeEnsaio(c, nome),
+        });
         const texto = resposta.join("\n\n");
         return {
           ...base,

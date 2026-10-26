@@ -30,6 +30,7 @@ import {
   type ContextoLead,
   type MensagemHistorico,
   type Uso,
+  tecidoDaConfig,
 } from "./prompt";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
@@ -55,6 +56,8 @@ const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as c
 /** Modelos que aceitam o fallback automático do servidor quando recusam ("default"). */
 /** Regra do nome do cliente (nome confirmado x perfil), para todas as empresas. */
 const REGRA_NOME = true;
+/** Regras de 26/10 (não perguntar duas vezes; tecido não identificado): ligam depois do ensaio. */
+const REGRA_RESPOSTAS = false;
 
 export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
@@ -379,6 +382,7 @@ export async function contextoEmpresa(
     garantiaImpermeabilizacao: Boolean(
       (modelos.data?.value as { templateGarantia?: string } | null)?.templateGarantia,
     ),
+    tecidoNaoIdentificado: tecidoDaConfig(cfg.tecido_nao_identificado),
   };
 }
 
@@ -898,6 +902,7 @@ async function conversar(
   const turnos = montarTurnos(hist.mensagens, avisoFollowup ?? undefined);
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
   empresa.regraNome = REGRA_NOME;
+  empresa.regraRespostas = REGRA_RESPOSTAS;
   // Nome do cliente: confirmado (contato/conversa/cadastro) x nome do perfil.
   const nomeCliente = REGRA_NOME
     ? await (

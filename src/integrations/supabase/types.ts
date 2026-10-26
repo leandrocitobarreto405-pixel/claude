@@ -2532,6 +2532,7 @@ export type Database = {
           perguntas_frequentes: string;
           raio_km: number | null;
           transcrever_audio: boolean;
+          tecido_nao_identificado: string;
           descadastro_resposta: boolean;
           updated_at: string;
           validade_orcamento_dias: number;
@@ -2578,6 +2579,7 @@ export type Database = {
           perguntas_frequentes?: string;
           raio_km?: number | null;
           transcrever_audio?: boolean;
+          tecido_nao_identificado?: string;
           descadastro_resposta?: boolean;
           updated_at?: string;
           validade_orcamento_dias?: number;
@@ -2624,6 +2626,7 @@ export type Database = {
           perguntas_frequentes?: string;
           raio_km?: number | null;
           transcrever_audio?: boolean;
+          tecido_nao_identificado?: string;
           descadastro_resposta?: boolean;
           updated_at?: string;
           validade_orcamento_dias?: number;

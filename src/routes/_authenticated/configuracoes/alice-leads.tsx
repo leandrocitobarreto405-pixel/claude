@@ -5,6 +5,7 @@ import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuraco
 import { Listas } from "@/components/configuracoes/listas";
 import { AliceConfig } from "@/components/alice-config";
 import { EnsaioNome } from "@/components/alice/ensaio-nome";
+import { EnsaioRespostas } from "@/components/alice/ensaio-respostas";
 import { AliceAudio } from "@/components/configuracoes/alice-audio";
 import { LeadsSiteConfig } from "@/components/leads-site-config";
 import { MensagensOrigem } from "@/components/mensagens-origem";
@@ -21,6 +22,11 @@ export const Route = createFileRoute("/_authenticated/configuracoes/alice-leads"
       <SecaoConfig titulo="Alice: ensaio do nome do cliente">
         <ComRecurso recurso="alice">
           <EnsaioNome />
+        </ComRecurso>
+      </SecaoConfig>
+      <SecaoConfig titulo="Alice: ensaio das respostas e do tecido">
+        <ComRecurso recurso="alice">
+          <EnsaioRespostas />
         </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Alice: responder em áudio">

@@ -5,6 +5,7 @@ import {
   dividirResposta,
   instrucoesFixas,
   montarTurnos,
+  tecidoDaConfig,
   type MensagemHistorico,
 } from "./prompt";
 
@@ -250,4 +251,56 @@ test("roteiro-base: {nome_empresa} vira o nome da empresa", async () => {
     "Seja muito bem-vindo(a) à Empresa X! Aqui na Empresa X…",
   );
   assert.equal(comNomeDaEmpresa("sem variável", "Empresa X"), "sem variável");
+});
+
+test("regras de 26/10: desligadas não mudam as instruções", () => {
+  const classe = {
+    ...empresa,
+    acrescimosPreco: { classeAPct: 20, almofadasPct: 10, encardidoPct: 10 },
+  };
+  assert.equal(instrucoesFixas({ ...classe, tecidoNaoIdentificado: "B" }), instrucoesFixas(classe));
+  assert.doesNotMatch(instrucoesFixas(classe), /Respostas do cliente|Tecido não identificado/);
+});
+
+test("não perguntar duas vezes: seção para todas as empresas, com o exemplo das almofadas", () => {
+  const txt = instrucoesFixas({ ...empresa, regraRespostas: true });
+  assert.match(txt, /# Respostas do cliente \(vale para todas as empresas/);
+  assert.match(txt, /Nunca refaça a mesma pergunta/);
+  assert.match(txt, /"Não" = não são soltas, ou seja, fixas/);
+  assert.match(txt, /vale o que ele disse/);
+  // Sem classe ligada, não fala de tecido.
+  assert.doesNotMatch(txt, /Tecido não identificado/);
+});
+
+test("tecido não identificado: equipe (padrão) transfere; B segue sem falar de classe", () => {
+  const classe = {
+    ...empresa,
+    regraRespostas: true,
+    acrescimosPreco: { classeAPct: 20, almofadasPct: null, encardidoPct: null },
+  };
+  const equipe = instrucoesFixas(classe);
+  assert.match(
+    equipe,
+    /Tecido não identificado .*: não marque classe e transfira .*"confirmar tecido"/,
+  );
+  const b = instrucoesFixas({ ...classe, tecidoNaoIdentificado: "B" });
+  assert.match(b, /não peça foto de perto do tecido/);
+  assert.match(b, /Se a foto mostrar o tecido, use a classe dele/);
+  assert.match(
+    b,
+    /pergunte uma única vez: "Você sabe qual é o tecido\? Por exemplo: linho, veludo, suede/,
+  );
+  assert.match(b, /classe B \(padrão: não marque classe\)/);
+  assert.match(b, /sem falar de classe nem de categoria de tecido com o cliente/);
+  assert.match(b, /técnico confere o tecido no local/);
+  assert.match(b, /Nunca transfira para a equipe por causa do tecido/);
+  assert.doesNotMatch(b, /confirmar tecido/);
+  const a = instrucoesFixas({ ...classe, tecidoNaoIdentificado: "A" });
+  assert.match(a, /classe A \(marque `classe` A\)/);
+});
+
+test("tecido salvo: valor estranho ou sem coluna passa para a equipe", () => {
+  assert.equal(tecidoDaConfig("B"), "B");
+  assert.equal(tecidoDaConfig(undefined), "equipe");
+  assert.equal(tecidoDaConfig("x"), "equipe");
 });

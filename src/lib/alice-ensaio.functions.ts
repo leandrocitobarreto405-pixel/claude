@@ -1,7 +1,8 @@
-/** Ensaio da regra do nome (só administrador): nada é enviado nem gravado. */
+/** Ensaios da Alice (só administrador): nada é enviado nem gravado. */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { ResultadoCenario } from "@/lib/alice/ensaio-nome.server";
+import type { ResultadoRespostas } from "@/lib/alice/ensaio-respostas.server";
 import { requireRecurso } from "@/lib/recurso.middleware";
 
 /** alice: recurso do plano (Essencial não tem). */
@@ -13,4 +14,13 @@ export const ensaiarNomeFn = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { rodarEnsaioNome } = await import("@/lib/alice/ensaio-nome.server");
     return rodarEnsaioNome(supabaseAdmin, context.empresaId);
+  });
+
+/** Ensaio das regras de 26/10 (respostas do cliente e tecido): nada é enviado nem gravado. */
+export const ensaiarRespostasFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa, comRecurso])
+  .handler(async ({ context }): Promise<ResultadoRespostas[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { rodarEnsaioRespostas } = await import("@/lib/alice/ensaio-respostas.server");
+    return rodarEnsaioRespostas(supabaseAdmin, context.empresaId);
   });
