@@ -723,6 +723,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Painel Nexa como espaço separado das empresas                       | `a71a5b7`           | `fba1057`                |
 | 26/10/2026       | Empresa de teste fora do MRR e dos relatórios do Painel Nexa        | `39200f2`           | `8fec6b2`                |
 | 26/10/2026       | Alice: roteiro-base para qualquer empresa (campos por empresa)      | `f26be36`           | `166cb12`                |
+| 26/10/2026       | Limpeza dos eventos do Chatwoot (desligada até o backup)            | `c85a7a8`           | `a5c5084`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -822,7 +823,7 @@ mensagem com mais de 30 dias ficam só com anexos e remetente (tipo, nome, e-mai
 `whatsapp_messages.raw_event_reference`. Antes: banco 117 MB, tabela de eventos 74 MB. Ligar (só
 depois do backup completo): `UPDATE public.configuracoes_plataforma SET valor = 'true' WHERE chave =
 'limpeza_eventos_ativa';`. Como desfazer: chave em `false` (o que já foi apagado só volta pelo
-backup completo `nexaos-completo-AAAA-MM-DD.dump`); código: `git revert` do commit; banco: `DROP
+backup completo `nexaos-completo-AAAA-MM-DD.dump`); código: `git revert c85a7a8`; banco: `DROP
 FUNCTION public.limpar_eventos_chatwoot(int); DROP FUNCTION private.limpar_eventos_chatwoot(int);
 DROP INDEX public.idx_whatsapp_messages_raw_event_reference;`.
 
