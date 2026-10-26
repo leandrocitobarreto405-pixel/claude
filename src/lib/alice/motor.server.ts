@@ -68,9 +68,15 @@ const REGRA_RESPOSTAS = true;
 const REGRA_PRECO_DEPOIS = true;
 /**
  * Custo, ideia 2 (26/10): histórico em janela que anda de 20 em 20 (até 40 mensagens) e ponto de
- * cache de 1 hora no fim do histórico. Liga depois do ensaio de custo.
+ * cache de 1 hora no fim do histórico. Desligado por padrão; ligado por empresa (abaixo).
  */
 export const CACHE_HISTORICO = false;
+/** Empresas com a ideia 2 ligada (26/10: Turbine, sem ensaio; mede 2–3 dias contra US$ 0,24). */
+const CACHE_HISTORICO_EMPRESAS = new Set(["11111111-1111-1111-1111-111111111111"]);
+
+export function cacheDoHistorico(empresaId: string): boolean {
+  return CACHE_HISTORICO || CACHE_HISTORICO_EMPRESAS.has(empresaId);
+}
 
 export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
@@ -954,7 +960,13 @@ async function conversar(
       ferramentas.map((f) => f.name),
     ),
     contextoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id, Boolean(d.contato?.sem_pos_venda)),
-    historico(db, tarefa.empresa_id, d.conversa.id, cfg.transcrever_audio),
+    historico(
+      db,
+      tarefa.empresa_id,
+      d.conversa.id,
+      cfg.transcrever_audio,
+      cacheDoHistorico(tarefa.empresa_id),
+    ),
   ]);
   const turnos = montarTurnos(hist.mensagens, avisoFollowup ?? undefined);
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
@@ -1033,7 +1045,9 @@ async function conversar(
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
-  const historicoComCache = CACHE_HISTORICO ? marcarCacheDoHistorico(turnos) : turnos;
+  const historicoComCache = cacheDoHistorico(tarefa.empresa_id)
+    ? marcarCacheDoHistorico(turnos)
+    : turnos;
   const mensagens: Anthropic.Beta.BetaMessageParam[] = momentoNoMeio
     ? [...historicoComCache, { role: "system", content: momento }]
     : [...historicoComCache];
