@@ -1,7 +1,14 @@
 // Consumo das empresas: leitura da linha do banco e totais sem as empresas de teste.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lerConsumo, mensagensAutomaticas, totaisDoConsumo } from "./consumo";
+import {
+  cotacaoVencida,
+  lerConsumo,
+  lerCotacao,
+  lerFranquia,
+  mensagensAutomaticas,
+  totaisDoConsumo,
+} from "./consumo";
 
 const a = lerConsumo({
   empresa_id: "a",
@@ -37,4 +44,28 @@ test("totais sem as empresas de teste", () => {
     audioCustoReais: 0.4,
     automaticas: 12,
   });
+});
+
+test("cotação: vence depois de 30 dias; valor digitado com vírgula", () => {
+  const agora = new Date("2026-11-30T12:00:00Z");
+  assert.equal(cotacaoVencida("2026-10-26T12:00:00Z", agora), true);
+  assert.equal(cotacaoVencida("2026-11-05T12:00:00Z", agora), false);
+  assert.equal(cotacaoVencida(null, agora), true);
+  assert.equal(lerCotacao("5,65"), 5.65);
+  assert.equal(lerCotacao("abc"), null);
+  assert.equal(lerCotacao("56,5"), null);
+});
+
+test("franquia da empresa: números do banco viram número", () => {
+  const f = lerFranquia({
+    empresa_id: "e",
+    conversas: 7,
+    franquia: null,
+    trava: false,
+    excedentes: 0,
+    valor_excedente: "0.00",
+    para_equipe: 0,
+  });
+  assert.equal(f.franquia, null);
+  assert.equal(f.valor_excedente, 0);
 });

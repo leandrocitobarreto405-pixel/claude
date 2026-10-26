@@ -264,6 +264,27 @@ async function devolverParaAlice(db: Admin, tarefa: Tarefa): Promise<ResultadoTa
   return { situacao: "concluida", detalhe: "conversa devolvida para a Alice" };
 }
 
+/** Nota para a equipe quando a franquia não deixa a Alice responder (null = pode responder). */
+async function conferirFranquia(
+  db: Admin,
+  empresaId: string,
+  conversaId: string,
+): Promise<string | null> {
+  const { data, error } = await db.rpc(
+    "alice_pode_responder" as never,
+    {
+      _emp: empresaId,
+      _conversa: conversaId,
+    } as never,
+  );
+  if (error) {
+    console.error("Alice: franquia não conferida", error.message);
+    return null;
+  }
+  const r = data as { pode?: boolean; nota?: string } | null;
+  return r && r.pode === false ? (r.nota ?? "Franquia da Alice: conversa com a equipe.") : null;
+}
+
 /** Em erro: nota privada explicando e conversa para humano. */
 async function socorroHumano(db: Admin, tarefa: Tarefa, nota: string) {
   const d = await dadosConversa(db, tarefa);
@@ -874,6 +895,18 @@ async function conversar(
     }
     await socorroHumano(db, tarefa, "A Alice atingiu o limite de respostas nesta conversa.");
     return { situacao: "concluida", detalhe: "limite de respostas: passada para humano" };
+  }
+
+  // Franquia do plano (Profissional + Alice): conversa nova além das incluídas, teto em R$ ou
+  // conversa cara vai para a equipe. Se a consulta falhar, a Alice segue (não trava o atendimento).
+  const franquia = await conferirFranquia(db, tarefa.empresa_id, d.conversa.id);
+  if (franquia) {
+    if (ehFollowup) {
+      await followupParaEquipe(db, tarefa, franquia);
+      return { situacao: "ignorada", detalhe: `franquia: ${franquia}` };
+    }
+    await socorroHumano(db, tarefa, franquia);
+    return { situacao: "concluida", detalhe: `franquia: ${franquia}` };
   }
 
   // O que ficou programado (orçamento depois do vídeo) sai antes da resposta nova.

@@ -1,6 +1,9 @@
 import { CAMPOS_ROTEIRO } from "@/lib/alice/campos-roteiro";
 import { useEffect, useState } from "react";
 import { AlicePosAtendimento } from "@/components/alice-pos-atendimento";
+import { MedidorFranquia } from "@/components/alice/franquia-medidor";
+import { useUsoAlice } from "@/lib/alice/uso-alice";
+import { textoDepoisDaFranquia } from "@/lib/alice/franquia";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -96,6 +99,7 @@ export function AliceConfig() {
     },
   });
   const [form, setForm] = useState<ConfigAlice | null>(null);
+  const { data: uso } = useUsoAlice();
   const [ocupado, setOcupado] = useState(false);
 
   useEffect(() => {
@@ -229,6 +233,7 @@ export function AliceConfig() {
           <Numero rotulo="Passadas à equipe" valor={String(s.ultimos7dias.passagens)} />
           <Numero rotulo="Falhas" valor={String(s.ultimos7dias.erros)} />
         </div>
+        {uso ? <MedidorFranquia uso={uso} /> : null}
 
         <div className="mt-4 grid gap-1 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
           <p>
@@ -381,6 +386,41 @@ export function AliceConfig() {
             );
           })}
         </div>
+        {uso?.trava ? (
+          <div className="grid gap-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-semibold">Depois da franquia</p>
+            <label className="flex min-h-11 items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.continuar_apos_franquia}
+                onChange={(e) => campo("continuar_apos_franquia", e.target.checked)}
+              />
+              <span>Continuar depois da franquia, até o teto do mês</span>
+            </label>
+            {form.continuar_apos_franquia ? (
+              <div className="space-y-1">
+                <Label htmlFor="alice-teto">Teto do excedente no mês (R$)</Label>
+                <Input
+                  id="alice-teto"
+                  inputMode="decimal"
+                  value={
+                    form.teto_excedente_reais === null ? "" : String(form.teto_excedente_reais)
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.replace(",", ".").trim();
+                    campo("teto_excedente_reais", v === "" ? null : Number(v) || 0);
+                  }}
+                  placeholder="Ex.: 70"
+                />
+              </div>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              {textoDepoisDaFranquia(uso, form.continuar_apos_franquia, form.teto_excedente_reais)}{" "}
+              O excedente entra na próxima fatura; nada é cobrado fora dela.
+            </p>
+          </div>
+        ) : null}
         <div className="space-y-1">
           <Label htmlFor="alice-tecido">Tecido padrão quando não identificado</Label>
           <select

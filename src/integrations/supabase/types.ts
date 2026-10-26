@@ -8,6 +8,45 @@ export type Database = {
   };
   public: {
     Tables: {
+      alice_uso_mensal: {
+        Row: {
+          conversa_id: string;
+          custo_usd: number;
+          empresa_id: string;
+          excedente: boolean;
+          mes: string;
+          para_equipe_em: string | null;
+          para_equipe_motivo: string | null;
+          primeira_resposta_em: string | null;
+          respostas: number;
+          ultima_resposta_em: string | null;
+        };
+        Insert: {
+          conversa_id: string;
+          custo_usd?: number;
+          empresa_id: string;
+          excedente?: boolean;
+          mes: string;
+          para_equipe_em?: string | null;
+          para_equipe_motivo?: string | null;
+          primeira_resposta_em?: string | null;
+          respostas?: number;
+          ultima_resposta_em?: string | null;
+        };
+        Update: {
+          conversa_id?: string;
+          custo_usd?: number;
+          empresa_id?: string;
+          excedente?: boolean;
+          mes?: string;
+          para_equipe_em?: string | null;
+          para_equipe_motivo?: string | null;
+          primeira_resposta_em?: string | null;
+          respostas?: number;
+          ultima_resposta_em?: string | null;
+        };
+        Relationships: [];
+      };
       pedidos_plano: {
         Row: {
           criado_em: string;
@@ -322,6 +361,9 @@ export type Database = {
       };
       planos: {
         Row: {
+          alice_trava_franquia: boolean;
+          alice_preco_excedente: number | null;
+          alice_conversas_incluidas: number | null;
           publico: boolean;
           limite_usuarios: number | null;
           ativo: boolean;
@@ -337,6 +379,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          alice_trava_franquia?: boolean;
+          alice_preco_excedente?: number | null;
+          alice_conversas_incluidas?: number | null;
           publico?: boolean;
           limite_usuarios?: number | null;
           ativo?: boolean;
@@ -352,6 +397,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          alice_trava_franquia?: boolean;
+          alice_preco_excedente?: number | null;
+          alice_conversas_incluidas?: number | null;
           publico?: boolean;
           limite_usuarios?: number | null;
           ativo?: boolean;
@@ -2493,6 +2541,8 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          teto_excedente_reais: number | null;
+          continuar_apos_franquia: boolean;
           anos_experiencia: string;
           nomes_atendentes: string;
           regiao_atendida: string;
@@ -2540,6 +2590,8 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          teto_excedente_reais?: number | null;
+          continuar_apos_franquia?: boolean;
           anos_experiencia?: string;
           nomes_atendentes?: string;
           regiao_atendida?: string;
@@ -2587,6 +2639,8 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          teto_excedente_reais?: number | null;
+          continuar_apos_franquia?: boolean;
           anos_experiencia?: string;
           nomes_atendentes?: string;
           regiao_atendida?: string;
@@ -7029,6 +7083,47 @@ export type Database = {
       };
     };
     Functions: {
+      alice_conversas_caras: {
+        Args: {
+          _mes: string;
+          _limite?: number;
+        };
+        Returns: {
+          empresa_id: string;
+          empresa: string;
+          conversa_id: string;
+          primeira_resposta_em: string | null;
+          respostas: number;
+          custo_usd: number;
+          custo_reais: number;
+          para_equipe_motivo: string | null;
+        }[];
+      };
+      alice_franquia_empresas: {
+        Args: {
+          _mes: string;
+        };
+        Returns: {
+          empresa_id: string;
+          conversas: number;
+          franquia: number | null;
+          trava: boolean;
+          excedentes: number;
+          valor_excedente: number;
+          para_equipe: number;
+        }[];
+      };
+      alice_uso_do_mes: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      alice_pode_responder: {
+        Args: {
+          _emp: string;
+          _conversa: string;
+        };
+        Returns: Json;
+      };
       plano_da_empresa: { Args: Record<PropertyKey, never>; Returns: Json };
       empresa_tem_recurso: {
         Args: {

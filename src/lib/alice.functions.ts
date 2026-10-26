@@ -42,6 +42,9 @@ export type ConfigAlice = {
   descadastro_resposta: boolean;
   /** Tecido não identificado: "equipe" (passa para a equipe) ou a classe usada no orçamento. */
   tecido_nao_identificado: TecidoNaoIdentificado;
+  /** Franquia: seguir depois das conversas incluídas, até o teto do mês em R$. */
+  continuar_apos_franquia: boolean;
+  teto_excedente_reais: number | null;
 };
 
 export const CAMPOS_MIDIA = [
@@ -88,6 +91,8 @@ const PADRAO: ConfigAlice = {
   clientes_antigos_com_equipe: true,
   descadastro_resposta: false,
   tecido_nao_identificado: "equipe",
+  continuar_apos_franquia: false,
+  teto_excedente_reais: null,
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -202,6 +207,9 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             clientes_antigos_com_equipe: cfg.clientes_antigos_com_equipe,
             descadastro_resposta: cfg.descadastro_resposta,
             tecido_nao_identificado: tecidoDaConfig(cfg.tecido_nao_identificado),
+            continuar_apos_franquia: cfg.continuar_apos_franquia,
+            teto_excedente_reais:
+              cfg.teto_excedente_reais === null ? null : Number(cfg.teto_excedente_reais),
           }
         : PADRAO,
       midias: cfg
@@ -272,6 +280,11 @@ export const salvarAlice = createServerFn({ method: "POST" })
         clientes_antigos_com_equipe: data.clientes_antigos_com_equipe !== false,
         descadastro_resposta: Boolean(data.descadastro_resposta),
         tecido_nao_identificado: tecidoDaConfig(data.tecido_nao_identificado),
+        continuar_apos_franquia: Boolean(data.continuar_apos_franquia),
+        teto_excedente_reais:
+          data.teto_excedente_reais === null || !(Number(data.teto_excedente_reais) >= 0)
+            ? null
+            : Math.min(Math.round(Number(data.teto_excedente_reais) * 100) / 100, 100000),
         esforco: data.esforco,
         espera_segundos: Math.min(Math.max(Math.round(Number(data.espera_segundos) || 0), 0), 120),
         limite_respostas_conversa: Math.min(

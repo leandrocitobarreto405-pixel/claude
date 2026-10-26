@@ -52,3 +52,47 @@ export function lerConsumo(linha: Record<string, unknown>): ConsumoEmpresa {
     agenda_mensagens: n("agenda_mensagens"),
   };
 }
+
+/** Cotação do dólar da Alice: revisar a cada 30 dias (Painel Nexa avisa). */
+export const DIAS_REVISAR_COTACAO = 30;
+
+export function cotacaoVencida(
+  atualizadaEm: string | null,
+  agora: Date,
+  dias = DIAS_REVISAR_COTACAO,
+) {
+  if (!atualizadaEm) return true;
+  return agora.getTime() - Date.parse(atualizadaEm) > dias * 86_400_000;
+}
+
+/** Valor digitado ("5,65") vira número; inválido ou fora de 1 a 20, null. */
+export function lerCotacao(texto: string): number | null {
+  const n = Number(texto.replace(",", ".").trim());
+  if (!Number.isFinite(n) || n < 1 || n > 20) return null;
+  return Math.round(n * 10000) / 10000;
+}
+
+export type FranquiaEmpresa = {
+  empresa_id: string;
+  conversas: number;
+  franquia: number | null;
+  trava: boolean;
+  excedentes: number;
+  valor_excedente: number;
+  para_equipe: number;
+};
+
+export function lerFranquia(linha: Record<string, unknown>): FranquiaEmpresa {
+  return {
+    empresa_id: String(linha["empresa_id"]),
+    conversas: Number(linha["conversas"] ?? 0),
+    franquia:
+      linha["franquia"] === null || linha["franquia"] === undefined
+        ? null
+        : Number(linha["franquia"]),
+    trava: linha["trava"] === true,
+    excedentes: Number(linha["excedentes"] ?? 0),
+    valor_excedente: Number(linha["valor_excedente"] ?? 0),
+    para_equipe: Number(linha["para_equipe"] ?? 0),
+  };
+}

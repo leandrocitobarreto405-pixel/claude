@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronRight, Plus } from "lucide-react";
 import { AvatarEmpresa, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
+import { ResumoFranquiaAlice } from "@/components/alice/franquia-medidor";
 import { Atalhos } from "@/components/painel/atalhos";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
 import {
@@ -198,6 +199,13 @@ function Inicio() {
 
       {aba === "operacional" && pode("/promocao") && temRecurso(planoEmpresa, "marketing") ? (
         <FaixaHorariosLivres />
+      ) : null}
+
+      {aba === "operacional" &&
+      papel === "admin" &&
+      !souNexa &&
+      temRecurso(planoEmpresa, "alice") ? (
+        <ResumoFranquiaAlice />
       ) : null}
 
       <section className="flex flex-col gap-3" aria-labelledby="painel-titulo">
