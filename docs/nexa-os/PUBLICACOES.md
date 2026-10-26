@@ -725,6 +725,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice: roteiro-base para qualquer empresa (campos por empresa)      | `f26be36`           | `166cb12`                |
 | 26/10/2026       | Limpeza dos eventos do Chatwoot (desligada até o backup)            | `c85a7a8`           | `a5c5084`                |
 | 26/10/2026       | Fase B item 7: consumo das empresas no Painel Nexa                  | `c1b2bf7`           | `8fdbb89`                |
+| 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa          | `21ed1a2`           | `5ae6116`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -845,7 +846,7 @@ usavam R$ 0,57 por km quando a empresa não tinha custo; agora usam o da empresa
 Turbine (0,57) não muda; a Ecoprime não tem custo por km e os 2 técnicos estão sem endereço de
 saída (orçamentos salvos mantêm o custo gravado). Novo passo opcional nos Primeiros passos: "Rotas e
 quilometragem" (técnicos com endereço de saída e custo por km). Tela de Rotas avisa e leva para
-informar o custo. Como desfazer: `git revert` do commit (sem force push).
+informar o custo. Como desfazer: `git revert 21ed1a2` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
