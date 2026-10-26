@@ -286,6 +286,9 @@ export type Database = {
       };
       assinaturas: {
         Row: {
+          isenta_por: string | null;
+          isenta_em: string | null;
+          isenta: boolean;
           ciclo: string;
           usuarios_extras: number;
           contrato_pdf_em: string | null;
@@ -310,6 +313,9 @@ export type Database = {
           vigencia_inicio: string;
         };
         Insert: {
+          isenta_por?: string | null;
+          isenta_em?: string | null;
+          isenta?: boolean;
           ciclo?: string;
           usuarios_extras?: number;
           contrato_pdf_em?: string | null;
@@ -334,6 +340,9 @@ export type Database = {
           vigencia_inicio: string;
         };
         Update: {
+          isenta_por?: string | null;
+          isenta_em?: string | null;
+          isenta?: boolean;
           ciclo?: string;
           usuarios_extras?: number;
           contrato_pdf_em?: string | null;
@@ -7101,6 +7110,19 @@ export type Database = {
       };
     };
     Functions: {
+      situacao_cobranca_empresas: {
+        Args: Record<PropertyKey, never>;
+        Returns: { empresa_id: string; situacao: string }[];
+      };
+      definir_cobranca: {
+        Args: {
+          _empresa_id: string;
+          _isenta?: boolean | null;
+          _mudar_teste?: boolean;
+          _teste_ate?: string | null;
+        };
+        Returns: undefined;
+      };
       alice_conversas_caras: {
         Args: {
           _mes: string;

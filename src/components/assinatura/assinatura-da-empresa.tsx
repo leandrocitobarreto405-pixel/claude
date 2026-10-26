@@ -21,7 +21,7 @@ export function AssinaturaDaEmpresa() {
       const { data, error } = await supabase
         .from("assinaturas")
         .select(
-          "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em",
+          "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em, isenta",
         )
         .eq("empresa_id", empresaId as string)
         .is("vigencia_fim", null)

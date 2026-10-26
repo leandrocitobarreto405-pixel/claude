@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR, parseNumberBR } from "@/lib/format";
 import {
   STATUS_ASSINATURA,
+  fimDoTeste,
   mensalidade,
   periodoGratis,
   type Assinatura,
@@ -50,6 +51,7 @@ export function AssinaturaEmpresa({
   const [vencimento, setVencimento] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [testeAte, setTesteAte] = useState("");
 
   useEffect(() => {
     if (!empresa) return;
@@ -60,7 +62,35 @@ export function AssinaturaEmpresa({
     setInicio(vigente?.vigencia_inicio ?? HOJE());
     setGratisAte(vigente?.gratis_ate ?? "");
     setVencimento(vigente?.proximo_vencimento ?? "");
+    setTesteAte(vigente?.status === "trial" ? (vigente.gratis_ate ?? "") : "");
   }, [empresa, vigente, planos]);
+
+  /** Cobrança (isenta) e "em teste até": gravam na hora, na assinatura vigente. */
+  async function cobranca(p: { isenta?: boolean; teste?: string | null }) {
+    if (!empresa || !vigente) return;
+    setSalvando(true);
+    const { error } = await supabase.rpc("definir_cobranca", {
+      _empresa_id: empresa.id,
+      _isenta: p.isenta ?? null,
+      _mudar_teste: p.teste !== undefined,
+      _teste_ate: p.teste ?? null,
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(`Não foi possível salvar: ${error.message}`);
+      return;
+    }
+    toast.success(
+      p.isenta !== undefined
+        ? p.isenta
+          ? "Empresa isenta: não gera fatura nem fica em atraso."
+          : "Empresa volta a ser cobrada."
+        : p.teste
+          ? `Em teste até ${dateBR(p.teste)}.`
+          : "Teste encerrado: assinatura ativa.",
+    );
+    aoSalvar();
+  }
 
   const escolhido = planos.find((p) => p.codigo === plano);
   const nexaGestao = plano === "nexa_gestao";
@@ -167,6 +197,92 @@ export function AssinaturaEmpresa({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
+          {vigente ? (
+            <div className="grid gap-3 rounded-md border border-border p-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Cobrança</p>
+                <div role="radiogroup" aria-label="Cobrança" className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      [false, "Cobrar"],
+                      [true, "Isenta"],
+                    ] as const
+                  ).map(([isenta, rotulo]) => (
+                    <button
+                      key={rotulo}
+                      type="button"
+                      role="radio"
+                      aria-checked={Boolean(vigente.isenta) === isenta}
+                      disabled={salvando}
+                      onClick={() =>
+                        Boolean(vigente.isenta) !== isenta && void cobranca({ isenta })
+                      }
+                      className={
+                        Boolean(vigente.isenta) === isenta
+                          ? "min-h-11 rounded-botao border border-marca bg-marca-claro text-sm font-semibold"
+                          : "min-h-11 rounded-botao border border-border bg-card text-sm"
+                      }
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Isenta nunca gera fatura nem fica em atraso (fora do MRR).
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ass-teste">Em teste até</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id="ass-teste"
+                    type="date"
+                    className="min-h-11 w-auto"
+                    value={testeAte}
+                    onChange={(e) => setTesteAte(e.target.value)}
+                  />
+                  <Button
+                    variant="outline"
+                    className="min-h-11"
+                    disabled={salvando}
+                    onClick={() => setTesteAte(fimDoTeste(HOJE(), "30d"))}
+                  >
+                    30 dias
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="min-h-11"
+                    disabled={salvando}
+                    onClick={() => setTesteAte(fimDoTeste(HOJE(), "3m"))}
+                  >
+                    3 meses
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    className="min-h-11"
+                    disabled={salvando || !testeAte}
+                    onClick={() => void cobranca({ teste: testeAte })}
+                  >
+                    Aplicar teste
+                  </Button>
+                  {vigente.status === "trial" ? (
+                    <Button
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={salvando}
+                      onClick={() => void cobranca({ teste: null })}
+                    >
+                      Encerrar teste
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Em teste: grátis até a data; o primeiro vencimento é no dia seguinte.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="ass-plano">Plano</Label>
             <select

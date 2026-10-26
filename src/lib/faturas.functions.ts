@@ -32,7 +32,7 @@ export const gerarFaturaFn = createServerFn({ method: "POST" })
 
     const { data: a, error } = await db
       .from("assinaturas")
-      .select("id, plano_id, status, valor_mensal, gateway_cliente_id")
+      .select("id, plano_id, status, valor_mensal, gateway_cliente_id, isenta")
       .eq("empresa_id", data.empresaId)
       .is("vigencia_fim", null)
       .maybeSingle();
@@ -51,7 +51,7 @@ export const gerarFaturaFn = createServerFn({ method: "POST" })
         : plano?.preco_mensal === null || plano?.preco_mensal === undefined
           ? null
           : Number(plano.preco_mensal);
-    const motivo = motivoSemFatura(valor, a?.status);
+    const motivo = motivoSemFatura(valor, a?.status, Boolean(a?.isenta));
     if (motivo || !a || valor === null) throw new Error(motivo ?? "Sem assinatura.");
 
     const { count } = await db

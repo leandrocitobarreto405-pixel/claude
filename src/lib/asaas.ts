@@ -51,9 +51,11 @@ export function descricaoFatura(plano: string, competencia: string): string {
 export function motivoSemFatura(
   mensalidade: number | null,
   status: string | null | undefined,
+  isenta = false,
 ): string | null {
   if (!status) return "Empresa sem assinatura.";
   if (status === "cancelada") return "Assinatura cancelada.";
+  if (isenta) return "Empresa isenta de cobrança: não gera fatura.";
   if (mensalidade === null || !(mensalidade > 0))
     return "Mensalidade não definida (vazia ou R$ 0): não gera fatura.";
   return null;

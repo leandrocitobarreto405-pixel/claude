@@ -35,7 +35,14 @@ import {
 import { ESTADOS } from "@/lib/implantacao";
 import { idDaEmpresaModelo, semEmpresaModelo } from "@/lib/empresa-modelo";
 import { AssinaturaEmpresa } from "@/components/assinatura/assinatura-empresa";
-import { avisosFimGratis, resumoAssinatura, usePlanos, type Assinatura } from "@/lib/planos";
+import {
+  avisosFimGratis,
+  resumoAssinatura,
+  situacaoCobranca,
+  usePlanos,
+  type Assinatura,
+  type SituacaoPortao,
+} from "@/lib/planos";
 
 export const Route = createFileRoute("/_authenticated/nexa/empresas")({
   head: () => ({
@@ -71,6 +78,8 @@ type LinhaEmpresa = {
   historico: Contrato[];
   assinatura: Assinatura | null;
   assinaturas: Assinatura[];
+  /** Situação do portão (ok, aviso, somente_leitura, bloqueada). */
+  situacao: SituacaoPortao | null;
 };
 
 const HOJE = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -105,7 +114,7 @@ function EmpresasNexa() {
   const empresas = useQuery({
     queryKey: ["nexa_empresas"],
     queryFn: async (): Promise<LinhaEmpresa[]> => {
-      const [lista, contratos, assinaturas, modelo] = await Promise.all([
+      const [lista, contratos, assinaturas, modelo, situacoes] = await Promise.all([
         supabase
           .from("empresas")
           .select("id, nome, cnpj, telefone, cidade, estado, ativo, eh_teste")
@@ -117,11 +126,15 @@ function EmpresasNexa() {
         supabase
           .from("assinaturas")
           .select(
-            "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em",
+            "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em, isenta",
           )
           .order("vigencia_inicio", { ascending: false }),
         idDaEmpresaModelo(supabase),
+        supabase.rpc("situacao_cobranca_empresas"),
       ]);
+      const situacaoDe = new Map(
+        (situacoes.data ?? []).map((x) => [x.empresa_id, x.situacao as SituacaoPortao]),
+      );
       if (lista.error) throw lista.error;
       if (contratos.error) throw contratos.error;
       if (assinaturas.error) throw assinaturas.error;
@@ -136,6 +149,7 @@ function EmpresasNexa() {
           vigente: historico.find((c) => c.vigencia_fim === null) ?? null,
           assinaturas: daEmpresa,
           assinatura: daEmpresa.find((a) => a.vigencia_fim === null) ?? null,
+          situacao: situacaoDe.get(e.id) ?? null,
         };
       });
     },
@@ -424,6 +438,20 @@ function EmpresasNexa() {
                       Próxima OS: {n.proximo}
                     </Button>
                   ) : null;
+                })()}
+                {(() => {
+                  const c = situacaoCobranca(
+                    e.assinatura,
+                    e.situacao,
+                    new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+                  );
+                  const cor = {
+                    sucesso: "bg-success text-success-foreground",
+                    neutro: "bg-secondary text-foreground",
+                    atencao: "bg-atencao text-atencao-foreground",
+                    problema: "bg-problema text-problema-foreground",
+                  }[c.tom];
+                  return <Badge className={cor}>{c.rotulo}</Badge>;
                 })()}
                 <Badge className="bg-secondary text-foreground">
                   {resumoAssinatura(e.assinatura, planos.data ?? [])}

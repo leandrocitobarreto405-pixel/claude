@@ -45,6 +45,8 @@ test("competência e descrição da fatura", () => {
 test("sem mensalidade não gera fatura", () => {
   assert.match(motivoSemFatura(null, "trial")!, /não gera fatura/);
   assert.match(motivoSemFatura(0, "ativa")!, /não gera fatura/);
+  assert.match(motivoSemFatura(247, "ativa", true)!, /isenta de cobrança/);
+  assert.equal(motivoSemFatura(247, "ativa", false), null);
   assert.equal(motivoSemFatura(297, "cancelada"), "Assinatura cancelada.");
   assert.equal(motivoSemFatura(50, null), "Empresa sem assinatura.");
   assert.equal(motivoSemFatura(50, "ativa"), null);

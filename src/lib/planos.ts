@@ -50,6 +50,8 @@ export type Assinatura = {
   proximo_vencimento: string | null;
   contrato_pdf_path: string | null;
   contrato_pdf_em: string | null;
+  /** Isenta de cobrança: nunca gera fatura nem fica inadimplente (ex.: Turbine). */
+  isenta?: boolean;
 };
 
 type LinhaPlano = {
@@ -162,7 +164,7 @@ export function avisosFimGratis(
   const avisos: string[] = [];
   for (const e of empresas) {
     const a = e.assinatura;
-    if (!a?.gratis_ate || a.status === "cancelada") continue;
+    if (!a?.gratis_ate || a.status === "cancelada" || a.isenta) continue;
     const valor = mensalidade(
       a,
       planos.find((p) => p.id === a.plano_id),
@@ -189,7 +191,7 @@ export function mrr(
 ): number {
   let total = 0;
   for (const a of assinaturas) {
-    if (!a || (a.status !== "ativa" && a.status !== "inadimplente")) continue;
+    if (!a || a.isenta || (a.status !== "ativa" && a.status !== "inadimplente")) continue;
     const valor = mensalidade(
       a,
       planos.find((p) => p.id === a.plano_id),
@@ -197,4 +199,34 @@ export function mrr(
     if (valor !== null && valor > 0) total += valor;
   }
   return Math.round(total * 100) / 100;
+}
+
+/** Situação do portão (private.empresa_situacao). */
+export type SituacaoPortao = "ok" | "aviso" | "somente_leitura" | "bloqueada";
+
+/**
+ * Etiqueta da lista do Painel Nexa: Isenta / Em teste até dd/mm / Ativa / Carência /
+ * Somente consulta / Bloqueada.
+ */
+export function situacaoCobranca(
+  a: Pick<Assinatura, "status" | "gratis_ate" | "isenta"> | null,
+  situacao: SituacaoPortao | null | undefined,
+  hoje: string,
+): { rotulo: string; tom: "sucesso" | "neutro" | "atencao" | "problema" } {
+  if (situacao === "bloqueada" || a?.status === "cancelada")
+    return { rotulo: "Bloqueada", tom: "problema" };
+  if (a?.isenta) return { rotulo: "Isenta", tom: "neutro" };
+  if (situacao === "somente_leitura") return { rotulo: "Somente consulta", tom: "problema" };
+  if (situacao === "aviso") return { rotulo: "Carência", tom: "atencao" };
+  if (a?.status === "trial" && a.gratis_ate && a.gratis_ate >= hoje)
+    return { rotulo: `Em teste até ${dateBR(a.gratis_ate)}`, tom: "atencao" };
+  return { rotulo: "Ativa", tom: "sucesso" };
+}
+
+/** Atalhos de "Em teste até": hoje + 30 dias e hoje + 3 meses (último dia do teste). */
+export function fimDoTeste(hoje: string, atalho: "30d" | "3m"): string {
+  if (atalho === "3m") return periodoGratis(hoje, 3).gratisAte;
+  const d = new Date(`${hoje}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 30);
+  return d.toISOString().slice(0, 10);
 }

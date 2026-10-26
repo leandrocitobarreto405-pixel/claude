@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   avisosFimGratis,
+  fimDoTeste,
   lerPlano,
   mensalidade,
   mrr,
   periodoGratis,
+  situacaoCobranca,
   type Assinatura,
 } from "./planos";
 
@@ -112,5 +114,55 @@ test("MRR: só ativas e inadimplentes com mensalidade", () => {
       planos,
     ),
     347,
+  );
+});
+
+test("cobrança: situação na lista do Painel Nexa", () => {
+  const hoje = "2026-10-26";
+  const a = (extra: Partial<Assinatura>) =>
+    ({ status: "ativa", gratis_ate: null, isenta: false, ...extra }) as Assinatura;
+  assert.equal(situacaoCobranca(a({ isenta: true }), "ok", hoje).rotulo, "Isenta");
+  assert.equal(
+    situacaoCobranca(a({ status: "trial", gratis_ate: "2026-11-25" }), "ok", hoje).rotulo,
+    "Em teste até 25/11/2026",
+  );
+  assert.equal(
+    situacaoCobranca(a({ status: "trial", gratis_ate: "2026-10-01" }), "ok", hoje).rotulo,
+    "Ativa",
+  );
+  assert.equal(situacaoCobranca(a({ status: "inadimplente" }), "aviso", hoje).rotulo, "Carência");
+  assert.equal(
+    situacaoCobranca(a({ status: "inadimplente" }), "somente_leitura", hoje).rotulo,
+    "Somente consulta",
+  );
+  assert.equal(situacaoCobranca(a({ isenta: true }), "bloqueada", hoje).rotulo, "Bloqueada");
+  assert.equal(situacaoCobranca(null, "ok", hoje).rotulo, "Ativa");
+});
+
+test("cobrança: atalhos do teste e isenta fora do MRR e dos avisos", () => {
+  assert.equal(fimDoTeste("2026-10-26", "30d"), "2026-11-25");
+  assert.equal(fimDoTeste("2026-10-26", "3m"), "2027-01-25");
+  const planos = [{ id: "p", preco_mensal: 247 }];
+  const base = {
+    id: "a",
+    empresa_id: "e",
+    plano_id: "p",
+    valor_mensal: null,
+    status: "ativa" as const,
+    vigencia_inicio: "2026-10-01",
+    vigencia_fim: null,
+    gratis_ate: null,
+    proximo_vencimento: null,
+    contrato_pdf_path: null,
+    contrato_pdf_em: null,
+  };
+  assert.equal(mrr([base, { ...base, isenta: true }], planos), 247);
+  assert.deepEqual(
+    avisosFimGratis(
+      [{ nome: "T", assinatura: { ...base, isenta: true, gratis_ate: "2026-10-30" } }],
+      planos,
+      "2026-10-26",
+    ),
+    [],
   );
 });
