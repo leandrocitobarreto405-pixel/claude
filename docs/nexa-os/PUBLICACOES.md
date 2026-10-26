@@ -761,6 +761,13 @@ private.cupons_conferir(); ALTER TABLE public.cupons DROP CONSTRAINT cupons_valo
 DROP COLUMN percentual, DROP COLUMN valido_ate, DROP COLUMN origem_id, ALTER COLUMN valor SET NOT
 NULL;`.
 
+Vendas da Nexa x da empresa (26/10, Fase B item 5, decisão E): só código, banco não muda. Em OS e
+orçamentos, seletor "Todas · Vendas da Nexa · Da empresa" e etiqueta "Nexa" no cartão; em Leads e
+funil › Indicadores, o quadro "Quem vendeu" (OS e valor por equipe, pela data da venda). Os dois só
+aparecem quando a empresa tem venda da equipe Nexa (atendente da Nexa ou Alice). Regra: vale o
+`vendido_por` da OS; sem ele, a vendedora (atendente da Nexa), a mesma das comissões. O pós-venda da
+Alice não mudou. Como desfazer: `git revert` do commit (sem force push).
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

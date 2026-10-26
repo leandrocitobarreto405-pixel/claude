@@ -22,6 +22,8 @@ export type OsDaLista = {
   cancelled_at: string | null;
   deleted_at: string | null;
   salesperson_id: string | null;
+  vendido_por?: string | null;
+  vendedora?: { atendente_nexa: boolean | null } | null;
   customer: { full_name: string; phone: string | null } | null;
   visits: VisitaDaLista[];
   work_order_documents: Array<{ is_active: boolean; generation_status: string }>;

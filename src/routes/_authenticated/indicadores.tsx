@@ -8,6 +8,7 @@ import { DeteccaoDaOrigem } from "@/components/origem/deteccao-origem";
 import { AbasDeRota, CabecalhoDeTela, Card, Recolhido } from "@/components/nexa";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
 import { FunilMini, GraficoVendasPorOrigem } from "@/components/painel/graficos";
+import { VendasPorEquipe } from "@/components/painel/vendas-por-equipe";
 import { ABAS_DE_TELA } from "@/lib/menu";
 import { brl, currentMonth, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
 import { duracaoMin, taxa, useIndicadores, type Indicadores } from "@/lib/funil";
@@ -121,6 +122,7 @@ function IndicadoresPage() {
       ) : (
         <Conteudo d={data} />
       )}
+      <VendasPorEquipe de={de} ate={ate} />
       <DeteccaoDaOrigem de={de} ate={ate} />
       <VisaoGeralCrm />
     </div>

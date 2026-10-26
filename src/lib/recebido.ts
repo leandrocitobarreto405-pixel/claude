@@ -9,6 +9,7 @@
  * Funções puras: quem busca os dados é reports.ts.
  */
 import { repasseDoRecebido } from "@/lib/terceirizados";
+import { vendidaPelaNexa } from "./vendido-por";
 
 export type PagamentoRecebido = {
   id: string;
@@ -80,8 +81,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Venda da equipe Nexa: a gravada na OS; sem ela, pela vendedora (atendente da Nexa). */
 export function vendaDaNexa(os: OsRecebido | undefined): boolean {
-  if (os?.vendido_por === "nexa" || os?.vendido_por === "empresa") return os.vendido_por === "nexa";
-  return os?.vendedora?.atendente_nexa === true;
+  return vendidaPelaNexa(os);
 }
 
 export function percentualDaComissao(os: OsRecebido | undefined): number {
