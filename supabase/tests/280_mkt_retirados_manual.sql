@@ -98,8 +98,10 @@ SELECT pg_temp.ok((SELECT private.mkt_motivo_fora(false, 30, x.optout, x.interno
                      FROM private.mkt_listas_dados('11111111-1111-1111-1111-111111111111', NULL) x
                     WHERE x.nome = 'Bia Prado'), 'chamada há 31 dias pode receber');
 
--- 6. Lembrete de 6 meses de quem foi chamado à mão há 10 dias fica para depois.
-CREATE TEMP TABLE gat AS SELECT public.mkt_gerar_gatilhos('11111111-1111-1111-1111-111111111111') AS r;
+-- 6. Lembrete de 6 meses de quem foi chamado à mão há 10 dias fica para depois. O "hoje" vai fixo
+-- na mesma data usada para montar os dados (current_date): sem isso, entre 21h e meia-noite de São
+-- Paulo (já o dia seguinte em UTC) a janela do lembrete ainda não começou e o teste falhava.
+CREATE TEMP TABLE gat AS SELECT public.mkt_gerar_gatilhos('11111111-1111-1111-1111-111111111111', current_date) AS r;
 SELECT pg_temp.ok((SELECT (r -> 'C2' ->> 'adiados')::int = 1 AND (r -> 'C2' ->> 'novos')::int = 0 FROM gat),
   'lembrete adiado: ' || (SELECT r::text FROM gat));
 
