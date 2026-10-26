@@ -727,6 +727,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 7: consumo das empresas no Painel Nexa                  | `c1b2bf7`           | `8fdbb89`                |
 | 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa          | `21ed1a2`           | `5ae6116`                |
 | 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                  | `29cd1e9`           | `1fb9286`                |
+| 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários       | `e1b4651`           | `f0dd67c`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -856,6 +857,20 @@ recebimento e de serviço atrasado, realizado, recebido, a receber, despesas, lu
 Para concluir e horários livres. Padrão: Vendas para atendente e equipe Nexa, Operacional para o
 admin da empresa; a escolha fica guardada no aparelho. Nenhum número mudou, só a organização. Como
 desfazer: `git revert 29cd1e9` (sem force push).
+
+Planos novos (26/10, decisão de 26/10): Essencial R$ 97 (até 3 usuários), Profissional R$ 247 (até
+6), Profissional + Alice R$ 497 (até 6); Nexa Gestão R$ 497 + 5% e Interna R$ 0 fora da tabela
+pública e sem limite; Básico e Completo inativos (histórico). Recursos travados no banco (cupom,
+campanha, rota do dia, ligar a Alice, ligar a taxa de deslocamento), no servidor e na tela
+(cadeado e "Quero mudar de plano", que avisa a Nexa no sininho do Painel Nexa). Técnicos e equipe
+Nexa não contam no limite; usuário extra (R$ 29) e plano anual (paga 10, leva 12) só registrados,
+nada cobrado. Aviso de fim do grátis continua com a mensalidade definida (Ecoprime: passa a pagar
+R$ 497 em 03/01/2027). Migração `20261215120000_planos_recursos` aplicada pelo Claude do chat em
+26/10 (mesmo SQL ensaiado, md5 cdfa01a4ab3f9c7fb20d94c9ebc963a5), conferida: Turbine (Interna) e
+Ecoprime (Nexa Gestão) com 8 de 8 recursos e sem limite. Teste Asaas passou do Básico para o
+Essencial. Como desfazer: `git revert e1b4651` (sem force push) e, no banco, o arquivo
+`supabase/manual/20261215120000_planos_recursos_desfazer.sql` (volta a Teste Asaas ao Básico,
+tira travas, funções e a tabela de pedidos, volta o catálogo antigo; as 4 colunas novas ficam).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
