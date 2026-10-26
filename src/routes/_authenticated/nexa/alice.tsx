@@ -128,6 +128,7 @@ function AliceNexa() {
         .from("empresas")
         .select("id, nome")
         .eq("ativo", true)
+        .eq("eh_teste", false)
         .order("nome");
       if (error) throw error;
       // Uma empresa por vez, cada uma no próprio contexto.

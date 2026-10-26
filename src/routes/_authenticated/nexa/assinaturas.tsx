@@ -62,7 +62,7 @@ const TOM_STATUS: Record<Assinatura["status"], TomChip> = {
   cancelada: "neutro",
 };
 
-type Linha = { id: string; nome: string; assinatura: Assinatura | null };
+type Linha = { id: string; nome: string; eh_teste: boolean; assinatura: Assinatura | null };
 
 function AssinaturasNexa() {
   const { data: ctx } = useContextoTenant();
@@ -81,7 +81,7 @@ function AssinaturasNexa() {
     enabled: souNexa,
     queryFn: async (): Promise<Linha[]> => {
       const [lista, assinaturas] = await Promise.all([
-        supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+        supabase.from("empresas").select("id, nome, eh_teste").eq("ativo", true).order("nome"),
         supabase
           .from("assinaturas")
           .select(
@@ -114,10 +114,12 @@ function AssinaturasNexa() {
   if (ctx && !souNexa) return <EmptyState title="Acesso restrito à Nexa" />;
 
   const lista = empresas.data ?? [];
+  // Empresas de teste aparecem na lista, mas ficam fora do MRR, das contagens e dos avisos.
+  const reais = lista.filter((l) => !l.eh_teste);
   const catalogo = planos.data ?? [];
-  const avisos = avisosFimGratis(lista, catalogo, HOJE());
+  const avisos = avisosFimGratis(reais, catalogo, HOJE());
   const contagem = (s: Assinatura["status"]) =>
-    lista.filter((l) => l.assinatura?.status === s).length;
+    reais.filter((l) => l.assinatura?.status === s).length;
 
   async function alternarEmails(ligar: boolean) {
     const { error } = await supabase.from("configuracoes_plataforma").upsert({
@@ -158,7 +160,7 @@ function AssinaturasNexa() {
           <NumeroGrande
             valor={brl(
               mrr(
-                lista.map((l) => l.assinatura),
+                reais.map((l) => l.assinatura),
                 catalogo,
               ),
             )}
@@ -208,6 +210,7 @@ function AssinaturasNexa() {
           <Card key={l.id} as="article">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="min-w-0 flex-1 text-base font-bold">{l.nome}</h2>
+              {l.eh_teste ? <Chip>Teste · fora do MRR</Chip> : null}
               {a && <Chip tom={TOM_STATUS[a.status]}>{STATUS_ASSINATURA[a.status]}</Chip>}
             </div>
             <p className="text-sm text-muted-foreground">{resumoAssinatura(a, catalogo)}</p>

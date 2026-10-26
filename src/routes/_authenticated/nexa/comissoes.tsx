@@ -83,7 +83,12 @@ function ComissoesNexa() {
     enabled: souNexa,
     queryFn: async (): Promise<LinhaEmpresa[]> => {
       const [lista, contratos] = await Promise.all([
-        supabase.from("empresas").select("id, nome").eq("ativo", true).order("nome"),
+        supabase
+          .from("empresas")
+          .select("id, nome")
+          .eq("ativo", true)
+          .eq("eh_teste", false)
+          .order("nome"),
         supabase
           .from("contratos_comissao")
           .select("empresa_id, percentual, vigencia_inicio, vigencia_fim"),

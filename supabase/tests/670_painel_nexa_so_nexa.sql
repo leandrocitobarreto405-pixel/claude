@@ -70,7 +70,11 @@ SELECT pg_temp.ok((SELECT count(*) FROM public.faturas WHERE empresa_id = '67000
 SELECT pg_temp.ok((SELECT count(*) FROM public.contratos_comissao WHERE empresa_id = '67000000-0000-4000-8000-000000000001') = 0, 'contrato');
 SELECT pg_temp.ok((SELECT count(*) FROM public.integracao_eventos WHERE empresa_id = '67000000-0000-4000-8000-000000000001') = 0, 'evento do Chatwoot');
 SELECT pg_temp.ok((SELECT count(*) FROM public.pagamentos_eventos) = 0, 'eventos de pagamento');
+SELECT pg_temp.deve_falhar($$UPDATE public.empresas SET eh_teste = true
+  WHERE id = '11111111-1111-1111-1111-111111111111'$$, 'marcar a própria empresa como teste');
 RESET ROLE;
+SELECT pg_temp.ok((SELECT NOT eh_teste FROM public.empresas WHERE id = '11111111-1111-1111-1111-111111111111'),
+  'empresa não se marca como teste (só a Nexa)');
 SELECT pg_temp.ok((SELECT preco_mensal FROM public.planos WHERE codigo = 'basico') = 50, 'preço do plano não mudou');
 SELECT pg_temp.ok((SELECT valor IS DISTINCT FROM '"x"'::jsonb FROM public.configuracoes_plataforma WHERE chave = 'termos_url'),
   'configuração da plataforma não mudou');
@@ -81,5 +85,8 @@ SET ROLE authenticated;
 SELECT pg_temp.ok(public.sou_admin_nexa(), 'Nexa é Nexa');
 SELECT pg_temp.ok((SELECT count(*) FROM public.assinaturas WHERE empresa_id = '67000000-0000-4000-8000-000000000001') = 1, 'Nexa vê a assinatura');
 SELECT pg_temp.ok((SELECT count(*) FROM public.faturas WHERE empresa_id = '67000000-0000-4000-8000-000000000001') = 1, 'Nexa vê a fatura');
+UPDATE public.empresas SET eh_teste = true WHERE id = '67000000-0000-4000-8000-000000000001';
 RESET ROLE;
+SELECT pg_temp.ok((SELECT eh_teste FROM public.empresas WHERE id = '67000000-0000-4000-8000-000000000001'),
+  'Nexa marca empresa de teste');
 ROLLBACK;

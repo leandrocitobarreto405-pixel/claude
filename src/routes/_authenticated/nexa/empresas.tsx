@@ -66,6 +66,7 @@ type LinhaEmpresa = {
   cidade: string | null;
   estado: string | null;
   ativo: boolean;
+  eh_teste: boolean;
   vigente: Contrato | null;
   historico: Contrato[];
   assinatura: Assinatura | null;
@@ -107,7 +108,7 @@ function EmpresasNexa() {
       const [lista, contratos, assinaturas, modelo] = await Promise.all([
         supabase
           .from("empresas")
-          .select("id, nome, cnpj, telefone, cidade, estado, ativo")
+          .select("id, nome, cnpj, telefone, cidade, estado, ativo, eh_teste")
           .order("nome"),
         supabase
           .from("contratos_comissao")
@@ -400,6 +401,7 @@ function EmpresasNexa() {
               <div className="min-w-0">
                 <p className="font-medium">
                   {e.nome} {!e.ativo ? <Badge className="ml-1 bg-secondary">inativa</Badge> : null}
+                  {e.eh_teste ? <Badge className="ml-1 bg-secondary">teste</Badge> : null}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {[e.cnpj, e.telefone, e.cidade && e.estado ? `${e.cidade}/${e.estado}` : null]

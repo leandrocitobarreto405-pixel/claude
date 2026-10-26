@@ -782,6 +782,16 @@ troca sozinha para o painel. No servidor, as 9 funções do painel usam uma conf
 (Configurações › Empresa) continua dentro da empresa. Como desfazer: `git revert a71a5b7` (sem
 force push).
 
+Empresa de teste (26/10): migração `20261211120000` aplicada depois do ensaio desfeito (nenhuma
+empresa marcada; gatilho criado). `empresas.eh_teste` (padrão falso): a empresa de teste aparece no
+Painel Nexa com a etiqueta "Teste · fora do MRR" e fica fora do MRR, das contagens e avisos de
+Assinaturas e dos relatórios da Comissão da Nexa e da Alice. Só a Nexa marca (gatilho
+`trg_empresas_proteger_teste`; o teste de banco 670 achou que, sem ele, o admin da empresa conseguia
+marcar a própria). Marcada: "Teste Asaas (sandbox)" (criada em 26/10 para o teste do Asaas, plano
+Básico R$ 50, sem usuários). Como desfazer: `git revert` do commit; banco: `DROP TRIGGER
+trg_empresas_proteger_teste ON public.empresas; DROP FUNCTION private.empresas_proteger_teste();
+ALTER TABLE public.empresas DROP COLUMN eh_teste;`.
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

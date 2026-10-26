@@ -2114,6 +2114,7 @@ export type Database = {
       };
       empresas: {
         Row: {
+          eh_teste: boolean;
           ativo: boolean;
           cidade: string | null;
           cnpj: string | null;
@@ -2130,6 +2131,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          eh_teste?: boolean;
           ativo?: boolean;
           cidade?: string | null;
           cnpj?: string | null;
@@ -2146,6 +2148,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          eh_teste?: boolean;
           ativo?: boolean;
           cidade?: string | null;
           cnpj?: string | null;
