@@ -837,6 +837,16 @@ saiu). Empresas de teste ficam fora dos totais. Conferido em 26/10: Turbine com 
 Alice (US$ 32,84) e 473 mensagens de marketing em outubro; agenda ainda sem envio. Como desfazer:
 `git revert c1b2bf7`; banco: `DROP FUNCTION public.consumo_empresas(date);`.
 
+Fase B item 6, rotas e quilometragem para qualquer empresa (26/10): só código, banco não muda.
+Conferido: rotas e taxa de deslocamento já usam o mesmo cadastro (endereço de saída de cada técnico
+em Configurações › Equipe) e o custo por km já era da empresa (Configurações › Empresa); o
+fechamento mensal roda empresa por empresa. Corrigido o que vinha da Turbine: orçamento e promoção
+usavam R$ 0,57 por km quando a empresa não tinha custo; agora usam o da empresa (sem valor, 0). A
+Turbine (0,57) não muda; a Ecoprime não tem custo por km e os 2 técnicos estão sem endereço de
+saída (orçamentos salvos mantêm o custo gravado). Novo passo opcional nos Primeiros passos: "Rotas e
+quilometragem" (técnicos com endereço de saída e custo por km). Tela de Rotas avisa e leva para
+informar o custo. Como desfazer: `git revert` do commit (sem force push).
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

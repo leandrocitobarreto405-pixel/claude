@@ -210,7 +210,10 @@ function OrcamentoDetalhe() {
   const [acao, setAcao] = useState<string | null>(null);
   const ocupado = salvando || acao !== null;
   const [mensagem, setMensagem] = useState<string | null>(null);
-  const [custoKmConfig, setCustoKmConfig] = useState(0.57);
+  // Custo por km: o gravado no orçamento; num orçamento novo, o da empresa (sem valor, 0).
+  const [custoKmGravado, setCustoKmConfig] = useState<number | null>(null);
+  const { data: custoKmEmpresa } = useSetting<number | null>("cost_per_km", null);
+  const custoKmConfig = custoKmGravado ?? (Number(custoKmEmpresa) > 0 ? Number(custoKmEmpresa) : 0);
   const [parcelas, setParcelas] = useState(0); // 0 = à vista
   const [preencherAgenda, setPreencherAgenda] = useState(false);
   const [buscandoKm, setBuscandoKm] = useState(false);

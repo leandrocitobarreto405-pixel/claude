@@ -52,6 +52,8 @@ export async function fatosDaEmpresa(
     { data: alice },
     { data: meta },
     { data: veiculos },
+    { data: bases },
+    { data: custoKm },
     { data: google },
     contatos,
     campanhas,
@@ -102,6 +104,13 @@ export async function fatosDaEmpresa(
       .maybeSingle(),
     db.from("meta_conexoes").select("waba_id").eq("empresa_id", empresaId).maybeSingle(),
     db.from("veiculos").select("dia_rodizio").eq("empresa_id", empresaId),
+    db.from("technicians").select("base_address").eq("empresa_id", empresaId).eq("active", true),
+    db
+      .from("app_settings")
+      .select("value")
+      .eq("empresa_id", empresaId)
+      .eq("key", "cost_per_km")
+      .maybeSingle(),
     db.from("google_conexoes").select("situacao").eq("empresa_id", empresaId).maybeSingle(),
     contar(db.from("mkt_contatos").select("id", head).eq("empresa_id", empresaId)),
     contar(
@@ -165,6 +174,10 @@ export async function fatosDaEmpresa(
     veiculos: {
       total: (veiculos ?? []).length,
       comRodizio: (veiculos ?? []).filter((v) => v.dia_rodizio != null).length,
+    },
+    rotas: {
+      tecnicosSemBase: (bases ?? []).filter((t) => !cheio(t.base_address)).length,
+      custoKm: Number(custoKm?.value ?? 0) > 0,
     },
     google: google?.situacao === "conectada",
     marketing: { contatos, campanhas },

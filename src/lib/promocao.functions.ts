@@ -190,8 +190,8 @@ async function cacheDeRotas(empresaId: string, origens: Coordenada[]) {
   };
 }
 
-/** Custo por km usado nos orçamentos quando a empresa não configurou. */
-const CUSTO_KM_PADRAO = 0.57;
+/** Custo por km quando a empresa não configurou: 0, como nos orçamentos. */
+const CUSTO_KM_PADRAO = 0;
 
 /** Tempo máximo gasto localizando endereços por abertura da tela (o mapa aceita 1 pedido/s). */
 const ORCAMENTO_GEO_MS = 8_000;

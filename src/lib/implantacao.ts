@@ -19,6 +19,7 @@ export type ChaveEtapa =
   | "alice"
   | "token_meta"
   | "veiculos"
+  | "rotas"
   | "google"
   | "base"
   | "marketing"
@@ -54,6 +55,8 @@ export type Fatos = {
   tokenMeta: boolean;
   /** Veículos cadastrados e quantos têm dia de rodízio. */
   veiculos: { total: number; comRodizio: number };
+  /** Rotas e quilometragem: técnicos ativos sem endereço de saída e custo por km da empresa. */
+  rotas: { tecnicosSemBase: number; custoKm: boolean };
   google: boolean;
   marketing: { contatos: number; campanhas: number };
   notificacoes: number;
@@ -298,6 +301,28 @@ const DEFS: Def[] = [
               ? `Rodízio não se aplica: ${plural(v.total, "veículo", "veículos")} sem dia de rodízio.`
               : "Rodízio não se aplica: nenhum veículo com dia de rodízio.",
           },
+  },
+  {
+    chave: "rotas",
+    titulo: "Rotas e quilometragem",
+    responsavel: "empresa",
+    obrigatoria: false,
+    // O endereço de saída de cada técnico é o mesmo da taxa de deslocamento (um cadastro só).
+    resolver: { rotulo: "Abrir dados da empresa", para: "/configuracoes/empresa" },
+    podeRevisar: false,
+    podeNaoSeAplica: true,
+    avaliar: ({ tecnicosAtivos, rotas }) => {
+      const itens: string[] = [];
+      if (!tecnicosAtivos) itens.push("cadastre os técnicos");
+      else if (rotas.tecnicosSemBase)
+        itens.push(
+          `${plural(rotas.tecnicosSemBase, "técnico", "técnicos")} sem endereço de saída (Configurações → Equipe)`,
+        );
+      if (!rotas.custoKm) itens.push("informe o custo por km (Configurações → Empresa)");
+      return itens.length
+        ? falta(`Falta: ${faltam(itens)}.`)
+        : pronta("Endereço de saída de todos os técnicos e custo por km informados.");
+    },
   },
   {
     chave: "google",

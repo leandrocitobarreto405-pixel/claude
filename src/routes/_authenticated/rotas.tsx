@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -259,6 +259,17 @@ function Rotas() {
         title="Rotas e quilometragem"
         description={`${dateBR(dia)} · ${visitas.length} parada(s) · custo por km ${custoKm > 0 ? brl(custoKm) : "não configurado"}`}
       />
+      {custoKm > 0 ? null : (
+        <div className="card-surface mb-4 flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+          <span>
+            Sem custo por km, as rotas ficam em &quot;Aguardando custo por km&quot;. O endereço de
+            saída de cada técnico é o mesmo da taxa de deslocamento (Configurações → Equipe).
+          </span>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/configuracoes/empresa">Informar custo por km</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="card-surface mb-6 flex flex-wrap items-end gap-3 p-4">
         <div className="space-y-1">

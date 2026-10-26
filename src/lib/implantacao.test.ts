@@ -23,6 +23,7 @@ const vazia: Fatos = {
   alice: null,
   tokenMeta: false,
   veiculos: { total: 0, comRodizio: 0 },
+  rotas: { tecnicosSemBase: 0, custoKm: false },
   google: false,
   marketing: { contatos: 0, campanhas: 0 },
   notificacoes: 0,
@@ -55,6 +56,7 @@ const pronta: Fatos = {
   },
   tokenMeta: true,
   veiculos: { total: 2, comRodizio: 1 },
+  rotas: { tecnicosSemBase: 0, custoKm: true },
   google: true,
   marketing: { contatos: 300, campanhas: 1 },
   notificacoes: 2,
@@ -65,7 +67,7 @@ const etapa = (f: Fatos, chave: string) => avaliarEtapas(f).find((e) => e.chave 
 
 test("empresa nova: nada pronto, WhatsApp aguardando conexão", () => {
   const r = resumoEtapas(avaliarEtapas(vazia));
-  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 1 de 6 opcionais");
+  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 1 de 7 opcionais");
   assert.equal(r.podeLiberar, false);
   assert.equal(etapa(vazia, "whatsapp").situacao, "aguardando");
   assert.equal(etapa(vazia, "whatsapp").detalhe, "Aguardando conexão.");
@@ -79,7 +81,7 @@ test("empresa nova: nada pronto, WhatsApp aguardando conexão", () => {
 
 test("tudo pronto: pode liberar", () => {
   const r = resumoEtapas(avaliarEtapas(pronta));
-  assert.equal(textoProgresso(r), "9 de 9 obrigatórias · 6 de 6 opcionais");
+  assert.equal(textoProgresso(r), "9 de 9 obrigatórias · 7 de 7 opcionais");
   assert.equal(r.podeLiberar, true);
 });
 
@@ -168,4 +170,14 @@ test("base de clientes: pronta quando há contatos; sem eles, aponta os modelos"
   assert.equal(etapa(vazia, "base").resolver?.para, "/marketing?secao=base");
   assert.equal(etapa(pronta, "base").detalhe, "300 contatos na base.");
   assert.equal(marcacaoPermitida("base", "nao_se_aplica"), true);
+});
+
+test("rotas e quilometragem: endereço de saída de cada técnico e custo por km", () => {
+  const etapa = (f: Fatos) => avaliarEtapas(f).find((e) => e.chave === "rotas")!;
+  assert.equal(etapa(pronta).situacao, "pronta");
+  const semBase = etapa({ ...pronta, rotas: { tecnicosSemBase: 1, custoKm: false } });
+  assert.equal(semBase.situacao, "falta");
+  assert.match(semBase.detalhe, /1 técnico sem endereço de saída/);
+  assert.match(semBase.detalhe, /custo por km/);
+  assert.equal(etapa(vazia).obrigatoria, false);
 });

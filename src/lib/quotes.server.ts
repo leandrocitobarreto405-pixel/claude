@@ -129,9 +129,10 @@ export async function regrasOrcamento(db: DB, empresaId?: string): Promise<Regra
   return regrasDaLinha(data as Record<string, unknown> | null);
 }
 
+/** Custo por km da empresa (Configurações › Empresa); sem valor, 0 (não usa o de outra empresa). */
 async function costPerKm(db: DB, empresaId?: string): Promise<number> {
-  const n = await settingNumber(db, "cost_per_km", 0.57, empresaId);
-  return n > 0 ? n : 0.57;
+  const n = await settingNumber(db, "cost_per_km", 0, empresaId);
+  return n > 0 ? n : 0;
 }
 
 async function settingText(
