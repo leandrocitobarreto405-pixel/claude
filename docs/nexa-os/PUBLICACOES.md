@@ -719,6 +719,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 4: empresa-modelo neutra                                | `bcffe3f`           | `b028603`                |
 | 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa             | `788be83`           | `bcffe3f`                |
 | 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual        | `16226c0`           | `788be83`                |
+| 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)              | `3d2998b`           | `921f91c`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -766,7 +767,7 @@ orçamentos, seletor "Todas · Vendas da Nexa · Da empresa" e etiqueta "Nexa" n
 funil › Indicadores, o quadro "Quem vendeu" (OS e valor por equipe, pela data da venda). Os dois só
 aparecem quando a empresa tem venda da equipe Nexa (atendente da Nexa ou Alice). Regra: vale o
 `vendido_por` da OS; sem ele, a vendedora (atendente da Nexa), a mesma das comissões. O pós-venda da
-Alice não mudou. Como desfazer: `git revert` do commit (sem force push).
+Alice não mudou. Como desfazer: `git revert 3d2998b` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
