@@ -728,6 +728,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa          | `21ed1a2`           | `5ae6116`                |
 | 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                  | `29cd1e9`           | `1fb9286`                |
 | 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários       | `e1b4651`           | `f0dd67c`                |
+| 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)      | `19900e6`           | `72a7790`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -871,6 +872,15 @@ Ecoprime (Nexa Gestão) com 8 de 8 recursos e sem limite. Teste Asaas passou do 
 Essencial. Como desfazer: `git revert e1b4651` (sem force push) e, no banco, o arquivo
 `supabase/manual/20261215120000_planos_recursos_desfazer.sql` (volta a Teste Asaas ao Básico,
 tira travas, funções e a tabela de pedidos, volta o catálogo antigo; as 4 colunas novas ficam).
+
+Alice, respostas do cliente e tecido não identificado (26/10): código com as regras novas
+DESLIGADAS (nada muda no atendimento até o ok do ensaio). Novo em Configurações › Alice: "Tecido
+padrão quando não identificado" (passar para a equipe, padrão; ou seguir com a classe A, B ou C) e o
+"Ensaio das respostas e do tecido" (conversas finais 3615 e 7010 reproduzidas, antes e depois, sem
+nada enviado nem gravado). Migração `20261216120000_alice_tecido_nao_identificado` aplicada em 26/10
+(coluna nova com padrão "equipe"; Modelo Nexa e Turbine ficaram em "equipe"). Como desfazer:
+`git revert 19900e6` (sem force push); banco: `ALTER TABLE public.ia_configuracoes DROP COLUMN
+tecido_nao_identificado;` (só depois do revert do código, que lê e grava a coluna).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
