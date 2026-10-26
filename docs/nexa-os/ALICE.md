@@ -248,3 +248,35 @@ echo "Pronto."
 2. **Modelos da Meta** para os toques fora da janela de 24 h, confirmação da véspera e pós-venda.
 3. **Pós-venda automático** a partir da OS (véspera, dia seguinte, 6 meses).
 4. **Fase 3:** desconto em dia vago, se a empresa quiser.
+
+## Áudio com a ElevenLabs (Cloud Shell)
+
+Pré-requisito: chave da API criada em elevenlabs.io (Perfil › API keys) e a voz adicionada à conta.
+A chave é colada direto no Cloud Shell, nunca em chat; o `read -s` não mostra o que é colado.
+
+```bash
+REGIAO=southamerica-east1
+PROJETO=$(gcloud config get-value project)
+CONTA_SA=$(gcloud run services describe nexaos --region "$REGIAO" \
+  --format='value(spec.template.spec.serviceAccountName)')
+[ -z "$CONTA_SA" ] && CONTA_SA="$(gcloud projects describe "$PROJETO" \
+  --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+
+read -s -p "Cole a API key da ElevenLabs e tecle Enter: " CHAVE; echo
+if gcloud secrets describe elevenlabs-api-key >/dev/null 2>&1; then
+  printf '%s' "$CHAVE" | gcloud secrets versions add elevenlabs-api-key --data-file=- >/dev/null
+else
+  printf '%s' "$CHAVE" | gcloud secrets create elevenlabs-api-key --data-file=- >/dev/null
+fi
+unset CHAVE
+gcloud secrets add-iam-policy-binding elevenlabs-api-key \
+  --role=roles/secretmanager.secretAccessor --member="serviceAccount:${CONTA_SA}" >/dev/null
+
+# Acrescenta a chave sem tirar os outros segredos e variáveis do serviço.
+gcloud run services update nexaos --region "$REGIAO" \
+  --update-secrets=ELEVENLABS_API_KEY=elevenlabs-api-key:latest >/dev/null
+echo "Pronto: ELEVENLABS_API_KEY ligada no Cloud Run."
+```
+
+Depois: Configurações › Alice › Responder em áudio mostra a ElevenLabs liberada. O provedor continua
+no Google até trocar; use "Teste com o Google" e "Teste com a ElevenLabs" para comparar no celular.
