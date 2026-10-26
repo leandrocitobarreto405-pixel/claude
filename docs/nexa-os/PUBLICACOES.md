@@ -730,6 +730,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários       | `e1b4651`           | `f0dd67c`                |
 | 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)      | `19900e6`           | `72a7790`                |
 | 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)          | `7578347`           | `665e779`                |
+| 26/10/2026       | Franquia da Alice: medidor, avisos, teto e trava por custo          | `bb32e40`           | `11f47b0`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -896,6 +897,19 @@ desfazer: roteiro: `UPDATE public.ia_configuracoes c SET instrucoes = s.value->>
 public.app_settings s WHERE s.empresa_id = c.empresa_id AND s.key = 'alice_roteiro_copia_20261026_tecido';`;
 Turbine em "equipe": `UPDATE public.ia_configuracoes SET tecido_nao_identificado = 'equipe' WHERE
 empresa_id = '11111111-1111-1111-1111-111111111111';`; regra: `git revert 7578347` (sem force push).
+
+Franquia da Alice (26/10): conversa conta quando a Alice manda a primeira mensagem do mês (mês de
+São Paulo). Profissional + Alice: 150 incluídas, R$ 3,50 por conversa excedente; na franquia a
+conversa nova vai para a equipe (nota no Chatwoot e aviso), ou, com "Continuar depois da franquia"
+(Configurações › Alice), segue até o teto do mês em R$; conversa acima de R$ 5 de IA vai para a
+equipe. Interna (Turbine) e Nexa Gestão: só medidor, sem trava. Avisos no sininho (só no app) em 80%
+e 100% e no teto. Medidor "Alice: X de 150 conversas este mês" em Configurações › Alice e no Início
+(admin). Painel Nexa › Consumo: franquia, excedente, passagens, 10 conversas mais caras (sem nome nem
+telefone) e cotação do dólar 5,65 editável, com aviso depois de 30 dias. Excedente só calculado:
+nada vai para o Asaas. Migração `20261217120000_alice_franquia` aplicada em 26/10 (ensaio antes;
+funções conferidas pelo md5 contra o banco de teste); outubro começou com 111 conversas da Turbine.
+Como desfazer: `git revert bb32e40` (sem force push) e depois
+`supabase/manual/20261217120000_alice_franquia_desfazer.sql`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
