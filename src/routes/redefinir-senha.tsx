@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureAccess } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { problemaDaSenha } from "@/lib/senha";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/redefinir-senha")({
@@ -50,8 +51,9 @@ function RedefinirSenha() {
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (senha.length < 6) {
-      toast.error("A senha deve ter no mínimo 6 caracteres.");
+    const problema = problemaDaSenha(senha);
+    if (problema) {
+      toast.error(problema);
       return;
     }
     if (senha !== repetir) {

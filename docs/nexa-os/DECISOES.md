@@ -165,6 +165,19 @@ assinatura assim como inadimplente. Cancelar pela Nexa continua bloqueando. O Pa
   só o número de mensagens enviadas.
 - O envio automático nasce desligado; o teste vai só para contato interno da equipe.
 
+## D12 — Supabase no plano grátis nesta fase (26/10/2026)
+
+Supabase no plano grátis nesta fase, sem backup restaurável e sem proteção contra senha vazada;
+contratar o Pro antes de vender para outras empresas; PITR não ligado.
+
+- No lugar da proteção contra senha vazada: regra mínima de senha no app (8 caracteres, com letra
+  e número) no cadastro e na troca de senha, e a mesma regra no Supabase (Authentication › Sign In
+  / Providers › Email: tamanho mínimo 8 e "letras e números").
+- Backup provisório: pg_dump diário para um bucket privado do Google Cloud Storage (plano em
+  `docs/nexa-os/BACKUP.md`), só depois do ok.
+- Limites do grátis (26/10): banco 116 MB de 500 MB (74 MB são os eventos do Chatwoot,
+  `integracao_eventos`, ~100 MB/mês no ritmo atual → limite em ~4 meses); arquivos 20 MB de 1 GB.
+
 ## Plano atualizado
 
 | Etapa | Entrega | Depende de você |

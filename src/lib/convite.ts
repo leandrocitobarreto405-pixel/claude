@@ -25,7 +25,7 @@ export function mensagemConvite(c: {
     `1. Abra ${endereco}/auth`,
     '2. Toque em "Criar conta".',
     `3. Use exatamente este e-mail: ${c.email}`,
-    '4. Escreva seu nome, escolha uma senha (mínimo de 6 caracteres) e toque em "Criar conta".',
+    '4. Escreva seu nome, escolha uma senha (mínimo de 8 caracteres, com letra e número) e toque em "Criar conta".',
     '5. Se chegar um e-mail de confirmação, toque no link dele e depois entre pela aba "Entrar".',
     "",
     `Pronto: a empresa ${c.empresa} já aparece para você.`,

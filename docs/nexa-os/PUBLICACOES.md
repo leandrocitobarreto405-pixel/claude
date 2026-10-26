@@ -727,7 +727,9 @@ Fase B item 8 (26/10, decisões C e H): código do "li e aceito" (janela no app,
 Planos › Termos) publicado sem efeito: enquanto `termos_versao` estiver vazio ninguém é perguntado,
 e sem a tabela nova o servidor só devolve "nada a aceitar". A migração `20261208120000`
 (`termos_aceites` com RLS, chaves `termos_versao`/`termos_url` vazias, search_path de
-`private.validar_proximo_numero_os`) ainda não foi aplicada: falta o ensaio na produção.
+`private.validar_proximo_numero_os`) foi aplicada em 26/10 depois do ensaio desfeito (registrada no
+histórico como `20261026024838`; acerto do número para `20261208120000` pendente). Regra mínima de
+senha (8 caracteres, letra e número) no cadastro e na troca de senha: só código.
 Como desfazer o código: `git revert` deste commit (sem force push). Banco (depois de aplicada):
 `DROP TABLE public.termos_aceites;` e
 `ALTER FUNCTION private.validar_proximo_numero_os() RESET search_path;`.

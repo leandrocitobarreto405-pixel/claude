@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { problemaDaSenha } from "@/lib/senha";
 import { enderecoDoApp } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/auth")({
@@ -119,8 +120,9 @@ function AuthPage() {
       toast.error("Informe o nome completo.");
       return;
     }
-    if (senha.length < 6) {
-      toast.error("A senha deve ter no mínimo 6 caracteres.");
+    const problema = problemaDaSenha(senha);
+    if (problema) {
+      toast.error(problema);
       return;
     }
     setCarregando(true);
