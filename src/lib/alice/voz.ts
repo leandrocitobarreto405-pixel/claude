@@ -189,6 +189,43 @@ export function paraFala(texto: string): string {
 
 // ---------------------------------------------------------------- decisão
 
+// ---------------------------------------------------------------- ElevenLabs
+
+export type Provedor = "google" | "elevenlabs";
+export const MODELOS_ELEVEN = ["eleven_flash_v2_5", "eleven_v4"] as const;
+export type ModeloEleven = (typeof MODELOS_ELEVEN)[number];
+/**
+ * Créditos da ElevenLabs por caractere: v4 ~1 (amostra de 26/10: 16 s = 257 créditos); Flash v2.5
+ * gasta metade (tabela da ElevenLabs).
+ */
+export const CREDITOS_POR_CARACTERE: Record<ModeloEleven, number> = {
+  eleven_v4: 1,
+  eleven_flash_v2_5: 0.5,
+};
+/** Padrão: US$ 0,22 por mil créditos (plano Creator). A Nexa ajusta conforme o plano da conta. */
+export const USD_POR_MIL_CREDITOS_PADRAO = 0.22;
+const VOZ_ELEVEN = /^[A-Za-z0-9]{12,40}$/;
+
+export function vozElevenValida(id: string | null | undefined): id is string {
+  return Boolean(id && VOZ_ELEVEN.test(id));
+}
+
+export function modeloEleven(m: string | null | undefined): ModeloEleven {
+  return (MODELOS_ELEVEN as readonly string[]).includes(m ?? "")
+    ? (m as ModeloEleven)
+    : "eleven_flash_v2_5";
+}
+
+export function custoElevenReais(
+  caracteres: number,
+  modelo: ModeloEleven,
+  usdPorMilCreditos: number,
+  cotacaoDolar: number,
+): number {
+  const usd = ((caracteres * CREDITOS_POR_CARACTERE[modelo]) / 1000) * usdPorMilCreditos;
+  return Math.round(usd * cotacaoDolar * 10000) / 10000;
+}
+
 export type ConfigAudio = {
   audio_ativo: boolean;
   audio_voz: string | null;
@@ -196,14 +233,24 @@ export type ConfigAudio = {
   audio_max_segundos: number;
   audio_limite_diario_reais: number;
   audio_cotacao_dolar: number;
+  /** Sem provedor: Google (como sempre foi). */
+  audio_provedor?: Provedor;
+  audio_eleven_voz?: string | null;
+  audio_eleven_modelo?: string | null;
+  eleven_usd_por_mil_creditos?: number;
 };
 
 export type Decisao =
   | { modo: "texto"; motivo: string; limite?: boolean }
   | {
       modo: "audio";
+      provedor: Provedor;
+      /** Voz do provedor (ElevenLabs: voice_id; Google: nome Chirp 3 HD). */
       voz: string;
-      /** Texto que o Google vai falar. */
+      modelo: ModeloEleven | null;
+      /** Voz do Google para cair nela se a ElevenLabs recusar (null = sem reserva). */
+      vozReserva: string | null;
+      /** Texto que vai falado. */
       fala: string;
       /** Parte escrita que sai depois do áudio (pode ser vazia). */
       texto: string;
@@ -221,7 +268,8 @@ export function decidirAudio(e: {
   resposta: string;
 }): Decisao {
   const { cfg } = e;
-  if (!cfg.audio_ativo || !vozValida(cfg.audio_voz))
+  const eleven = cfg.audio_provedor === "elevenlabs" && vozElevenValida(cfg.audio_eleven_voz);
+  if (!cfg.audio_ativo || (!eleven && !vozValida(cfg.audio_voz)))
     return { modo: "texto", motivo: "áudio desligado" };
   if (e.ehFollowup) return { modo: "texto", motivo: "follow-up" };
   if (!e.ultimaDoClienteEhAudio) return { modo: "texto", motivo: "cliente escreveu" };
@@ -233,10 +281,28 @@ export function decidirAudio(e: {
     return { modo: "texto", motivo: "resposta longa (caracteres)" };
   if (segundosEstimados(fala.length) > cfg.audio_max_segundos)
     return { modo: "texto", motivo: "resposta longa (segundos)" };
-  const custo = custoReais(fala.length, Number(cfg.audio_cotacao_dolar));
+  const modelo = eleven ? modeloEleven(cfg.audio_eleven_modelo) : null;
+  const custo = modelo
+    ? custoElevenReais(
+        fala.length,
+        modelo,
+        cfg.eleven_usd_por_mil_creditos ?? USD_POR_MIL_CREDITOS_PADRAO,
+        Number(cfg.audio_cotacao_dolar),
+      )
+    : custoReais(fala.length, Number(cfg.audio_cotacao_dolar));
   if (e.gastoHojeReais + custo > Number(cfg.audio_limite_diario_reais))
     return { modo: "texto", motivo: "limite diário", limite: true };
-  return { modo: "audio", voz: cfg.audio_voz!, fala, texto, caracteres: fala.length, custo };
+  return {
+    modo: "audio",
+    provedor: eleven ? "elevenlabs" : "google",
+    voz: eleven ? cfg.audio_eleven_voz! : cfg.audio_voz!,
+    modelo,
+    vozReserva: eleven && vozValida(cfg.audio_voz) ? cfg.audio_voz : null,
+    fala,
+    texto,
+    caracteres: fala.length,
+    custo,
+  };
 }
 
 /** Início do dia de hoje em Brasília (UTC−3), em ISO. */

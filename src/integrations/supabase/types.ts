@@ -2496,6 +2496,9 @@ export type Database = {
       };
       ia_audios_uso: {
         Row: {
+          aviso: string | null;
+          modelo: string | null;
+          provedor: string;
           caracteres: number;
           chatwoot_message_id: number | null;
           conversa_id: string | null;
@@ -2510,6 +2513,9 @@ export type Database = {
           voz: string;
         };
         Insert: {
+          aviso?: string | null;
+          modelo?: string | null;
+          provedor?: string;
           caracteres?: number;
           chatwoot_message_id?: number | null;
           conversa_id?: string | null;
@@ -2524,6 +2530,9 @@ export type Database = {
           voz: string;
         };
         Update: {
+          aviso?: string | null;
+          modelo?: string | null;
+          provedor?: string;
           caracteres?: number;
           chatwoot_message_id?: number | null;
           conversa_id?: string | null;
@@ -2541,6 +2550,9 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          audio_eleven_modelo: string;
+          audio_eleven_voz: string | null;
+          audio_provedor: string;
           teto_excedente_reais: number | null;
           continuar_apos_franquia: boolean;
           anos_experiencia: string;
@@ -2590,6 +2602,9 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          audio_eleven_modelo?: string;
+          audio_eleven_voz?: string | null;
+          audio_provedor?: string;
           teto_excedente_reais?: number | null;
           continuar_apos_franquia?: boolean;
           anos_experiencia?: string;
@@ -2639,6 +2654,9 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          audio_eleven_modelo?: string;
+          audio_eleven_voz?: string | null;
+          audio_provedor?: string;
           teto_excedente_reais?: number | null;
           continuar_apos_franquia?: boolean;
           anos_experiencia?: string;

@@ -1,7 +1,7 @@
 /**
- * Configurações › Alice › "Responder em áudio": vozes Chirp 3 HD pt-BR (ouvir e escolher), limites,
- * botão Ativar e o custo de hoje/do mês. Leitura por qualquer pessoa da empresa; alterar, ativar e
- * ouvir (que gera custo) só o admin.
+ * Configurações › Alice › "Responder em áudio": provedor (Google ou ElevenLabs), vozes (ouvir e
+ * escolher), limites, botão Ativar e o custo de hoje/do mês. Leitura por qualquer pessoa da
+ * empresa; alterar, ativar e ouvir (que gera custo) só o admin. O padrão é o Google.
  */
 import { createServerFn } from "@tanstack/react-start";
 import {
@@ -11,8 +11,15 @@ import {
 } from "@/lib/empresa.middleware";
 import {
   FRASE_EXEMPLO,
+  MODELOS_ELEVEN,
+  USD_POR_MIL_CREDITOS_PADRAO,
   VOZES_CONHECIDAS,
+  custoElevenReais,
   custoReais,
+  modeloEleven,
+  vozElevenValida,
+  type ModeloEleven,
+  type Provedor,
   inicioDoDiaBrasilia,
   inicioDoMesBrasilia,
   segundosEstimados,
@@ -27,7 +34,11 @@ const comRecurso = requireRecurso("alice");
 export const CHAVE_AUDIO_ALICE = ["alice-audio"] as const;
 
 export type ConfigAudioForm = {
+  provedor: Provedor;
+  /** Voz do Google (também é a reserva quando a ElevenLabs recusa). */
   voz: string | null;
+  eleven_voz: string | null;
+  eleven_modelo: ModeloEleven;
   max_caracteres: number;
   max_segundos: number;
   limite_diario_reais: number;
@@ -48,10 +59,27 @@ export type SituacaoAudioAlice = {
   ativo: boolean;
   config: ConfigAudioForm;
   uso: ResumoUsoAudio;
+  /** Chave da ElevenLabs no servidor e preço por mil créditos (plano da conta da Nexa). */
+  eleven: { configurada: boolean; usdPorMilCreditos: number };
 };
 
+/** US$ por mil créditos da ElevenLabs (Painel Nexa; padrão do plano Creator). */
+async function usdPorMilCreditos(): Promise<number> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("configuracoes_plataforma")
+    .select("valor")
+    .eq("chave", "elevenlabs_usd_por_mil_creditos")
+    .maybeSingle();
+  const n = Number(data?.valor);
+  return Number.isFinite(n) && n > 0 ? n : USD_POR_MIL_CREDITOS_PADRAO;
+}
+
 const PADRAO: ConfigAudioForm = {
+  provedor: "google",
   voz: null,
+  eleven_voz: null,
+  eleven_modelo: "eleven_flash_v2_5",
   max_caracteres: 350,
   max_segundos: 25,
   limite_diario_reais: 5,
@@ -67,7 +95,7 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
       context.supabase
         .from("ia_configuracoes")
         .select(
-          "audio_ativo, audio_voz, audio_max_caracteres, audio_max_segundos, audio_limite_diario_reais, audio_cotacao_dolar",
+          "audio_ativo, audio_voz, audio_max_caracteres, audio_max_segundos, audio_limite_diario_reais, audio_cotacao_dolar, audio_provedor, audio_eleven_voz, audio_eleven_modelo",
         )
         .eq("empresa_id", context.empresaId)
         .maybeSingle(),
@@ -90,7 +118,10 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
       ativo: Boolean(cfg?.audio_ativo),
       config: cfg
         ? {
+            provedor: cfg.audio_provedor === "elevenlabs" ? "elevenlabs" : "google",
             voz: cfg.audio_voz,
+            eleven_voz: cfg.audio_eleven_voz,
+            eleven_modelo: modeloEleven(cfg.audio_eleven_modelo),
             max_caracteres: cfg.audio_max_caracteres,
             max_segundos: cfg.audio_max_segundos,
             limite_diario_reais: Number(cfg.audio_limite_diario_reais),
@@ -110,7 +141,85 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
         conversasMes: conversas,
         mediaPorConversaReais: conversas ? r2(custoConversas / conversas) : 0,
       },
+      eleven: {
+        configurada: Boolean(process.env["ELEVENLABS_API_KEY"]),
+        usdPorMilCreditos: await usdPorMilCreditos(),
+      },
     };
+  });
+
+/** Vozes da conta da ElevenLabs em português do Brasil (com a prévia gratuita para ouvir). */
+export const vozesElevenAlice = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(
+    async (): Promise<{
+      vozes: Array<{ id: string; nome: string; descricao: string; previa: string | null }>;
+      erro: string | null;
+    }> => {
+      const { elevenConfigurada, listarVozesEleven } = await import("@/lib/alice/eleven.server");
+      if (!elevenConfigurada())
+        return { vozes: [], erro: "A chave da ElevenLabs ainda não está no servidor." };
+      try {
+        return { vozes: await listarVozesEleven(), erro: null };
+      } catch (e) {
+        console.warn(
+          "Alice: vozes da ElevenLabs indisponíveis",
+          e instanceof Error ? e.message : e,
+        );
+        return { vozes: [], erro: "Não foi possível ler as vozes da ElevenLabs agora." };
+      }
+    },
+  );
+
+/** Ouvir uma voz da ElevenLabs com a frase de exemplo (gera custo; registrado como teste). */
+export const ouvirVozElevenAlice = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa, comRecurso])
+  .inputValidator((i: { voz: string; modelo: string; frase?: string }) => {
+    if (!vozElevenValida(i?.voz)) throw new Error("Voz inválida.");
+    if (!(MODELOS_ELEVEN as readonly string[]).includes(i.modelo))
+      throw new Error("Modelo inválido.");
+    const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
+    if (frase.length > 300) throw new Error("Frase de exemplo: até 300 caracteres.");
+    return { voz: i.voz, modelo: i.modelo as ModeloEleven, frase };
+  })
+  .handler(async ({ data, context }): Promise<{ base64: string; tipo: string }> => {
+    const { sintetizarEleven } = await import("@/lib/alice/eleven.server");
+    const r = await sintetizarEleven(data.frase, data.voz, data.modelo, 15_000);
+    const { data: cfg } = await context.supabase
+      .from("ia_configuracoes")
+      .select("audio_cotacao_dolar")
+      .eq("empresa_id", context.empresaId)
+      .maybeSingle();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const ok = "bytes" in r;
+    await supabaseAdmin.from("ia_audios_uso").insert({
+      empresa_id: context.empresaId,
+      voz: data.voz,
+      provedor: "elevenlabs",
+      modelo: data.modelo,
+      situacao: ok ? "teste" : "falhou",
+      caracteres: data.frase.length,
+      segundos: ok ? segundosEstimados(data.frase.length) : null,
+      custo_reais: ok
+        ? custoElevenReais(
+            data.frase.length,
+            data.modelo,
+            await usdPorMilCreditos(),
+            Number(cfg?.audio_cotacao_dolar ?? 5.5),
+          )
+        : 0,
+      texto_falado: data.frase,
+      erro: ok ? null : r.erro.slice(0, 500),
+    });
+    if (!ok) {
+      console.warn("Alice: teste de voz da ElevenLabs falhou", r.erro);
+      throw new Error(
+        r.erro.includes("(429)")
+          ? "A ElevenLabs recusou por muitos pedidos seguidos (ou limite do plano). Espere um pouco e tente de novo."
+          : "Não foi possível gerar o áudio na ElevenLabs agora. Tente de novo.",
+      );
+    }
+    return { base64: Buffer.from(r.bytes).toString("base64"), tipo: "audio/mpeg" };
   });
 
 /** Vozes Chirp 3 HD pt-BR da API; se a API não responder, a lista conhecida (com aviso). */
@@ -183,8 +292,15 @@ export const salvarAudioAlice = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: ConfigAudioForm) => {
     if (i.voz !== null && !vozValida(i.voz)) throw new Error("Voz inválida.");
+    if (i.eleven_voz !== null && !vozElevenValida(i.eleven_voz))
+      throw new Error("Voz da ElevenLabs inválida.");
+    if (i.provedor === "elevenlabs" && !i.eleven_voz)
+      throw new Error("Escolha a voz da ElevenLabs antes de trocar o provedor.");
     return {
+      provedor: (i.provedor === "elevenlabs" ? "elevenlabs" : "google") as Provedor,
       voz: i.voz,
+      eleven_voz: i.eleven_voz,
+      eleven_modelo: modeloEleven(i.eleven_modelo),
       max_caracteres: Math.round(faixa(i.max_caracteres, 50, 1500, "Máximo de caracteres")),
       max_segundos: Math.round(faixa(i.max_segundos, 5, 120, "Máximo de segundos")),
       limite_diario_reais: r2(faixa(i.limite_diario_reais, 0, 1000, "Limite diário (R$)")),
@@ -198,12 +314,15 @@ export const salvarAudioAlice = createServerFn({ method: "POST" })
       .eq("empresa_id", context.empresaId)
       .maybeSingle();
     if (!atual) throw new Error("Configure a Alice antes (salve a configuração dela).");
-    if (atual.audio_ativo && !data.voz)
+    if (atual.audio_ativo && !(data.provedor === "elevenlabs" ? data.eleven_voz : data.voz))
       throw new Error("Desative o áudio antes de tirar a voz escolhida.");
     const { error } = await context.supabase
       .from("ia_configuracoes")
       .update({
+        audio_provedor: data.provedor,
         audio_voz: data.voz,
+        audio_eleven_voz: data.eleven_voz,
+        audio_eleven_modelo: data.eleven_modelo,
         audio_max_caracteres: data.max_caracteres,
         audio_max_segundos: data.max_segundos,
         audio_limite_diario_reais: data.limite_diario_reais,
@@ -220,11 +339,14 @@ export const ativarAudioAlice = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: atual } = await context.supabase
       .from("ia_configuracoes")
-      .select("audio_voz")
+      .select("audio_voz, audio_provedor, audio_eleven_voz")
       .eq("empresa_id", context.empresaId)
       .maybeSingle();
-    if (data.ativo && !vozValida(atual?.audio_voz))
-      throw new Error("Escolha e salve a voz antes de ativar.");
+    const pronta =
+      atual?.audio_provedor === "elevenlabs"
+        ? vozElevenValida(atual.audio_eleven_voz)
+        : vozValida(atual?.audio_voz);
+    if (data.ativo && !pronta) throw new Error("Escolha e salve a voz antes de ativar.");
     const { error } = await context.supabase
       .from("ia_configuracoes")
       .update({ audio_ativo: data.ativo })
@@ -289,11 +411,12 @@ export const contatosTesteAudio = createServerFn({ method: "GET" })
  */
 export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
   .middleware([requireAdminEmpresa, requireEmpresaGravavel, comRecurso])
-  .inputValidator((i: { contatoId: string; frase?: string }) => {
+  .inputValidator((i: { contatoId: string; frase?: string; provedor?: Provedor }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i?.contatoId ?? ""))) throw new Error("Contato inválido.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
     if (frase.length > 300) throw new Error("Frase de exemplo: até 300 caracteres.");
-    return { contatoId: i.contatoId, frase };
+    const provedor: Provedor = i.provedor === "elevenlabs" ? "elevenlabs" : "google";
+    return { contatoId: i.contatoId, frase, provedor };
   })
   .handler(async ({ data, context }) => {
     const { data: contato } = await context.supabase
@@ -305,10 +428,12 @@ export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
     if (!contato) throw new Error("O teste só vai para contatos internos da equipe.");
     const { data: cfg } = await context.supabase
       .from("ia_configuracoes")
-      .select("audio_voz, audio_cotacao_dolar")
+      .select("audio_voz, audio_cotacao_dolar, audio_eleven_voz, audio_eleven_modelo")
       .eq("empresa_id", context.empresaId)
       .maybeSingle();
-    if (!vozValida(cfg?.audio_voz)) throw new Error("Escolha e salve a voz antes do teste.");
+    const eleven = data.provedor === "elevenlabs";
+    if (eleven ? !vozElevenValida(cfg?.audio_eleven_voz) : !vozValida(cfg?.audio_voz))
+      throw new Error("Escolha e salve a voz antes do teste.");
     const conversa = await conversaDoContato(context.empresaId, contato.telefone);
     if (!conversa)
       throw new Error(
@@ -332,21 +457,38 @@ export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
     const conta = { baseUrl: cx.base_url, accountId: Number(cx.account_id) };
 
     const { sintetizar } = await import("@/lib/alice/voz.server");
+    const { sintetizarEleven } = await import("@/lib/alice/eleven.server");
     const { duracaoOggOpus } = await import("@/lib/alice/ogg-opus");
+    const { paraOggOpus } = await import("@/lib/audio-voz.server");
     const { enviarAnexo, enviarMensagem } = await import("@/lib/alice/chatwoot-api.server");
-    const r = await sintetizar(data.frase, cfg!.audio_voz!, 15_000);
+    const modelo = modeloEleven(cfg?.audio_eleven_modelo);
+    const voz = eleven ? cfg!.audio_eleven_voz! : cfg!.audio_voz!;
+    const gerado = eleven
+      ? await sintetizarEleven(data.frase, voz, modelo, 15_000)
+      : await sintetizar(data.frase, voz, 15_000);
     const registro = {
       empresa_id: context.empresaId,
       conversa_id: conversa.id,
-      voz: cfg!.audio_voz!,
+      voz,
+      provedor: data.provedor,
+      modelo: eleven ? modelo : null,
       caracteres: data.frase.length,
       texto_falado: data.frase,
     };
-    if (!("bytes" in r)) {
-      await db.from("ia_audios_uso").insert({ ...registro, situacao: "falhou", erro: r.erro });
-      throw new Error("Não foi possível gerar o áudio agora. Tente de novo.");
+    if (!("bytes" in gerado)) {
+      await db.from("ia_audios_uso").insert({ ...registro, situacao: "falhou", erro: gerado.erro });
+      throw new Error(
+        eleven && gerado.erro.includes("(429)")
+          ? "A ElevenLabs recusou por muitos pedidos seguidos (ou limite do plano). Espere um pouco e tente de novo."
+          : "Não foi possível gerar o áudio agora. Tente de novo.",
+      );
     }
-    const custo = custoReais(data.frase.length, Number(cfg?.audio_cotacao_dolar ?? 5.5));
+    // ElevenLabs devolve MP3: vira mensagem de voz OGG/Opus mono, como a barra de resposta.
+    const r = eleven ? { bytes: await paraOggOpus(gerado.bytes) } : gerado;
+    const cotacao = Number(cfg?.audio_cotacao_dolar ?? 5.5);
+    const custo = eleven
+      ? custoElevenReais(data.frase.length, modelo, await usdPorMilCreditos(), cotacao)
+      : custoReais(data.frase.length, cotacao);
     const segundos = duracaoOggOpus(r.bytes) ?? segundosEstimados(data.frase.length);
     try {
       const msg = await enviarAnexo(
@@ -362,7 +504,7 @@ export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
         conta,
         token,
         conversa.chatwoot_conversation_id,
-        `🔊 Áudio de teste da Alice: ${data.frase}`,
+        `🔊 Áudio de teste da Alice (${eleven ? "ElevenLabs" : "Google"}): ${data.frase}`,
         true,
       ).catch(() => undefined);
       await db.from("ia_audios_uso").insert({

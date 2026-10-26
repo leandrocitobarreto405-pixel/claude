@@ -65,10 +65,10 @@ export function cotacaoVencida(
   return agora.getTime() - Date.parse(atualizadaEm) > dias * 86_400_000;
 }
 
-/** Valor digitado ("5,65") vira número; inválido ou fora de 1 a 20, null. */
-export function lerCotacao(texto: string): number | null {
+/** Valor digitado ("5,65") vira número; inválido ou fora da faixa (padrão 1 a 20), null. */
+export function lerCotacao(texto: string, minimo = 1, maximo = 20): number | null {
   const n = Number(texto.replace(",", ".").trim());
-  if (!Number.isFinite(n) || n < 1 || n > 20) return null;
+  if (!texto.trim() || !Number.isFinite(n) || n < minimo || n > maximo) return null;
   return Math.round(n * 10000) / 10000;
 }
 

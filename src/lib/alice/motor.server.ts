@@ -35,6 +35,7 @@ import {
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
+import { USD_POR_MIL_CREDITOS_PADRAO } from "./voz";
 import {
   CONFIRMACAO_DESCADASTRO,
   confirmacaoPendente,
@@ -1384,6 +1385,14 @@ async function comAudio(
   const { sintetizar } = await import("./voz.server");
   const { duracaoOggOpus } = await import("./ogg-opus");
   const conversa = d.conversa.chatwoot_conversation_id;
+  const eleven = cfg.audio_provedor === "elevenlabs";
+  const { data: precoEleven } = eleven
+    ? await db
+        .from("configuracoes_plataforma")
+        .select("valor")
+        .eq("chave", "elevenlabs_usd_por_mil_creditos")
+        .maybeSingle()
+    : { data: null };
   const r = await responderComAudio(
     {
       cfg: {
@@ -1393,6 +1402,10 @@ async function comAudio(
         audio_max_segundos: cfg.audio_max_segundos,
         audio_limite_diario_reais: Number(cfg.audio_limite_diario_reais),
         audio_cotacao_dolar: Number(cfg.audio_cotacao_dolar),
+        audio_provedor: eleven ? "elevenlabs" : "google",
+        audio_eleven_voz: cfg.audio_eleven_voz,
+        audio_eleven_modelo: cfg.audio_eleven_modelo,
+        eleven_usd_por_mil_creditos: Number(precoEleven?.valor) || USD_POR_MIL_CREDITOS_PADRAO,
       },
       ultimaDoClienteEhAudio: ultima?.tipo === "Áudio",
       soTexto,
@@ -1409,6 +1422,21 @@ async function comAudio(
         return (data ?? []).reduce((s, u) => s + Number(u.custo_reais ?? 0), 0);
       },
       sintetizar,
+      // ElevenLabs devolve MP3: vira OGG/Opus já aqui, para medir a duração (o envio recodifica
+      // de novo como o gravador do Chatwoot, igual ao áudio do Google).
+      sintetizarEleven: async (texto, voz, modelo) => {
+        const { sintetizarEleven } = await import("./eleven.server");
+        const r = await sintetizarEleven(texto, voz, modelo);
+        if ("erro" in r) return r;
+        try {
+          const { paraOggOpus } = await import("@/lib/audio-voz.server");
+          return { bytes: await paraOggOpus(r.bytes) };
+        } catch (e) {
+          return {
+            erro: `conversão do áudio da ElevenLabs: ${e instanceof Error ? e.message : e}`,
+          };
+        }
+      },
       duracao: duracaoOggOpus,
       // Mesmo caminho da barra de resposta: recodifica como o gravador do Chatwoot (toca como
       // voz no iPhone) e manda com a marcação de voz.
@@ -1432,6 +1460,9 @@ async function comAudio(
           conversa_id: d.conversa.id,
           chatwoot_message_id: u.chatwootMessageId,
           voz: u.voz,
+          provedor: u.provedor,
+          modelo: u.modelo,
+          aviso: u.aviso,
           situacao: u.situacao,
           caracteres: u.caracteres,
           segundos: u.segundos,

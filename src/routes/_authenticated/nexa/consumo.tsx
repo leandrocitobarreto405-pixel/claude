@@ -95,7 +95,21 @@ function ConsumoNexa() {
         descricao="IA da Alice, áudio e mensagens automáticas de cada empresa no mês."
       />
 
-      <Cotacao />
+      <ValorDaPlataforma
+        chave="alice_cotacao_dolar"
+        titulo="Cotação do dólar (custo da Alice em R$)"
+        rotulo="Cotação (R$ por US$ 1)"
+        descricao="Cotação do dólar para o custo da Alice em reais (revise a cada 30 dias)"
+        avisarDepoisDe30Dias
+      />
+      <ValorDaPlataforma
+        chave="elevenlabs_usd_por_mil_creditos"
+        titulo="ElevenLabs: US$ por mil créditos (plano da conta)"
+        rotulo="US$ por mil créditos"
+        descricao="ElevenLabs: US$ por mil créditos no plano da conta da Nexa (custo dos áudios da Alice)"
+        minimo={0.01}
+        maximo={5}
+      />
 
       <div className="flex items-center justify-between gap-2">
         <Botao
@@ -224,19 +238,35 @@ function ItemFranquia({ f }: { f: FranquiaEmpresa | undefined }) {
   );
 }
 
-/** Cotação do dólar usada no custo da Alice em reais (só a Nexa edita). */
-function Cotacao() {
+/** Valor numérico da plataforma (cotação do dólar, preço da ElevenLabs): só a Nexa edita. */
+function ValorDaPlataforma({
+  chave,
+  titulo,
+  rotulo,
+  descricao,
+  avisarDepoisDe30Dias = false,
+  minimo = 1,
+  maximo = 20,
+}: {
+  chave: string;
+  titulo: string;
+  rotulo: string;
+  descricao: string;
+  avisarDepoisDe30Dias?: boolean;
+  minimo?: number;
+  maximo?: number;
+}) {
   const qc = useQueryClient();
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState("");
   const [salvando, setSalvando] = useState(false);
   const q = useQuery({
-    queryKey: ["alice_cotacao_dolar"],
+    queryKey: ["config_plataforma", chave],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("configuracoes_plataforma")
         .select("valor, updated_at")
-        .eq("chave", "alice_cotacao_dolar")
+        .eq("chave", chave)
         .maybeSingle();
       if (error) throw error;
       return data
@@ -245,35 +275,35 @@ function Cotacao() {
     },
   });
   async function salvar() {
-    const v = lerCotacao(texto);
+    const v = lerCotacao(texto, minimo, maximo);
     if (v === null) {
-      toast.error("Informe a cotação (ex.: 5,65).");
+      toast.error(`Informe um valor de ${minimo} a ${maximo}.`);
       return;
     }
     setSalvando(true);
     const { error } = await supabase.from("configuracoes_plataforma").upsert({
-      chave: "alice_cotacao_dolar",
+      chave,
       valor: v,
-      descricao: "Cotação do dólar para o custo da Alice em reais (revise a cada 30 dias)",
+      descricao,
       updated_at: new Date().toISOString(),
     });
     setSalvando(false);
     if (error) {
-      toast.error("Não foi possível salvar a cotação.");
+      toast.error("Não foi possível salvar.");
       return;
     }
-    toast.success("Cotação salva.");
+    toast.success("Salvo.");
     setEditando(false);
-    await qc.invalidateQueries({ queryKey: ["alice_cotacao_dolar"] });
+    await qc.invalidateQueries({ queryKey: ["config_plataforma", chave] });
     await qc.invalidateQueries({ queryKey: ["nexa_conversas_caras"] });
   }
   const c = q.data;
-  const vencida = c ? cotacaoVencida(c.atualizadaEm, new Date()) : false;
+  const vencida = avisarDepoisDe30Dias && c ? cotacaoVencida(c.atualizadaEm, new Date()) : false;
   return (
     <Card className="gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm">
-          Cotação do dólar (custo da Alice em R$):{" "}
+          {titulo}:{" "}
           <strong className="tabular-nums">
             {c ? c.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "—"}
           </strong>
@@ -298,15 +328,15 @@ function Cotacao() {
       </div>
       {vencida ? (
         <p className="rounded-botao bg-atencao px-3 py-2 text-sm text-atencao-foreground">
-          A cotação não é revista há mais de {DIAS_REVISAR_COTACAO} dias. Confira e salve de novo.
+          Não é revista há mais de {DIAS_REVISAR_COTACAO} dias. Confira e salve de novo.
         </p>
       ) : null}
       {editando ? (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor="cotacao-dolar">Cotação (R$ por US$ 1)</Label>
+            <Label htmlFor={`valor-${chave}`}>{rotulo}</Label>
             <Input
-              id="cotacao-dolar"
+              id={`valor-${chave}`}
               inputMode="decimal"
               value={texto}
               onChange={(e) => setTexto(e.target.value)}

@@ -1,5 +1,5 @@
-// Configurações › Alice › Responder em áudio: vozes (ouvir e escolher), limites, teste de envio para a
-// equipe, botão Ativar e o custo de hoje/do mês.
+// Configurações › Alice › Responder em áudio: provedor (Google | ElevenLabs), vozes (ouvir e
+// escolher), limites, teste de envio para a equipe, botão Ativar e o custo de hoje/do mês.
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { mensagemDeErro } from "@/lib/erros";
 import { FRASE_EXEMPLO, type Voz } from "@/lib/alice/voz";
+import { ProvedorAudio, VozesEleven } from "@/components/configuracoes/alice-audio-eleven";
 import {
   CHAVE_AUDIO_ALICE,
   ativarAudioAlice,
@@ -27,13 +28,13 @@ import {
 const reais = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/\u00a0/g, " ");
 
-const NUMEROS: Array<{ chave: keyof Omit<ConfigAudioForm, "voz">; rotulo: string; passo: string }> =
-  [
-    { chave: "max_caracteres", rotulo: "Máximo de caracteres falados", passo: "10" },
-    { chave: "max_segundos", rotulo: "Máximo de segundos", passo: "1" },
-    { chave: "limite_diario_reais", rotulo: "Limite por dia (R$)", passo: "0.5" },
-    { chave: "cotacao_dolar", rotulo: "Cotação do dólar (R$)", passo: "0.05" },
-  ];
+type ChaveNumero = "max_caracteres" | "max_segundos" | "limite_diario_reais" | "cotacao_dolar";
+const NUMEROS: Array<{ chave: ChaveNumero; rotulo: string; passo: string }> = [
+  { chave: "max_caracteres", rotulo: "Máximo de caracteres falados", passo: "10" },
+  { chave: "max_segundos", rotulo: "Máximo de segundos", passo: "1" },
+  { chave: "limite_diario_reais", rotulo: "Limite por dia (R$)", passo: "0.5" },
+  { chave: "cotacao_dolar", rotulo: "Cotação do dólar (R$)", passo: "0.05" },
+];
 
 export function AliceAudio() {
   const qc = useQueryClient();
@@ -81,6 +82,8 @@ export function AliceAudio() {
   const { ativo, uso } = q.data;
   const salvo = q.data.config;
   const mudou = JSON.stringify(c) !== JSON.stringify(salvo);
+  const eleven = c.provedor === "elevenlabs";
+  const vozSalva = salvo.provedor === "elevenlabs" ? salvo.eleven_voz : salvo.voz;
   const atualizar = () => qc.invalidateQueries({ queryKey: [...CHAVE_AUDIO_ALICE] });
 
   async function ouvir(v: Voz) {
@@ -159,7 +162,7 @@ export function AliceAudio() {
         </div>
         <Botao
           variante={ativo ? "contorno" : "primario"}
-          disabled={ocupado || (!ativo && (!salvo.voz || mudou))}
+          disabled={ocupado || (!ativo && (!vozSalva || mudou))}
           onClick={() =>
             void executar(
               () => ativarFn({ data: { ativo: !ativo } }),
@@ -169,7 +172,7 @@ export function AliceAudio() {
         >
           {ativo ? "Desativar" : "Ativar"}
         </Botao>
-        {!ativo && (!salvo.voz || mudou) ? (
+        {!ativo && (!vozSalva || mudou) ? (
           <p className="text-xs text-muted-foreground">
             Escolha a voz e salve antes de ativar. Faça o teste de envio para a equipe primeiro.
           </p>
@@ -188,15 +191,31 @@ export function AliceAudio() {
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Estimativa: US$ 30 por milhão de caracteres (vozes Chirp 3 HD), sem descontar a cota
-          grátis do Google. Inclui os testes desta tela.
+          Estimativa: Google US$ 30 por milhão de caracteres (vozes Chirp 3 HD), sem descontar a
+          cota grátis; ElevenLabs pelos créditos do modelo e o preço do plano. Inclui os testes
+          desta tela.
           {uso.falhasMes ? ` ${uso.falhasMes} falha(s) no mês: nesses casos foi o texto.` : ""}
         </p>
       </section>
 
+      <ProvedorAudio c={c} aoMudar={setC} configurada={q.data.eleven.configurada} />
+
+      {eleven ? (
+        <VozesEleven
+          c={c}
+          aoMudar={setC}
+          salvo={salvo}
+          frase={frase}
+          usdPorMilCreditos={q.data.eleven.usdPorMilCreditos}
+          aoGastar={() => void atualizar()}
+        />
+      ) : null}
+
       <section className="card-surface space-y-4 p-5">
         <div>
-          <h2 className="text-base font-semibold">Voz da Alice</h2>
+          <h2 className="text-base font-semibold">
+            {eleven ? "Voz do Google (reserva)" : "Voz da Alice"}
+          </h2>
           <p className="text-xs text-muted-foreground">
             Vozes Chirp 3 HD em português do Brasil. Cada vez que você ouve uma voz nova custa cerca
             de {reais(0.02)}.
@@ -340,18 +359,36 @@ export function AliceAudio() {
             </select>
           </div>
         )}
-        <Botao
-          variante="contorno"
-          disabled={ocupado || !contatoTeste || !salvo.voz}
-          onClick={() =>
-            void executar(
-              () => testeFn({ data: { contatoId: contatoTeste, frase } }),
-              "Áudio de teste enviado. Confira no celular se chegou como mensagem de voz.",
-            )
-          }
-        >
-          <Send aria-hidden /> Enviar áudio de teste
-        </Botao>
+        <div className="flex flex-wrap gap-2">
+          <Botao
+            variante="contorno"
+            disabled={ocupado || !contatoTeste || !salvo.voz}
+            onClick={() =>
+              void executar(
+                () => testeFn({ data: { contatoId: contatoTeste, frase, provedor: "google" } }),
+                "Áudio de teste (Google) enviado. Confira no celular se chegou como mensagem de voz.",
+              )
+            }
+          >
+            <Send aria-hidden /> Teste com o Google
+          </Botao>
+          <Botao
+            variante="contorno"
+            disabled={ocupado || !contatoTeste || !salvo.eleven_voz || !q.data.eleven.configurada}
+            onClick={() =>
+              void executar(
+                () => testeFn({ data: { contatoId: contatoTeste, frase, provedor: "elevenlabs" } }),
+                "Áudio de teste (ElevenLabs) enviado. Confira no celular se chegou como mensagem de voz.",
+              )
+            }
+          >
+            <Send aria-hidden /> Teste com a ElevenLabs
+          </Botao>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Os dois testes usam a voz salva de cada provedor (ElevenLabs no modelo salvo), para
+          comparar no celular antes de trocar o provedor.
+        </p>
       </section>
     </div>
   );

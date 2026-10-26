@@ -1,12 +1,26 @@
 /**
- * Envio da resposta com áudio: gera a fala no Google, manda o .ogg pelo Chatwoot, deixa a nota
- * privada com o texto falado e registra o uso. Qualquer falha (Google ou envio) devolve "não
- * enviado" para o motor mandar o texto normal na hora. As dependências vêm de fora (testes).
+ * Envio da resposta com áudio: gera a fala (Google, ou ElevenLabs quando a empresa escolheu),
+ * manda o .ogg pelo Chatwoot, deixa a nota privada com o texto falado e registra o uso. Se a
+ * ElevenLabs recusar (ex.: 429, muitos pedidos seguidos), aquele áudio sai pelo Google e o motivo
+ * fica registrado. Qualquer outra falha devolve "não enviado" para o motor mandar o texto na hora.
+ * As dependências vêm de fora (testes).
  */
-import { decidirAudio, segundosEstimados, type ConfigAudio, type Decisao } from "./voz";
+import {
+  custoReais,
+  decidirAudio,
+  segundosEstimados,
+  type ConfigAudio,
+  type Decisao,
+  type ModeloEleven,
+  type Provedor,
+} from "./voz";
 
 export type UsoAudio = {
   situacao: "enviado" | "falhou";
+  provedor: Provedor;
+  modelo: ModeloEleven | null;
+  /** Ex.: a ElevenLabs recusou e o áudio saiu pelo Google. */
+  aviso: string | null;
   voz: string;
   caracteres: number;
   segundos: number | null;
@@ -19,6 +33,11 @@ export type UsoAudio = {
 export type DepsAudio = {
   gastoHoje: () => Promise<number>;
   sintetizar: (texto: string, voz: string) => Promise<{ bytes: Uint8Array } | { erro: string }>;
+  sintetizarEleven?: (
+    texto: string,
+    voz: string,
+    modelo: ModeloEleven,
+  ) => Promise<{ bytes: Uint8Array } | { erro: string }>;
   duracao: (bytes: Uint8Array) => number | null;
   enviarAudio: (bytes: Uint8Array) => Promise<{ id: number }>;
   enviarNota: (texto: string) => Promise<void>;
@@ -52,12 +71,21 @@ export async function responderComAudio(
     return { enviado: false, decisao };
   }
 
+  // Provedor, voz e custo de fato (mudam se a ElevenLabs recusar e o Google assumir).
+  let provedor: Provedor = decisao.provedor;
+  let voz = decisao.voz;
+  let custoFeito = decisao.custo;
+  let aviso: string | null = null;
+
   const falhou = async (erro: string, custo: number, segundos: number | null) => {
     console.warn("Alice: áudio não enviado, vai em texto:", erro);
     await deps
       .registrar({
         situacao: "falhou",
-        voz: decisao.voz,
+        provedor,
+        modelo: provedor === "elevenlabs" ? decisao.modelo : null,
+        aviso,
+        voz,
         caracteres: decisao.caracteres,
         segundos,
         custo,
@@ -69,7 +97,21 @@ export async function responderComAudio(
     return { enviado: false as const, decisao, erro };
   };
 
-  const sintese = await deps.sintetizar(decisao.fala, decisao.voz);
+  let sintese: { bytes: Uint8Array } | { erro: string };
+  if (decisao.provedor === "elevenlabs" && decisao.modelo && deps.sintetizarEleven) {
+    sintese = await deps.sintetizarEleven(decisao.fala, decisao.voz, decisao.modelo);
+    if ("erro" in sintese && decisao.vozReserva) {
+      aviso = `ElevenLabs recusou (${sintese.erro.slice(0, 160)}); foi pelo Google`;
+      console.warn("Alice:", aviso);
+      provedor = "google";
+      voz = decisao.vozReserva;
+      custoFeito = custoReais(decisao.caracteres, Number(e.cfg.audio_cotacao_dolar));
+      sintese = await deps.sintetizar(decisao.fala, voz);
+    }
+  } else {
+    provedor = "google";
+    sintese = await deps.sintetizar(decisao.fala, voz);
+  }
   if ("erro" in sintese) return falhou(sintese.erro, 0, null);
   const segundos = deps.duracao(sintese.bytes) ?? segundosEstimados(decisao.caracteres);
 
@@ -77,10 +119,10 @@ export async function responderComAudio(
   try {
     id = (await deps.enviarAudio(sintese.bytes)).id;
   } catch (err) {
-    // O Google cobrou a síntese mesmo sem o envio.
+    // O provedor cobrou a síntese mesmo sem o envio.
     return falhou(
       `envio pelo Chatwoot: ${err instanceof Error ? err.message : String(err)}`,
-      decisao.custo,
+      custoFeito,
       segundos,
     );
   }
@@ -88,10 +130,13 @@ export async function responderComAudio(
   await deps
     .registrar({
       situacao: "enviado",
-      voz: decisao.voz,
+      provedor,
+      modelo: provedor === "elevenlabs" ? decisao.modelo : null,
+      aviso,
+      voz,
       caracteres: decisao.caracteres,
       segundos,
-      custo: decisao.custo,
+      custo: custoFeito,
       texto: decisao.fala,
       chatwootMessageId: id ?? null,
       erro: null,

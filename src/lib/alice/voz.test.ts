@@ -2,8 +2,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  custoElevenReais,
   custoReais,
   decidirAudio,
+  modeloEleven,
+  vozElevenValida,
   inicioDoDiaBrasilia,
   paraFala,
   pediuPorEscrito,
@@ -252,4 +255,72 @@ test("vozes da API: só Chirp 3 HD pt-BR, femininas primeiro", () => {
 test("dia de Brasília começa às 03:00 UTC", () => {
   assert.equal(inicioDoDiaBrasilia(new Date("2026-10-20T02:30:00Z")), "2026-10-19T03:00:00.000Z");
   assert.equal(inicioDoDiaBrasilia(new Date("2026-10-20T03:30:00Z")), "2026-10-20T03:00:00.000Z");
+});
+
+// ---------------------------------------------------------------- ElevenLabs
+
+const ELEVEN: ConfigAudio = {
+  ...CFG,
+  audio_provedor: "elevenlabs",
+  audio_eleven_voz: "BQzELs93jJsUOf5rCb9p",
+  audio_eleven_modelo: "eleven_flash_v2_5",
+  eleven_usd_por_mil_creditos: 0.22,
+};
+
+test("ElevenLabs: custo por modelo (v4 o dobro do Flash) e comparação com o Google", () => {
+  // 300 caracteres: Google US$ 0,009; Flash 150 créditos; v4 300 créditos (US$ 0,22 por mil).
+  assert.equal(custoReais(300, 5.65), 0.0509);
+  assert.equal(custoElevenReais(300, "eleven_flash_v2_5", 0.22, 5.65), 0.1865);
+  assert.equal(custoElevenReais(300, "eleven_v4", 0.22, 5.65), 0.3729);
+  assert.equal(modeloEleven("qualquer"), "eleven_flash_v2_5");
+  assert.equal(vozElevenValida("BQzELs93jJsUOf5rCb9p"), true);
+  assert.equal(vozElevenValida("pt-BR-Chirp3-HD-Kore"), false);
+});
+
+test("ElevenLabs: decisão usa a voz e o custo da ElevenLabs, com o Google de reserva", () => {
+  const d = decidirAudio({ ...entrada(CURTA), cfg: ELEVEN, gastoHojeReais: 0 });
+  assert.equal(d.modo, "audio");
+  if (d.modo !== "audio") return;
+  assert.equal(d.provedor, "elevenlabs");
+  assert.equal(d.voz, "BQzELs93jJsUOf5rCb9p");
+  assert.equal(d.modelo, "eleven_flash_v2_5");
+  assert.equal(d.vozReserva, "pt-BR-Chirp3-HD-Kore");
+  assert.ok(d.custo > custoReais(d.caracteres, 5.5));
+  // Sem voz da ElevenLabs salva: segue no Google.
+  const g = decidirAudio({
+    ...entrada(CURTA),
+    cfg: { ...ELEVEN, audio_eleven_voz: null },
+    gastoHojeReais: 0,
+  });
+  assert.equal(g.modo === "audio" && g.provedor, "google");
+});
+
+test("ElevenLabs recusou (429): aquele áudio sai pelo Google e o motivo fica registrado", async () => {
+  const { deps, log } = falsos({
+    sintetizarEleven: async () => ({
+      erro: "ElevenLabs muitos pedidos seguidos ou limite do plano (429): too_many_concurrent_requests",
+    }),
+  });
+  const r = await responderComAudio({ ...entrada(CURTA), cfg: ELEVEN }, deps);
+  assert.equal(r.enviado, true);
+  assert.equal(log.sinteses.length, 1, "o Google gerou o áudio");
+  const uso = log.usos[0]!;
+  assert.equal(uso.provedor, "google");
+  assert.equal(uso.voz, "pt-BR-Chirp3-HD-Kore");
+  assert.match(uso.aviso ?? "", /ElevenLabs recusou .*\(429\).*foi pelo Google/);
+  assert.equal(uso.custo, custoReais(uso.caracteres, 5.5));
+});
+
+test("ElevenLabs funcionando: registra provedor, modelo e custo da ElevenLabs", async () => {
+  const { deps, log } = falsos({
+    sintetizarEleven: async () => ({ bytes: new Uint8Array([9, 9]) }),
+  });
+  const r = await responderComAudio({ ...entrada(CURTA), cfg: ELEVEN }, deps);
+  assert.equal(r.enviado, true);
+  assert.equal(log.sinteses.length, 0, "o Google não foi chamado");
+  const uso = log.usos[0]!;
+  assert.equal(uso.provedor, "elevenlabs");
+  assert.equal(uso.modelo, "eleven_flash_v2_5");
+  assert.equal(uso.aviso, null);
+  assert.ok(uso.custo > custoReais(uso.caracteres, 5.5));
 });
