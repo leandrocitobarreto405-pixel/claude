@@ -4,6 +4,7 @@ import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { ResultadoCenario } from "@/lib/alice/ensaio-nome.server";
 import type { ResultadoRespostas } from "@/lib/alice/ensaio-respostas.server";
 import type { EnsaioCusto } from "@/lib/alice/ensaio-custo.server";
+import type { EnsaioPreco } from "@/lib/alice/ensaio-preco.server";
 import { requireRecurso } from "@/lib/recurso.middleware";
 
 /** alice: recurso do plano (Essencial não tem). */
@@ -33,4 +34,13 @@ export const ensaiarCustoFn = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { rodarEnsaioCusto } = await import("@/lib/alice/ensaio-custo.server");
     return rodarEnsaioCusto(supabaseAdmin, context.empresaId);
+  });
+
+/** Ensaio da regra nº 1 e do colchão dupla face (conversa 7975): grava o resultado. */
+export const ensaiarPrecoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa, comRecurso])
+  .handler(async ({ context }): Promise<EnsaioPreco> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { rodarEnsaioPreco } = await import("@/lib/alice/ensaio-preco.server");
+    return rodarEnsaioPreco(supabaseAdmin, context.empresaId);
   });

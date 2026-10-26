@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AvisoColchao } from "@/components/aviso-colchao";
+import { DuplaFaceItem } from "@/components/os/dupla-face-item";
 import { colchaoComImper } from "@/lib/aviso-colchao";
 import { normalizarQuantidade, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { useContextoTenant } from "@/lib/tenant";
@@ -110,6 +111,8 @@ type ItemForm = {
   adicional?: boolean;
   /** "m2": quantidade em m² (tapete, aceita vírgula); padrão: peças. */
   unidade?: "un" | "m2";
+  /** Colchão dupla face ligada nesta tela: o valor antes do acréscimo (para desligar). */
+  preco_sem_dupla_face?: number | null;
 };
 
 /** Quantidade digitada (m² aceita vírgula). */
@@ -1415,6 +1418,15 @@ function NovaOS() {
                               <Trash2 className="size-4" />
                             </Button>
                           ) : null}
+                        </div>
+                        <div className="sm:col-span-2 xl:col-span-5 empty:hidden">
+                          <DuplaFaceItem
+                            descricao={it.description}
+                            estofado={estofados?.find((s) => s.id === it.upholstery_type_id)?.name}
+                            valorUnitario={it.unit_price}
+                            precoBase={it.preco_sem_dupla_face ?? null}
+                            aoMudar={(patch) => atualizarItem(i, j, patch)}
+                          />
                         </div>
                         {colchaoComImper(
                           [

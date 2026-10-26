@@ -27,6 +27,8 @@ import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./o
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
+import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
+import { comDuplaFace } from "@/lib/dupla-face";
 import {
   descontoPermitido,
   lerMarketing,
@@ -91,6 +93,8 @@ export type ContextoFerramenta = {
   posAtendimento?: import("./pos-resposta.server").PosPendente | null;
   /** OS da equipe: depois de responder, a conversa volta para a equipe com esta nota. */
   devolverEquipe?: string;
+  /** Regra nº 1: o cliente ainda não respondeu nenhuma pergunta de diagnóstico (sem orçamento). */
+  precoTravado?: boolean;
 };
 
 /** Nota privada para a equipe (enviada pelo processador depois da resposta). */
@@ -149,6 +153,7 @@ const CriarOrcamento = z.object({
         classe: CLASSE.optional(),
         almofadas_soltas: z.boolean().optional(),
         muito_encardido: z.boolean().optional(),
+        dupla_face: z.boolean().optional(),
       }),
     )
     .min(1)
@@ -334,6 +339,11 @@ export function ferramentasDisponiveis(
                 classe: S_CLASSE,
                 almofadas_soltas: S_ALMOFADAS,
                 muito_encardido: S_ENCARDIDO,
+                dupla_face: {
+                  type: "boolean",
+                  description:
+                    "Só colchão: true se o cliente usa os dois lados (dupla face, acréscimo da empresa). Um lado só: false.",
+                },
               },
               required: ["item"],
               additionalProperties: false,
@@ -1076,6 +1086,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         classe: pedido.classe,
         almofadas_soltas: pedido.almofadas_soltas,
         muito_encardido: pedido.muito_encardido,
+        dupla_face: pedido.dupla_face,
       },
       input.servico,
       regras,
@@ -1239,6 +1250,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           classe: e.classe,
           almofadas_soltas: e.almofadasSoltas,
           muito_encardido: e.muitoEncardido,
+          dupla_face: Boolean(e.duplaFace),
         })),
       },
       null,
@@ -1258,7 +1270,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       `• ${
         unidadeDaCategoria(e.item.categoria) === "m2"
           ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(e.preco)})`
-          : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${e.item.nome}`
+          : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${comDuplaFace(e.item.nome, Boolean(e.duplaFace))}`
       } — ${reais(Math.round(e.preco * e.quantidade * 100) / 100)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
   );
   return {
@@ -1713,6 +1725,7 @@ export async function executarFerramenta(
           : invalida(p.error);
       }
       case "criar_orcamento": {
+        if (ctx.precoTravado) return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
         const p = CriarOrcamento.safeParse(entrada);
         return p.success ? r(await criarOrcamento(ctx, p.data)) : invalida(p.error);
       }
@@ -1729,6 +1742,8 @@ export async function executarFerramenta(
       case "enviar_mensagem": {
         const p = EnviarMensagem.safeParse(entrada);
         if (!p.success) return invalida(p.error);
+        if (ctx.precoTravado && temPreco(p.data.texto))
+          return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
         ctx.saida.push({ tipo: "texto", texto: p.data.texto, bloco: true });
         return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
       }

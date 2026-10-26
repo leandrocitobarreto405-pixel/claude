@@ -13,6 +13,7 @@ import {
   type RegrasOrcamento,
 } from "@/lib/orcamento-regras";
 import { condicoesPagamento, type Condicoes } from "./regras";
+import { ehColchao } from "@/lib/dupla-face";
 
 export type Servico = "higienizacao" | "impermeabilizacao";
 
@@ -31,6 +32,8 @@ export type PedidoItem = {
   classe?: Classe | undefined;
   almofadas_soltas?: boolean | undefined;
   muito_encardido?: boolean | undefined;
+  /** Colchão dupla face (só vale em item de colchão, com a regra ligada). */
+  dupla_face?: boolean | undefined;
 };
 
 export type LinhaOrcamento = {
@@ -43,6 +46,7 @@ export type LinhaOrcamento = {
   classe: Classe | null;
   almofadasSoltas: boolean;
   muitoEncardido: boolean;
+  duplaFace?: boolean;
   /** Adicional pós-fechamento (preço fixo, fora do desconto). */
   adicional?: boolean;
 };
@@ -64,6 +68,10 @@ export function precificar(
     classe: regras.classe.ligada ? (pedido.classe ?? "B") : null,
     almofadasSoltas: regras.acrescimos.ligado && Boolean(pedido.almofadas_soltas),
     muitoEncardido: regras.acrescimos.ligado && Boolean(pedido.muito_encardido),
+    duplaFace:
+      regras.duplaFace.ligada &&
+      ehColchao(pedido.item.categoria ?? pedido.item.nome) &&
+      Boolean(pedido.dupla_face),
   };
   const acrescimoPct = acrescimoDoItem(regras, marcas);
   return {
@@ -77,6 +85,7 @@ export function precificar(
     classe: marcas.classe,
     almofadasSoltas: marcas.almofadasSoltas,
     muitoEncardido: marcas.muitoEncardido,
+    duplaFace: marcas.duplaFace,
   };
 }
 

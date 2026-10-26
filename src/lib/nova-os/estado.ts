@@ -28,6 +28,8 @@ export type ItemForm = {
   adicional?: boolean;
   /** "m2": quantidade em m² (tapete, aceita vírgula); padrão: peças. */
   unidade?: "un" | "m2";
+  /** Colchão dupla face ligada nesta tela: o valor antes do acréscimo (para desligar). */
+  preco_sem_dupla_face?: number | null;
 };
 
 export type VisitForm = {

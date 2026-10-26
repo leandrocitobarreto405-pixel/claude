@@ -1,6 +1,7 @@
 import { Copy, PlusCircle, Trash2 } from "lucide-react";
 import { AlertaRodizio } from "@/components/agenda/alerta-rodizio";
 import { AvisoColchao } from "@/components/aviso-colchao";
+import { DuplaFaceItem } from "@/components/os/dupla-face-item";
 import { colchaoComImper } from "@/lib/aviso-colchao";
 import { Botao, Chip } from "@/components/nexa";
 import { Input } from "@/components/ui/input";
@@ -193,6 +194,13 @@ export function PassoServico({ n }: { n: NovaOs }) {
                       </Botao>
                     ) : null}
                   </div>
+                  <DuplaFaceItem
+                    descricao={it.description}
+                    estofado={estofado}
+                    valorUnitario={it.unit_price}
+                    precoBase={it.preco_sem_dupla_face ?? null}
+                    aoMudar={(patch) => n.mudarItem(i, j, patch)}
+                  />
                   {colchaoComImper([it.description, estofado], servico) ? <AvisoColchao /> : null}
                 </div>
               );

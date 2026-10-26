@@ -59,6 +59,7 @@ import {
   type Classe,
   type ModoDesconto,
 } from "@/lib/orcamento-regras";
+import { ehColchao, semDuplaFace, temDuplaFace } from "@/lib/dupla-face";
 import {
   STATUS_CLASS,
   STATUS_LABEL,
@@ -119,6 +120,8 @@ type Linha = {
   classe: Classe;
   almofadas: boolean;
   encardido: boolean;
+  /** Colchão dupla face (os dois lados + laterais). */
+  duplaFace: boolean;
   /** Adicional pós-fechamento: preço fixo de adicional, fora do desconto. */
   adicional: boolean;
   preco_adicional: number | null;
@@ -143,6 +146,7 @@ function assinaturaTaxa(linhas: Linha[], kmIda: number | null, cep: string) {
       l.classe,
       l.almofadas,
       l.encardido,
+      l.duplaFace,
       l.adicional,
       l.quantidade,
     ]),
@@ -337,7 +341,7 @@ function OrcamentoDetalhe() {
       return {
         key: it.id,
         tabela_preco_item_id: it.tabela_preco_item_id ?? "",
-        nome_snapshot: it.nome_snapshot,
+        nome_snapshot: semDuplaFace(it.nome_snapshot),
         tipo_servico: it.tipo_servico,
         categoria,
         preco_tabela: tabela,
@@ -345,6 +349,7 @@ function OrcamentoDetalhe() {
         classe: (it.classe ?? "B") as Classe,
         almofadas: Boolean(it.almofadas_soltas),
         encardido: Boolean(it.muito_encardido),
+        duplaFace: Boolean(it.dupla_face) || temDuplaFace(it.nome_snapshot),
         adicional: Boolean(it.adicional_pos_fechamento),
         preco_adicional:
           it.adicional_pos_fechamento && sugerido !== null
@@ -455,6 +460,7 @@ function OrcamentoDetalhe() {
       classe: l.classe,
       almofadasSoltas: l.almofadas,
       muitoEncardido: l.encardido,
+      duplaFace: l.duplaFace && ehColchao(l.categoria),
     });
   const tabelaComAcrescimo = (l: Linha) =>
     l.adicional && l.preco_adicional
@@ -606,6 +612,7 @@ function OrcamentoDetalhe() {
         classe: "B",
         almofadas: false,
         encardido: false,
+        duplaFace: false,
         adicional: false,
         preco_adicional: null,
         motivo_desconto: "",
@@ -630,6 +637,7 @@ function OrcamentoDetalhe() {
       categoria: item?.categoria ?? "outro",
       preco_adicional: item?.preco_adicional ?? null,
       adicional: false,
+      duplaFace: false,
       preco_tabela: preco,
       preco_editado: null,
       editado_por: null,
@@ -752,6 +760,7 @@ function OrcamentoDetalhe() {
               classe: regras.classe.ligada ? l.classe : null,
               almofadas_soltas: regras.acrescimos.ligado && l.almofadas,
               muito_encardido: regras.acrescimos.ligado && l.encardido,
+              dupla_face: regras.duplaFace.ligada && ehColchao(l.categoria) && l.duplaFace,
               adicional_pos_fechamento: l.adicional,
               quantidade: l.quantidade,
               categoria: l.categoria,
@@ -1082,7 +1091,9 @@ function OrcamentoDetalhe() {
                 {l.categoria === "colchao" && l.tipo_servico === "impermeabilizacao" ? (
                   <AvisoColchao className="mt-2" />
                 ) : null}
-                {(regras.classe.ligada || regras.acrescimos.ligado) &&
+                {(regras.classe.ligada ||
+                  regras.acrescimos.ligado ||
+                  (regras.duplaFace.ligada && ehColchao(l.categoria))) &&
                 l.preco_tabela > 0 &&
                 !l.adicional ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -1129,6 +1140,17 @@ function OrcamentoDetalhe() {
                           Muito encardido
                         </label>
                       </>
+                    ) : null}
+                    {regras.duplaFace.ligada && ehColchao(l.categoria) ? (
+                      <label className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 sm:min-h-8">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5"
+                          checked={l.duplaFace}
+                          onChange={(e) => atualizar(l.key, { duplaFace: e.target.checked })}
+                        />
+                        Dupla face (+{pct(regras.duplaFace.pct)}%)
+                      </label>
                     ) : null}
                     {acrescimoDe(l) > 0 ? (
                       <span className="text-muted-foreground">

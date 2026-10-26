@@ -48,6 +48,8 @@ export type QuoteItem = {
   classe: "A" | "B" | "C" | null;
   almofadas_soltas: boolean;
   muito_encardido: boolean;
+  /** Colchão dupla face (o nome já traz a marca). */
+  dupla_face?: boolean;
   acrescimo_pct: number;
   adicional_pos_fechamento: boolean;
 };
@@ -232,7 +234,7 @@ export function avaliarMargem(args: {
 }
 
 const ITEM_SELECT =
-  "id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_tabela, preco_aplicado, motivo_desconto, quantidade, subtotal, display_order, categoria, preco_sugerido, desconto_regra_valor, desconto_regra_texto, item_principal, editado_por, editado_em, classe, almofadas_soltas, muito_encardido, acrescimo_pct, adicional_pos_fechamento";
+  "id, tabela_preco_item_id, nome_snapshot, tipo_servico, preco_tabela, preco_aplicado, motivo_desconto, quantidade, subtotal, display_order, categoria, preco_sugerido, desconto_regra_valor, desconto_regra_texto, item_principal, editado_por, editado_em, classe, almofadas_soltas, muito_encardido, dupla_face, acrescimo_pct, adicional_pos_fechamento";
 
 /** Lista os orçamentos criados no mês informado ("2026-09"). */
 export function useQuotes(month: string) {

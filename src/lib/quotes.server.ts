@@ -1,5 +1,6 @@
 /** Regras de orçamento: recálculo de totais, custos e margem. Server-only. */
 import { normalizarQuantidade, unidadeDaCategoria } from "./unidade";
+import { comDuplaFace, ehColchao } from "./dupla-face";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildAddress, drivingRoute, geocodeParts, type Coords } from "./geo.server";
@@ -37,6 +38,8 @@ export type QuoteItemInput = {
   classe?: Classe | null;
   almofadas_soltas?: boolean;
   muito_encardido?: boolean;
+  /** Colchão dupla face (só item de colchão, com a regra ligada): o nome ganha a marca. */
+  dupla_face?: boolean;
   /** Incluído depois do fechamento: preço fixo de adicional, fora do desconto. */
   adicional_pos_fechamento?: boolean;
 };
@@ -276,16 +279,23 @@ export function computeQuote(
     const muito_encardido = Boolean(
       regrasItem?.acrescimos.ligado && !adicional && it.muito_encardido,
     );
+    const dupla_face = Boolean(
+      regrasItem?.duplaFace.ligada &&
+      !adicional &&
+      ehColchao(it.categoria ?? it.nome_snapshot) &&
+      it.dupla_face,
+    );
     const acrescimo_pct = regrasItem
       ? acrescimoDoItem(regrasItem, {
           classe,
           almofadasSoltas: almofadas_soltas,
           muitoEncardido: muito_encardido,
+          duplaFace: dupla_face,
         })
       : 0;
     return {
       tabela_preco_item_id: it.tabela_preco_item_id,
-      nome_snapshot: it.nome_snapshot,
+      nome_snapshot: comDuplaFace(it.nome_snapshot, dupla_face),
       tipo_servico: it.tipo_servico,
       preco_tabela: tabela,
       preco_aplicado: preco,
@@ -303,6 +313,7 @@ export function computeQuote(
       classe,
       almofadas_soltas,
       muito_encardido,
+      dupla_face,
       acrescimo_pct,
       adicional_pos_fechamento: adicional,
     };
@@ -674,6 +685,7 @@ export function quoteInputDoBanco(
       classe: (it["classe"] as Classe | null) ?? null,
       almofadas_soltas: Boolean(it["almofadas_soltas"] ?? false),
       muito_encardido: Boolean(it["muito_encardido"] ?? false),
+      dupla_face: Boolean(it["dupla_face"] ?? false),
       adicional_pos_fechamento: Boolean(it["adicional_pos_fechamento"] ?? false),
     })),
   };

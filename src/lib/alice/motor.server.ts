@@ -34,6 +34,7 @@ import {
   marcarCacheDoHistorico,
   tecidoDaConfig,
 } from "./prompt";
+import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
@@ -63,6 +64,8 @@ const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as c
 const REGRA_NOME = true;
 /** Regras de 26/10 (não perguntar duas vezes; tecido não identificado): ligadas em 26/10. */
 const REGRA_RESPOSTAS = true;
+/** Regra nº 1 (26/10): nunca preço antes de valor (regra nas instruções + trava do orçamento). */
+const REGRA_PRECO_DEPOIS = true;
 /**
  * Custo, ideia 2 (26/10): histórico em janela que anda de 20 em 20 (até 40 mensagens) e ponto de
  * cache de 1 hora no fim do histórico. Liga depois do ensaio de custo.
@@ -363,7 +366,9 @@ export async function contextoEmpresa(
       .maybeSingle(),
     db
       .from("orcamento_configuracoes")
-      .select("classe_ligada, classe_a_pct, acrescimos_ligado, almofadas_soltas_pct, encardido_pct")
+      .select(
+        "classe_ligada, classe_a_pct, acrescimos_ligado, almofadas_soltas_pct, encardido_pct, dupla_face_ligada, dupla_face_pct",
+      )
       .eq("empresa_id", empresaId)
       .maybeSingle(),
   ]);
@@ -414,6 +419,9 @@ export async function contextoEmpresa(
       (modelos.data?.value as { templateGarantia?: string } | null)?.templateGarantia,
     ),
     tecidoNaoIdentificado: tecidoDaConfig(cfg.tecido_nao_identificado),
+    duplaFacePct: regrasPreco.data?.dupla_face_ligada
+      ? Number(regrasPreco.data.dupla_face_pct)
+      : null,
   };
 }
 
@@ -502,7 +510,7 @@ async function historico(
   conversaId: string,
   transcrever: boolean,
   estavel = CACHE_HISTORICO,
-): Promise<{ mensagens: MensagemHistorico[]; ultimaDoCliente: Date | null }> {
+): Promise<{ mensagens: MensagemHistorico[]; ultimaDoCliente: Date | null; truncado: boolean }> {
   const { data } = await db
     .from("whatsapp_messages")
     .select(
@@ -514,6 +522,10 @@ async function historico(
     .order("message_timestamp", { ascending: false })
     .limit(estavel ? MAX_HISTORICO_BUSCA : MAX_HISTORICO);
   const linhas = estavel ? janelaEstavel((data ?? []).reverse()) : (data ?? []).reverse();
+  // Conversa maior que a janela: o começo (apresentação e diagnóstico) ficou de fora.
+  const truncado =
+    (data ?? []).length >= (estavel ? MAX_HISTORICO_BUSCA : MAX_HISTORICO) ||
+    linhas.length < (data ?? []).length;
   const recebidas = linhas.filter((m) => m.direction === "Recebida");
   const ultima = recebidas[recebidas.length - 1];
 
@@ -601,6 +613,7 @@ async function historico(
       imagens: fotos.get(m.id) ?? [],
     })),
     ultimaDoCliente: ultima ? new Date(ultima.message_timestamp) : null,
+    truncado,
   };
 }
 
@@ -947,6 +960,9 @@ async function conversar(
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
   empresa.regraNome = REGRA_NOME;
   empresa.regraRespostas = REGRA_RESPOSTAS;
+  empresa.regraPreco = REGRA_PRECO_DEPOIS;
+  // Regra nº 1: sem pergunta da empresa respondida pelo cliente, nada de preço nesta resposta.
+  const precoTravado = REGRA_PRECO_DEPOIS && !precoLiberado(hist.mensagens, hist.truncado);
   // Nome do cliente: confirmado (contato/conversa/cadastro) x nome do perfil.
   const nomeCliente = REGRA_NOME
     ? await (
@@ -980,6 +996,7 @@ async function conversar(
     notas: [],
     midias: new Set(),
     posAtendimento: pos,
+    precoTravado,
   };
   const cliente = new Anthropic();
   // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
@@ -989,6 +1006,7 @@ async function conversar(
     instrucoesDoMomento(new Date(), lead, lead ? null : nomeCliente),
     pos ? instrucoesPos(pos) : null,
     instrucaoExtra ?? null,
+    precoTravado ? AVISO_PRECO_TRAVADO : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1010,6 +1028,8 @@ async function conversar(
   const saida: Saida[] = [];
   /** Relatório que a IA escreveu para si ("Enviei ao Breno...", "Ficha do cliente..."): não vai. */
   const retidos: string[] = [];
+  /** Texto com preço antes do diagnóstico (regra nº 1): não vai. */
+  const travados: string[] = [];
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
@@ -1059,6 +1079,7 @@ async function conversar(
     for (const b of resposta.content) {
       if (b.type !== "text" || !b.text.trim()) continue;
       if (textoInterno(b.text, nomeParaChamar)) retidos.push(b.text.trim());
+      else if (precoTravado && temPreco(b.text)) travados.push(b.text.trim());
       else saida.push({ tipo: "texto", texto: b.text.trim() });
     }
     const chamadas = resposta.content.filter(
@@ -1267,7 +1288,11 @@ async function conversar(
   }
   await db.from("ia_execucoes").insert({
     ...registro,
-    mensagens_enviadas: [...enviadas, ...retidos.map((t) => `[não enviado: texto interno] ${t}`)],
+    mensagens_enviadas: [
+      ...enviadas,
+      ...retidos.map((t) => `[não enviado: texto interno] ${t}`),
+      ...travados.map((t) => `[não enviado: preço antes do diagnóstico] ${t}`),
+    ],
   });
   await enviarNotas(d, ctx, false);
   // OS da equipe: a Alice tratou a resposta à mensagem dela e devolve a conversa para a equipe.

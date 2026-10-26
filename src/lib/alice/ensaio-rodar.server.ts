@@ -5,6 +5,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { COM_FALLBACK, SEM_SISTEMA_NO_MEIO } from "./motor.server";
 import { montarTurnos, type MensagemHistorico, type Uso } from "./prompt";
+import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
 
 export type FalaEnsaio = { de: "cliente" | "alice"; texto: string };
 
@@ -14,6 +15,8 @@ export type RespostaEnsaio = {
   /** Tokens somados das rodadas (para o custo). */
   uso: Uso;
   rodadas: number;
+  /** Textos com preço barrados pela trava (regra nº 1): não iriam ao cliente. */
+  retidos: string[];
 };
 
 export async function rodarAliceEnsaio(opcoes: {
@@ -24,7 +27,9 @@ export async function rodarAliceEnsaio(opcoes: {
   fixas: string;
   momento: string;
   historico: FalaEnsaio[];
-  respostaDeEnsaio: (ferramenta: string) => string;
+  respostaDeEnsaio: (ferramenta: string, entrada: unknown) => string | Promise<string>;
+  /** Regra nº 1: preço travado nesta resposta (como no motor). */
+  precoTravado?: boolean;
   /** Como a produção: cache automático no fim e o sistema em cache de 1 hora. */
   cacheComoProducao?: boolean;
   /** Ajusta os turnos antes do envio (ex.: ponto de cache do histórico). */
@@ -50,6 +55,8 @@ export async function rodarAliceEnsaio(opcoes: {
     ...(noMeio ? [] : [{ type: "text" as const, text: opcoes.momento }]),
   ];
   const resposta: string[] = [];
+  const retidos: string[] = [];
+  const trava = Boolean(opcoes.precoTravado);
   const usadas: Array<{ nome: string; entrada: unknown }> = [];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };
   let rodadas = 0;
@@ -74,7 +81,11 @@ export async function rodarAliceEnsaio(opcoes: {
     // Igual ao motor: total gravado (5 min + 1 hora) e a parte de 1 hora.
     uso.cacheEscrita += r.usage.cache_creation_input_tokens ?? 0;
     uso.cacheEscrita1h! += r.usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
-    for (const b of r.content) if (b.type === "text" && b.text.trim()) resposta.push(b.text.trim());
+    for (const b of r.content) {
+      if (b.type !== "text" || !b.text.trim()) continue;
+      if (trava && temPreco(b.text)) retidos.push(b.text.trim());
+      else resposta.push(b.text.trim());
+    }
     const chamadas = r.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
     );
@@ -83,17 +94,20 @@ export async function rodarAliceEnsaio(opcoes: {
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const ch of chamadas) {
       usadas.push({ nome: ch.name, entrada: ch.input });
-      if (ch.name === "enviar_mensagem") {
-        const t = (ch.input as { texto?: string }).texto;
-        if (t) resposta.push(t.trim());
-      }
+      const texto = (ch.input as { texto?: string }).texto;
+      const barrada =
+        trava &&
+        (ch.name === "criar_orcamento" || (ch.name === "enviar_mensagem" && temPreco(texto)));
+      if (barrada && ch.name === "enviar_mensagem" && texto) retidos.push(texto.trim());
+      else if (ch.name === "enviar_mensagem" && texto) resposta.push(texto.trim());
       resultados.push({
         type: "tool_result",
         tool_use_id: ch.id,
-        content: opcoes.respostaDeEnsaio(ch.name),
+        content: barrada ? RECUSA_PRECO_TRAVADO : await opcoes.respostaDeEnsaio(ch.name, ch.input),
+        ...(barrada ? { is_error: true } : {}),
       });
     }
     mensagens.push({ role: "user", content: resultados });
   }
-  return { resposta, ferramentas: usadas, uso, rodadas };
+  return { resposta, ferramentas: usadas, uso, rodadas, retidos };
 }

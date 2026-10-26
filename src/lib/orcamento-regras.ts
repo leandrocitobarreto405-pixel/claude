@@ -38,6 +38,8 @@ export type RegrasOrcamento = {
   validadeDias: number | null;
   classe: { ligada: boolean; aPct: number };
   acrescimos: { ligado: boolean; almofadasPct: number; encardidoPct: number };
+  /** Colchão dupla face (os dois lados + laterais): acréscimo no item do colchão. */
+  duplaFace: { ligada: boolean; pct: number };
 };
 
 export const REGRAS_DESLIGADAS: RegrasOrcamento = {
@@ -50,6 +52,7 @@ export const REGRAS_DESLIGADAS: RegrasOrcamento = {
   validadeDias: null,
   classe: { ligada: false, aPct: 20 },
   acrescimos: { ligado: false, almofadasPct: 10, encardidoPct: 10 },
+  duplaFace: { ligada: false, pct: 20 },
 };
 
 /** Linha do banco (orcamento_configuracoes) → regras. Sem linha: tudo desligado. */
@@ -91,6 +94,7 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
       almofadasPct: n(l["almofadas_soltas_pct"], 10),
       encardidoPct: n(l["encardido_pct"], 10),
     },
+    duplaFace: { ligada: Boolean(l["dupla_face_ligada"]), pct: n(l["dupla_face_pct"], 20) },
   };
 }
 
@@ -122,6 +126,8 @@ export type MarcasItem = {
   classe?: Classe | null;
   almofadasSoltas?: boolean;
   muitoEncardido?: boolean;
+  /** Colchão dupla face (só vale em item de colchão; quem marca confere a categoria). */
+  duplaFace?: boolean;
 };
 
 /**
@@ -135,6 +141,7 @@ export function acrescimoDoItem(regras: RegrasOrcamento, m: MarcasItem): number 
     if (m.almofadasSoltas) pct += regras.acrescimos.almofadasPct;
     if (m.muitoEncardido) pct += regras.acrescimos.encardidoPct;
   }
+  if (regras.duplaFace.ligada && m.duplaFace) pct += regras.duplaFace.pct;
   return r2(pct);
 }
 
@@ -147,6 +154,7 @@ export function rotulosAcrescimo(regras: RegrasOrcamento, m: MarcasItem): string
     r.push(`almofadas soltas +${fmt(regras.acrescimos.almofadasPct)}%`);
   if (regras.acrescimos.ligado && m.muitoEncardido)
     r.push(`muito encardido +${fmt(regras.acrescimos.encardidoPct)}%`);
+  if (regras.duplaFace.ligada && m.duplaFace) r.push(`dupla face +${fmt(regras.duplaFace.pct)}%`);
   return r;
 }
 

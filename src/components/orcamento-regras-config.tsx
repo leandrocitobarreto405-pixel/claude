@@ -229,6 +229,23 @@ export function OrcamentoRegrasConfig() {
       </Bloco>
 
       <Bloco
+        titulo="Colchão dupla face"
+        descricao="A higienização de colchão inclui a face de cima e as laterais. Quem usa os dois lados paga a dupla face: acréscimo no item do colchão, marcado no orçamento e na OS (sai no PDF como “dupla face (2 faces + laterais)”). A Alice pergunta se o cliente usa os dois lados."
+        ligado={f.dupla_face_ligada}
+        onLigar={(v) => set("dupla_face_ligada", v)}
+        desabilitado={bloqueado}
+      >
+        <div>
+          <Label className="text-xs">Acréscimo da dupla face (%)</Label>
+          <DecimalInput
+            value={f.dupla_face_pct}
+            onValueChange={(v) => set("dupla_face_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+      </Bloco>
+
+      <Bloco
         titulo="Pedido mínimo só de cadeiras"
         descricao="Quando o orçamento tem só cadeiras e fica abaixo deste valor, completa até o mínimo. Deixe 0 para não usar."
         desabilitado={bloqueado}

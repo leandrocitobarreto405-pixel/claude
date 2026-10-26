@@ -34,6 +34,8 @@ export type LinhaConfigOrcamento = {
   acrescimos_ligado: boolean;
   almofadas_soltas_pct: number;
   encardido_pct: number;
+  dupla_face_ligada: boolean;
+  dupla_face_pct: number;
 };
 
 export const CONFIG_PADRAO: LinhaConfigOrcamento = {
@@ -59,6 +61,8 @@ export const CONFIG_PADRAO: LinhaConfigOrcamento = {
   acrescimos_ligado: false,
   almofadas_soltas_pct: 10,
   encardido_pct: 10,
+  dupla_face_ligada: false,
+  dupla_face_pct: 20,
 };
 
 const CAMPOS = Object.keys(CONFIG_PADRAO).join(", ");

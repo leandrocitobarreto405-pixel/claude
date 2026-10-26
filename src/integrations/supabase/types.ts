@@ -4582,6 +4582,8 @@ export type Database = {
       };
       orcamento_configuracoes: {
         Row: {
+          dupla_face_pct: number;
+          dupla_face_ligada: boolean;
           distancia_faixas: Json | null;
           acrescimos_ligado: boolean;
           almofadas_soltas_pct: number;
@@ -4608,6 +4610,8 @@ export type Database = {
           vitrine_ligada: boolean;
         };
         Insert: {
+          dupla_face_pct?: number;
+          dupla_face_ligada?: boolean;
           distancia_faixas?: Json | null;
           acrescimos_ligado?: boolean;
           almofadas_soltas_pct?: number;
@@ -4634,6 +4638,8 @@ export type Database = {
           vitrine_ligada?: boolean;
         };
         Update: {
+          dupla_face_pct?: number;
+          dupla_face_ligada?: boolean;
           distancia_faixas?: Json | null;
           acrescimos_ligado?: boolean;
           almofadas_soltas_pct?: number;
@@ -5310,6 +5316,7 @@ export type Database = {
       };
       quote_items: {
         Row: {
+          dupla_face: boolean;
           acrescimo_pct: number;
           adicional_pos_fechamento: boolean;
           almofadas_soltas: boolean;
@@ -5337,6 +5344,7 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Insert: {
+          dupla_face?: boolean;
           acrescimo_pct?: number;
           adicional_pos_fechamento?: boolean;
           almofadas_soltas?: boolean;
@@ -5364,6 +5372,7 @@ export type Database = {
           tipo_servico: Database["public"]["Enums"]["quote_tipo_servico"];
         };
         Update: {
+          dupla_face?: boolean;
           acrescimo_pct?: number;
           adicional_pos_fechamento?: boolean;
           almofadas_soltas?: boolean;
