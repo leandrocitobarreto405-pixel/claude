@@ -721,6 +721,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual        | `16226c0`           | `788be83`                |
 | 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)              | `3d2998b`           | `921f91c`                |
 | 26/10/2026       | Painel Nexa como espaço separado das empresas                       | `a71a5b7`           | `fba1057`                |
+| 26/10/2026       | Empresa de teste fora do MRR e dos relatórios do Painel Nexa        | `39200f2`           | `8fec6b2`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -788,7 +789,7 @@ Painel Nexa com a etiqueta "Teste · fora do MRR" e fica fora do MRR, das contag
 Assinaturas e dos relatórios da Comissão da Nexa e da Alice. Só a Nexa marca (gatilho
 `trg_empresas_proteger_teste`; o teste de banco 670 achou que, sem ele, o admin da empresa conseguia
 marcar a própria). Marcada: "Teste Asaas (sandbox)" (criada em 26/10 para o teste do Asaas, plano
-Básico R$ 50, sem usuários). Como desfazer: `git revert` do commit; banco: `DROP TRIGGER
+Básico R$ 50, sem usuários). Como desfazer: `git revert 39200f2`; banco: `DROP TRIGGER
 trg_empresas_proteger_teste ON public.empresas; DROP FUNCTION private.empresas_proteger_teste();
 ALTER TABLE public.empresas DROP COLUMN eh_teste;`.
 
