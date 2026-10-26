@@ -2448,6 +2448,9 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          anos_experiencia: string;
+          nomes_atendentes: string;
+          regiao_atendida: string;
           avaliacao_ligada: boolean;
           avaliacao_link: string | null;
           avaliacao_texto: string;
@@ -2491,6 +2494,9 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          anos_experiencia?: string;
+          nomes_atendentes?: string;
+          regiao_atendida?: string;
           avaliacao_ligada?: boolean;
           avaliacao_link?: string | null;
           avaliacao_texto?: string;
@@ -2534,6 +2540,9 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          anos_experiencia?: string;
+          nomes_atendentes?: string;
+          regiao_atendida?: string;
           avaliacao_ligada?: boolean;
           avaliacao_link?: string | null;
           avaliacao_texto?: string;

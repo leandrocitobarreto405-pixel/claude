@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { camposFaltando, limparCampos } from "@/lib/alice/campos-roteiro";
 import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
@@ -15,6 +16,10 @@ export type ConfigAlice = {
   descricao_negocio: string;
   instrucoes: string;
   perguntas_frequentes: string;
+  /** Campos do roteiro-base: {regiao_atendida}, {nomes_atendentes}, {anos_experiencia}. */
+  regiao_atendida: string;
+  nomes_atendentes: string;
+  anos_experiencia: string;
   modelo: string;
   esforco: "low" | "medium" | "high";
   espera_segundos: number;
@@ -57,6 +62,9 @@ const PADRAO: ConfigAlice = {
   descricao_negocio: "",
   instrucoes: "",
   perguntas_frequentes: "",
+  regiao_atendida: "",
+  nomes_atendentes: "",
+  anos_experiencia: "",
   modelo: "claude-sonnet-5-5",
   esforco: "medium",
   espera_segundos: 8,
@@ -167,6 +175,9 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             descricao_negocio: cfg.descricao_negocio ?? "",
             instrucoes: cfg.instrucoes,
             perguntas_frequentes: cfg.perguntas_frequentes,
+            regiao_atendida: cfg.regiao_atendida ?? "",
+            nomes_atendentes: cfg.nomes_atendentes ?? "",
+            anos_experiencia: cfg.anos_experiencia ?? "",
             modelo: cfg.modelo,
             esforco: cfg.esforco as ConfigAlice["esforco"],
             espera_segundos: cfg.espera_segundos,
@@ -220,7 +231,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
       throw new Error("Descrição do negócio: no máximo 300 caracteres.");
     if (Number(input.hora_inicio) >= Number(input.hora_fim))
       throw new Error("O horário das mensagens ativas precisa começar antes de terminar.");
-    return input;
+    return { ...input, ...limparCampos(input) };
   })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("ia_configuracoes").upsert(
@@ -230,6 +241,9 @@ export const salvarAlice = createServerFn({ method: "POST" })
         descricao_negocio: (data.descricao_negocio ?? "").trim(),
         instrucoes: data.instrucoes,
         perguntas_frequentes: data.perguntas_frequentes,
+        regiao_atendida: data.regiao_atendida,
+        nomes_atendentes: data.nomes_atendentes,
+        anos_experiencia: data.anos_experiencia,
         modelo: data.modelo,
         desconto_pix_percentual: Math.min(
           Math.max(Number(data.desconto_pix_percentual) || 0, 0),
@@ -275,6 +289,21 @@ export const ligarAlice = createServerFn({ method: "POST" })
       if (!caixas.length) throw new Error("A empresa não tem caixa de entrada do Chatwoot ligada.");
       if (caixas.some((c) => !c.conta || !c.roboId || !c.tokenAdmin || !c.tokenRobo))
         throw new Error("A Nexa ainda não criou o robô da Alice no Chatwoot (Nexa → Chatwoot).");
+      const { data: roteiro } = await context.supabase
+        .from("ia_configuracoes")
+        .select(
+          "instrucoes, perguntas_frequentes, regiao_atendida, nomes_atendentes, anos_experiencia",
+        )
+        .eq("empresa_id", context.empresaId)
+        .maybeSingle();
+      if (roteiro) {
+        const faltam = camposFaltando(
+          `${roteiro.instrucoes}\n${roteiro.perguntas_frequentes}`,
+          limparCampos(roteiro),
+        );
+        if (faltam.length)
+          throw new Error(`Preencha antes de ligar (o roteiro usa): ${faltam.join(", ")}.`);
+      }
     }
     for (const c of caixas) {
       if (c.conta && c.tokenAdmin && (c.roboId || !data.ativo)) {

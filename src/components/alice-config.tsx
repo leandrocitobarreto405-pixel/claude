@@ -1,3 +1,4 @@
+import { CAMPOS_ROTEIRO } from "@/lib/alice/campos-roteiro";
 import { useEffect, useState } from "react";
 import { AlicePosAtendimento } from "@/components/alice-pos-atendimento";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -350,6 +351,35 @@ export function AliceConfig() {
             A tabela de preços, o Pix, as parcelas e o histórico do cliente ela já lê do sistema.
             Aqui vai o jeito de vender. Em branco, ela usa um roteiro padrão simples.
           </p>
+        </div>
+        <div className="grid gap-3 rounded-lg border border-border p-3">
+          <p className="text-sm font-semibold">Dados da empresa usados no roteiro</p>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            No texto do prompt, {"{nome_empresa}"} vira o nome cadastrado da empresa e estes
+            marcadores viram o que estiver preenchido aqui. Marcador usado e vazio: a Alice não liga
+            até preencher.
+          </p>
+          {CAMPOS_ROTEIRO.map((c) => {
+            const usado = `${form.instrucoes}\n${form.perguntas_frequentes}`.includes(c.marcador);
+            return (
+              <div key={c.chave} className="space-y-1">
+                <Label htmlFor={`alice-${c.chave}`}>
+                  {c.rotulo} <code className="text-xs font-normal">{c.marcador}</code>
+                </Label>
+                <Input
+                  id={`alice-${c.chave}`}
+                  maxLength={c.max}
+                  inputMode={c.chave === "anos_experiencia" ? "numeric" : undefined}
+                  value={form[c.chave]}
+                  onChange={(e) => campo(c.chave, e.target.value)}
+                  placeholder={`Ex.: ${c.exemplo}`}
+                />
+                {usado && !form[c.chave].trim() ? (
+                  <p className="text-xs text-problema-foreground">O roteiro usa este campo.</p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
         <div className="space-y-1">
           <Label htmlFor="alice-faq">Perguntas frequentes e respostas</Label>

@@ -4,6 +4,7 @@
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import { linhaDoNome, type SituacaoNome } from "./nome";
+import { aplicarCamposDoRoteiro, type CamposRoteiro } from "./campos-roteiro";
 
 export type ItemPreco = {
   nome: string;
@@ -20,6 +21,8 @@ export type ContextoEmpresa = {
   descricaoNegocio: string;
   instrucoes: string;
   perguntasFrequentes: string;
+  /** Região, atendentes e experiência (campos do roteiro-base, por empresa). */
+  camposRoteiro?: CamposRoteiro;
   precos: ItemPreco[];
   servicos: string[];
   /** Vendedoras humanas (para a Alice dizer quem vai continuar o atendimento). */
@@ -161,15 +164,15 @@ ${c.telefone ? `- Telefone: ${c.telefone}\n` : ""}${c.instagram ? `- Instagram: 
 ${tabelaPrecos(c.precos)}
 
 # Instruções da empresa
-${comNomeDaEmpresa(c.instrucoes.trim(), c.empresa) || roteiroPadrao(c)}
+${aplicarCamposDoRoteiro(c.instrucoes.trim(), c.empresa, c.camposRoteiro) || roteiroPadrao(c)}
 
 # Perguntas frequentes
-${comNomeDaEmpresa(c.perguntasFrequentes.trim(), c.empresa) || "(nenhuma cadastrada)"}`;
+${aplicarCamposDoRoteiro(c.perguntasFrequentes.trim(), c.empresa, c.camposRoteiro) || "(nenhuma cadastrada)"}`;
 }
 
 /** Roteiro-base: {nome_empresa} nas instruções vira o nome da empresa (serve para qualquer empresa). */
 export function comNomeDaEmpresa(texto: string, empresa: string): string {
-  return texto.replaceAll("{nome_empresa}", empresa);
+  return aplicarCamposDoRoteiro(texto, empresa);
 }
 
 /** Parte variável: data/hora e o que já se sabe do lead (fica fora do cache). */

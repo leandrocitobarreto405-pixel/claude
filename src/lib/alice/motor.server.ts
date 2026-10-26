@@ -344,6 +344,11 @@ export async function contextoEmpresa(
     descricaoNegocio: cfg.descricao_negocio ?? "",
     instrucoes: cfg.instrucoes,
     perguntasFrequentes: cfg.perguntas_frequentes,
+    camposRoteiro: {
+      regiao_atendida: cfg.regiao_atendida ?? "",
+      nomes_atendentes: cfg.nomes_atendentes ?? "",
+      anos_experiencia: cfg.anos_experiencia ?? "",
+    },
     precos: (precos.data ?? []).map((p) => ({
       nome: p.nome,
       higienizacao: preco(p.preco_higienizacao),

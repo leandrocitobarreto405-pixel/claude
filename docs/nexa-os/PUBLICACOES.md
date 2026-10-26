@@ -793,6 +793,25 @@ Básico R$ 50, sem usuários). Como desfazer: `git revert 39200f2`; banco: `DROP
 trg_empresas_proteger_teste ON public.empresas; DROP FUNCTION private.empresas_proteger_teste();
 ALTER TABLE public.empresas DROP COLUMN eh_teste;`.
 
+Roteiro da Alice para qualquer empresa (26/10, aprovado): (1) Turbine: cópia do texto em
+`app_settings` (`alice_roteiro_copia_20261026`); "Turbine Clean" virou {nome_empresa} nas 17 linhas
+e o texto que a Alice lê ficou idêntico (mesmo md5 da cópia). (2) Migração `20261212120000`
+(ensaio desfeito antes; a função em produção era idêntica à do repositório): campos
+`regiao_atendida`, `nomes_atendentes`, `anos_experiencia` na configuração da Alice (tela
+Configurações › Alice › "Dados da empresa usados no roteiro"; marcador usado e vazio não deixa
+ligar) e empresa nova copiando o roteiro do Modelo Nexa (desligada). (3) Turbine preenchida com os
+valores atuais (Grande São Paulo; a Maria e a Carol; 7): o texto dela ainda não usa os marcadores,
+nada mudou. (4) Modelo Nexa: roteiro-base criado do texto da Turbine com {regiao_atendida} (2x),
+{nomes_atendentes} (1x), {anos_experiencia} (4x) e "Vou chamar a nossa especialista" sem nomes;
+perguntas frequentes vazias. Como desfazer: Turbine: `UPDATE public.ia_configuracoes SET instrucoes =
+(SELECT value->>'instrucoes' FROM public.app_settings WHERE empresa_id =
+'11111111-1111-1111-1111-111111111111' AND key = 'alice_roteiro_copia_20261026') WHERE empresa_id =
+'11111111-1111-1111-1111-111111111111';`. Modelo: `DELETE FROM public.ia_configuracoes WHERE
+empresa_id = '99999999-9999-4999-8999-999999999999';`. Código: `git revert` do commit. Banco: a
+função anterior está em `20261014120001_config_por_empresa_funcoes.sql` (recriar) e `ALTER TABLE
+public.ia_configuracoes DROP COLUMN regiao_atendida, DROP COLUMN nomes_atendentes, DROP COLUMN
+anos_experiencia;`.
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).
