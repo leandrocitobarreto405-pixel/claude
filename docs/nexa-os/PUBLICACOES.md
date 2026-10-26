@@ -726,6 +726,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Limpeza dos eventos do Chatwoot (desligada até o backup)            | `c85a7a8`           | `a5c5084`                |
 | 26/10/2026       | Fase B item 7: consumo das empresas no Painel Nexa                  | `c1b2bf7`           | `8fdbb89`                |
 | 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa          | `21ed1a2`           | `5ae6116`                |
+| 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                  | `29cd1e9`           | `1fb9286`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -854,7 +855,7 @@ ticket médio, conversão de leads, meta do mês, gráficos (vendido por semana,
 recebimento e de serviço atrasado, realizado, recebido, a receber, despesas, lucro, Hoje / Amanhã /
 Para concluir e horários livres. Padrão: Vendas para atendente e equipe Nexa, Operacional para o
 admin da empresa; a escolha fica guardada no aparelho. Nenhum número mudou, só a organização. Como
-desfazer: `git revert` do commit (sem force push).
+desfazer: `git revert 29cd1e9` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
