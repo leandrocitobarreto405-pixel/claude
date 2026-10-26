@@ -246,6 +246,23 @@ export function OrcamentoRegrasConfig() {
       </Bloco>
 
       <Bloco
+        titulo="Item adicional no mesmo atendimento (upsell)"
+        descricao="Depois que o cliente confirma o agendamento, a Alice oferece itens a mais (sofá, colchão, cadeira, poltrona) com este desconto sobre a tabela (o preço termina em ,90). Substitui o preço de adicional fixo da tabela. Combo com impermeabilização continua com a equipe."
+        ligado={f.desconto_upsell_ligado}
+        onLigar={(v) => set("desconto_upsell_ligado", v)}
+        desabilitado={bloqueado}
+      >
+        <div>
+          <Label className="text-xs">Desconto do item adicional no mesmo atendimento (%)</Label>
+          <DecimalInput
+            value={f.desconto_upsell_pct}
+            onValueChange={(v) => set("desconto_upsell_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+      </Bloco>
+
+      <Bloco
         titulo="Pedido mínimo só de cadeiras"
         descricao="Quando o orçamento tem só cadeiras e fica abaixo deste valor, completa até o mínimo. Deixe 0 para não usar."
         desabilitado={bloqueado}

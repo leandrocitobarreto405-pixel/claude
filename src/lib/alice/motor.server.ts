@@ -25,6 +25,7 @@ import {
   limparTexto,
   instrucoesDoMomento,
   instrucoesFixas,
+  instrucoesDosModulos,
   montarTurnos,
   type ContextoEmpresa,
   type ContextoLead,
@@ -34,6 +35,8 @@ import {
   marcarCacheDoHistorico,
   tecidoDaConfig,
 } from "./prompt";
+import { chavesValidas, modulosDaConfig } from "./modulos";
+import { aplicarCamposDoRoteiro } from "./campos-roteiro";
 import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
@@ -159,6 +162,8 @@ type DadosConversa = {
     whatsapp_contact_id: string | null;
     /** O cliente pediu "manda por escrito": sem áudio nesta conversa. */
     alice_so_texto_em?: string | null;
+    /** Módulos do roteiro já carregados nesta conversa. */
+    alice_modulos?: string[] | null;
   };
   conta: Conta;
   tokenRobo: string | null;
@@ -177,7 +182,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
   const { data: conversa } = await db
     .from("conversas")
     .select(
-      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em",
+      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em, alice_modulos",
     )
     .eq("id", tarefa.conversa_id)
     .eq("empresa_id", tarefa.empresa_id)
@@ -425,6 +430,7 @@ export async function contextoEmpresa(
       (modelos.data?.value as { templateGarantia?: string } | null)?.templateGarantia,
     ),
     tecidoNaoIdentificado: tecidoDaConfig(cfg.tecido_nao_identificado),
+    modulos: modulosDaConfig(cfg.modulos),
     duplaFacePct: regrasPreco.data?.dupla_face_ligada
       ? Number(regrasPreco.data.dupla_face_pct)
       : null,
@@ -1009,6 +1015,11 @@ async function conversar(
     midias: new Set(),
     posAtendimento: pos,
     precoTravado,
+    modulos: {
+      disponiveis: empresa.modulos ?? [],
+      carregados: chavesValidas(empresa.modulos ?? [], d.conversa.alice_modulos ?? []),
+      aplicar: (t: string) => aplicarCamposDoRoteiro(t, empresa.empresa, empresa.camposRoteiro),
+    },
   };
   const cliente = new Anthropic();
   // Cache: as instruções fixas têm um ponto de cache próprio; a conversa entra no cache
@@ -1031,6 +1042,16 @@ async function conversar(
       text: instrucoesFixas(empresa),
       cache_control: { type: "ephemeral", ttl: "1h" },
     },
+    // Módulos do roteiro já carregados nesta conversa: mudam pouco, cache próprio de 1 hora.
+    ...(ctx.modulos!.carregados.length
+      ? [
+          {
+            type: "text" as const,
+            text: instrucoesDosModulos(empresa, ctx.modulos!.carregados),
+            cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+          },
+        ]
+      : []),
     ...(momentoNoMeio ? [] : [{ type: "text" as const, text: momento }]),
   ];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };

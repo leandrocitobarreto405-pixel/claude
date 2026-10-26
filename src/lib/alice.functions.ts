@@ -1,4 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
+import {
+  MAX_MODULOS,
+  MAX_TEXTO_MODULO,
+  modulosDaConfig,
+  type ModuloRoteiro,
+} from "@/lib/alice/modulos";
 import { camposFaltando, limparCampos } from "@/lib/alice/campos-roteiro";
 import { tecidoDaConfig, type TecidoNaoIdentificado } from "@/lib/alice/prompt";
 import { requireRecurso } from "@/lib/recurso.middleware";
@@ -45,6 +51,8 @@ export type ConfigAlice = {
   /** Franquia: seguir depois das conversas incluídas, até o teto do mês em R$. */
   continuar_apos_franquia: boolean;
   teto_excedente_reais: number | null;
+  /** Roteiro por serviço: módulos carregados sob demanda (vazio = instruções inteiras). */
+  modulos: ModuloRoteiro[];
 };
 
 export const CAMPOS_MIDIA = [
@@ -93,6 +101,7 @@ const PADRAO: ConfigAlice = {
   tecido_nao_identificado: "equipe",
   continuar_apos_franquia: false,
   teto_excedente_reais: null,
+  modulos: [],
 };
 
 const SEM_MIDIAS: MidiasAlice = {
@@ -210,6 +219,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             continuar_apos_franquia: cfg.continuar_apos_franquia,
             teto_excedente_reais:
               cfg.teto_excedente_reais === null ? null : Number(cfg.teto_excedente_reais),
+            modulos: modulosDaConfig(cfg.modulos),
           }
         : PADRAO,
       midias: cfg
@@ -244,6 +254,9 @@ export const salvarAlice = createServerFn({ method: "POST" })
       throw new Error(
         "Texto muito longo (instruções até 60 mil caracteres, perguntas até 20 mil).",
       );
+    if ((input.modulos ?? []).some((m) => (m.texto ?? "").length > MAX_TEXTO_MODULO))
+      throw new Error("Cada módulo pode ter até 20 mil caracteres.");
+    if ((input.modulos ?? []).length > MAX_MODULOS) throw new Error("No máximo 20 módulos.");
     if ((input.descricao_negocio ?? "").length > 300)
       throw new Error("Descrição do negócio: no máximo 300 caracteres.");
     if (Number(input.hora_inicio) >= Number(input.hora_fim))
@@ -257,6 +270,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         nome: data.nome.trim(),
         descricao_negocio: (data.descricao_negocio ?? "").trim(),
         instrucoes: data.instrucoes,
+        modulos: modulosDaConfig(data.modulos) as never,
         perguntas_frequentes: data.perguntas_frequentes,
         regiao_atendida: data.regiao_atendida,
         nomes_atendentes: data.nomes_atendentes,
@@ -315,13 +329,17 @@ export const ligarAlice = createServerFn({ method: "POST" })
       const { data: roteiro } = await context.supabase
         .from("ia_configuracoes")
         .select(
-          "instrucoes, perguntas_frequentes, regiao_atendida, nomes_atendentes, anos_experiencia",
+          "instrucoes, perguntas_frequentes, regiao_atendida, nomes_atendentes, anos_experiencia, modulos",
         )
         .eq("empresa_id", context.empresaId)
         .maybeSingle();
       if (roteiro) {
         const faltam = camposFaltando(
-          `${roteiro.instrucoes}\n${roteiro.perguntas_frequentes}`,
+          [
+            roteiro.instrucoes,
+            roteiro.perguntas_frequentes,
+            ...modulosDaConfig(roteiro.modulos).map((m) => m.texto),
+          ].join("\n"),
           limparCampos(roteiro),
         );
         if (faltam.length)

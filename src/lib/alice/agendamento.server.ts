@@ -95,6 +95,9 @@ export function agoraSP() {
 const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 // ---------------------------------------------------------------- entrada
+/** Colchão que precisa secar até a noite (o cliente dorme nele): marca na OS e na agenda. */
+export const MARCA_SECAR_ATE_NOITE = "Colchão – precisa secar até a noite";
+
 export const ReservarHorario = z.object({
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   hora: z.string().regex(/^\d{2}:\d{2}$/),
@@ -114,6 +117,8 @@ export const ReservarHorario = z.object({
   uf: z.string().trim().max(2).optional(),
   ponto_referencia: z.string().trim().max(160).optional(),
   observacoes: z.string().trim().max(500).optional(),
+  /** Colchão: o cliente precisa dormir nele na mesma noite (vai na OS e na agenda). */
+  secar_ate_noite: z.boolean().optional(),
 });
 export type ReservarHorarioInput = z.infer<typeof ReservarHorario>;
 
@@ -655,6 +660,7 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
   const hoje = agoraSP().data;
   const notas = [
     `Agendado pela ${ctx.cfg.nome} (IA) pelo WhatsApp.`,
+    input.secar_ate_noite ? `${MARCA_SECAR_ATE_NOITE}.` : null,
     input.observacoes ? `Observações do cliente: ${input.observacoes}` : null,
   ]
     .filter(Boolean)
@@ -743,6 +749,7 @@ export async function reservarHorario(ctx: Ctx, input: ReservarHorarioInput): Pr
           v.itens
             .map((i) => `${textoQuantidade(i.quantity, i.unidade)} ${i.description}`)
             .join(", ") || null,
+        ...(input.secar_ate_noite ? { visit_notes: MARCA_SECAR_ATE_NOITE } : {}),
       })
       .select("id")
       .single();

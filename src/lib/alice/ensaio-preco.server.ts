@@ -11,7 +11,13 @@ import type { Database } from "@/integrations/supabase/types";
 import { cuponsAtivos, ferramentasDisponiveis } from "./ferramentas.server";
 import { contextoEmpresa, etapasAbertas, lerConfig } from "./motor.server";
 import { rodarAliceEnsaio, type FalaEnsaio } from "./ensaio-rodar.server";
-import { instrucoesDoMomento, instrucoesFixas, type ContextoLead } from "./prompt";
+import {
+  instrucoesDoMomento,
+  instrucoesDosModulos,
+  instrucoesFixas,
+  type ContextoLead,
+} from "./prompt";
+import { chavesValidas } from "./modulos";
 import { AVISO_PRECO_TRAVADO, precoLiberado } from "./preco-depois";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { conferirCupom, valorDoCupom } from "./cupons";
@@ -154,8 +160,17 @@ export async function rodarEnsaioPreco(db: Db, empresaId: string): Promise<Ensai
     ].join("\n");
   }
 
+  // Roteiro por serviço: módulos carregados valem nas respostas seguintes (como no motor).
+  const carregados: string[] = [];
   function respostaDeEnsaio(nome: string, entrada: unknown): string {
     switch (nome) {
+      case "carregar_modulo": {
+        const pedidas = ((entrada as { modulos?: string[] }).modulos ?? []).filter(
+          (c) => !carregados.includes(c),
+        );
+        carregados.push(...chavesValidas(empresa.modulos ?? [], pedidas));
+        return instrucoesDosModulos(empresa, pedidas) || "Módulo já carregado.";
+      }
       case "consultar_cliente":
         return "IA desligada: não; sem pós-venda: não. Cliente novo, sem serviços anteriores.";
       case "consultar_cep":
@@ -208,7 +223,7 @@ export async function rodarEnsaioPreco(db: Db, empresaId: string): Promise<Ensai
         modelo: cfg.modelo,
         esforco: cfg.esforco,
         ferramentas,
-        fixas,
+        fixas: [fixas, instrucoesDosModulos(empresa, carregados)].filter(Boolean).join("\n\n"),
         momento: [instrucoesDoMomento(new Date(), lead), travado ? AVISO_PRECO_TRAVADO : null]
           .filter(Boolean)
           .join("\n"),

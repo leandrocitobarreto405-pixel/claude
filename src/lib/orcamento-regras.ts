@@ -40,6 +40,8 @@ export type RegrasOrcamento = {
   acrescimos: { ligado: boolean; almofadasPct: number; encardidoPct: number };
   /** Colchão dupla face (os dois lados + laterais): acréscimo no item do colchão. */
   duplaFace: { ligada: boolean; pct: number };
+  /** Upsell depois do agendamento: desconto do item adicional no mesmo atendimento. */
+  upsell: { ligado: boolean; pct: number };
 };
 
 export const REGRAS_DESLIGADAS: RegrasOrcamento = {
@@ -53,6 +55,7 @@ export const REGRAS_DESLIGADAS: RegrasOrcamento = {
   classe: { ligada: false, aPct: 20 },
   acrescimos: { ligado: false, almofadasPct: 10, encardidoPct: 10 },
   duplaFace: { ligada: false, pct: 20 },
+  upsell: { ligado: false, pct: 20 },
 };
 
 /** Linha do banco (orcamento_configuracoes) → regras. Sem linha: tudo desligado. */
@@ -95,6 +98,7 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
       encardidoPct: n(l["encardido_pct"], 10),
     },
     duplaFace: { ligada: Boolean(l["dupla_face_ligada"]), pct: n(l["dupla_face_pct"], 20) },
+    upsell: { ligado: Boolean(l["desconto_upsell_ligado"]), pct: n(l["desconto_upsell_pct"], 20) },
   };
 }
 

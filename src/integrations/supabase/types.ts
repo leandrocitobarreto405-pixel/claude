@@ -1221,6 +1221,7 @@ export type Database = {
       };
       conversas: {
         Row: {
+          alice_modulos: string[];
           aguardando_desde: string | null;
           alice_so_texto_em: string | null;
           assumida_em: string | null;
@@ -1253,6 +1254,7 @@ export type Database = {
           url_chatwoot: string | null;
         };
         Insert: {
+          alice_modulos?: string[];
           aguardando_desde?: string | null;
           alice_so_texto_em?: string | null;
           assumida_em?: string | null;
@@ -1284,6 +1286,7 @@ export type Database = {
           whatsapp_contact_id?: string | null;
         };
         Update: {
+          alice_modulos?: string[];
           aguardando_desde?: string | null;
           alice_so_texto_em?: string | null;
           assumida_em?: string | null;
@@ -2559,6 +2562,7 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          modulos: Json;
           audio_eleven_modelo: string;
           audio_eleven_voz: string | null;
           audio_provedor: string;
@@ -2611,6 +2615,7 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          modulos?: Json;
           audio_eleven_modelo?: string;
           audio_eleven_voz?: string | null;
           audio_provedor?: string;
@@ -2663,6 +2668,7 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          modulos?: Json;
           audio_eleven_modelo?: string;
           audio_eleven_voz?: string | null;
           audio_provedor?: string;
@@ -4582,6 +4588,8 @@ export type Database = {
       };
       orcamento_configuracoes: {
         Row: {
+          desconto_upsell_pct: number;
+          desconto_upsell_ligado: boolean;
           dupla_face_pct: number;
           dupla_face_ligada: boolean;
           distancia_faixas: Json | null;
@@ -4610,6 +4618,8 @@ export type Database = {
           vitrine_ligada: boolean;
         };
         Insert: {
+          desconto_upsell_pct?: number;
+          desconto_upsell_ligado?: boolean;
           dupla_face_pct?: number;
           dupla_face_ligada?: boolean;
           distancia_faixas?: Json | null;
@@ -4638,6 +4648,8 @@ export type Database = {
           vitrine_ligada?: boolean;
         };
         Update: {
+          desconto_upsell_pct?: number;
+          desconto_upsell_ligado?: boolean;
           dupla_face_pct?: number;
           dupla_face_ligada?: boolean;
           distancia_faixas?: Json | null;

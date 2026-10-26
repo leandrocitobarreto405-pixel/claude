@@ -1,13 +1,17 @@
 /**
- * Adicional pós-fechamento (ex.: colchão num pedido só de higienização). A Alice oferece uma vez
- * só, depois que o cliente confirma; se ele aceitar, o item entra no mesmo orçamento (e na OS, se
- * já foi gerada) pelo preço de adicional da tabela, fora do desconto de campanha e de indicação.
+ * Upsell depois do agendamento (antes: adicional pós-fechamento). A Alice oferece uma vez só, logo
+ * depois que o cliente confirma; se ele aceitar, o item entra no mesmo orçamento (e na OS, se já
+ * foi gerada), fora do desconto de campanha e de indicação. Preço: com o upsell ligado nas regras
+ * de orçamento, a tabela − o desconto de item adicional (qualquer item, menos tapete e persiana);
+ * desligado, o preço de adicional fixo da tabela, como antes. Com a OS gerada, só inclui se o
+ * atendimento ainda couber antes do próximo serviço do mesmo técnico no dia.
  */
 import { acharOrcamento } from "@/lib/numero-orcamento";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { condicoesPagamento, normalizarNome, reais } from "./regras";
+import { cabeNoHorario, duracaoDoAtendimento, precoUpsell } from "./upsell";
 
 type Admin = SupabaseClient<Database>;
 type Ctx = {
@@ -60,21 +64,83 @@ type ItemAdicional = {
   preco_adicional: number;
 };
 
-async function itensAdicionais(ctx: Ctx): Promise<ItemAdicional[]> {
-  const { data } = await ctx.admin
+async function itensAdicionais(ctx: Ctx, upsell: { ligado: boolean; pct: number }) {
+  let q = ctx.admin
     .from("tabela_precos_itens")
     .select("id, nome, categoria, preco_higienizacao, preco_adicional")
     .eq("empresa_id", ctx.empresaId)
     .eq("ativo", true)
-    .not("preco_adicional", "is", null)
     .order("ordem");
-  return ((data ?? []) as Array<Record<string, unknown>>).map((i) => ({
-    id: String(i["id"]),
-    nome: String(i["nome"]),
-    categoria: (i["categoria"] as string | null) ?? null,
-    preco_higienizacao: Number(i["preco_higienizacao"]),
-    preco_adicional: Number(i["preco_adicional"]),
-  }));
+  if (!upsell.ligado) q = q.not("preco_adicional", "is", null);
+  const { data } = await q;
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter(
+      (i) =>
+        !upsell.ligado ||
+        (Number(i["preco_higienizacao"]) > 0 &&
+          !["tapete", "persiana"].includes(String(i["categoria"] ?? ""))),
+    )
+    .map((i): ItemAdicional => ({
+      id: String(i["id"]),
+      nome: String(i["nome"]),
+      categoria: (i["categoria"] as string | null) ?? null,
+      preco_higienizacao: Number(i["preco_higienizacao"]),
+      preco_adicional: upsell.ligado
+        ? precoUpsell(Number(i["preco_higienizacao"]), upsell.pct)
+        : Number(i["preco_adicional"]),
+    }));
+}
+
+/** OS já gerada: o atendimento com o item a mais ainda cabe antes do próximo serviço do técnico? */
+async function conferirHorario(
+  ctx: Ctx,
+  workOrderId: string,
+  item: ItemAdicional,
+  quantidade: number,
+): Promise<{ cabe: boolean; texto: string } | null> {
+  const { data: visitas } = await ctx.admin
+    .from("visits")
+    .select(
+      "id, scheduled_date, scheduled_time, technician_id, service_type:service_type_id ( name ), service_items ( description, quantity, active )",
+    )
+    .eq("work_order_id", workOrderId)
+    .neq("status", "Cancelado")
+    .order("scheduled_date");
+  type V = {
+    id: string;
+    scheduled_date: string;
+    scheduled_time: string | null;
+    technician_id: string | null;
+    service_type: { name: string } | null;
+    service_items: Array<{ description: string | null; quantity: number; active: boolean }>;
+  };
+  const lista = (visitas ?? []) as unknown as V[];
+  const v =
+    lista.find((x) => (x.service_type?.name ?? "").toLowerCase().includes("higien")) ?? lista[0];
+  if (!v?.scheduled_time || !v.technician_id) return null;
+  const { data: proximas } = await ctx.admin
+    .from("visits")
+    .select("scheduled_time")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("technician_id", v.technician_id)
+    .eq("scheduled_date", v.scheduled_date)
+    .gt("scheduled_time", v.scheduled_time)
+    .neq("status", "Cancelado")
+    .neq("id", v.id)
+    .order("scheduled_time")
+    .limit(1);
+  const itens = [
+    ...v.service_items
+      .filter((i) => i.active)
+      .map((i) => ({ descricao: i.description ?? "", quantidade: Number(i.quantity) })),
+    { descricao: item.nome, quantidade },
+  ];
+  const r = cabeNoHorario(
+    v.scheduled_time.slice(0, 5),
+    duracaoDoAtendimento(itens),
+    (proximas ?? [])[0]?.scheduled_time?.slice(0, 5) ?? null,
+  );
+  return { cabe: r.cabe, texto: r.texto };
 }
 
 export async function adicionalPosFechamento(
@@ -100,7 +166,9 @@ export async function adicionalPosFechamento(
       erro: true,
       texto: "Este pedido tem impermeabilização: não ofereça o adicional.",
     };
-  const tabela = await itensAdicionais(ctx);
+  const { regrasOrcamento } = await import("@/lib/quotes.server");
+  const upsell = (await regrasOrcamento(ctx.admin, ctx.empresaId)).upsell;
+  const tabela = await itensAdicionais(ctx, upsell);
   if (!tabela.length)
     return { erro: true, texto: "A empresa não tem itens com preço de adicional. Não ofereça." };
 
@@ -125,7 +193,9 @@ export async function adicionalPosFechamento(
     return {
       erro: false,
       texto: [
-        "Oferta registrada (uma vez só). Preços do adicional (normal entre parênteses):",
+        upsell.ligado
+          ? `Oferta registrada (uma vez só). Preços com o desconto de item adicional (${upsell.pct}% sobre a tabela; normal entre parênteses). Ofereça só o que o cliente ainda não incluiu:`
+          : "Oferta registrada (uma vez só). Preços do adicional (normal entre parênteses):",
         ...opcoes.map(
           (o) => `- ${o.nome}: ${reais(o.preco_adicional)} (normal ${reais(o.preco_higienizacao)})`,
         ),
@@ -158,6 +228,16 @@ export async function adicionalPosFechamento(
       texto: `Item "${input.item ?? ""}" não tem preço de adicional. Itens válidos: ${tabela.map((t) => t.nome).join("; ")}.`,
     };
   const quantidade = Math.max(1, Math.min(10, Math.round(input.quantidade ?? 1)));
+
+  // OS já gerada: só inclui se o atendimento ainda couber antes do próximo serviço do técnico.
+  const horario = q.generated_work_order_id
+    ? await conferirHorario(ctx, q.generated_work_order_id, escolhido, quantidade)
+    : null;
+  if (horario && !horario.cabe)
+    return {
+      erro: true,
+      texto: `NÃO incluído: com ${quantidade > 1 ? `${quantidade}x ` : ""}${escolhido.nome}, o atendimento ${horario.texto}. Avise o cliente com cuidado e ofereça ajustar o horário (consultar_agenda e remarcar_horario); depois chame "aceitou" de novo. Se ele não quiser trocar, transfira com o motivo "upsell não cabe no horário".`,
+    };
 
   // 1. Orçamento: o item entra pelo preço de adicional e o total é refeito pelas regras.
   const { data: qRow } = await ctx.admin.from("quotes").select("*").eq("id", q.id).single();
@@ -199,6 +279,7 @@ export async function adicionalPosFechamento(
     erro: false,
     texto: [
       `Incluído no pedido: ${quantidade > 1 ? `${quantidade}x ` : ""}${escolhido.nome} (adicional) — ${reais(subtotal)}.${os}`,
+      ...(horario ? [`Horário: cabe (o atendimento ${horario.texto}).`] : []),
       `Novo total: ${reais(cond.total)}`,
       "Pagamento para o cliente (copie exatamente assim, nestas linhas):",
       linhasPagamento({

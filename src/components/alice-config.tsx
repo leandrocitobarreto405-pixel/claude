@@ -1,3 +1,4 @@
+import { ModulosRoteiro } from "@/components/alice/modulos-roteiro";
 import { CAMPOS_ROTEIRO } from "@/lib/alice/campos-roteiro";
 import { useEffect, useState } from "react";
 import { AlicePosAtendimento } from "@/components/alice-pos-atendimento";
@@ -343,7 +344,8 @@ export function AliceConfig() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="alice-instrucoes">
-            Prompt da {form.nome || "Alice"} (instruções da empresa)
+            {form.modulos.length ? "Núcleo do prompt" : "Prompt"} da {form.nome || "Alice"}{" "}
+            (instruções da empresa)
           </Label>
           <Textarea
             id="alice-instrucoes"
@@ -357,6 +359,11 @@ export function AliceConfig() {
             Aqui vai o jeito de vender. Em branco, ela usa um roteiro padrão simples.
           </p>
         </div>
+        <ModulosRoteiro
+          modulos={form.modulos}
+          nomeAlice={form.nome || "Alice"}
+          aoMudar={(m) => campo("modulos", m)}
+        />
         <div className="grid gap-3 rounded-lg border border-border p-3">
           <p className="text-sm font-semibold">Dados da empresa usados no roteiro</p>
           <p className="-mt-2 text-xs text-muted-foreground">
@@ -365,7 +372,13 @@ export function AliceConfig() {
             até preencher.
           </p>
           {CAMPOS_ROTEIRO.map((c) => {
-            const usado = `${form.instrucoes}\n${form.perguntas_frequentes}`.includes(c.marcador);
+            const usado = [
+              form.instrucoes,
+              form.perguntas_frequentes,
+              ...form.modulos.map((m) => m.texto),
+            ]
+              .join("\n")
+              .includes(c.marcador);
             return (
               <div key={c.chave} className="space-y-1">
                 <Label htmlFor={`alice-${c.chave}`}>

@@ -5,6 +5,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { linhaDoNome, type SituacaoNome } from "./nome";
 import { aplicarCamposDoRoteiro, type CamposRoteiro } from "./campos-roteiro";
+import { blocoDosModulos, linhaDosModulos, type ModuloRoteiro } from "./modulos";
 
 export type ItemPreco = {
   nome: string;
@@ -52,6 +53,8 @@ export type ContextoEmpresa = {
   regraPreco?: boolean;
   /** Colchão dupla face ligada nas regras de orçamento (acréscimo em %); null = desligada. */
   duplaFacePct?: number | null;
+  /** Roteiro por serviço: módulos da empresa (vazio = roteiro inteiro nas instruções). */
+  modulos?: ModuloRoteiro[];
 };
 
 export const TECIDO_NAO_IDENTIFICADO = ["equipe", "A", "B", "C"] as const;
@@ -219,7 +222,7 @@ export function instrucoesFixas(c: ContextoEmpresa): string {
 - Negrito do WhatsApp é com um asterisco (*assim*). Não use títulos (#), tabelas nem links em markdown.
 - No histórico, "[atendente da equipe]" marca mensagens escritas por uma pessoa da equipe e "[sistema]" marca avisos automáticos do Nexa: não foram escritos pelo cliente e não devem ser citados para ele. Áudios do cliente chegam como transcrição automática.
 - Valores (preço, total, parcela, Pix, validade): use só a tabela oficial abaixo e o que as ferramentas devolverem. Para montar orçamento, use criar_orcamento e copie os números que ela devolve.${regraAcrescimos(c)}
-- Ferramentas liberadas agora: ${c.ferramentas.join(", ")}. Se as instruções da empresa citarem uma ferramenta que não está nesta lista, ela ainda não está disponível: siga a alternativa que as instruções indicarem ou use transferir_para_humano.
+- Ferramentas liberadas agora: ${c.ferramentas.join(", ")}.${linhaDosModulos(c.modulos ?? [])} Se as instruções da empresa citarem uma ferramenta que não está nesta lista, ela ainda não está disponível: siga a alternativa que as instruções indicarem ou use transferir_para_humano.
 - transferir_para_humano: o campo resumo é para a equipe (vira nota interna). Depois de transferir, você não responde mais nesta conversa até a equipe devolver.
 - Cliente que já foi atendido pela empresa (diz que já fez o serviço com vocês, quer "fazer de novo", fala do mesmo estofado de outra vez ou chama alguém da equipe pelo nome): transfira com transferir_para_humano, porque a equipe tem o histórico dele. Se a equipe devolveu a conversa para você, atenda normalmente.${regraGarantia(c)}
 - Guarde o que aprender do cliente com atualizar_lead (nome, estofados, serviço, CEP/endereço e um resumo curto) e mantenha a etapa do CRM em dia com atualizar_etapa.
@@ -240,6 +243,13 @@ ${aplicarCamposDoRoteiro(c.instrucoes.trim(), c.empresa, c.camposRoteiro) || rot
 
 # Perguntas frequentes
 ${aplicarCamposDoRoteiro(c.perguntasFrequentes.trim(), c.empresa, c.camposRoteiro) || "(nenhuma cadastrada)"}`;
+}
+
+/** Módulos do roteiro já carregados na conversa (bloco próprio, depois das instruções fixas). */
+export function instrucoesDosModulos(c: ContextoEmpresa, chaves: readonly string[]): string {
+  return blocoDosModulos(c.modulos ?? [], chaves, (t) =>
+    aplicarCamposDoRoteiro(t, c.empresa, c.camposRoteiro),
+  );
 }
 
 /** Roteiro-base: {nome_empresa} nas instruções vira o nome da empresa (serve para qualquer empresa). */

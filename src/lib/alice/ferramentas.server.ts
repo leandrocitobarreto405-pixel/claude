@@ -28,6 +28,13 @@ import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
+import {
+  blocoDosModulos,
+  chavesValidas,
+  juntarCarregados,
+  modulosDaConfig,
+  type ModuloRoteiro,
+} from "./modulos";
 import { comDuplaFace } from "@/lib/dupla-face";
 import {
   descontoPermitido,
@@ -95,6 +102,12 @@ export type ContextoFerramenta = {
   devolverEquipe?: string;
   /** Regra nº 1: o cliente ainda não respondeu nenhuma pergunta de diagnóstico (sem orçamento). */
   precoTravado?: boolean;
+  /** Roteiro por serviço: módulos da empresa, os já carregados na conversa e como aplicar campos. */
+  modulos?: {
+    disponiveis: ModuloRoteiro[];
+    carregados: string[];
+    aplicar: (texto: string) => string;
+  };
 };
 
 /** Nota privada para a equipe (enviada pelo processador depois da resposta). */
@@ -135,6 +148,34 @@ const AtualizarLead = z.object({
     .optional(),
 });
 const ConsultarCep = z.object({ cep: z.string().trim().min(8).max(10) });
+const CarregarModulo = z.object({
+  modulos: z.array(z.string().trim().min(1).max(40)).min(1).max(10),
+});
+
+/** Carrega módulos do roteiro: guarda na conversa (próximas respostas) e devolve os textos. */
+async function carregarModulo(ctx: ContextoFerramenta, pedidas: string[]): Promise<string> {
+  const m = ctx.modulos;
+  if (!m?.disponiveis.length) return "Esta empresa não usa módulos: siga as instruções da empresa.";
+  const validas = chavesValidas(m.disponiveis, pedidas);
+  if (!validas.length)
+    return `Módulo não encontrado. Módulos: ${m.disponiveis.map((x) => x.chave).join(", ")}.`;
+  const novas = validas.filter((c) => !m.carregados.includes(c));
+  if (novas.length) {
+    m.carregados = juntarCarregados(m.disponiveis, m.carregados, novas);
+    await ctx.admin
+      .from("conversas")
+      .update({ alice_modulos: m.carregados })
+      .eq("id", ctx.conversaId)
+      .eq("empresa_id", ctx.empresaId);
+  }
+  const ja = validas.filter((c) => !novas.includes(c));
+  return [
+    novas.length ? blocoDosModulos(m.disponiveis, novas, m.aplicar) : "",
+    ja.length ? `(Já carregado nesta conversa e nas instruções: ${ja.join(", ")}.)` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
 const CLASSE = z.enum(["A", "B", "C"]);
 const ConsultarTabela = z.object({
   servico: SERVICO.optional(),
@@ -247,7 +288,30 @@ export function ferramentasDisponiveis(
   etapas: string[],
   extras: { posAtendimento?: boolean; regraNome?: boolean } = {},
 ): Anthropic.Beta.BetaTool[] {
+  const modulos = modulosDaConfig(cfg.modulos);
   const lista: Anthropic.Beta.BetaTool[] = [
+    ...(modulos.length
+      ? [
+          {
+            name: "carregar_modulo",
+            description:
+              "Carrega o módulo do roteiro de um ou mais serviços (diagnóstico, valor, preço, dúvidas, tempo e secagem). Use assim que identificar o serviço, antes de diagnosticar ou orçar. Módulo já carregado nesta conversa já está nas instruções: não carregue de novo.",
+            input_schema: {
+              type: "object" as const,
+              properties: {
+                modulos: {
+                  type: "array",
+                  items: { type: "string", enum: modulos.map((m) => m.chave) },
+                  minItems: 1,
+                  description: modulos.map((m) => `${m.chave}: ${m.titulo}`).join("; "),
+                },
+              },
+              required: ["modulos"],
+              additionalProperties: false,
+            },
+          },
+        ]
+      : []),
     {
       name: "atualizar_lead",
       description:
@@ -387,7 +451,7 @@ export function ferramentasDisponiveis(
     {
       name: "adicional_pos_fechamento",
       description:
-        "Adicional depois do fechamento (ex.: colchão em pedido só de higienização), seguindo as instruções da empresa. 'oferecer' (uma vez só, depois que o cliente confirmou) registra a oferta e devolve os preços; 'aceitou' inclui o item no mesmo orçamento (e na OS, se já existir) pelo preço de adicional; 'recusou' registra a recusa. Recusa pedido com impermeabilização.",
+        "Upsell depois do agendamento (itens a mais no mesmo atendimento, seguindo as instruções da empresa). 'oferecer' (uma vez só, logo depois que o cliente confirmou) registra a oferta e devolve os preços com o desconto de item adicional; 'aceitou' inclui o item no mesmo orçamento (e na OS, se já existir) por esse preço e diz se ainda cabe no horário agendado (se não couber, nada é incluído: avise e ofereça ajustar); 'recusou' registra a recusa. Recusa pedido com impermeabilização (combo fica com a equipe).",
       input_schema: {
         type: "object",
         properties: {
@@ -537,6 +601,11 @@ export function ferramentasDisponiveis(
           observacoes: {
             type: "string",
             description: "Algo que o técnico precise saber (pet, mancha, acesso, portaria).",
+          },
+          secar_ate_noite: {
+            type: "boolean",
+            description:
+              "Colchão: true se o cliente precisa dormir nele na mesma noite (sai na OS e na agenda como 'colchão – precisa secar até a noite').",
           },
         },
         required: ["data", "hora", "pagamento", "nome_completo", "cep", "numero"],
@@ -1723,6 +1792,11 @@ export async function executarFerramenta(
         return p.success
           ? { conteudo: await consultarTabela(ctx, p.data), erro: false }
           : invalida(p.error);
+      }
+      case "carregar_modulo": {
+        const p = CarregarModulo.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        return { conteudo: await carregarModulo(ctx, p.data.modulos), erro: false };
       }
       case "criar_orcamento": {
         if (ctx.precoTravado) return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
