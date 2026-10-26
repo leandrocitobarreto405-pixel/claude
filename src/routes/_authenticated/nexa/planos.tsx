@@ -18,6 +18,7 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, parseNumberBR } from "@/lib/format";
 import { useContextoTenant } from "@/lib/tenant";
+import { TermosNexa } from "@/components/termos/termos-nexa";
 import { CHAVE_PLANOS, RECURSOS_PLANO, usePlanos, type Plano } from "@/lib/planos";
 
 export const Route = createFileRoute("/_authenticated/nexa/planos")({
@@ -243,6 +244,7 @@ function PlanosNexa() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <TermosNexa />
     </>
   );
 }

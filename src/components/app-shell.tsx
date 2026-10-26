@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AvisoAssinatura, EmpresaBloqueada } from "@/components/assinatura/aviso-assinatura";
+import { AceiteTermos } from "@/components/termos/aceite-termos";
 import { useSituacaoAssinatura } from "@/lib/assinatura-situacao";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -266,6 +267,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}
+          <AceiteTermos />
           {carregandoVinculo ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : erroVinculo ? (

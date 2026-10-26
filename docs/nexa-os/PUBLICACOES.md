@@ -714,6 +714,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)         | `6562709`           | `d291ae1`                |
 | 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)      | `fe63886`           | `48551f8`                |
 | 24/10/2026       | Agenda dos técnicos para todas as empresas (envio desligado)        | `3183848`           | `38e7e1b`                |
+| 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada) | (este commit)     | `28385d8`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -721,6 +722,15 @@ interno. Modelo `agenda_tecnico_dia` cadastrado na Meta no número da Turbine em
 1418342526575820, Utilidade, PENDING), pelo próprio banco (pg_net com o token que já está nele;
 o token não saiu do banco) e registrado em `modelos_edicoes`. Como desfazer: `git revert 3183848`
 (sem force push); o modelo pode ficar na Meta (nada envia sem a agenda ligada).
+
+Fase B item 8 (26/10, decisões C e H): código do "li e aceito" (janela no app, Painel Nexa ›
+Planos › Termos) publicado sem efeito: enquanto `termos_versao` estiver vazio ninguém é perguntado,
+e sem a tabela nova o servidor só devolve "nada a aceitar". A migração `20261208120000`
+(`termos_aceites` com RLS, chaves `termos_versao`/`termos_url` vazias, search_path de
+`private.validar_proximo_numero_os`) ainda não foi aplicada: falta o ensaio na produção.
+Como desfazer o código: `git revert` deste commit (sem force push). Banco (depois de aplicada):
+`DROP TABLE public.termos_aceites;` e
+`ALTER FUNCTION private.validar_proximo_numero_os() RESET search_path;`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.

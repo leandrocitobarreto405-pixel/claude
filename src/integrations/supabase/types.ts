@@ -8,6 +8,36 @@ export type Database = {
   };
   public: {
     Tables: {
+      termos_aceites: {
+        Row: {
+          aceito_em: string;
+          empresa_id: string | null;
+          id: string;
+          ip: string | null;
+          navegador: string | null;
+          user_id: string;
+          versao: string;
+        };
+        Insert: {
+          aceito_em?: string;
+          empresa_id?: string | null;
+          id?: string;
+          ip?: string | null;
+          navegador?: string | null;
+          user_id: string;
+          versao: string;
+        };
+        Update: {
+          aceito_em?: string;
+          empresa_id?: string | null;
+          id?: string;
+          ip?: string | null;
+          navegador?: string | null;
+          user_id?: string;
+          versao?: string;
+        };
+        Relationships: [];
+      };
       agenda_tecnicos_envios: {
         Row: {
           aviso_nao_abriu_em: string | null;
