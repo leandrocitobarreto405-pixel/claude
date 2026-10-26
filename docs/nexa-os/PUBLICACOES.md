@@ -732,6 +732,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)          | `7578347`           | `665e779`                |
 | 26/10/2026       | Franquia da Alice: medidor, avisos, teto e trava por custo          | `bb32e40`           | `11f47b0`                |
 | 26/10/2026       | Alice: áudio com a ElevenLabs (padrão Google, desligado)            | `cba4ec3`           | `70e7760`                |
+| 26/10/2026       | Alice, custo ideia 2: cache do histórico (desligado) e ensaio       | `b2356e8`           | `7e7fddd`                |
+| 26/10/2026       | Painel Nexa: cobrança Cobrar / Isenta e "Em teste até"              | `fd83de8`           | `b2356e8`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -925,6 +927,19 @@ por mil créditos, plano Creator) editável no Painel Nexa › Consumo. Migraç�
 `20261218120000_alice_audio_elevenlabs` aplicada em 26/10 (ensaio antes). Falta a chave
 (ELEVENLABS_API_KEY) no Cloud Run. Como desfazer: `git revert cba4ec3` (sem force push) e
 `supabase/manual/20261218120000_alice_audio_elevenlabs_desfazer.sql` (todas as empresas no Google).
+
+Alice, custo ideia 2 (26/10, desligada): histórico em janela que anda de 20 em 20 (até 40
+mensagens) e ponto de cache de 1 hora no fim do histórico, atrás de `CACHE_HISTORICO` (falso). Ensaio
+de custo em Configurações › Alice (3 conversas de teste, hoje x novo; resultado em app_settings
+`alice_ensaio_custo`). Linha de base: US$ 0,24 por conversa. Como desfazer: `git revert b2356e8`.
+
+Painel Nexa, cobrança (26/10): "Cobrança: Cobrar / Isenta" e "Em teste até" (atalhos 30 dias e 3
+meses) na ficha da empresa; situação na lista (Isenta, Em teste até, Ativa, Carência, Somente
+consulta, Bloqueada). Isenta nunca gera fatura nem fica inadimplente (o banco recusa), fica fora do
+MRR e do aviso de fim do grátis; troca de plano herda a isenção. Turbine marcada como Isenta.
+Migração `20261219120000_assinatura_isenta` aplicada em 26/10 (ensaio antes; funções conferidas pelo
+md5). Como desfazer: `git revert fd83de8` (sem force push) e
+`supabase/manual/20261219120000_assinatura_isenta_desfazer.sql`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
