@@ -56,8 +56,8 @@ const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as c
 /** Modelos que aceitam o fallback automático do servidor quando recusam ("default"). */
 /** Regra do nome do cliente (nome confirmado x perfil), para todas as empresas. */
 const REGRA_NOME = true;
-/** Regras de 26/10 (não perguntar duas vezes; tecido não identificado): ligam depois do ensaio. */
-const REGRA_RESPOSTAS = false;
+/** Regras de 26/10 (não perguntar duas vezes; tecido não identificado): ligadas em 26/10. */
+const REGRA_RESPOSTAS = true;
 
 export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
