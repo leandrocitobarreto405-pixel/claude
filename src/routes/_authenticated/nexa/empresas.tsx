@@ -33,6 +33,7 @@ import {
   type NumeracaoOs,
 } from "@/lib/numeracao-os.functions";
 import { ESTADOS } from "@/lib/implantacao";
+import { idDaEmpresaModelo, semEmpresaModelo } from "@/lib/empresa-modelo";
 import { AssinaturaEmpresa } from "@/components/assinatura/assinatura-empresa";
 import { avisosFimGratis, resumoAssinatura, usePlanos, type Assinatura } from "@/lib/planos";
 
@@ -103,7 +104,7 @@ function EmpresasNexa() {
   const empresas = useQuery({
     queryKey: ["nexa_empresas"],
     queryFn: async (): Promise<LinhaEmpresa[]> => {
-      const [lista, contratos, assinaturas] = await Promise.all([
+      const [lista, contratos, assinaturas, modelo] = await Promise.all([
         supabase
           .from("empresas")
           .select("id, nome, cnpj, telefone, cidade, estado, ativo")
@@ -118,11 +119,12 @@ function EmpresasNexa() {
             "id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio, vigencia_fim, gratis_ate, proximo_vencimento, contrato_pdf_path, contrato_pdf_em",
           )
           .order("vigencia_inicio", { ascending: false }),
+        idDaEmpresaModelo(supabase),
       ]);
       if (lista.error) throw lista.error;
       if (contratos.error) throw contratos.error;
       if (assinaturas.error) throw assinaturas.error;
-      return (lista.data ?? []).map((e) => {
+      return semEmpresaModelo(lista.data ?? [], modelo).map((e) => {
         const historico = (contratos.data ?? []).filter((c) => c.empresa_id === e.id);
         const daEmpresa = ((assinaturas.data ?? []) as Assinatura[]).filter(
           (a) => a.empresa_id === e.id,

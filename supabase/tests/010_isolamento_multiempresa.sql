@@ -183,7 +183,9 @@ RESET ROLE;
 -- ---------------------------------------------------------------- Nexa
 SELECT pg_temp.como('nexa@nexa.test', current_setting('teste.b')::uuid);
 SET ROLE authenticated;
-SELECT pg_temp.ok((SELECT count(*) FROM public.empresas) = 2, 'Nexa lista todas as empresas');
+-- O modelo neutro (empresa inativa de onde as novas copiam os catálogos) não conta.
+SELECT pg_temp.ok((SELECT count(*) FROM public.empresas WHERE id <> '99999999-9999-4999-8999-999999999999') = 2,
+  'Nexa lista todas as empresas');
 SELECT pg_temp.ok((SELECT string_agg(full_name, ',') FROM public.customers) = 'Cliente de B',
   'Nexa dentro de B vê só B');
 SELECT public.definir_comissao_empresa(current_setting('teste.b')::uuid, 6, CURRENT_DATE + 30);

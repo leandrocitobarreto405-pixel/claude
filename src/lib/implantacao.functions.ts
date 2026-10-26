@@ -106,8 +106,13 @@ export const implantacoesNexaFn = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<Implantacao[]> => {
     await exigirNexa(context.supabase);
     const { dbServico } = await import("@/lib/mkt/contexto.server");
-    const { data } = await (await dbServico()).from("empresas").select("id").order("nome");
-    return Promise.all((data ?? []).map((e) => montar(e.id)));
+    const db = await dbServico();
+    const { idDaEmpresaModelo, semEmpresaModelo } = await import("@/lib/empresa-modelo");
+    const [{ data }, modelo] = await Promise.all([
+      db.from("empresas").select("id").order("nome"),
+      idDaEmpresaModelo(db),
+    ]);
+    return Promise.all(semEmpresaModelo(data ?? [], modelo).map((e) => montar(e.id)));
   });
 
 /** Libera a empresa (só com as obrigatórias prontas) ou volta a bloquear. */

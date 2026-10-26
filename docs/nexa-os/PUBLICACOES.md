@@ -723,6 +723,16 @@ interno. Modelo `agenda_tecnico_dia` cadastrado na Meta no número da Turbine em
 o token não saiu do banco) e registrado em `modelos_edicoes`. Como desfazer: `git revert 3183848`
 (sem force push); o modelo pode ficar na Meta (nada envia sem a agenda ligada).
 
+Fase B item 4 (26/10): empresa-modelo neutra (`20261209120000`, ensaio desfeito antes; registrada
+no histórico com o número do dia da aplicação). Empresa "Modelo Nexa (não usar)"
+(`99999999-9999-4999-8999-999999999999`, inativa, sem usuários, escondida no Painel Nexa ›
+Empresas e na Implantação) com 97 opções (origens com "Site (orgânico)" e "Blog" sem palavras de
+cupom, etapas do CRM, serviços, estofados, pagamentos, despesas, motivos) e 3 mensagens padrão sem
+"Turbine"; `empresa_modelo_id` passou da Turbine para o modelo. A Turbine não mudou (99 opções).
+Como desfazer: `UPDATE public.configuracoes_plataforma SET valor =
+'"11111111-1111-1111-1111-111111111111"' WHERE chave = 'empresa_modelo_id';` (o modelo pode ficar,
+inativo) e `git revert` do commit do item 4.
+
 Fase B item 8 (26/10, decisões C e H): código do "li e aceito" (janela no app, Painel Nexa ›
 Planos › Termos) publicado sem efeito: enquanto `termos_versao` estiver vazio ninguém é perguntado,
 e sem a tabela nova o servidor só devolve "nada a aceitar". A migração `20261208120000`
