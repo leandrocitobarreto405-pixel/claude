@@ -93,6 +93,17 @@ O `ls -l` mostra o arquivo `nexaos-AAAA-MM-DD.dump` e o tamanho em bytes (espera
 `execute` falhar: `gcloud run jobs executions list --job=backup-banco --region=southamerica-east1`
 e o link "Logs" do console mostram o motivo (a senha não aparece no log).
 
+**Bloco 4b: uma cópia completa, com os eventos do Chatwoot** (rede de segurança antes da limpeza
+dos eventos; só esta vez, sem mudar o job):
+```bash
+PROJ=$(gcloud projects list --filter="projectNumber=980094719320" --format="value(projectId)"); gcloud config set project "$PROJ"
+BUCKET="nexaos-backup-$PROJ"
+gcloud run jobs execute backup-banco --region=southamerica-east1 --wait \
+  --args=-c,'pg_dump "$DATABASE_URL" -Fc --no-owner --no-privileges -f /backup/nexaos-completo-$(date +%Y-%m-%d).dump && ls -l /backup'
+gcloud storage ls -l "gs://$BUCKET"
+```
+A cópia completa também some sozinha em 14 dias (regra do bucket).
+
 **Bloco 5: todo dia às 3h17 (São Paulo):**
 ```bash
 PROJ=$(gcloud projects list --filter="projectNumber=980094719320" --format="value(projectId)"); gcloud config set project "$PROJ"
