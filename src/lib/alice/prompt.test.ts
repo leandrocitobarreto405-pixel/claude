@@ -239,3 +239,15 @@ test("regra do nome: desligada não muda as instruções; ligada acrescenta a se
   assert.ok(com.includes('"Oi! Eu sou a Alice, da Empresa Fictícia 💙 Com quem eu falo?"'));
   assert.ok(com.includes("só quando o nome estiver confirmado"));
 });
+
+test("roteiro-base: {nome_empresa} vira o nome da empresa", async () => {
+  const { comNomeDaEmpresa } = await import("./prompt");
+  assert.equal(
+    comNomeDaEmpresa(
+      "Seja muito bem-vindo(a) à {nome_empresa}! Aqui na {nome_empresa}…",
+      "Empresa X",
+    ),
+    "Seja muito bem-vindo(a) à Empresa X! Aqui na Empresa X…",
+  );
+  assert.equal(comNomeDaEmpresa("sem variável", "Empresa X"), "sem variável");
+});

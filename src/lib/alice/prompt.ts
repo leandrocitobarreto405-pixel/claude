@@ -161,10 +161,15 @@ ${c.telefone ? `- Telefone: ${c.telefone}\n` : ""}${c.instagram ? `- Instagram: 
 ${tabelaPrecos(c.precos)}
 
 # Instruções da empresa
-${c.instrucoes.trim() || roteiroPadrao(c)}
+${comNomeDaEmpresa(c.instrucoes.trim(), c.empresa) || roteiroPadrao(c)}
 
 # Perguntas frequentes
-${c.perguntasFrequentes.trim() || "(nenhuma cadastrada)"}`;
+${comNomeDaEmpresa(c.perguntasFrequentes.trim(), c.empresa) || "(nenhuma cadastrada)"}`;
+}
+
+/** Roteiro-base: {nome_empresa} nas instruções vira o nome da empresa (serve para qualquer empresa). */
+export function comNomeDaEmpresa(texto: string, empresa: string): string {
+  return texto.replaceAll("{nome_empresa}", empresa);
 }
 
 /** Parte variável: data/hora e o que já se sabe do lead (fica fora do cache). */
