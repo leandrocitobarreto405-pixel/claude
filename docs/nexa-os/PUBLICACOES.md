@@ -848,6 +848,14 @@ saída (orçamentos salvos mantêm o custo gravado). Novo passo opcional nos Pri
 quilometragem" (técnicos com endereço de saída e custo por km). Tela de Rotas avisa e leva para
 informar o custo. Como desfazer: `git revert 21ed1a2` (sem force push).
 
+Fase B item 5, abas Vendas / Operacional no Início (26/10, decisão E): só código. Vendas: vendido,
+ticket médio, conversão de leads, meta do mês, gráficos (vendido por semana, por origem, funil) e
+"Quem vendeu" (Nexa x empresa, quando houver venda da Nexa). Operacional: avisos de serviço sem
+recebimento e de serviço atrasado, realizado, recebido, a receber, despesas, lucro, Hoje / Amanhã /
+Para concluir e horários livres. Padrão: Vendas para atendente e equipe Nexa, Operacional para o
+admin da empresa; a escolha fica guardada no aparelho. Nenhum número mudou, só a organização. Como
+desfazer: `git revert` do commit (sem force push).
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).
