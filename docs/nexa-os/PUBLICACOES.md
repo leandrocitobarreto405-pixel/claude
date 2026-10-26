@@ -722,6 +722,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)              | `3d2998b`           | `921f91c`                |
 | 26/10/2026       | Painel Nexa como espaço separado das empresas                       | `a71a5b7`           | `fba1057`                |
 | 26/10/2026       | Empresa de teste fora do MRR e dos relatórios do Painel Nexa        | `39200f2`           | `8fec6b2`                |
+| 26/10/2026       | Alice: roteiro-base para qualquer empresa (campos por empresa)      | `f26be36`           | `166cb12`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -807,7 +808,7 @@ perguntas frequentes vazias. Como desfazer: Turbine: `UPDATE public.ia_configura
 (SELECT value->>'instrucoes' FROM public.app_settings WHERE empresa_id =
 '11111111-1111-1111-1111-111111111111' AND key = 'alice_roteiro_copia_20261026') WHERE empresa_id =
 '11111111-1111-1111-1111-111111111111';`. Modelo: `DELETE FROM public.ia_configuracoes WHERE
-empresa_id = '99999999-9999-4999-8999-999999999999';`. Código: `git revert` do commit. Banco: a
+empresa_id = '99999999-9999-4999-8999-999999999999';`. Código: `git revert f26be36`. Banco: a
 função anterior está em `20261014120001_config_por_empresa_funcoes.sql` (recriar) e `ALTER TABLE
 public.ia_configuracoes DROP COLUMN regiao_atendida, DROP COLUMN nomes_atendentes, DROP COLUMN
 anos_experiencia;`.
