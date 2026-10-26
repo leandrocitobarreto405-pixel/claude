@@ -718,6 +718,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Item 8: regra mínima de senha; plano grátis e plano de backup (D12) | `b028603`           | `dc1f08e`                |
 | 26/10/2026       | Fase B item 4: empresa-modelo neutra                                | `bcffe3f`           | `b028603`                |
 | 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa             | `788be83`           | `bcffe3f`                |
+| 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual        | `16226c0`           | `788be83`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -754,7 +755,7 @@ OU percentual, validade (`valido_ate`) e origem (`origem_id`, só origem de lead
 o código fica em maiúsculas. Tela em Configurações › Vendas › Cupons (editar: admin; não apaga,
 inativa). No orçamento manual, Desconto › Cupom: digita o código e o desconto entra sozinho
 (grava como valor manual + código, igual à Alice). A Alice passou a aceitar cupom em % e ignora
-cupom vencido. Como desfazer o código: `git revert` do commit dos cupons (sem force push). Banco
+cupom vencido. Como desfazer o código: `git revert 16226c0` (sem force push). Banco
 (só se não houver cupom em %): `DROP TRIGGER trg_cupons_conferir ON public.cupons; DROP FUNCTION
 private.cupons_conferir(); ALTER TABLE public.cupons DROP CONSTRAINT cupons_valor_ou_percentual,
 DROP COLUMN percentual, DROP COLUMN valido_ate, DROP COLUMN origem_id, ALTER COLUMN valor SET NOT
