@@ -720,6 +720,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa             | `788be83`           | `bcffe3f`                |
 | 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual        | `16226c0`           | `788be83`                |
 | 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)              | `3d2998b`           | `921f91c`                |
+| 26/10/2026       | Painel Nexa como espaço separado das empresas                       | `a71a5b7`           | `fba1057`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -778,7 +779,7 @@ troca sozinha para o painel. No servidor, as 9 funções do painel usam uma conf
 (`requireNexaAdmin`, em `src/lib/nexa.middleware.ts`): teste de unidade
 `painel-nexa-servidor.test.ts` (admin de empresa recebe erro em todas, sem ler nada) e teste de banco
 670 (funções e tabelas da plataforma recusam admin de empresa). A assinatura da própria empresa
-(Configurações › Empresa) continua dentro da empresa. Como desfazer: `git revert` do commit (sem
+(Configurações › Empresa) continua dentro da empresa. Como desfazer: `git revert a71a5b7` (sem
 force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
