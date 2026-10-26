@@ -738,6 +738,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice, custo ideia 2: cache do histórico (desligado) e ensaio         | `b2356e8`           | `7e7fddd`                |
 | 26/10/2026       | Painel Nexa: cobrança Cobrar / Isenta e "Em teste até"                | `fd83de8`           | `b2356e8`                |
 | 26/10/2026       | Terceirizados: faturamento líquido, repasse por OS, comissão cheia    | `14a8ed7`           | `f1d5f64`                |
+| 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face     | `ee6e322`           | `d6be9bd`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -955,6 +956,17 @@ md5). Dados da Turbine: Diego cadastrado como parceiro e nas 4 persianas; OS 168
 (168,48, despesa pendente de repasse criada) e 1696 (999,18) corrigidas; comissões sem mudança.
 Como desfazer: `git revert 14a8ed7` (sem force push) e
 `supabase/manual/20261220120000_terceirizados_liquido_desfazer.sql` (volta dados e funções).
+
+Alice, regra nº 1 e colchão dupla face (26/10): nunca preço antes de valor, para todas as
+empresas e acima das instruções da empresa (cumprimento, diagnóstico, dúvidas, valor, orçamento,
+horário). Trava no motor: até o cliente responder uma pergunta da empresa, o orçamento e qualquer
+mensagem com valor ficam bloqueados (o texto barrado fica registrado na execução). Nos últimos 14
+dias, só a conversa final 7975 recebeu preço antes. Colchão: a higienização inclui a face de cima e
+as laterais; dupla face (+20% na Turbine, desligada nas outras) em Regras de orçamento, no
+orçamento manual, na OS e na Alice ("Colchão queen – dupla face (2 faces + laterais)"). Migração
+`20261221120000_colchao_dupla_face` aplicada em 26/10 (ensaio antes; só colunas novas). Ensaio da
+conversa em Configurações › Alice. Como desfazer: `git revert ee6e322` (sem force push) e
+`supabase/manual/20261221120000_colchao_dupla_face_desfazer.sql` (desliga a dupla face).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
