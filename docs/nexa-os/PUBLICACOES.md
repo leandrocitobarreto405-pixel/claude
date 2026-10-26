@@ -813,6 +813,19 @@ função anterior está em `20261014120001_config_por_empresa_funcoes.sql` (recr
 public.ia_configuracoes DROP COLUMN regiao_atendida, DROP COLUMN nomes_atendentes, DROP COLUMN
 anos_experiencia;`.
 
+Limpeza dos eventos do Chatwoot (26/10, aprovada para depois do primeiro backup): migração
+`20261213120000` aplicada DESLIGADA (`limpeza_eventos_ativa = false`; nada foi apagado). Ensaio
+(desfeito): apagaria 11.763 dos 26.247 eventos (processados/ignorados, mais de 7 dias, sem mensagem
+ligada); conteúdo de 37 MB para 21 MB; nenhum evento com erro ou pendente tocado. Eventos de
+mensagem com mais de 30 dias ficam só com anexos e remetente (tipo, nome, e-mail). Roda pela tarefa
+`chatwoot-reprocessar` (a cada 5 min, lote de 2000). Índice novo em
+`whatsapp_messages.raw_event_reference`. Antes: banco 117 MB, tabela de eventos 74 MB. Ligar (só
+depois do backup completo): `UPDATE public.configuracoes_plataforma SET valor = 'true' WHERE chave =
+'limpeza_eventos_ativa';`. Como desfazer: chave em `false` (o que já foi apagado só volta pelo
+backup completo `nexaos-completo-AAAA-MM-DD.dump`); código: `git revert` do commit; banco: `DROP
+FUNCTION public.limpar_eventos_chatwoot(int); DROP FUNCTION private.limpar_eventos_chatwoot(int);
+DROP INDEX public.idx_whatsapp_messages_raw_event_reference;`.
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

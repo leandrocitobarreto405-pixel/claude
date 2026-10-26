@@ -25,7 +25,14 @@ export const Route = createFileRoute("/api/public/hooks/chatwoot-reprocessar")({
         // Recupera respostas da Alice que ficaram sem entregar à fila.
         const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
         const alice = await enfileirarPendentes(supabaseAdmin, 200).catch(() => 0);
-        return json({ ok: true, ...(data as object), alice_enfileiradas: alice });
+        // Limpeza dos eventos antigos (desligada até a Nexa ligar; lote pequeno a cada chamada).
+        const { data: limpeza, error: erroLimpeza } = await supabaseAdmin.rpc(
+          "limpar_eventos_chatwoot",
+          { _limite: 2000 },
+        );
+        if (erroLimpeza)
+          console.error("Chatwoot: falha na limpeza dos eventos:", erroLimpeza.message);
+        return json({ ok: true, ...(data as object), alice_enfileiradas: alice, limpeza });
       },
     },
   },

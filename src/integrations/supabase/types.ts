@@ -6981,6 +6981,12 @@ export type Database = {
       };
     };
     Functions: {
+      limpar_eventos_chatwoot: {
+        Args: {
+          _limite?: number;
+        };
+        Returns: Json;
+      };
       registrar_evento_pagamento: {
         Args: {
           _evento_id: string;
