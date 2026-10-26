@@ -6981,6 +6981,24 @@ export type Database = {
       };
     };
     Functions: {
+      consumo_empresas: {
+        Args: {
+          _mes: string;
+        };
+        Returns: {
+          empresa_id: string;
+          nome: string;
+          eh_teste: boolean;
+          ia_respostas: number;
+          ia_mensagens: number;
+          ia_custo_usd: number;
+          audios: number;
+          audio_custo_reais: number;
+          mkt_mensagens: number;
+          pos_atendimento_mensagens: number;
+          agenda_mensagens: number;
+        }[];
+      };
       limpar_eventos_chatwoot: {
         Args: {
           _limite?: number;

@@ -70,6 +70,7 @@ import { Route as AuthenticatedNexaAliceRouteImport } from './routes/_authentica
 import { Route as AuthenticatedNexaAssinaturasRouteImport } from './routes/_authenticated/nexa/assinaturas'
 import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authenticated/nexa/chatwoot'
 import { Route as AuthenticatedNexaComissoesRouteImport } from './routes/_authenticated/nexa/comissoes'
+import { Route as AuthenticatedNexaConsumoRouteImport } from './routes/_authenticated/nexa/consumo'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
 import { Route as AuthenticatedNexaPlanosRouteImport } from './routes/_authenticated/nexa/planos'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
@@ -426,6 +427,12 @@ const AuthenticatedNexaComissoesRoute =
     path: '/nexa/comissoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNexaConsumoRoute =
+  AuthenticatedNexaConsumoRouteImport.update({
+    id: '/nexa/consumo',
+    path: '/nexa/consumo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNexaEmpresasRoute =
   AuthenticatedNexaEmpresasRouteImport.update({
     id: '/nexa/empresas',
@@ -617,6 +624,7 @@ export interface FileRoutesByFullPath {
   '/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
+  '/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
@@ -701,6 +709,7 @@ export interface FileRoutesByTo {
   '/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
+  '/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
@@ -788,6 +797,7 @@ export interface FileRoutesById {
   '/_authenticated/nexa/assinaturas': typeof AuthenticatedNexaAssinaturasRoute
   '/_authenticated/nexa/chatwoot': typeof AuthenticatedNexaChatwootRoute
   '/_authenticated/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
+  '/_authenticated/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
   '/_authenticated/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
@@ -875,6 +885,7 @@ export interface FileRouteTypes {
     | '/nexa/assinaturas'
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
+    | '/nexa/consumo'
     | '/nexa/empresas'
     | '/nexa/planos'
     | '/orcamentos/$quoteId'
@@ -959,6 +970,7 @@ export interface FileRouteTypes {
     | '/nexa/assinaturas'
     | '/nexa/chatwoot'
     | '/nexa/comissoes'
+    | '/nexa/consumo'
     | '/nexa/empresas'
     | '/nexa/planos'
     | '/orcamentos/$quoteId'
@@ -1045,6 +1057,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nexa/assinaturas'
     | '/_authenticated/nexa/chatwoot'
     | '/_authenticated/nexa/comissoes'
+    | '/_authenticated/nexa/consumo'
     | '/_authenticated/nexa/empresas'
     | '/_authenticated/nexa/planos'
     | '/_authenticated/orcamentos/$quoteId'
@@ -1526,6 +1539,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNexaComissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/nexa/consumo': {
+      id: '/_authenticated/nexa/consumo'
+      path: '/nexa/consumo'
+      fullPath: '/nexa/consumo'
+      preLoaderRoute: typeof AuthenticatedNexaConsumoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nexa/empresas': {
       id: '/_authenticated/nexa/empresas'
       path: '/nexa/empresas'
@@ -1760,6 +1780,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNexaAssinaturasRoute: typeof AuthenticatedNexaAssinaturasRoute
   AuthenticatedNexaChatwootRoute: typeof AuthenticatedNexaChatwootRoute
   AuthenticatedNexaComissoesRoute: typeof AuthenticatedNexaComissoesRoute
+  AuthenticatedNexaConsumoRoute: typeof AuthenticatedNexaConsumoRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
   AuthenticatedNexaPlanosRoute: typeof AuthenticatedNexaPlanosRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
@@ -1827,6 +1848,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNexaAssinaturasRoute: AuthenticatedNexaAssinaturasRoute,
   AuthenticatedNexaChatwootRoute: AuthenticatedNexaChatwootRoute,
   AuthenticatedNexaComissoesRoute: AuthenticatedNexaComissoesRoute,
+  AuthenticatedNexaConsumoRoute: AuthenticatedNexaConsumoRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
   AuthenticatedNexaPlanosRoute: AuthenticatedNexaPlanosRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,

@@ -49,6 +49,7 @@ test("Painel Nexa é um espaço separado: só a plataforma no painel, nada da Ne
     "/nexa/assinaturas",
     "/nexa/comissoes",
     "/nexa/alice",
+    "/nexa/consumo",
     "/nexa/chatwoot",
   ];
   assert.deepEqual(rotas(menuDoPapel(null, true, null, true)), { Nexa: plataforma });

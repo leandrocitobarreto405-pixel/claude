@@ -827,6 +827,15 @@ backup completo `nexaos-completo-AAAA-MM-DD.dump`); código: `git revert c85a7a8
 FUNCTION public.limpar_eventos_chatwoot(int); DROP FUNCTION private.limpar_eventos_chatwoot(int);
 DROP INDEX public.idx_whatsapp_messages_raw_event_reference;`.
 
+Fase B item 7, consumo das empresas (26/10): migração `20261214120000` aplicada depois do ensaio
+desfeito (só cria a função `consumo_empresas`, de leitura, que recusa quem não é Nexa). Tela Nexa
+(painel) › Consumo das empresas: por mês (horário de São Paulo), respostas e mensagens da Alice,
+custo da IA em dólar, áudios e custo em reais, e mensagens automáticas que não usam IA (campanhas e
+lembretes, pós-atendimento e agenda dos técnicos: texto = 1; modelo = 1, +1 quando o texto também
+saiu). Empresas de teste ficam fora dos totais. Conferido em 26/10: Turbine com 538 respostas da
+Alice (US$ 32,84) e 473 mensagens de marketing em outubro; agenda ainda sem envio. Como desfazer:
+`git revert` do commit; banco: `DROP FUNCTION public.consumo_empresas(date);`.
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

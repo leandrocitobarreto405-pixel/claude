@@ -2,16 +2,17 @@
 // Sem acesso a banco, para poder testar. Quem monta a barra de baixo está em navegacao.ts.
 import type { LucideIcon } from "lucide-react";
 import {
+  Bot,
   Building2,
   CalendarDays,
   ClipboardList,
   Coins,
   FileSpreadsheet,
   Filter,
-  Bot,
+  Gauge,
   HandCoins,
-  Layers,
   Home,
+  Layers,
   ListChecks,
   MessageCircle,
   MessageSquareText,
@@ -103,6 +104,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
       { to: "/nexa/assinaturas", rotulo: "Assinaturas e faturas", icone: Receipt },
       { to: "/nexa/comissoes", rotulo: "Comissão da Nexa", icone: HandCoins },
       { to: "/nexa/alice", rotulo: "Alice: custo e resultado", icone: Bot },
+      { to: "/nexa/consumo", rotulo: "Consumo das empresas", icone: Gauge },
       { to: "/nexa/chatwoot", rotulo: "Chatwoot das empresas", icone: MessagesSquare },
     ],
   },
