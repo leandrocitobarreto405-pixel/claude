@@ -731,6 +731,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)      | `19900e6`           | `72a7790`                |
 | 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)          | `7578347`           | `665e779`                |
 | 26/10/2026       | Franquia da Alice: medidor, avisos, teto e trava por custo          | `bb32e40`           | `11f47b0`                |
+| 26/10/2026       | Alice: áudio com a ElevenLabs (padrão Google, desligado)            | `cba4ec3`           | `70e7760`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -910,6 +911,20 @@ nada vai para o Asaas. Migração `20261217120000_alice_franquia` aplicada em 26
 funções conferidas pelo md5 contra o banco de teste); outubro começou com 111 conversas da Turbine.
 Como desfazer: `git revert bb32e40` (sem force push) e depois
 `supabase/manual/20261217120000_alice_franquia_desfazer.sql`.
+
+Alice, áudio com a ElevenLabs (26/10, nasce desligado): provedor por empresa em Configurações ›
+Alice › Responder em áudio (Google | ElevenLabs; padrão Google, nada muda até trocar). Vozes da conta
+em português do Brasil com prévia grátis e "Ouvir a frase" (gasta créditos); modelo Flash v2.5 (0,5
+crédito por caractere) ou v4 (1 crédito por caractere), com custo comparado ao Google. O MP3 da
+ElevenLabs vira mensagem de voz OGG/Opus mono pelo mesmo ffmpeg da barra de resposta. Se a
+ElevenLabs recusar (ex.: 429), aquele áudio sai pelo Google e o motivo fica no registro de uso.
+Mesmos limites (caracteres, segundos, teto por dia) e custo no consumo. Teste de envio só para
+contato interno, com os dois provedores. Turbine com a voz "Voz Profissional Vanessa"
+(BQzELs93jJsUOf5rCb9p) pré-selecionada e o provedor ainda no Google. Preço da ElevenLabs (US$ 0,22
+por mil créditos, plano Creator) editável no Painel Nexa › Consumo. Migração
+`20261218120000_alice_audio_elevenlabs` aplicada em 26/10 (ensaio antes). Falta a chave
+(ELEVENLABS_API_KEY) no Cloud Run. Como desfazer: `git revert cba4ec3` (sem force push) e
+`supabase/manual/20261218120000_alice_audio_elevenlabs_desfazer.sql` (todas as empresas no Google).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
