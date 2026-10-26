@@ -714,7 +714,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)         | `6562709`           | `d291ae1`                |
 | 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)      | `fe63886`           | `48551f8`                |
 | 24/10/2026       | Agenda dos técnicos para todas as empresas (envio desligado)        | `3183848`           | `38e7e1b`                |
-| 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada) | (este commit)     | `28385d8`                |
+| 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada) | `15db309`           | `28385d8`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
