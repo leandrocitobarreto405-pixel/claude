@@ -98,12 +98,12 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     rotulo: "Nexa",
     soNexa: true,
     itens: [
-      { to: "/nexa/empresas", rotulo: "Empresas e comissões", icone: Building2 },
-      { to: "/nexa/planos", rotulo: "Planos", icone: Layers },
+      { to: "/nexa/empresas", rotulo: "Empresas e implantação", icone: Building2 },
+      { to: "/nexa/planos", rotulo: "Planos e Termos", icone: Layers },
       { to: "/nexa/assinaturas", rotulo: "Assinaturas e faturas", icone: Receipt },
       { to: "/nexa/comissoes", rotulo: "Comissão da Nexa", icone: HandCoins },
       { to: "/nexa/alice", rotulo: "Alice: custo e resultado", icone: Bot },
-      { to: "/nexa/chatwoot", rotulo: "Chatwoot", icone: MessagesSquare },
+      { to: "/nexa/chatwoot", rotulo: "Chatwoot das empresas", icone: MessagesSquare },
     ],
   },
 ];
@@ -121,18 +121,22 @@ const MENU_TECNICO: GrupoMenu[] = [
 ];
 
 /**
- * Grupos do menu para o papel. "Primeiros passos" só aparece enquanto faltar etapa
+ * Grupos do menu. No "Nexa (painel)" (só nexa_admin): só as telas da plataforma. Numa empresa:
+ * só as telas da empresa, sem nenhum link do Painel Nexa (nem para nexa_admin; para ir à Nexa,
+ * troca no seletor). "Primeiros passos" só aparece enquanto faltar etapa
  * (`primeirosPassos.faltam`); o rótulo ganha o progresso ("3 de 9").
  */
 export function menuDoPapel(
   papel: Papel | null,
   souNexa = false,
   primeirosPassos: { faltam: boolean; progresso: string } | null = null,
+  painelNexa = false,
 ): GrupoMenu[] {
+  if (painelNexa) return souNexa ? GRUPOS_MENU.filter((g) => g.soNexa) : [];
   const base = papel === "tecnico" ? MENU_TECNICO : GRUPOS_MENU;
   const temEmpresa = papel !== null;
   return base
-    .filter((g) => !g.soNexa || souNexa)
+    .filter((g) => !g.soNexa)
     .map((g) => ({
       ...g,
       itens: g.itens

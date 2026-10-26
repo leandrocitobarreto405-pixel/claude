@@ -1,4 +1,13 @@
-import { CalendarDays, ClipboardList, Home, Menu, MessageCircle } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  HandCoins,
+  Home,
+  Menu,
+  MessageCircle,
+  Receipt,
+} from "lucide-react";
 import type { ItemDeNavegacao } from "@/components/nexa";
 import { podeAcessar, type Papel } from "@/lib/tenant";
 
@@ -24,8 +33,21 @@ const ABAS_TECNICO: ItemDeNavegacao[] = [
   { to: ABA_MAIS, rotulo: "Mais", icone: Menu },
 ];
 
+/** Painel Nexa (só nexa_admin): telas da plataforma. */
+const ABAS_PAINEL_NEXA: ItemDeNavegacao[] = [
+  { to: "/nexa/empresas", rotulo: "Empresas", icone: Building2 },
+  { to: "/nexa/assinaturas", rotulo: "Assinaturas", icone: Receipt },
+  { to: "/nexa/comissoes", rotulo: "Comissão", icone: HandCoins },
+  { to: ABA_MAIS, rotulo: "Mais", icone: Menu },
+];
+
 /** Abas do papel, já filtradas pelo `podeAcessar()` (sem papel, nenhuma). */
-export function abasDoPapel(papel: Papel | null, souNexa = false): ItemDeNavegacao[] {
+export function abasDoPapel(
+  papel: Papel | null,
+  souNexa = false,
+  painelNexa = false,
+): ItemDeNavegacao[] {
+  if (painelNexa) return souNexa ? ABAS_PAINEL_NEXA : [];
   if (!papel) return [];
   const abas = papel === "tecnico" ? ABAS_TECNICO : ABAS_ESCRITORIO;
   return abas.filter((a) => a.to === ABA_MAIS || podeAcessar(papel, a.to, souNexa));

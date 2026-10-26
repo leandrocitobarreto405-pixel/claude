@@ -39,15 +39,10 @@ function WhatsappConfig() {
             O endereço antigo (<code>/api/public/hooks/whatsapp</code>) não recebe mais mensagens.
             Não use esse endereço no Chatwoot.
           </p>
-          {ctx?.souNexa ? (
-            <div>
-              <Button asChild>
-                <Link to="/nexa/chatwoot">Abrir a configuração do Chatwoot</Link>
-              </Button>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">A configuração é feita pela equipe da Nexa.</p>
-          )}
+          <p className="text-muted-foreground">
+            A configuração é feita pela equipe da Nexa
+            {ctx?.souNexa ? ", no seletor do topo › Nexa (painel) › Chatwoot das empresas" : ""}.
+          </p>
         </div>
       </SectionCard>
     </>

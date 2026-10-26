@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getEmpresaAtiva, setEmpresaAtiva } from "@/lib/empresa-ativa";
+import { PAINEL_NEXA, getEmpresaAtiva, noPainelNexa, setEmpresaAtiva } from "@/lib/empresa-ativa";
 
 export type Papel = "admin" | "atendente" | "tecnico";
 
@@ -23,8 +23,10 @@ export type ContextoTenant = {
   souNexa: boolean;
   /** Empresas que o usuário pode abrir, com o papel dele em cada uma. */
   empresas: VinculoEmpresa[];
-  /** Empresa aberta nesta aba (null quando ainda não há nenhuma). */
+  /** Empresa aberta nesta aba (null no Painel Nexa ou quando ainda não há nenhuma). */
   ativa: VinculoEmpresa | null;
+  /** Aba no "Nexa (painel)": espaço da plataforma, sem empresa (só nexa_admin). */
+  painelNexa: boolean;
 };
 
 export const CONTEXTO_TENANT_KEY = ["contexto_tenant"] as const;
@@ -40,7 +42,7 @@ export function useContextoTenant() {
     queryFn: async (): Promise<ContextoTenant> => {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
-      if (!userId) return { souNexa: false, empresas: [], ativa: null };
+      if (!userId) return { souNexa: false, empresas: [], ativa: null, painelNexa: false };
 
       const [nexa, vinculos, empresas] = await Promise.all([
         supabase.rpc("sou_admin_nexa" as never),
@@ -64,11 +66,16 @@ export function useContextoTenant() {
         if (papel) lista.push({ papel, empresa });
       }
 
+      // Nexa: o painel quando escolhido (ou quando não há empresa); senão a última empresa.
+      if (souNexa && (noPainelNexa() || lista.length === 0)) {
+        setEmpresaAtiva(PAINEL_NEXA);
+        return { souNexa, empresas: lista, ativa: null, painelNexa: true };
+      }
       const salva = getEmpresaAtiva();
       const ativa = lista.find((v) => v.empresa.id === salva) ?? lista[0] ?? null;
       setEmpresaAtiva(ativa?.empresa.id ?? null);
 
-      return { souNexa, empresas: lista, ativa };
+      return { souNexa, empresas: lista, ativa, painelNexa: false };
     },
   });
 }
@@ -77,6 +84,17 @@ export function useContextoTenant() {
 export function trocarEmpresa(empresaId: string, destino = "/inicio") {
   setEmpresaAtiva(empresaId);
   window.location.assign(destino);
+}
+
+/** Vai para o "Nexa (painel)" (só nexa_admin) e recarrega o app, sem dados da empresa em cache. */
+export function irParaPainelNexa(destino = "/nexa/empresas") {
+  setEmpresaAtiva(PAINEL_NEXA);
+  window.location.assign(destino);
+}
+
+/** Endereço do Painel Nexa? (rotas /nexa) */
+export function rotaDoPainelNexa(pathname: string): boolean {
+  return pathname === "/nexa" || pathname.startsWith("/nexa/");
 }
 
 /** Empresa ativa e papel do usuário nela. */

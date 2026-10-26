@@ -1,5 +1,6 @@
 // Aceite dos termos (decisão C). Quem grava é o servidor: o IP vem do pedido, nunca da tela.
 import { createServerFn } from "@tanstack/react-start";
+import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   ipDoPedido,
@@ -65,16 +66,10 @@ export const aceitarTermosFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-async function exigirNexa(supabase: { rpc: (fn: never) => PromiseLike<{ data: unknown }> }) {
-  const { data } = await supabase.rpc("sou_admin_nexa" as never);
-  if (data !== true) throw new Error("Só a Nexa altera os termos.");
-}
-
 /** Painel Nexa: versão vigente, link e quantos aceitaram. */
 export const termosConfigFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .handler(async ({ context }) => {
-    await exigirNexa(context.supabase);
     const { db, versao, url } = await termosVigentes();
     const { count } = versao
       ? await db
@@ -86,13 +81,12 @@ export const termosConfigFn = createServerFn({ method: "GET" })
   });
 
 export const salvarTermosConfigFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .inputValidator((i: { versao: string; url: string }) => ({
     versao: validarVersao(i.versao),
     url: validarUrlTermos(i.url),
   }))
   .handler(async ({ data, context }) => {
-    await exigirNexa(context.supabase);
     const { error } = await context.supabase.from("configuracoes_plataforma").upsert([
       { chave: "termos_versao", valor: data.versao },
       { chave: "termos_url", valor: data.url },

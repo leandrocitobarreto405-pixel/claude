@@ -1,19 +1,13 @@
 // Faturas da assinatura pelo Asaas (Fase B, item 3). Só a Nexa gera fatura; o banco recusa fatura
 // sem valor ou para assinatura sem mensalidade, e aqui a conferência vem antes de chamar o Asaas.
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { competenciaDoMes, descricaoFatura, motivoSemFatura } from "@/lib/asaas";
-
-async function exigirNexa(supabase: { rpc: (fn: never) => PromiseLike<{ data: unknown }> }) {
-  const { data } = await supabase.rpc("sou_admin_nexa" as never);
-  if (data !== true) throw new Error("Só a Nexa gera faturas.");
-}
 
 /** Asaas ligado? (sem mostrar a chave) */
 export const situacaoAsaasFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .handler(async ({ context }) => {
-    await exigirNexa(context.supabase);
     const { asaasConfigurado, ambienteAtual } = await import("@/lib/asaas.server");
     return {
       configurado: asaasConfigurado(),
@@ -24,7 +18,7 @@ export const situacaoAsaasFn = createServerFn({ method: "GET" })
 
 /** Gera a fatura de um mês para a assinatura vigente da empresa. */
 export const gerarFaturaFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .inputValidator((i: { empresaId: string; mes: string; vencimento: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i.empresaId))) throw new Error("Empresa inválida.");
     const competencia = competenciaDoMes(String(i.mes));
@@ -33,7 +27,6 @@ export const gerarFaturaFn = createServerFn({ method: "POST" })
     return { empresaId: String(i.empresaId), competencia, vencimento: String(i.vencimento) };
   })
   .handler(async ({ data, context }) => {
-    await exigirNexa(context.supabase);
     const { dbServico } = await import("@/lib/mkt/contexto.server");
     const db = await dbServico();
 

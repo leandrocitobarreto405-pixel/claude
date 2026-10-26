@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
 export const MODELOS_ALICE = [
@@ -331,15 +331,13 @@ export const ligarAlice = createServerFn({ method: "POST" })
 
 /** Nexa: cria o robô "Alice" na conta do Chatwoot (uma vez por conexão). */
 export const criarRoboAlice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .inputValidator((input: { conexaoId: string; origem: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(input.conexaoId)) throw new Error("Conexão inválida.");
     if (!/^https?:\/\/[^/]+$/.test(input.origem)) throw new Error("Endereço do app inválido.");
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { data: souNexa } = await context.supabase.rpc("sou_admin_nexa");
-    if (souNexa !== true) throw new Error("Apenas administradores da Nexa.");
     const { criarRobo } = await import("@/lib/alice/chatwoot-api.server");
     const db = await admin();
     const [{ data: conexao }, { data: segredo }] = await Promise.all([

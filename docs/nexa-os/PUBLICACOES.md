@@ -769,6 +769,18 @@ aparecem quando a empresa tem venda da equipe Nexa (atendente da Nexa ou Alice).
 `vendido_por` da OS; sem ele, a vendedora (atendente da Nexa), a mesma das comissões. O pós-venda da
 Alice não mudou. Como desfazer: `git revert 3d2998b` (sem force push).
 
+Painel Nexa como espaço separado (26/10): só código, banco não muda. No seletor do topo, "Nexa
+(painel)" vem separado das empresas (só nexa_admin). No painel: topo "Nexa", menu só com as telas
+da plataforma (Empresas e implantação, Planos e Termos, Assinaturas e faturas, Comissão da Nexa,
+Alice, Chatwoot das empresas), sem empresa ativa (o banco não recebe empresa). Numa empresa: menu
+só da empresa, sem link do painel (nem para nexa_admin). Rota /nexa aberta dentro de uma empresa
+troca sozinha para o painel. No servidor, as 9 funções do painel usam uma conferência única
+(`requireNexaAdmin`, em `src/lib/nexa.middleware.ts`): teste de unidade
+`painel-nexa-servidor.test.ts` (admin de empresa recebe erro em todas, sem ler nada) e teste de banco
+670 (funções e tabelas da plataforma recusam admin de empresa). A assinatura da própria empresa
+(Configurações › Empresa) continua dentro da empresa. Como desfazer: `git revert` do commit (sem
+force push).
+
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
 Como desfazer: `git revert d291ae1` (sem force push).

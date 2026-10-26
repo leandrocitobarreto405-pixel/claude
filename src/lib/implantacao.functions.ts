@@ -5,7 +5,7 @@
  * - Qualquer pessoa da empresa pode saber se ela já foi liberada (para as chaves da Alice e dos envios).
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import {
   avaliarEtapas,
@@ -94,17 +94,10 @@ export const salvarDadosEmpresaFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---------------------------------------------------------------- Nexa
-async function exigirNexa(supabase: { rpc: (fn: never) => PromiseLike<{ data: unknown }> }) {
-  const { data } = await supabase.rpc("sou_admin_nexa" as never);
-  if (data !== true) throw new Error("Só a Nexa vê e libera as empresas.");
-}
-
 /** Progresso de todas as empresas (só a Nexa). */
 export const implantacoesNexaFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .handler(async ({ context }): Promise<Implantacao[]> => {
-    await exigirNexa(context.supabase);
     const { dbServico } = await import("@/lib/mkt/contexto.server");
     const db = await dbServico();
     const { idDaEmpresaModelo, semEmpresaModelo } = await import("@/lib/empresa-modelo");
@@ -117,13 +110,12 @@ export const implantacoesNexaFn = createServerFn({ method: "GET" })
 
 /** Libera a empresa (só com as obrigatórias prontas) ou volta a bloquear. */
 export const liberarEmpresaFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .inputValidator((i: { empresaId: string; liberar: boolean }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i.empresaId))) throw new Error("Empresa inválida.");
     return { empresaId: String(i.empresaId), liberar: i.liberar === true };
   })
   .handler(async ({ data, context }) => {
-    await exigirNexa(context.supabase);
     if (data.liberar) {
       const atual = await montar(data.empresaId);
       if (!atual.resumo.podeLiberar)

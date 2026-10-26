@@ -42,29 +42,22 @@ test("atendente: no Financeiro só A receber, sem Empresa; técnico: só Agenda 
   assert.deepEqual(menuDoPapel(null), []);
 });
 
-test("Nexa vê o grupo Nexa; sem empresa, só ele", () => {
-  const comEmpresa = menuDoPapel("admin", true);
-  assert.deepEqual(
-    comEmpresa.at(-1)!.itens.map((i) => i.to),
-    [
-      "/nexa/empresas",
-      "/nexa/planos",
-      "/nexa/assinaturas",
-      "/nexa/comissoes",
-      "/nexa/alice",
-      "/nexa/chatwoot",
-    ],
-  );
-  assert.deepEqual(rotas(menuDoPapel(null, true)), {
-    Nexa: [
-      "/nexa/empresas",
-      "/nexa/planos",
-      "/nexa/assinaturas",
-      "/nexa/comissoes",
-      "/nexa/alice",
-      "/nexa/chatwoot",
-    ],
-  });
+test("Painel Nexa é um espaço separado: só a plataforma no painel, nada da Nexa na empresa", () => {
+  const plataforma = [
+    "/nexa/empresas",
+    "/nexa/planos",
+    "/nexa/assinaturas",
+    "/nexa/comissoes",
+    "/nexa/alice",
+    "/nexa/chatwoot",
+  ];
+  assert.deepEqual(rotas(menuDoPapel(null, true, null, true)), { Nexa: plataforma });
+  // Numa empresa, nem a Nexa vê link do painel.
+  const naEmpresa = menuDoPapel("admin", true);
+  assert.ok(naEmpresa.every((g) => g.itens.every((i) => !i.to.startsWith("/nexa"))));
+  // Quem não é Nexa não tem painel.
+  assert.deepEqual(menuDoPapel("admin", false, null, true), []);
+  assert.deepEqual(menuDoPapel(null, true), []);
 });
 
 test("todo item do menu abre para quem o vê, e as abas de cada tela também", () => {

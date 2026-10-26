@@ -4,7 +4,7 @@
  * usado (o gatilho do banco garante). Só a Nexa lê e altera.
  */
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireNexaAdmin } from "@/lib/nexa.middleware";
 
 export const CHAVE_NUMERACAO_OS = ["nexa_numeracao_os"] as const;
 
@@ -24,15 +24,9 @@ export function proximoNumero(maiorUsado: number | null, definido: number | null
   return String(n).padStart(4, "0");
 }
 
-async function exigirNexa(supabase: { rpc: (fn: never) => PromiseLike<{ data: unknown }> }) {
-  const { data } = await supabase.rpc("sou_admin_nexa" as never);
-  if (data !== true) throw new Error("Só a Nexa altera a numeração das empresas.");
-}
-
 export const numeracaoOsNexaFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .handler(async ({ context }): Promise<NumeracaoOs[]> => {
-    await exigirNexa(context.supabase);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: empresas } = await supabaseAdmin
       .from("empresas")
@@ -57,7 +51,7 @@ export const numeracaoOsNexaFn = createServerFn({ method: "GET" })
   });
 
 export const definirProximoNumeroOsFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireNexaAdmin])
   .inputValidator((i: { empresaId: string; proximo: number }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i.empresaId))) throw new Error("Empresa inválida.");
     const proximo = Math.trunc(Number(i.proximo));
@@ -66,7 +60,6 @@ export const definirProximoNumeroOsFn = createServerFn({ method: "POST" })
     return { empresaId: String(i.empresaId), proximo };
   })
   .handler(async ({ data, context }) => {
-    await exigirNexa(context.supabase);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("empresas")

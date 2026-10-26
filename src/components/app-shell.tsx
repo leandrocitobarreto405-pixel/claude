@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AvisoAssinatura, EmpresaBloqueada } from "@/components/assinatura/aviso-assinatura";
 import { AceiteTermos } from "@/components/termos/aceite-termos";
 import { useSituacaoAssinatura } from "@/lib/assinatura-situacao";
@@ -15,12 +15,15 @@ import { resumoAliceHoje } from "@/lib/alice.functions";
 import { SinoDeAvisos } from "@/components/avisos/painel-avisos";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { podeAcessar, useContextoTenant } from "@/lib/tenant";
+import { irParaPainelNexa, podeAcessar, rotaDoPainelNexa, useContextoTenant } from "@/lib/tenant";
 import { useTrocarEmpresa } from "@/lib/documentos-hooks";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -55,7 +58,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         progresso: `${resumo.obrigatorias.prontas + resumo.opcionais.prontas} de ${resumo.obrigatorias.total + resumo.opcionais.total}`,
       }
     : null;
-  const grupos = menuDoPapel(papel, souNexa, primeirosPassos);
+  const grupos = menuDoPapel(papel, souNexa, primeirosPassos, ctx?.painelNexa ?? false);
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
       {grupos.map((group) => (
@@ -100,7 +103,7 @@ function Brand({ fechar = false }: { fechar?: boolean }) {
   const { data: ctx } = useContextoTenant();
   return (
     <div className="flex items-center gap-3 border-b border-navy-foreground/10 px-4 py-4">
-      {ctx?.ativa ? (
+      {ctx?.ativa && !ctx.painelNexa ? (
         <AvatarEmpresa
           empresaId={ctx.ativa.empresa.id}
           nome={ctx.ativa.empresa.nome}
@@ -114,7 +117,7 @@ function Brand({ fechar = false }: { fechar?: boolean }) {
       <div className="min-w-0 leading-tight">
         <p className="truncate text-sm font-semibold text-navy-foreground">Nexa OS</p>
         <p className="truncate text-xs text-navy-foreground/60">
-          {ctx?.ativa?.empresa.nome ?? "Nexa Performance"}
+          {ctx?.painelNexa ? "Nexa (painel)" : (ctx?.ativa?.empresa.nome ?? "Nexa Performance")}
         </p>
       </div>
       {fechar ? (
@@ -138,7 +141,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const { data: ctx, isLoading: carregandoVinculo, error: erroVinculo } = useContextoTenant();
   const vinculo = ctx?.ativa ?? null;
-  const rotaNexa = pathname === "/nexa" || pathname.startsWith("/nexa/");
+  const painelNexa = ctx?.painelNexa ?? false;
+  const rotaNexa = rotaDoPainelNexa(pathname);
+  // Painel Nexa é um espaço separado: rota do painel aberta dentro de uma empresa troca sozinha
+  // para "Nexa (painel)"; no painel, rota de empresa volta para as Empresas.
+  const trocandoParaPainel = Boolean(ctx?.souNexa && rotaNexa && !painelNexa);
+  const saindoDoPainel = painelNexa && !rotaNexa;
+  useEffect(() => {
+    if (trocandoParaPainel) irParaPainelNexa(window.location.pathname + window.location.search);
+    else if (saindoDoPainel) void navigate({ to: "/nexa/empresas" as never, replace: true });
+  }, [trocandoParaPainel, saindoDoPainel, navigate]);
   // Conversas: no celular, a conversa aberta ocupa a tela toda (sem o topo e sem a barra de baixo);
   // no PC, lista e conversa ficam lado a lado na altura da tela, cada uma rolando por dentro.
   const rotaConversa = /^\/conversas\/[^/]+\/?$/.test(pathname);
@@ -146,7 +158,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
   const { data: assinatura } = useSituacaoAssinatura(vinculo?.empresa.id);
   const bloqueada = assinatura?.situacao === "bloqueada" && !ctx?.souNexa && !rotaNexa;
-  const abasBase = vinculo ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false) : [];
+  const abasBase = painelNexa
+    ? abasDoPapel(null, ctx?.souNexa ?? false, true)
+    : vinculo
+      ? abasDoPapel(vinculo.papel, ctx?.souNexa ?? false)
+      : [];
   // Número na aba Conversas: clientes esperando resposta da equipe.
   const temConversas = abasBase.some((a) => a.to === "/conversas");
   const resumoFn = useServerFn(resumoAliceHoje);
@@ -193,21 +209,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
-            <AvatarEmpresa
-              empresaId={vinculo?.empresa.id}
-              nome={vinculo?.empresa.nome ?? "Nexa"}
-              tamanho={38}
-              className="lg:hidden"
-            />
+            {painelNexa ? (
+              <span className="grid size-[38px] shrink-0 place-items-center rounded-xl bg-destaque text-marca lg:hidden">
+                <Droplets className="size-5" aria-hidden />
+              </span>
+            ) : (
+              <AvatarEmpresa
+                empresaId={vinculo?.empresa.id}
+                nome={vinculo?.empresa.nome ?? "Nexa"}
+                tamanho={38}
+                className="lg:hidden"
+              />
+            )}
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold">{vinculo?.empresa.nome ?? nome}</p>
+              <p className="truncate text-[15px] font-bold">
+                {painelNexa ? "Nexa" : (vinculo?.empresa.nome ?? nome)}
+              </p>
               <p className="truncate text-xs text-muted-foreground">
-                {vinculo ? `${nome} · ${NOME_PAPEL[vinculo.papel]}` : user?.email}
+                {painelNexa
+                  ? `Painel da plataforma · ${nome}`
+                  : vinculo
+                    ? `${nome} · ${NOME_PAPEL[vinculo.papel]}`
+                    : user?.email}
               </p>
             </div>
 
-            {ctx && ctx.empresas.length > 1 ? (
+            {ctx && (ctx.souNexa || ctx.empresas.length > 1) ? (
               <div className="hidden lg:block">
                 <SeletorEmpresa />
               </div>
@@ -237,7 +265,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <NavList onNavigate={() => setOpen(false)} />
                 </ScrollArea>
                 <div className="flex flex-col gap-2 border-t border-navy-foreground/10 p-3">
-                  {ctx && ctx.empresas.length > 1 ? <SeletorEmpresa /> : null}
+                  {ctx && (ctx.souNexa || ctx.empresas.length > 1) ? <SeletorEmpresa /> : null}
                   <button
                     type="button"
                     onClick={sair}
@@ -268,8 +296,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
           {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}
           <AceiteTermos />
-          {carregandoVinculo ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
+          {carregandoVinculo || trocandoParaPainel || saindoDoPainel ? (
+            <p className="text-sm text-muted-foreground">
+              {trocandoParaPainel ? "Abrindo o Painel Nexa…" : "Carregando…"}
+            </p>
           ) : erroVinculo ? (
             <div className="card-surface mx-auto max-w-md p-6 text-center">
               <h1 className="text-lg font-semibold text-navy">
@@ -290,10 +320,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   : "Sua conta ainda não foi vinculada a uma empresa. Peça um convite ao administrador."}
               </p>
               {ctx?.souNexa ? (
-                <Button
-                  className="mt-4"
-                  onClick={() => navigate({ to: "/nexa/empresas" as never })}
-                >
+                <Button className="mt-4" onClick={() => irParaPainelNexa()}>
                   Cadastrar empresa
                 </Button>
               ) : null}
@@ -327,22 +354,48 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Troca de empresa (só para quem tem mais de uma, como a equipe da Nexa). */
+const OPCAO_PAINEL = "__painel_nexa__";
+
+/**
+ * Troca de empresa (quem tem mais de uma). Para nexa_admin, "Nexa (painel)" vem separado das
+ * empresas: é o único caminho para as telas da plataforma.
+ */
 function SeletorEmpresa() {
   const { data: ctx } = useContextoTenant();
   const trocarEmpresa = useTrocarEmpresa();
   const vinculo = ctx?.ativa ?? null;
+  const atual = ctx?.painelNexa ? OPCAO_PAINEL : (vinculo?.empresa.id ?? "");
   return (
     <Select
-      value={vinculo?.empresa.id ?? ""}
+      value={atual}
       onValueChange={(id) => {
-        if (id !== vinculo?.empresa.id) trocarEmpresa(id);
+        if (id === atual) return;
+        if (id === OPCAO_PAINEL) irParaPainelNexa();
+        else trocarEmpresa(id);
       }}
     >
-      <SelectTrigger className="w-full lg:w-[240px]" aria-label="Empresa">
+      <SelectTrigger className="w-full lg:w-[240px]" aria-label="Empresa ou Painel Nexa">
         <SelectValue placeholder="Escolha a empresa" />
       </SelectTrigger>
       <SelectContent>
+        {ctx?.souNexa ? (
+          <>
+            <SelectGroup>
+              <SelectItem value={OPCAO_PAINEL}>
+                <span className="flex items-center gap-2">
+                  <span className="grid size-[22px] place-items-center rounded-md bg-destaque text-marca">
+                    <Droplets className="size-3.5" aria-hidden />
+                  </span>
+                  Nexa (painel)
+                </span>
+              </SelectItem>
+            </SelectGroup>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel>Empresas</SelectLabel>
+            </SelectGroup>
+          </>
+        ) : null}
         {(ctx?.empresas ?? []).map((v) => (
           <SelectItem key={v.empresa.id} value={v.empresa.id}>
             <span className="flex items-center gap-2">
