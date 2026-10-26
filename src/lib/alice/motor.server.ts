@@ -30,6 +30,8 @@ import {
   type ContextoLead,
   type MensagemHistorico,
   type Uso,
+  janelaEstavel,
+  marcarCacheDoHistorico,
   tecidoDaConfig,
 } from "./prompt";
 import { chaveTelefone } from "@/lib/avisos";
@@ -49,6 +51,8 @@ type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
 const MAX_RODADAS = 8;
 /** Mensagens mais recentes que a Alice lê (o resumo do lead guarda o resto). */
 const MAX_HISTORICO = 20;
+/** Com o cache do histórico: busca até 200 e manda a janela estável (20 a 40 mensagens). */
+const MAX_HISTORICO_BUSCA = 200;
 const MAX_IMAGENS = 4;
 const MAX_AUDIOS_TRANSCRITOS = 3;
 const MAX_MENSAGENS_POR_RESPOSTA = 10;
@@ -59,6 +63,11 @@ const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"] as c
 const REGRA_NOME = true;
 /** Regras de 26/10 (não perguntar duas vezes; tecido não identificado): ligadas em 26/10. */
 const REGRA_RESPOSTAS = true;
+/**
+ * Custo, ideia 2 (26/10): histórico em janela que anda de 20 em 20 (até 40 mensagens) e ponto de
+ * cache de 1 hora no fim do histórico. Liga depois do ensaio de custo.
+ */
+export const CACHE_HISTORICO = false;
 
 export const COM_FALLBACK = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5-5"];
 /** Modelos sem mensagem de sistema no meio da conversa: o momento vai no bloco de sistema. */
@@ -492,6 +501,7 @@ async function historico(
   empresaId: string,
   conversaId: string,
   transcrever: boolean,
+  estavel = CACHE_HISTORICO,
 ): Promise<{ mensagens: MensagemHistorico[]; ultimaDoCliente: Date | null }> {
   const { data } = await db
     .from("whatsapp_messages")
@@ -502,8 +512,8 @@ async function historico(
     .eq("conversa_id", conversaId)
     .eq("privada", false)
     .order("message_timestamp", { ascending: false })
-    .limit(MAX_HISTORICO);
-  const linhas = (data ?? []).reverse();
+    .limit(estavel ? MAX_HISTORICO_BUSCA : MAX_HISTORICO);
+  const linhas = estavel ? janelaEstavel((data ?? []).reverse()) : (data ?? []).reverse();
   const recebidas = linhas.filter((m) => m.direction === "Recebida");
   const ultima = recebidas[recebidas.length - 1];
 
@@ -1003,9 +1013,10 @@ async function conversar(
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
+  const historicoComCache = CACHE_HISTORICO ? marcarCacheDoHistorico(turnos) : turnos;
   const mensagens: Anthropic.Beta.BetaMessageParam[] = momentoNoMeio
-    ? [...turnos, { role: "system", content: momento }]
-    : [...turnos];
+    ? [...historicoComCache, { role: "system", content: momento }]
+    : [...historicoComCache];
 
   while (rodadas < MAX_RODADAS) {
     // Antes de cada chamada (menos depois de criar/remarcar OS, que precisa da confirmação):

@@ -4,13 +4,16 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { COM_FALLBACK, SEM_SISTEMA_NO_MEIO } from "./motor.server";
-import { montarTurnos, type MensagemHistorico } from "./prompt";
+import { montarTurnos, type MensagemHistorico, type Uso } from "./prompt";
 
 export type FalaEnsaio = { de: "cliente" | "alice"; texto: string };
 
 export type RespostaEnsaio = {
   resposta: string[];
   ferramentas: Array<{ nome: string; entrada: unknown }>;
+  /** Tokens somados das rodadas (para o custo). */
+  uso: Uso;
+  rodadas: number;
 };
 
 export async function rodarAliceEnsaio(opcoes: {
@@ -22,6 +25,10 @@ export async function rodarAliceEnsaio(opcoes: {
   momento: string;
   historico: FalaEnsaio[];
   respostaDeEnsaio: (ferramenta: string) => string;
+  /** Como a produção: cache automático no fim e o sistema em cache de 1 hora. */
+  cacheComoProducao?: boolean;
+  /** Ajusta os turnos antes do envio (ex.: ponto de cache do histórico). */
+  prepararTurnos?: (t: Anthropic.Beta.BetaMessageParam[]) => Anthropic.Beta.BetaMessageParam[];
 }): Promise<RespostaEnsaio> {
   const hist: MensagemHistorico[] = opcoes.historico.map((m) => ({
     direcao: m.de === "cliente" ? "Recebida" : "Enviada",
@@ -30,18 +37,24 @@ export async function rodarAliceEnsaio(opcoes: {
     remetente: m.de === "cliente" ? null : "agent_bot",
     imagens: [],
   }));
-  const turnos = montarTurnos(hist) ?? [];
+  const turnos0 = montarTurnos(hist) ?? [];
+  const turnos = opcoes.prepararTurnos ? opcoes.prepararTurnos(turnos0) : turnos0;
   const noMeio = !SEM_SISTEMA_NO_MEIO.includes(opcoes.modelo);
   const mensagens: Anthropic.Beta.BetaMessageParam[] = noMeio
     ? [...turnos, { role: "system", content: opcoes.momento } as never]
     : [...turnos];
   const sistema: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: opcoes.fixas },
+    opcoes.cacheComoProducao
+      ? { type: "text", text: opcoes.fixas, cache_control: { type: "ephemeral", ttl: "1h" } }
+      : { type: "text", text: opcoes.fixas },
     ...(noMeio ? [] : [{ type: "text" as const, text: opcoes.momento }]),
   ];
   const resposta: string[] = [];
   const usadas: Array<{ nome: string; entrada: unknown }> = [];
+  const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };
+  let rodadas = 0;
   for (let rodada = 0; rodada < 5; rodada++) {
+    rodadas++;
     const r = await opcoes.cliente.beta.messages.create({
       model: opcoes.modelo,
       max_tokens: 8000,
@@ -50,10 +63,17 @@ export async function rodarAliceEnsaio(opcoes: {
       ...(COM_FALLBACK.includes(opcoes.modelo)
         ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
         : {}),
+      ...(opcoes.cacheComoProducao ? { cache_control: { type: "ephemeral" as const } } : {}),
       system: sistema,
       tools: opcoes.ferramentas,
       messages: mensagens,
     });
+    uso.entrada += r.usage.input_tokens;
+    uso.saida += r.usage.output_tokens;
+    uso.cacheLeitura += r.usage.cache_read_input_tokens ?? 0;
+    // Igual ao motor: total gravado (5 min + 1 hora) e a parte de 1 hora.
+    uso.cacheEscrita += r.usage.cache_creation_input_tokens ?? 0;
+    uso.cacheEscrita1h! += r.usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
     for (const b of r.content) if (b.type === "text" && b.text.trim()) resposta.push(b.text.trim());
     const chamadas = r.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
@@ -75,5 +95,5 @@ export async function rodarAliceEnsaio(opcoes: {
     }
     mensagens.push({ role: "user", content: resultados });
   }
-  return { resposta, ferramentas: usadas };
+  return { resposta, ferramentas: usadas, uso, rodadas };
 }

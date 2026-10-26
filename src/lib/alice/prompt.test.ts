@@ -4,6 +4,8 @@ import {
   custoEstimadoUsd,
   dividirResposta,
   instrucoesFixas,
+  janelaEstavel,
+  marcarCacheDoHistorico,
   montarTurnos,
   tecidoDaConfig,
   type MensagemHistorico,
@@ -303,4 +305,31 @@ test("tecido salvo: valor estranho ou sem coluna passa para a equipe", () => {
   assert.equal(tecidoDaConfig("B"), "B");
   assert.equal(tecidoDaConfig(undefined), "equipe");
   assert.equal(tecidoDaConfig("x"), "equipe");
+});
+
+test("cache do histórico: janela anda de 20 em 20 e o começo fica estável", () => {
+  const n = (k: number) => Array.from({ length: k }, (_, i) => i);
+  assert.equal(janelaEstavel(n(30)).length, 30);
+  assert.equal(janelaEstavel(n(41))[0], 20);
+  assert.equal(janelaEstavel(n(55))[0], 20, "de 41 a 60 mensagens, começa na mesma");
+  assert.equal(janelaEstavel(n(60))[0], 20);
+  assert.equal(janelaEstavel(n(61))[0], 40);
+  assert.ok(janelaEstavel(n(61)).length >= 20 && janelaEstavel(n(61)).length <= 40);
+});
+
+test("cache do histórico: ponto de 1 hora só no último bloco do último turno", () => {
+  const t = montarTurnos([
+    m("Recebida", "Oi"),
+    m("Enviada", "Olá!"),
+    m("Recebida", "sofá 3 lugares"),
+  ])!;
+  const marcado = marcarCacheDoHistorico(t);
+  const ultimo = marcado[marcado.length - 1]!.content as unknown as Array<Record<string, unknown>>;
+  assert.deepEqual(ultimo[ultimo.length - 1]!["cache_control"], { type: "ephemeral", ttl: "1h" });
+  assert.equal(
+    (t[t.length - 1]!.content as unknown as Array<Record<string, unknown>>)[0]!["cache_control"],
+    undefined,
+    "não muda o original",
+  );
+  assert.equal(JSON.stringify(marcado).match(/cache_control/g)!.length, 1);
 });

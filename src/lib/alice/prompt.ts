@@ -395,3 +395,31 @@ export function custoEstimadoUsd(modelo: string, uso: Uso): number {
     uso.saida * p.saida;
   return Math.round((total / 1_000_000) * 1_000_000) / 1_000_000;
 }
+
+// ---------------------------------------------------------------- cache do histórico (ideia 2)
+
+/**
+ * Janela do histórico que só anda de `passo` em `passo` mensagens (entre máximo − passo e máximo):
+ * o começo da conversa fica igual entre uma resposta e outra, e o cache reaproveita o que já foi
+ * enviado. A janela que anda a cada mensagem (as últimas 20) mudava o começo toda vez.
+ */
+export function janelaEstavel<T>(itens: T[], maximo = 40, passo = 20): T[] {
+  if (itens.length <= maximo) return itens;
+  const inicio = Math.ceil((itens.length - maximo) / passo) * passo;
+  return itens.slice(inicio);
+}
+
+/**
+ * Ponto de cache (1 hora) no fim do último turno do histórico, antes do "momento" (data e hora, que
+ * muda a cada resposta): a próxima resposta lê do cache tudo até aqui e só grava o trecho novo.
+ */
+export function marcarCacheDoHistorico(
+  turnos: Anthropic.Beta.BetaMessageParam[],
+): Anthropic.Beta.BetaMessageParam[] {
+  const ultimo = turnos[turnos.length - 1];
+  if (!ultimo || !Array.isArray(ultimo.content) || !ultimo.content.length) return turnos;
+  const blocos = [...ultimo.content];
+  const fim = blocos.length - 1;
+  blocos[fim] = { ...blocos[fim]!, cache_control: { type: "ephemeral", ttl: "1h" } } as never;
+  return [...turnos.slice(0, -1), { ...ultimo, content: blocos }];
+}

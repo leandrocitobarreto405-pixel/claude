@@ -6,6 +6,7 @@ import { Listas } from "@/components/configuracoes/listas";
 import { AliceConfig } from "@/components/alice-config";
 import { EnsaioNome } from "@/components/alice/ensaio-nome";
 import { EnsaioRespostas } from "@/components/alice/ensaio-respostas";
+import { EnsaioCustoAlice } from "@/components/alice/ensaio-custo";
 import { AliceAudio } from "@/components/configuracoes/alice-audio";
 import { LeadsSiteConfig } from "@/components/leads-site-config";
 import { MensagensOrigem } from "@/components/mensagens-origem";
@@ -27,6 +28,11 @@ export const Route = createFileRoute("/_authenticated/configuracoes/alice-leads"
       <SecaoConfig titulo="Alice: ensaio das respostas e do tecido">
         <ComRecurso recurso="alice">
           <EnsaioRespostas />
+        </ComRecurso>
+      </SecaoConfig>
+      <SecaoConfig titulo="Alice: ensaio de custo">
+        <ComRecurso recurso="alice">
+          <EnsaioCustoAlice />
         </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Alice: responder em áudio">
