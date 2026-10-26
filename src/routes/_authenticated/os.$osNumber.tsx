@@ -2,6 +2,7 @@ import { mensagemDeErro } from "@/lib/erros";
 import { useQueryClient } from "@tanstack/react-query";
 import { TirarAlice } from "@/components/tirar-alice";
 import { repasseDoRecebido, valoresDaLinha } from "@/lib/terceirizados";
+import { useContextoTenant } from "@/lib/tenant";
 import { textoQuantidade } from "@/lib/unidade";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -40,7 +41,7 @@ import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { invalidateFinanceQueries } from "@/lib/cache";
 import { effectiveVisitValue } from "@/lib/visit-value";
 import { clearVisitDiscount } from "@/lib/discounts";
-import { brl, dateBR, dateTimeBR, timeBR, whatsappLink } from "@/lib/format";
+import { brl, dateBR, dateTimeBR, parseNumberBR, timeBR, whatsappLink } from "@/lib/format";
 import {
   generateOsDocument,
   situacaoDocumentosFn,
@@ -98,7 +99,7 @@ const SELECT = `
     service_type:service_type_id ( name ), upholstery_type:upholstery_type_id ( name ),
     technician:technician_id ( name ),
     service_items ( id, description, quantity, unit_price, subtotal, display_order, active, unidade,
-      repasse_parceiro, parceiro:parceiro_id ( name ),
+      repasse_parceiro, parceiro_id, custo_parceiro_unitario, repasse_editado, parceiro:parceiro_id ( name ),
       upholstery_type:upholstery_type_id ( name ) ) ),
   payments ( id, work_order_id, visit_id, payment_date, payment_channel, payment_type, installments,
     gross_amount, applied_rate, payment_fee_amount, net_amount, payment_status, notes, is_active,
@@ -116,6 +117,10 @@ type Item = {
   active: boolean;
   /** Repasse ao parceiro (item terceirizado); só a equipe vê. */
   repasse_parceiro?: number | null;
+  parceiro_id?: string | null;
+  /** Custo do parceiro por unidade; vazio = terceirizado sem custo (falta informar). */
+  custo_parceiro_unitario?: number | null;
+  repasse_editado?: boolean;
   parceiro?: { name: string } | null;
   upholstery_type: { name: string } | null;
 };
@@ -194,6 +199,8 @@ function OsDetalhe() {
   const navigate = useNavigate();
   const { user } = useSession();
   const userId = user?.id ?? null;
+  const { data: tenant } = useContextoTenant();
+  const ehAdmin = !!(tenant?.souNexa || tenant?.ativa?.papel === "admin");
 
   const [gerando, setGerando] = useState(false);
   const [gerandoTermo, setGerandoTermo] = useState(false);
@@ -738,7 +745,15 @@ function OsDetalhe() {
                     <p className="mt-2 text-sm">
                       Total do serviço: <strong>{brl(total)}</strong>
                     </p>
-                    <RepasseTerceirizado itens={itens} total={total} />
+                    <RepasseTerceirizado
+                      itens={itens}
+                      total={total}
+                      ehAdmin={ehAdmin}
+                      onSalvo={() => {
+                        void osQuery.refetch();
+                        invalidateFinanceQueries(queryClient);
+                      }}
+                    />
                     {Number(v.discount_amount ?? 0) > 0 ? (
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                         <span className="text-muted-foreground">
@@ -1371,19 +1386,149 @@ function OsDetalhe() {
   );
 }
 
-/** Itens terceirizados: cobrado do cliente, repasse ao parceiro e o que fica (só a equipe vê). */
-function RepasseTerceirizado({ itens, total }: { itens: Item[]; total: number }) {
-  const terceirizados = itens.filter((i) => Number(i.repasse_parceiro ?? 0) > 0);
+/**
+ * Itens terceirizados (só a equipe vê): valor do cliente, repasse ao parceiro e o que fica para a
+ * empresa. O custo vem da tabela; sem custo, avisa e pede o repasse. O admin edita o repasse da OS.
+ */
+function RepasseTerceirizado({
+  itens,
+  total,
+  ehAdmin,
+  onSalvo,
+}: {
+  itens: Item[];
+  total: number;
+  ehAdmin: boolean;
+  onSalvo: () => void;
+}) {
+  const [editando, setEditando] = useState<string | null>(null);
+  const [texto, setTexto] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const terceirizados = itens.filter((i) => i.parceiro_id || Number(i.repasse_parceiro ?? 0) > 0);
   if (!terceirizados.length) return null;
+  const semCusto = terceirizados.filter((i) => i.custo_parceiro_unitario == null);
   const v = valoresDaLinha(
     total,
     terceirizados.reduce((s, i) => s + Number(i.repasse_parceiro ?? 0), 0),
   );
   const parceiros = [...new Set(terceirizados.map((i) => i.parceiro?.name).filter(Boolean))];
+
+  async function salvar(item: Item) {
+    const custo = parseNumberBR(texto);
+    if (!texto.trim() || !Number.isFinite(custo) || custo < 0) {
+      toast.error("Informe o custo do parceiro por unidade (pode ser zero).");
+      return;
+    }
+    if (
+      custo === 0 &&
+      !window.confirm("Repasse zero: o parceiro não recebe nada por este item. Confirmar?")
+    )
+      return;
+    setSalvando(true);
+    const { error } = await supabase.rpc("editar_repasse_linha", {
+      _linha: item.id,
+      _custo_unitario: custo,
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(mensagemDeErro(error, "Não foi possível salvar o repasse."));
+      return;
+    }
+    toast.success("Repasse salvo nesta OS.");
+    setEditando(null);
+    onSalvo();
+  }
+
   return (
-    <p className="mt-1 text-sm text-muted-foreground">
-      Terceirizado{parceiros.length ? ` (${parceiros.join(", ")})` : ""}: cliente paga{" "}
-      {brl(v.cobrado)} · repasse {brl(v.repasse)} · fica {brl(v.liquido)}
-    </p>
+    <div className="mt-2 rounded-md border border-border bg-secondary/40 p-3 text-sm">
+      <p className="font-medium">
+        Terceirizado{parceiros.length ? ` (${parceiros.join(", ")})` : ""} · só a equipe vê
+      </p>
+      <dl className="mt-2 grid grid-cols-3 gap-2">
+        <div>
+          <dt className="text-xs text-muted-foreground">Valor do cliente</dt>
+          <dd className="font-semibold">{brl(v.cobrado)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Repasse ao parceiro</dt>
+          <dd className="font-semibold">
+            {brl(v.repasse)}
+            {semCusto.length ? "?" : ""}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Fica para a empresa</dt>
+          <dd className="font-semibold">{brl(v.liquido)}</dd>
+        </div>
+      </dl>
+      {semCusto.length ? (
+        <p className="mt-2 text-amber-700 dark:text-amber-400">
+          Falta o custo do parceiro em{" "}
+          {semCusto.length === 1 ? "1 item" : `${semCusto.length} itens`}: o repasse ainda não foi
+          informado. {ehAdmin ? "Informe abaixo." : "Peça ao administrador para informar."}
+        </p>
+      ) : null}
+      <ul className="mt-2 grid gap-2">
+        {terceirizados.map((i) => (
+          <li key={i.id} className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1">
+              {i.description || "Item"} ·{" "}
+              {i.custo_parceiro_unitario == null
+                ? "sem custo"
+                : `${textoQuantidade(Number(i.quantity), i.unidade)} × ${brl(Number(i.custo_parceiro_unitario))} = ${brl(Number(i.repasse_parceiro ?? 0))}`}
+              {i.repasse_editado ? " (editado nesta OS)" : ""}
+            </span>
+            {ehAdmin && editando !== i.id ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => {
+                  setEditando(i.id);
+                  setTexto(
+                    i.custo_parceiro_unitario == null
+                      ? ""
+                      : String(i.custo_parceiro_unitario).replace(".", ","),
+                  );
+                }}
+              >
+                {i.custo_parceiro_unitario == null ? "Informar repasse" : "Editar repasse"}
+              </Button>
+            ) : null}
+            {editando === i.id ? (
+              <span className="flex w-full flex-wrap items-center gap-2">
+                <Label htmlFor={`repasse-${i.id}`} className="text-xs text-muted-foreground">
+                  Custo do parceiro por {i.unidade === "m2" ? "m²" : "unidade"} (R$)
+                </Label>
+                <Input
+                  id={`repasse-${i.id}`}
+                  inputMode="decimal"
+                  className="h-11 w-28"
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  className="min-h-11"
+                  disabled={salvando}
+                  onClick={() => void salvar(i)}
+                >
+                  Salvar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="min-h-11"
+                  disabled={salvando}
+                  onClick={() => setEditando(null)}
+                >
+                  Cancelar
+                </Button>
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

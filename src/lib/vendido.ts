@@ -4,8 +4,9 @@
  * (total da OS menor que a soma das visitas: Pix, cupom, ajuste) é repartido entre as visitas na
  * proporção do valor de cada uma, e a soma das visitas dá exatamente o total da OS. Remarcar muda a
  * data da própria visita (o valor muda de mês); visita cancelada sai; OS cancelada, excluída ou de
- * teste fica fora. Valor CHEIO (o que o cliente paga, inclusive a parte do parceiro nos itens
- * terceirizados), com o líquido do repasse ao lado.
+ * teste fica fora. Valor LÍQUIDO (regra de 18/10): nos itens terceirizados conta só o que fica com a
+ * empresa (cheio − repasse ao parceiro); o cheio (o que o cliente paga) fica ao lado.
+ * O A receber continua no cheio (visitasComValor), porque o cliente paga o valor cheio.
  * Funções puras: quem busca os dados é vendido-dados.ts.
  */
 import { effectiveVisitValue } from "@/lib/visit-value";
@@ -114,10 +115,10 @@ export function visitasComValor(os: OsVendido, hoje: string): VisitaComValor[] {
 export type Intervalo = { de: string; ate: string };
 
 export type Vendido = {
-  /** Valor cheio das visitas do período (o que o cliente paga). */
+  /** Valor das visitas do período sem o repasse aos parceiros (o que fica com a empresa). */
   valor: number;
-  /** O mesmo sem o repasse aos parceiros (só difere com item terceirizado). */
-  liquido: number;
+  /** O mesmo com a parte do parceiro (o que o cliente paga; só difere com item terceirizado). */
+  cheio: number;
   realizado: number;
   agendado: number;
   atrasado: number;
@@ -130,6 +131,11 @@ export type Vendido = {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+/** O que fica com a empresa na visita: valor menos o repasse ao parceiro (nunca negativo). */
+export function liquidoDaVisita(v: Pick<VisitaComValor, "valor" | "repasse">): number {
+  return r2(Math.max(0, v.valor - v.repasse));
+}
+
 /** Vendido do período pela data do serviço, aberto em Realizado + Agendado + Atrasado. */
 export function vendidoNoPeriodo(oss: OsVendido[], periodo: Intervalo, hoje: string): Vendido {
   const visitas = oss
@@ -137,12 +143,11 @@ export function vendidoNoPeriodo(oss: OsVendido[], periodo: Intervalo, hoje: str
     .flatMap((os) => visitasComValor(os, hoje))
     .filter((v) => v.data !== null && v.data >= periodo.de && v.data <= periodo.ate);
   const somar = (lista: VisitaComValor[]) =>
-    reais(lista.reduce((s, v) => s + centavos(v.valor), 0));
+    reais(lista.reduce((s, v) => s + centavos(liquidoDaVisita(v)), 0));
   const de = (s: SituacaoVisita) => visitas.filter((v) => v.situacao === s);
-  const valor = somar(visitas);
   return {
-    valor,
-    liquido: r2(valor - visitas.reduce((s, v) => s + v.repasse, 0)),
+    valor: somar(visitas),
+    cheio: reais(visitas.reduce((s, v) => s + centavos(v.valor), 0)),
     realizado: somar(de("realizado")),
     agendado: somar(de("agendado")),
     atrasado: somar(de("atrasado")),
@@ -172,7 +177,7 @@ export function vendidoPorOrigemServico(
   for (const v of vendido.visitas) {
     const chave = v.origem?.trim() || "Sem origem";
     const acc = mapa.get(chave) ?? { valor: 0, os: new Set<string>() };
-    acc.valor = r2(acc.valor + v.valor);
+    acc.valor = r2(acc.valor + liquidoDaVisita(v));
     acc.os.add(v.osId);
     mapa.set(chave, acc);
   }

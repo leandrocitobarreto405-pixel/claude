@@ -273,8 +273,8 @@ function Inicio() {
                     : undefined
                 }
                 nota={
-                  r && r.vendido.liquido < r.vendido.valor
-                    ? `líquido do repasse: ${brl(r.vendido.liquido)}`
+                  r && r.vendido.cheio > r.vendido.valor
+                    ? `sem o repasse a parceiros · cliente paga ${brl(r.vendido.cheio)}`
                     : undefined
                 }
                 variacao={r ? variacao(r.vendido.valor, r.vendido.anterior.valor) : null}

@@ -1,5 +1,5 @@
--- Valor líquido (sem o repasse a parceiros) nos indicadores do funil e na comissão prevista e
--- realizada da OS; OS sem terceirizado fica como o app gravou. Dados fictícios.
+-- Valor líquido (sem o repasse a parceiros) nos indicadores do funil; a comissão da OS fica no
+-- valor cheio (o que o app grava), com ou sem terceirizado. Dados fictícios.
 BEGIN;
 CREATE FUNCTION pg_temp.ok(_cond boolean, _msg text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -30,32 +30,23 @@ INSERT INTO public.service_items (empresa_id, visit_id, description, quantity, u
   (:'E', 'f4400000-0000-0000-0000-000000000001', 'Sofá fictício 440 — Higienização', 1, 360, 360, 'un'),
   (:'E', 'f4400000-0000-0000-0000-000000000002', 'Sofá fictício 440 — Higienização', 1, 300, 300, 'un');
 
--- 1) comissão prevista: (600 − 120) × 10% = 48; a OS sem terceirizado fica com os 30 do app
-SELECT pg_temp.ok((SELECT commission_expected FROM public.work_orders WHERE os_number = '44001') = 48,
-  'prevista líquida ao entrar o item terceirizado');
+-- 1) comissão sobre o valor cheio (regra de 26/10): a OS com terceirizado fica com os 60 do app
+SELECT pg_temp.ok((SELECT commission_expected FROM public.work_orders WHERE os_number = '44001') = 60,
+  'prevista cheia com item terceirizado');
 SELECT pg_temp.ok((SELECT commission_expected FROM public.work_orders WHERE os_number = '44002') = 30,
   'OS sem terceirizado não muda');
-
--- O app regrava o bruto (recálculo da OS): o banco mantém o líquido.
-UPDATE public.work_orders SET commission_expected = 60, commission_realized = 0 WHERE os_number = '44001';
-SELECT pg_temp.ok((SELECT commission_expected FROM public.work_orders WHERE os_number = '44001') = 48,
-  'regravar o bruto volta ao líquido');
 UPDATE public.work_orders SET commission_expected = 31 WHERE os_number = '44002';
 SELECT pg_temp.ok((SELECT commission_expected FROM public.work_orders WHERE os_number = '44002') = 31,
   'sem terceirizado vale o que o app gravou');
 
--- 2) comissão realizada ao concluir: (600 × 100% − 120) × 10% = 48
+-- 2) concluir (repasse vira despesa) não mexe na comissão realizada gravada pelo app
 UPDATE public.visits SET status = 'Concluído', completion_date = '2031-06-12'
  WHERE id = 'f4400000-0000-0000-0000-000000000001';
 UPDATE public.work_orders SET commission_realized = 60 WHERE os_number = '44001';
-SELECT pg_temp.ok((SELECT commission_realized FROM public.work_orders WHERE os_number = '44001') = 48,
-  'realizada líquida');
-
--- Item terceirizado desativado: repasse zero, comissão volta ao bruto (60).
-UPDATE public.service_items SET active = false WHERE description LIKE 'Tapete fictício 440%';
 SELECT pg_temp.ok((SELECT commission_expected || '/' || commission_realized FROM public.work_orders
-                    WHERE os_number = '44001') = '60.00/60.00', 'sem repasse: comissão cheia');
-UPDATE public.service_items SET active = true WHERE description LIKE 'Tapete fictício 440%';
+                    WHERE os_number = '44001') = '60.00/60.00', 'realizada cheia');
+SELECT pg_temp.ok((SELECT repasse_parceiro FROM public.visits WHERE id = 'f4400000-0000-0000-0000-000000000001') = 120,
+  'repasse de 120 no atendimento');
 
 -- 3) indicadores do funil: vendido e ticket pelo líquido (480 + 300)
 INSERT INTO public.crm_leads (id, empresa_id, lead_name, phone, normalized_phone, is_open, first_contact_date) VALUES

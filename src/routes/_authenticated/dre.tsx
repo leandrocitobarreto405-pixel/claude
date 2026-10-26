@@ -123,8 +123,8 @@ function DRE() {
         <table className="w-full text-sm">
           <tbody>
             <Line
-              label="Vendido no mês (serviços do mês, valor cheio)"
-              value={r?.soldGross}
+              label="Vendido no mês (serviços do mês, sem o repasse a parceiros)"
+              value={r?.soldNet}
               muted
             />
             <Line label="Serviços realizados no mês (valor)" value={r?.servicesValue} muted />

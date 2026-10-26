@@ -36,6 +36,9 @@ import {
   type ItemPreco,
 } from "@/lib/precos";
 import type { Categoria } from "@/lib/orcamento-regras";
+import { custoImperIgnorado } from "@/lib/terceirizados";
+import { supabase } from "@/integrations/supabase/client";
+import { mensagemDeErro } from "@/lib/erros";
 
 const CLASSE_SELECT =
   "flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring sm:h-9";
@@ -215,7 +218,8 @@ function Linha({
                 aria-label="Custo do parceiro"
               />
             </div>
-            {item.preco_impermeabilizacao ? (
+            {item.preco_impermeabilizacao &&
+            (item.categoria !== "tapete" || custoImperIgnorado(item)) ? (
               <div className="w-36">
                 <span className="text-xs text-muted-foreground">Custo na imper. {unidade}</span>
                 <MoneyInput
@@ -250,7 +254,13 @@ function Linha({
             </div>
             {!item.custo_parceiro ? (
               <span className="pb-3 text-xs text-muted-foreground">
-                Sem custo preenchido: o repasse fica zero.
+                Sem custo preenchido: a OS avisa e pede o repasse.
+              </span>
+            ) : null}
+            {custoImperIgnorado(item) ? (
+              <span className="pb-3 text-xs text-amber-700 dark:text-amber-400">
+                Impermeabilização de tapete é feita pela empresa: este custo não é usado (sem
+                repasse). Pode apagar.
               </span>
             ) : null}
           </>
@@ -310,7 +320,35 @@ export function TabelaPrecosConfig() {
       toast.success("Tabela de preços atualizada.");
     } catch {
       toast.error("Não foi possível salvar essa alteração.");
+      return;
     }
+    if (
+      campos.custo_parceiro !== undefined ||
+      campos.custo_parceiro_impermeabilizacao !== undefined ||
+      campos.parceiro_id !== undefined
+    ) {
+      await oferecerAtualizarOs(id);
+    }
+  }
+
+  /** Custo ou parceiro novo: pergunta se atualiza as OS não concluídas (concluídas ficam). */
+  async function oferecerAtualizarOs(id: string) {
+    const { data, error } = await supabase.rpc("os_abertas_do_item", { _item: id });
+    if (error) return;
+    const abertas = data as { linhas?: number; os?: string[] } | null;
+    const linhas = Number(abertas?.linhas ?? 0);
+    if (!linhas) return;
+    const lista = (abertas?.os ?? []).slice(0, 10).join(", ");
+    if (
+      !window.confirm(
+        `${linhas === 1 ? "1 item" : `${linhas} itens`} em OS não concluídas usam este item (OS ${lista}).\n\n` +
+          "Atualizar o repasse delas com o custo novo? As OS concluídas e os repasses editados à mão ficam como estão.",
+      )
+    )
+      return;
+    const r = await supabase.rpc("atualizar_repasse_os_abertas", { _item: id });
+    if (r.error) toast.error(mensagemDeErro(r.error, "Não foi possível atualizar as OS."));
+    else toast.success(`Repasse atualizado em ${r.data} ${r.data === 1 ? "item" : "itens"}.`);
   }
 
   async function excluir(item: ItemPreco) {

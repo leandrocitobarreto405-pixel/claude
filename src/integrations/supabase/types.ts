@@ -5880,6 +5880,7 @@ export type Database = {
       };
       service_items: {
         Row: {
+          repasse_editado: boolean;
           custo_parceiro_unitario: number | null;
           parceiro_id: string | null;
           repasse_parceiro: number;
@@ -5904,6 +5905,7 @@ export type Database = {
           visit_id: string;
         };
         Insert: {
+          repasse_editado?: boolean;
           custo_parceiro_unitario?: number | null;
           parceiro_id?: string | null;
           tabela_preco_item_id?: string | null;
@@ -5927,6 +5929,7 @@ export type Database = {
           visit_id: string;
         };
         Update: {
+          repasse_editado?: boolean;
           custo_parceiro_unitario?: number | null;
           parceiro_id?: string | null;
           tabela_preco_item_id?: string | null;
@@ -7110,6 +7113,25 @@ export type Database = {
       };
     };
     Functions: {
+      atualizar_repasse_os_abertas: {
+        Args: {
+          _item: string;
+        };
+        Returns: number;
+      };
+      os_abertas_do_item: {
+        Args: {
+          _item: string;
+        };
+        Returns: Json;
+      };
+      editar_repasse_linha: {
+        Args: {
+          _linha: string;
+          _custo_unitario: number;
+        };
+        Returns: number;
+      };
       situacao_cobranca_empresas: {
         Args: Record<PropertyKey, never>;
         Returns: { empresa_id: string; situacao: string }[];

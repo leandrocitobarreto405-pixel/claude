@@ -632,9 +632,9 @@ export function useOriginBreakdown(from: string, to: string) {
 }
 
 export type MonthSummary = {
-  /** Vendido do mês pela data do serviço (valor cheio, o que o cliente paga). */
+  /** Vendido do mês pela data do serviço com a parte do parceiro (o que o cliente paga). */
   soldGross: number;
-  /** O mesmo sem o repasse a parceiros (itens terceirizados). */
+  /** Vendido do mês sem o repasse a parceiros (itens terceirizados): o número principal. */
   soldNet: number;
   soldCount: number;
   completedCount: number;
@@ -743,9 +743,9 @@ export async function fetchMonthSummary(
   const payments = revenueBase.payments;
 
   const vendas = (soldRes.data ?? []).filter((w) => !w.eh_teste);
-  // Vendido do mês pela data do serviço (valor cheio; o líquido do repasse ao lado).
+  // Vendido do mês pela data do serviço (líquido do repasse; o cheio ao lado).
   const vendido = vendidoNoPeriodo(osDoMes, { de: from, ate: to }, todayISO());
-  const soldGross = vendido.valor;
+  const soldGross = vendido.cheio;
   const canceled = vendas
     .filter((w) => w.status === "Cancelada")
     .reduce((s, w) => s + Number(w.total_gross_value ?? 0), 0);
@@ -845,7 +845,7 @@ export async function fetchMonthSummary(
 
   return {
     soldGross,
-    soldNet: vendido.liquido,
+    soldNet: vendido.valor,
     soldCount: vendido.quantidade,
     completedCount: completed.length,
     revenue,

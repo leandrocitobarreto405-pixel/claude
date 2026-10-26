@@ -116,11 +116,15 @@ test("concluída em outro mês conta no mês da conclusão", () => {
   assert.equal(vendidoNoPeriodo([o], { de: "2026-09-01", ate: "2026-09-30" }, HOJE).valor, 0);
 });
 
-test("valor cheio com o líquido do repasse ao lado (item terceirizado)", () => {
-  const o = os(1000, [visita("a", "2026-10-25", 1000, { repasse_parceiro: 350 })]);
+test("vendido líquido do repasse, com o cheio ao lado (item terceirizado)", () => {
+  const o = os(1000, [visita("a", "2026-10-25", 1000, { repasse_parceiro: 350 })], {
+    origem: "Google",
+  });
   const v = vendidoNoPeriodo([o], OUT, HOJE);
-  assert.equal(v.valor, 1000);
-  assert.equal(v.liquido, 650);
+  assert.equal(v.valor, 650);
+  assert.equal(v.cheio, 1000);
+  assert.equal(v.agendado, 650);
+  assert.deepEqual(vendidoPorOrigemServico(v), [{ origem: "Google", valor: 650, quantidade: 1 }]);
 });
 
 test("por origem: valor e OS distintas", () => {

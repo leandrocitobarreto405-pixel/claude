@@ -17,6 +17,8 @@ import { PageHeader } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { PAYMENT_TYPES, useConfigOptions, useSalespeople, useTechnicians } from "@/lib/data";
 import { brl, buildFullAddress, dateBR, onlyDigits, parseNumberBR, todayISO } from "@/lib/format";
+import { useTabelaPrecos } from "@/lib/precos";
+import { linhasSemCusto } from "@/lib/terceirizados";
 import {
   createWorkOrder,
   findCustomerByPhone,
@@ -187,6 +189,7 @@ function NovaOS() {
   const { data: tenant } = useContextoTenant();
   const ehAdmin = tenant?.souNexa || tenant?.ativa?.papel === "admin";
   const { data: tecnicos } = useTechnicians();
+  const { data: tabelaPrecos } = useTabelaPrecos();
 
   const [osNumber, setOsNumber] = useState("");
   const [osDuplicada, setOsDuplicada] = useState(false);
@@ -873,6 +876,24 @@ function NovaOS() {
       toast.error("O valor negociado da OS deve ser maior que zero.");
       return;
     }
+    // Terceirizado sem custo do parceiro na tabela: o repasse fica pendente (nunca zero calado).
+    const faltaCusto = linhasSemCusto(
+      visitas.flatMap((v) =>
+        v.items.map((it) => ({
+          descricao: it.description,
+          tipoAtendimento: servicos?.find((s) => s.id === v.service_type_id)?.name ?? null,
+        })),
+      ),
+      tabelaPrecos ?? [],
+    );
+    if (
+      faltaCusto.length &&
+      !window.confirm(
+        `Item terceirizado sem custo do parceiro na tabela: ${faltaCusto.join("; ")}.\n\n` +
+          "O repasse fica pendente (não entra como zero) e a OS avisa até alguém informar. Salvar assim?",
+      )
+    )
+      return;
 
     const customer = {
       full_name: nome.trim(),

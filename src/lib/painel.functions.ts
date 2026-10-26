@@ -28,13 +28,13 @@ import { buscarOsDoPeriodo } from "@/lib/vendido-dados";
 
 // Painel financeiro do Início. Roda no servidor com o cliente da própria pessoa (RLS da empresa
 // ativa), devolve só totais e corta despesas/lucro para quem não é admin. OS marcadas como
-// teste ficam fora de tudo. Vendido = pela data do serviço (vendido.ts), valor cheio.
+// teste ficam fora de tudo. Vendido = pela data do serviço (vendido.ts), líquido do repasse.
 
 const menor = (...d: string[]) => d.reduce((a, b) => (a < b ? a : b));
 const maior = (...d: string[]) => d.reduce((a, b) => (a > b ? a : b));
 const partes = (v: Vendido): PartesVendido => ({
   valor: v.valor,
-  liquido: v.liquido,
+  cheio: v.cheio,
   realizado: v.realizado,
   agendado: v.agendado,
   atrasado: v.atrasado,

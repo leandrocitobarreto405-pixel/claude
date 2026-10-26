@@ -18,10 +18,11 @@ BEGIN
 EXCEPTION WHEN check_violation THEN NULL;
 END $$;
 
--- Itens: tapete terceirizado (custo por m², limpeza e imper) e sofá próprio.
+-- Itens: terceirizado com custo de limpeza e de imper (categoria "outro": a impermeabilização de
+-- tapete nunca tem repasse, ver 760) e sofá próprio.
 INSERT INTO public.tabela_precos_itens (id, empresa_id, nome, preco_higienizacao, preco_impermeabilizacao,
   categoria, terceirizado, custo_parceiro, custo_parceiro_impermeabilizacao, parceiro_id) VALUES
-  ('b4300000-0000-0000-0000-000000000001', :'E', 'Tapete fictício (por m²)', 60, 100, 'tapete', true, 30, 55,
+  ('b4300000-0000-0000-0000-000000000001', :'E', 'Tapete fictício (por m²)', 60, 100, 'outro', true, 30, 55,
    'd4300000-0000-0000-0000-000000000001'),
   ('b4300000-0000-0000-0000-000000000002', :'E', 'Sofá fictício', 200, 400, 'sofa', false, NULL, NULL, NULL);
 

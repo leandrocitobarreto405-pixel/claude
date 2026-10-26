@@ -203,7 +203,7 @@ export function atalhosDoPapel(papel: Papel | null, souNexa = false): Atalho[] {
 
 export type PartesVendido = {
   valor: number;
-  liquido: number;
+  cheio: number;
   realizado: number;
   agendado: number;
   atrasado: number;
@@ -220,8 +220,8 @@ export type ResumoPainel = {
   /** "ontem" | "semana passada" | "mês passado" */
   comparacao: string;
   /**
-   * Vendido pela DATA DO SERVIÇO (valor cheio, o que o cliente paga), aberto em Realizado +
-   * Agendado + Atrasado. `liquido`: sem o repasse aos parceiros (itens terceirizados).
+   * Vendido pela DATA DO SERVIÇO, líquido do repasse aos parceiros (itens terceirizados), aberto
+   * em Realizado + Agendado + Atrasado. `cheio`: com a parte do parceiro (o que o cliente paga).
    */
   vendido: PartesVendido & {
     quantidade: number;

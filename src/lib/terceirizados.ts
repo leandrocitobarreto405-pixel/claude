@@ -45,6 +45,7 @@ export function repasseEstimado(
   linhas: { tabela_preco_item_id: string; tipo_servico: string; quantidade: number }[],
   catalogo: {
     id: string;
+    categoria?: string | null;
     terceirizado?: boolean;
     custo_parceiro?: number | null;
     custo_parceiro_impermeabilizacao?: number | null;
@@ -54,11 +55,77 @@ export function repasseEstimado(
   for (const l of linhas) {
     const item = catalogo.find((c) => c.id === l.tabela_preco_item_id);
     if (!item?.terceirizado) continue;
-    const custo =
-      l.tipo_servico === "impermeabilizacao"
-        ? item.custo_parceiro_impermeabilizacao
-        : item.custo_parceiro;
+    const imper = l.tipo_servico === "impermeabilizacao";
+    // Impermeabilização de tapete: feita pela empresa, sem repasse.
+    if (imper && item.categoria === "tapete") continue;
+    const custo = imper ? item.custo_parceiro_impermeabilizacao : item.custo_parceiro;
     total += (Number(custo) || 0) * (Number(l.quantidade) || 0);
   }
   return r2(total);
+}
+
+type ItemCatalogo = {
+  id: string;
+  nome: string;
+  categoria?: string | null;
+  terceirizado?: boolean | null;
+  custo_parceiro?: number | null;
+  custo_parceiro_impermeabilizacao?: number | null;
+};
+
+/** Item da tabela de uma linha da OS pela descrição ("Nome — Limpeza"), como o banco faz. */
+export function itemDaLinha<T extends ItemCatalogo>(descricao: string, catalogo: T[]): T | null {
+  const d = descricao.trim();
+  const candidatos = catalogo.filter(
+    (c) => c.nome.length > 0 && (d === c.nome || d.startsWith(`${c.nome} —`)),
+  );
+  return candidatos.sort((a, b) => b.nome.length - a.nome.length)[0] ?? null;
+}
+
+/** Linha de impermeabilização: pela descrição; sem sufixo, pelo tipo do atendimento. */
+export function linhaDeImpermeabilizacao(descricao: string, tipoAtendimento?: string | null) {
+  const d = descricao.toLowerCase();
+  if (d.includes("— imperm")) return true;
+  if (d.includes("— limp") || d.includes("— higien")) return false;
+  return (tipoAtendimento ?? "").toLowerCase().startsWith("imperm");
+}
+
+/**
+ * Custo do parceiro por unidade de uma linha: `undefined` = não é terceirizada (inclui a
+ * impermeabilização de tapete, feita pela empresa); `null` = terceirizada sem custo na tabela.
+ */
+export function custoDaLinha(
+  descricao: string,
+  catalogo: ItemCatalogo[],
+  tipoAtendimento?: string | null,
+): number | null | undefined {
+  const item = itemDaLinha(descricao, catalogo);
+  if (!item?.terceirizado) return undefined;
+  const imper = linhaDeImpermeabilizacao(descricao, tipoAtendimento);
+  if (imper && item.categoria === "tapete") return undefined;
+  const custo = imper ? item.custo_parceiro_impermeabilizacao : item.custo_parceiro;
+  return custo == null ? null : Number(custo);
+}
+
+/** Descrições das linhas terceirizadas sem custo do parceiro na tabela (para avisar antes de salvar). */
+export function linhasSemCusto(
+  linhas: { descricao: string; tipoAtendimento?: string | null }[],
+  catalogo: ItemCatalogo[],
+): string[] {
+  return [
+    ...new Set(
+      linhas
+        .filter((l) => custoDaLinha(l.descricao, catalogo, l.tipoAtendimento) === null)
+        .map((l) => l.descricao.trim()),
+    ),
+  ];
+}
+
+/** Aviso da tabela: impermeabilização de tapete não tem repasse (o custo preenchido não vale). */
+export function custoImperIgnorado(item: ItemCatalogo): boolean {
+  return (
+    !!item.terceirizado &&
+    item.categoria === "tapete" &&
+    item.custo_parceiro_impermeabilizacao != null
+  );
 }
