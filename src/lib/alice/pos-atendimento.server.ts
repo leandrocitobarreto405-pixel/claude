@@ -68,7 +68,10 @@ export async function rodarPosAtendimento(): Promise<Resumo> {
     .eq("ativo", true)
     .or("confirmacao_ligada.eq.true,pos_venda_ligado.eq.true");
   const agora = agoraSP();
+  const { empresaTemRecurso } = await import("@/lib/recursos.server");
   for (const cfg of (cfgs ?? []) as ConfigPos[]) {
+    // Pós-atendimento é da Alice: plano sem Alice não envia.
+    if (!(await empresaTemRecurso(supabaseAdmin, cfg.empresa_id, "alice"))) continue;
     for (const tipo of ["confirmacao", "pos_venda"] as const) {
       const ligado = tipo === "confirmacao" ? cfg.confirmacao_ligada : cfg.pos_venda_ligado;
       const hora = String(tipo === "confirmacao" ? cfg.confirmacao_hora : cfg.pos_venda_hora);

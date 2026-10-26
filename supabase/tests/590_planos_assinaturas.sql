@@ -39,8 +39,9 @@ SELECT pg_temp.ok((SELECT count(*) FROM public.planos WHERE codigo IN ('basico',
   'quatro planos');
 SELECT pg_temp.ok((SELECT preco_mensal = 50 AND NOT (recursos->>'alice')::boolean FROM public.planos WHERE codigo = 'basico'),
   'básico R$ 50 sem Alice');
-SELECT pg_temp.ok((SELECT preco_mensal IS NULL AND comissao_pct = 5 FROM public.planos WHERE codigo = 'nexa_gestao'),
-  'Nexa Gestão: mensalidade a definir e 5%');
+-- Nexa Gestão ganhou preço na migração 20261215120000 (R$ 497 + 5%).
+SELECT pg_temp.ok((SELECT preco_mensal = 497 AND comissao_pct = 5 FROM public.planos WHERE codigo = 'nexa_gestao'),
+  'Nexa Gestão: R$ 497 e 5%');
 SELECT pg_temp.ok((SELECT preco_mensal = 0 FROM public.planos WHERE codigo = 'interna'), 'interna R$ 0');
 -- Turbine (empresa de teste do banco): Interna.
 SELECT pg_temp.ok((SELECT p.codigo = 'interna' AND a.status = 'ativa' FROM public.assinaturas a

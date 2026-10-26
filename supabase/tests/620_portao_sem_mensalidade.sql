@@ -21,10 +21,12 @@ END $$;
 \set C '62000000-0000-0000-0000-00000000000c'
 INSERT INTO public.empresas (id, nome) VALUES
   (:'A', 'Fictícia Gestão'), (:'B', 'Fictícia Zero'), (:'C', 'Fictícia Paga');
--- A: Nexa Gestão sem mensalidade definida, grátis vencido há 10 dias.
+-- A: plano sem mensalidade definida, grátis vencido há 10 dias (o Nexa Gestão hoje tem preço;
+-- a regra vale para qualquer plano com mensalidade a definir).
+INSERT INTO public.planos (codigo, nome, preco_mensal) VALUES ('teste_a_definir', 'A definir (teste)', NULL);
 INSERT INTO public.assinaturas (empresa_id, plano_id, status, vigencia_inicio, gratis_ate, proximo_vencimento)
 SELECT :'A', id, 'trial', private.hoje_sp() - 100, private.hoje_sp() - 11, private.hoje_sp() - 10
-  FROM public.planos WHERE codigo = 'nexa_gestao';
+  FROM public.planos WHERE codigo = 'teste_a_definir';
 -- B: mensalidade própria de R$ 0.
 INSERT INTO public.assinaturas (empresa_id, plano_id, valor_mensal, status, vigencia_inicio)
 SELECT :'B', id, 0, 'ativa', private.hoje_sp() - 100 FROM public.planos WHERE codigo = 'completo';

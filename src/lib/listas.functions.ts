@@ -5,11 +5,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import { filtrosValidos, TODAS_OPCOES, type Filtros, type PessoaLista } from "@/lib/listas";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** marketing: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("marketing");
 
 export type ContagemListas = Record<string, { total: number; podem: number }>;
 
 export const contagemListasFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ContagemListas> => {
     const opcoes = Object.fromEntries(
       TODAS_OPCOES.map((o) => [o.chave, { [o.familia]: o.filtro }]),
@@ -65,7 +69,7 @@ export async function lerPublico(
 }
 
 export const pessoasDaListaFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((i: { filtros: Filtros }) => ({ filtros: filtrosValidos(i.filtros) }))
   .handler(async ({ data, context }) => lerPublico(context.supabase as never, data.filtros, false));
 
@@ -77,7 +81,7 @@ export type ModelosDasListas = {
 };
 
 export const modelosDasListasFn = createServerFn({ method: "GET" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ModelosDasListas> => {
     const { dbServico } = await import("@/lib/mkt/contexto.server");
     const { listarParaTela } = await import("@/lib/meta/modelos.server");
@@ -98,7 +102,7 @@ export type SituacaoPlanilha = {
 
 /** Endereço e última atualização da planilha "Nexa OS — Listas". */
 export const planilhaListasFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<SituacaoPlanilha> => {
     const [{ data: cfg }, { data: google }] = await Promise.all([
       context.supabase
@@ -126,7 +130,7 @@ export const planilhaListasFn = createServerFn({ method: "GET" })
 
 /** Cria (na primeira vez) e atualiza agora a planilha das listas (só admin). */
 export const atualizarPlanilhaListasFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const { dbServico } = await import("@/lib/mkt/contexto.server");
     const { atualizarPlanilhaListas } = await import("@/lib/planilha-listas.server");

@@ -10,6 +10,10 @@ import {
   paraSalvar,
   type ConfigEncerramento,
 } from "@/lib/caixa-encerramento";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** caixa_entrada: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("caixa_entrada");
 
 export const CHAVE_ENCERRAMENTO = ["config-encerramento"] as const;
 
@@ -21,7 +25,7 @@ function validar(i: ConfigEncerramento): ConfigEncerramento {
 }
 
 export const lerEncerramentoFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ConfigEncerramento> => {
     const { data } = await context.supabase
       .from("app_settings")
@@ -42,7 +46,7 @@ export type PreviaEncerramento = {
 
 /** Quantas conversas a regra pegaria agora (equipe e, se marcado, Alice) e quantas ficam de fora. */
 export const previaEncerramentoFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(validar)
   .handler(async ({ data, context }): Promise<PreviaEncerramento> => {
     const { selecionarParaEncerrar } = await import("@/lib/caixa-encerramento.server");
@@ -63,7 +67,7 @@ export const previaEncerramentoFn = createServerFn({ method: "POST" })
   });
 
 export const salvarEncerramentoFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(validar)
   .handler(async ({ data, context }) => {
     const { data: atual } = await context.supabase

@@ -25,6 +25,10 @@ import {
 } from "@/lib/promocao";
 import type { Database } from "@/integrations/supabase/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** marketing: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("marketing");
 
 type Db = SupabaseClient<Database>;
 
@@ -90,7 +94,7 @@ async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
 }
 
 export const horariosLivresFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ResumoHorariosLivres> => {
     const cfg = await lerConfig(context.supabase, context.empresaId);
     return calcularLivres(context.supabase, context.empresaId, cfg);
@@ -460,7 +464,7 @@ async function promocaoDeHoje(db: Db, empresaId: string): Promise<PromocaoDeHoje
 }
 
 export const situacaoPromocaoFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<SituacaoPromocao> => {
     const db = context.supabase;
     const [{ data: papel }, cfg, mkt, empresa] = await Promise.all([
@@ -503,7 +507,7 @@ export const situacaoPromocaoFn = createServerFn({ method: "GET" })
  * servidor: só entra quem ainda está nela (não confia em nome ou telefone vindos da tela).
  */
 export const ativarPromocaoFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { chaves: string[] }) => ({
     chaves: (i.chaves ?? [])
       .map((c) => String(c).replace(/\D/g, ""))
@@ -559,7 +563,7 @@ export type ResumoPromocao = {
 
 /** Resumo para os cartões do Marketing e do Início (sem localizar endereços: é rápido). */
 export const resumoPromocaoFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ResumoPromocao> => {
     const db = context.supabase;
     const [{ data: papel }, cfg] = await Promise.all([

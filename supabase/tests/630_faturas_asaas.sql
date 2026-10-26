@@ -31,9 +31,11 @@ INSERT INTO public.empresas (id, nome) VALUES
 INSERT INTO public.assinaturas (id, empresa_id, plano_id, status, vigencia_inicio)
 SELECT '63000000-0000-0000-0000-0000000000a1', :'P', id, 'ativa', private.hoje_sp() - 60
   FROM public.planos WHERE codigo = 'basico';
+-- Plano com mensalidade a definir (o Nexa Gestão hoje tem preço).
+INSERT INTO public.planos (codigo, nome, preco_mensal) VALUES ('teste_a_definir', 'A definir (teste)', NULL);
 INSERT INTO public.assinaturas (id, empresa_id, plano_id, status, vigencia_inicio, gratis_ate)
 SELECT '63000000-0000-0000-0000-0000000000b1', :'G', id, 'trial', private.hoje_sp() - 60, private.hoje_sp() - 1
-  FROM public.planos WHERE codigo = 'nexa_gestao';
+  FROM public.planos WHERE codigo = 'teste_a_definir';
 INSERT INTO public.assinaturas (id, empresa_id, plano_id, valor_mensal, status, vigencia_inicio)
 SELECT '63000000-0000-0000-0000-0000000000c1', :'O', id, 0, 'ativa', private.hoje_sp() - 60
   FROM public.planos WHERE codigo = 'completo';

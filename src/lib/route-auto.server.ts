@@ -97,6 +97,25 @@ async function saveRoute(
  * a cobrança da quilometragem é consolidada uma vez por mês
  * (ver `closeMonthlyMileage`). É idempotente: pode rodar várias vezes.
  */
+/** Plano sem rotas/km: nada é calculado nem gravado. */
+export function rotaForaDoPlano(): RouteSyncResult {
+  return {
+    status: "Sem serviços",
+    pendentes: 0,
+    concluidos: 0,
+    km: 0,
+    costPerKm: 0,
+    totalCost: 0,
+    allocatedPerService: 0,
+    routeId: null,
+    expenseId: null,
+    financialDifference: false,
+    paidAmount: null,
+    message: "Rotas e quilometragem não estão no plano da empresa.",
+    failures: [],
+  };
+}
+
 export async function syncDailyRoute(
   db: DB,
   input: {

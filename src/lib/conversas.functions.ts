@@ -16,6 +16,10 @@ import {
   type GrupoConversa,
   type Passagem,
 } from "@/lib/conversas";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** caixa_entrada: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("caixa_entrada");
 
 // Leitura das conversas do WhatsApp (só leitura, dados da empresa ativa pelo RLS).
 // Responder fica no WhatsApp/Chatwoot por enquanto; as ações de Assumir/Devolver usam as
@@ -225,7 +229,7 @@ async function quemSouEu(empresaId: string, userId: string): Promise<Eu> {
 
 /** Conversas dos últimos 7 dias, já separadas por aba. */
 export const listarConversas = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ConversaResumo[]> => {
     const db = context.supabase;
     const desde = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
@@ -322,7 +326,7 @@ export const listarConversas = createServerFn({ method: "GET" })
 
 /** Uma conversa com as últimas mensagens (mais antigas primeiro). */
 export const lerConversa = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { conversaId: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(input.conversaId)) throw new Error("Conversa inválida.");
     return input;

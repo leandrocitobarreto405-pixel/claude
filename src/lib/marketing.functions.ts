@@ -14,6 +14,10 @@ import {
   type ModeloAprovado,
   type QuemResponde,
 } from "@/lib/campanha-nova";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** marketing: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("marketing");
 
 export const GRUPOS = ["C1", "C2", "C3", "C4", "C5", "N1", "N2", "N3"] as const;
 export const NOMES_GRUPOS: Record<string, string> = {
@@ -70,7 +74,7 @@ async function diasDeDisparo(db: Awaited<ReturnType<typeof servico>>, empresaId:
 
 // ---------------------------------------------------------------- situação
 export const situacaoMarketing = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const sb = context.supabase;
     const emp = context.empresaId;
@@ -126,7 +130,7 @@ export const situacaoMarketing = createServerFn({ method: "GET" })
 
 /** Modelos na Meta e prévia com 3 contatos reais (lê o Chatwoot). */
 export const conferirCampanhaFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
   .handler(async ({ data, context }) => {
     const { db } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
@@ -136,7 +140,7 @@ export const conferirCampanhaFn = createServerFn({ method: "GET" })
 
 /** Quantos estão em cada lista da campanha e quantos podem receber agora. */
 export const contagemCampanhaFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
   .handler(async ({ data, context }) => {
     if (!ID.test(data.campanhaId)) throw new Error("Campanha inválida.");
@@ -173,7 +177,7 @@ const TITULO_LEMBRETE: Record<string, string> = {
 
 /** Lotes de lembretes do dia esperando aprovação, com a quantidade e uma prévia real. */
 export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<LembretesParaAprovar> => {
     const [{ data: papel }, { data: lotes, error }] = await Promise.all([
       context.supabase.rpc("meu_papel" as never),
@@ -225,7 +229,7 @@ export const lembretesParaAprovarFn = createServerFn({ method: "GET" })
 
 /** Aprovar ou não enviar o lote de lembretes (só admin). */
 export const decidirLembretesFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { loteId: string; aprovar: boolean }) => {
     if (!ID.test(String(input.loteId))) throw new Error("Lote inválido.");
     return { loteId: String(input.loteId), aprovar: Boolean(input.aprovar) };
@@ -249,7 +253,7 @@ export const decidirLembretesFn = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- aprovação
 export const prepararCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
   .handler(async ({ data, context }) => {
     const { db, campanha } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
@@ -260,7 +264,7 @@ export const prepararCampanhaFn = createServerFn({ method: "POST" })
 
 /** Nova campanha (só admin). Nasce em rascunho e segue o fluxo normal: preparar, conferir, aprovar. */
 export const criarCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: EntradaNovaCampanha) => ({
     nome: String(input.nome ?? "").slice(0, 200),
     listas: (Array.isArray(input.listas) ? input.listas : []).slice(0, 10).map((l) => ({
@@ -334,7 +338,7 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
 
 /** Modelos aprovados na Meta para escolher na campanha nova, com o texto para a prévia. */
 export const modelosAprovadosFn = createServerFn({ method: "GET" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(
     async ({
       context,
@@ -359,7 +363,7 @@ export const modelosAprovadosFn = createServerFn({ method: "GET" })
 
 /** Quantas pessoas estão em cada lista escolhida e quantas podem receber agora (para a Nova campanha). */
 export const contagemListasNovaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(
     (input: { listas: Array<{ grupo: string; familia: string; de?: number; ate?: number }> }) => ({
       listas: (Array.isArray(input.listas) ? input.listas : []).slice(0, 10).map((l) => ({
@@ -393,7 +397,7 @@ export const contagemListasNovaFn = createServerFn({ method: "POST" })
 
 /** Quem atende as respostas (Alice ou equipe). Vale para as próximas respostas, a qualquer momento. */
 export const quemRespondeFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string; quem: QuemResponde }) => ({
     campanhaId: String(input.campanhaId),
     quem: (input.quem === "equipe" ? "equipe" : "alice") as QuemResponde,
@@ -411,7 +415,7 @@ export const quemRespondeFn = createServerFn({ method: "POST" })
   });
 
 export const aprovarCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
   .handler(async ({ data, context }) => {
     const { db, campanha } = await campanhaDaEmpresa(context.empresaId, data.campanhaId);
@@ -454,7 +458,7 @@ export const aprovarCampanhaFn = createServerFn({ method: "POST" })
 
 /** Liga o envio das campanhas (só admin), sem mexer no resto da configuração. */
 export const ligarDisparoFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const { error } = await context.supabase
       .from("mkt_configuracoes")
@@ -467,7 +471,7 @@ export const ligarDisparoFn = createServerFn({ method: "POST" })
   });
 
 export const recusarCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string; motivo?: string }) => ({
     campanhaId: String(input.campanhaId),
     motivo: String(input.motivo ?? "").slice(0, 300),
@@ -485,7 +489,7 @@ export const recusarCampanhaFn = createServerFn({ method: "POST" })
 
 /** Datas (terça a quinta, futuras) e condição (texto + %, ou sem condição). */
 export const editarCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(
     (input: {
       campanhaId: string;
@@ -573,7 +577,7 @@ export const editarCampanhaFn = createServerFn({ method: "POST" })
   });
 
 export const pausarFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string; loteId?: string | null; retomar?: boolean }) => ({
     campanhaId: String(input.campanhaId),
     loteId: input.loteId && ID.test(input.loteId) ? input.loteId : null,
@@ -606,7 +610,7 @@ export type LinhaImportacao = {
 };
 
 export const importarContatosFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { linhas: LinhaImportacao[]; origem: string }) => {
     const linhas = (input.linhas ?? []).slice(0, 1000).map((l) => ({
       telefone: String(l.telefone ?? "").slice(0, 40),
@@ -637,7 +641,7 @@ export const importarContatosFn = createServerFn({ method: "POST" })
   });
 
 export const recalcularGruposFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const db = await servico();
     const { rpc } = await import("@/lib/mkt/contexto.server");
@@ -651,7 +655,7 @@ export const recalcularGruposFn = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- gatilhos de hoje (manual)
 export const gatilhosDeHoje = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("mkt_envios")
@@ -668,7 +672,7 @@ export const gatilhosDeHoje = createServerFn({ method: "GET" })
 
 /** Envio manual feito pelo celular (enviado) ou descartado. */
 export const marcarGatilhoFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { envioId: string; acao: "enviado" | "descartar" }) => {
     if (!ID.test(String(input.envioId))) throw new Error("Envio inválido.");
     return {
@@ -694,7 +698,7 @@ export const marcarGatilhoFn = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- avisos e configuração
 export const marcarAvisosLidosFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const { error } = await context.supabase
       .from("mkt_avisos")
@@ -720,7 +724,7 @@ export type ConfigMktEditavel = {
 };
 
 export const salvarConfigMktFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: ConfigMktEditavel) => {
     const texto = (v: unknown, max: number) => (v ? String(v).trim().slice(0, max) || null : null);
     const link = texto(input.link_avaliacao_google, 300);
@@ -774,7 +778,7 @@ export type ResumoIndicacoes = {
 
 /** Indique e ganhe: quantas indicações no mês, quantas viraram serviço e as últimas. */
 export const resumoIndicacoesFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ResumoIndicacoes> => {
     const sb = context.supabase;
     const { todayISO } = await import("@/lib/format");
@@ -830,7 +834,7 @@ export type Presas = {
 
 /** Quem das listas está fora só porque está em outra campanha ainda não enviada. */
 export const presasCampanhaFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string }) => ({ campanhaId: String(input.campanhaId) }))
   .handler(async ({ data, context }): Promise<Presas> => {
     if (!ID.test(data.campanhaId)) throw new Error("Campanha inválida.");
@@ -860,7 +864,7 @@ export type PessoaDaCampanha = {
  * (à mão ou por "já chamei manualmente").
  */
 export const pessoasDaCampanhaFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string; busca?: string; pagina?: number }) => ({
     campanhaId: String(input.campanhaId),
     busca: String(input.busca ?? "")
@@ -923,7 +927,7 @@ export const pessoasDaCampanhaFn = createServerFn({ method: "GET" })
 
 /** Tira (ou devolve) uma pessoa da campanha antes de aprovar (só admin). */
 export const tirarDaCampanhaFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campanhaId: string; contatoId: string; devolver?: boolean }) => ({
     campanhaId: String(input.campanhaId),
     contatoId: String(input.contatoId),
@@ -948,7 +952,7 @@ export const tirarDaCampanhaFn = createServerFn({ method: "POST" })
 
 /** Busca na base de contatos (nome ou telefone), para marcar "já chamei manualmente". */
 export const buscarContatosMktFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { busca: string }) => ({
     busca: String(input.busca ?? "")
       .trim()
@@ -983,7 +987,7 @@ export type ItemChamadoManual = { telefone?: string; contato_id?: string; data?:
  * simular, só conta quantos foram achados. Marcado, sai das campanhas ainda não aprovadas.
  */
 export const marcarChamadoManualFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { itens: ItemChamadoManual[]; simular?: boolean }) => {
     const itens = (Array.isArray(input.itens) ? input.itens : []).slice(0, 5000).map((i) => ({
       ...(i?.telefone ? { telefone: String(i.telefone).slice(0, 30) } : {}),

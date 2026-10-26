@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ComRecurso } from "@/components/plano/recurso-bloqueado";
 import { ScrollText } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Mensagem, MensagemNota } from "@/components/configuracoes/mensagens";
@@ -17,13 +18,19 @@ export const Route = createFileRoute("/_authenticated/configuracoes/mensagens")(
         icone={ScrollText}
       />
       <SecaoConfig titulo="Respostas prontas">
-        <RespostasProntasConfig />
+        <ComRecurso recurso="caixa_entrada">
+          <RespostasProntasConfig />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Conversas: digitando… e lido (Meta)">
-        <DigitandoMeta />
+        <ComRecurso recurso="caixa_entrada">
+          <DigitandoMeta />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Conversas: encerramento automático">
-        <EncerramentoAutomatico />
+        <ComRecurso recurso="caixa_entrada">
+          <EncerramentoAutomatico />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Mensagem padrão" aberta>
         <div className="grid gap-6">

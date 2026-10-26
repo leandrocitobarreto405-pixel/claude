@@ -3,12 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR } from "@/lib/format";
+import { RECURSOS } from "@/lib/recursos";
 
-export const RECURSOS_PLANO = [
-  { chave: "caixa_entrada", rotulo: "Caixa de entrada (WhatsApp)" },
-  { chave: "alice", rotulo: "Alice" },
-  { chave: "marketing", rotulo: "Marketing" },
-] as const;
+/** Recursos que a Nexa liga em cada plano (o resto é do Essencial, em todos). */
+export const RECURSOS_PLANO = RECURSOS.map((r) => ({
+  chave: r.chave,
+  rotulo: r.rotulo,
+  telas: r.telas,
+}));
 
 export type Plano = {
   id: string;
@@ -21,6 +23,10 @@ export type Plano = {
   recursos: Record<string, boolean>;
   ativo: boolean;
   ordem: number;
+  /** Admin e atendente (técnicos não contam); null = sem limite. */
+  limite_usuarios: number | null;
+  /** Aparece na tabela pública de preços (Nexa Gestão e Interna não). */
+  publico: boolean;
 };
 
 export type StatusAssinatura = "trial" | "ativa" | "inadimplente" | "cancelada";
@@ -56,6 +62,8 @@ type LinhaPlano = {
   recursos?: unknown;
   ativo?: boolean | null;
   ordem?: number | null;
+  limite_usuarios?: number | null;
+  publico?: boolean | null;
 };
 
 export function lerPlano(l: LinhaPlano): Plano {
@@ -72,6 +80,11 @@ export function lerPlano(l: LinhaPlano): Plano {
     recursos: Object.fromEntries(Object.entries(recursos).map(([k, v]) => [k, v === true])),
     ativo: l.ativo !== false,
     ordem: Number(l.ordem ?? 0),
+    limite_usuarios:
+      l.limite_usuarios === null || l.limite_usuarios === undefined
+        ? null
+        : Number(l.limite_usuarios),
+    publico: l.publico !== false,
   };
 }
 
@@ -154,12 +167,17 @@ export function avisosFimGratis(
       a,
       planos.find((p) => p.id === a.plano_id),
     );
-    if (valor !== null && valor > 0) continue;
+    const definida = valor !== null && valor > 0;
     const faltam = (Date.parse(a.gratis_ate) - Date.parse(hoje)) / 86_400_000;
     if (faltam > dias) continue;
+    // Com mensalidade definida, avisa só até o fim do grátis (depois a cobrança já começou).
+    if (definida && faltam < 0) continue;
     const [, mes, dia] = a.gratis_ate.split("-");
     const verbo = faltam < 0 ? "terminou" : "termina";
-    avisos.push(`${e.nome}: período grátis ${verbo} em ${dia}/${mes} — defina a mensalidade`);
+    const depois = definida
+      ? `passa a pagar ${brl(valor)}${a.proximo_vencimento ? ` em ${dateBR(a.proximo_vencimento)}` : ""}`
+      : "defina a mensalidade";
+    avisos.push(`${e.nome}: período grátis ${verbo} em ${dia}/${mes} — ${depois}`);
   }
   return avisos;
 }

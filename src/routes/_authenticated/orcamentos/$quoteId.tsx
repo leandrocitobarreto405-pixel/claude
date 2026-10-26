@@ -37,6 +37,8 @@ import {
 import { usePapel } from "@/lib/tenant";
 import { listarCuponsFn } from "@/lib/cupons.functions";
 import { aplicarCupom, CHAVE_CUPONS, limparCodigo } from "@/lib/cupons";
+import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { temRecurso } from "@/lib/recursos";
 import { rotuloCupom } from "@/lib/alice/cupons";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
@@ -200,6 +202,9 @@ function OrcamentoDetalhe() {
     "nenhum" | "campanha" | "indicacao" | "cupom" | "manual"
   >("nenhum");
   const [cupomCodigo, setCupomCodigo] = useState("");
+  // Cupons: Profissional em diante (orçamento antigo com cupom continua mostrando).
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
+  const comCupons = temRecurso(planoEmpresa, "cupons");
   // Valor no Pix: calculado (total − Pix da empresa); só fica fixo se a atendente editar.
   const [aVistaEditado, setAVistaEditado] = useState<number | null>(null);
   const [km, setKm] = useState(0);
@@ -1375,7 +1380,7 @@ function OrcamentoDetalhe() {
                   </option>
                 );
               })}
-              <option value="cupom">Cupom</option>
+              {comCupons || descontoTipo === "cupom" ? <option value="cupom">Cupom</option> : null}
               <option value="manual">Valor manual (R$)</option>
             </select>
             {descontoTipo === "manual" ? (

@@ -7,6 +7,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import { validarCupom, type CupomTela } from "@/lib/cupons";
 import type { Servico } from "@/lib/alice/orcamento-alice";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** cupons: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("cupons");
 
 export type CuponsDaEmpresa = {
   cupons: CupomTela[];
@@ -14,7 +18,7 @@ export type CuponsDaEmpresa = {
 };
 
 export const listarCuponsFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<CuponsDaEmpresa> => {
     const [{ data: cupons, error }, { data: origens }] = await Promise.all([
       context.supabase
@@ -47,7 +51,7 @@ export const listarCuponsFn = createServerFn({ method: "GET" })
   });
 
 export const salvarCupomFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((c: CupomTela) => ({ id: c?.id ?? null, linha: validarCupom(c) }))
   .handler(async ({ data, context }) => {
     const linha = { ...data.linha, updated_at: new Date().toISOString() };

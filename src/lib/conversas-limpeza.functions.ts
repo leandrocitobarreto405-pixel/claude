@@ -4,6 +4,10 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** caixa_entrada: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("caixa_entrada");
 
 export const DIAS_PARADA = [3, 7, 15, 30];
 
@@ -18,7 +22,7 @@ const limite = (dias: number) => new Date(Date.now() - dias * 86_400_000).toISOS
 const diasValidos = (d: unknown) => (DIAS_PARADA.includes(Number(d)) ? Number(d) : 3);
 
 export const conversasParadasFn = createServerFn({ method: "GET" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { dias: number }) => ({ dias: diasValidos(i.dias) }))
   .handler(async ({ data, context }): Promise<ConversaParada[]> => {
     const { data: lista, error } = await context.supabase
@@ -48,7 +52,7 @@ export const conversasParadasFn = createServerFn({ method: "GET" })
   });
 
 export const encerrarConversasFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { ids: string[]; dias: number }) => ({
     ids: (i.ids ?? []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 100),
     dias: diasValidos(i.dias),
@@ -147,7 +151,7 @@ export async function encerrarNoChatwoot(lista: ParaEncerrar[], empresaId: strin
  * "Precisam de você"). Admin e atendente; o técnico não vê conversas.
  */
 export const encerrarEscolhidasFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((i: { ids: string[] }) => ({
     ids: (i.ids ?? []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 100),
   }))

@@ -1,11 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** crm: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("crm");
 
 const sourceTypeSchema = z.enum(["meta_lead_ads", "google_ads", "custom_form"]);
 
 export const listSourceIntegrations = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("crm_source_integrations")
@@ -16,7 +20,7 @@ export const listSourceIntegrations = createServerFn({ method: "GET" })
   });
 
 export const getCampaignsForIntegration = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("crm_campaigns")
@@ -28,7 +32,7 @@ export const getCampaignsForIntegration = createServerFn({ method: "GET" })
   });
 
 export const getSalespeopleForIntegration = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("salespeople")
@@ -51,7 +55,7 @@ const createSourceSchema = z.object({
 });
 
 export const createSourceIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .inputValidator((data) => createSourceSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { data: created, error } = await context.supabase
@@ -77,7 +81,7 @@ const updateSourceSchema = createSourceSchema.extend({
 });
 
 export const updateSourceIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .inputValidator((data) => updateSourceSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { data: updated, error } = await context.supabase
@@ -100,7 +104,7 @@ export const updateSourceIntegration = createServerFn({ method: "POST" })
   });
 
 export const deleteSourceIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .inputValidator((data) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -112,7 +116,7 @@ export const deleteSourceIntegration = createServerFn({ method: "POST" })
   });
 
 export const simulateSourceIntegration = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .inputValidator((data) =>
     z
       .object({

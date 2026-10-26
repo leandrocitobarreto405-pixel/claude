@@ -8,6 +8,9 @@ import { brl } from "@/lib/format";
 import { CATEGORIA_LABEL } from "@/lib/precos";
 import { categoriaDeLimpeza } from "@/lib/unidade";
 import { usePapel } from "@/lib/tenant";
+import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { temRecurso } from "@/lib/recursos";
+import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import {
   CONFIG_PADRAO,
   useConfigOrcamento,
@@ -68,6 +71,7 @@ export function OrcamentoRegrasConfig() {
   const salvar = useSalvarConfigOrcamento();
   const { papel } = usePapel();
   const admin = papel === "admin";
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
   const [f, setF] = useState<LinhaConfigOrcamento>(CONFIG_PADRAO);
   const [salvando, setSalvando] = useState(false);
 
@@ -78,6 +82,8 @@ export function OrcamentoRegrasConfig() {
   const set = <K extends keyof LinhaConfigOrcamento>(k: K, v: LinhaConfigOrcamento[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const num = (v: number | null) => (v === null ? 0 : Number(v));
+  // Taxa de deslocamento: Profissional em diante (o banco também recusa ligar sem o plano).
+  const comDeslocamento = temRecurso(planoEmpresa, "deslocamento_rotas");
   const faixas = f.distancia_faixas ?? [];
   const mudarFaixa = (i: number, patch: Partial<FaixaValor>) =>
     set(
@@ -254,108 +260,112 @@ export function OrcamentoRegrasConfig() {
         </div>
       </Bloco>
 
-      <Bloco
-        titulo="Distância"
-        descricao="Só a ida, a partir da base do técnico mais próximo do cliente. Até a primeira faixa sem acréscimo; até o limite com acréscimo; acima do limite aparece “fora da área” para a equipe."
-        ligado={f.distancia_ligado}
-        onLigar={(v) => set("distancia_ligado", v)}
-        desabilitado={bloqueado}
-      >
-        <div>
-          <Label className="text-xs">Sem acréscimo até (km)</Label>
-          <DecimalInput
-            value={num(f.distancia_sem_acrescimo_km)}
-            onValueChange={(v) => set("distancia_sem_acrescimo_km", nulo(v))}
-            disabled={bloqueado}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Limite da área (km)</Label>
-          <DecimalInput
-            value={num(f.distancia_limite_km)}
-            onValueChange={(v) => set("distancia_limite_km", nulo(v))}
-            disabled={bloqueado}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">
-            Acréscimo (%){faixas.length ? " — sem uso: valem as faixas abaixo" : ""}
-          </Label>
-          <DecimalInput
-            value={f.distancia_pct}
-            onValueChange={(v) => set("distancia_pct", v)}
-            disabled={bloqueado || faixas.length > 0}
-          />
-        </div>
-        <div className="grid gap-2 sm:col-span-3">
-          <Label className="text-xs">
-            Taxa pelo valor do serviço (soma dos itens, antes do desconto do Pix)
-          </Label>
-          {faixas.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Sem faixas: vale o acréscimo fixo acima para qualquer valor.
-            </p>
-          ) : null}
-          {faixas.map((fx, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2">
-              <span className="w-24 text-sm">{fx.ate === null ? "Acima disso" : "Até R$"}</span>
-              {fx.ate === null ? null : (
-                <MoneyInput
-                  value={fx.ate}
-                  onValueChange={(v) => mudarFaixa(i, { ate: v })}
+      {comDeslocamento ? (
+        <Bloco
+          titulo="Distância"
+          descricao="Só a ida, a partir da base do técnico mais próximo do cliente. Até a primeira faixa sem acréscimo; até o limite com acréscimo; acima do limite aparece “fora da área” para a equipe."
+          ligado={f.distancia_ligado}
+          onLigar={(v) => set("distancia_ligado", v)}
+          desabilitado={bloqueado}
+        >
+          <div>
+            <Label className="text-xs">Sem acréscimo até (km)</Label>
+            <DecimalInput
+              value={num(f.distancia_sem_acrescimo_km)}
+              onValueChange={(v) => set("distancia_sem_acrescimo_km", nulo(v))}
+              disabled={bloqueado}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Limite da área (km)</Label>
+            <DecimalInput
+              value={num(f.distancia_limite_km)}
+              onValueChange={(v) => set("distancia_limite_km", nulo(v))}
+              disabled={bloqueado}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">
+              Acréscimo (%){faixas.length ? " — sem uso: valem as faixas abaixo" : ""}
+            </Label>
+            <DecimalInput
+              value={f.distancia_pct}
+              onValueChange={(v) => set("distancia_pct", v)}
+              disabled={bloqueado || faixas.length > 0}
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-3">
+            <Label className="text-xs">
+              Taxa pelo valor do serviço (soma dos itens, antes do desconto do Pix)
+            </Label>
+            {faixas.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Sem faixas: vale o acréscimo fixo acima para qualquer valor.
+              </p>
+            ) : null}
+            {faixas.map((fx, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-sm">{fx.ate === null ? "Acima disso" : "Até R$"}</span>
+                {fx.ate === null ? null : (
+                  <MoneyInput
+                    value={fx.ate}
+                    onValueChange={(v) => mudarFaixa(i, { ate: v })}
+                    disabled={bloqueado}
+                    className="w-32"
+                    aria-label={`Teto da faixa ${i + 1}`}
+                  />
+                )}
+                <DecimalInput
+                  value={fx.pct}
+                  onValueChange={(v) => mudarFaixa(i, { pct: v })}
                   disabled={bloqueado}
-                  className="w-32"
-                  aria-label={`Teto da faixa ${i + 1}`}
+                  className="w-20"
+                  aria-label={`Percentual da faixa ${i + 1}`}
                 />
-              )}
-              <DecimalInput
-                value={fx.pct}
-                onValueChange={(v) => mudarFaixa(i, { pct: v })}
-                disabled={bloqueado}
-                className="w-20"
-                aria-label={`Percentual da faixa ${i + 1}`}
-              />
-              <span className="text-sm">%</span>
+                <span className="text-sm">%</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11"
+                  disabled={bloqueado}
+                  onClick={() =>
+                    set(
+                      "distancia_faixas",
+                      faixas.filter((_, j) => j !== i),
+                    )
+                  }
+                >
+                  Tirar
+                </Button>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 className="min-h-11"
                 disabled={bloqueado}
-                onClick={() =>
-                  set(
-                    "distancia_faixas",
-                    faixas.filter((_, j) => j !== i),
-                  )
-                }
+                onClick={() => {
+                  const tetos = faixas.filter((x) => x.ate !== null).map((x) => x.ate as number);
+                  const novo = { ate: (tetos.length ? Math.max(...tetos) : 0) + 500, pct: 0 };
+                  const semTeto = faixas.filter((x) => x.ate === null);
+                  set("distancia_faixas", [
+                    ...faixas.filter((x) => x.ate !== null),
+                    novo,
+                    ...(semTeto.length ? semTeto : [{ ate: null, pct: 0 }]),
+                  ]);
+                }}
               >
-                Tirar
+                Adicionar faixa
               </Button>
             </div>
-          ))}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-11"
-              disabled={bloqueado}
-              onClick={() => {
-                const tetos = faixas.filter((x) => x.ate !== null).map((x) => x.ate as number);
-                const novo = { ate: (tetos.length ? Math.max(...tetos) : 0) + 500, pct: 0 };
-                const semTeto = faixas.filter((x) => x.ate === null);
-                set("distancia_faixas", [
-                  ...faixas.filter((x) => x.ate !== null),
-                  novo,
-                  ...(semTeto.length ? semTeto : [{ ate: null, pct: 0 }]),
-                ]);
-              }}
-            >
-              Adicionar faixa
-            </Button>
           </div>
-        </div>
-      </Bloco>
+        </Bloco>
+      ) : (
+        <RecursoBloqueado recurso="deslocamento_rotas" compacto />
+      )}
 
       <Bloco
         titulo="Vitrine com boas-vindas"

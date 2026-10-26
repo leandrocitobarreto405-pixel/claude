@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** crm: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("crm");
 
 const SYSTEM_PROMPT = `Você organiza conversas de WhatsApp de uma empresa brasileira de higienização e impermeabilização de estofados.
 Responda SEMPRE em português do Brasil e SOMENTE com JSON válido, sem texto extra.
@@ -11,7 +15,7 @@ Formato:
 {"summary":string,"upholstery":string|null,"service_interest":"Higienização"|"Impermeabilização"|"Higienização e impermeabilização"|null,"city":string|null,"intent":string|null,"objections":string|null,"next_action":string|null,"temperature":"QUENTE"|"FRIO"}`;
 
 export const sugerirResumoDoLead = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, comRecurso])
   .inputValidator((input: { leadId: string }) => ({ leadId: String(input.leadId) }))
   .handler(async ({ data, context }) => {
     const { data: isStaff } = await context.supabase.rpc("is_staff", { _user_id: context.userId });

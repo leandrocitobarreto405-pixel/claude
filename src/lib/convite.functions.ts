@@ -156,7 +156,12 @@ export const convidarPorEmailFn = createServerFn({ method: "POST" })
         "convidar_usuario" as never,
         { _email: data.email, _papel: data.papel } as never,
       );
-      if (error) throw new Error("Não foi possível registrar o convite.");
+      if (error)
+        throw new Error(
+          error.message.includes("Limite de usuários")
+            ? error.message
+            : "Não foi possível registrar o convite.",
+        );
     }
     const { data: emp } = await context.supabase
       .from("empresas")

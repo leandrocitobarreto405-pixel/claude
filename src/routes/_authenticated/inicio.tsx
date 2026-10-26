@@ -26,6 +26,9 @@ import {
   weekdayPT,
 } from "@/lib/format";
 import { VendasPorEquipe } from "@/components/painel/vendas-por-equipe";
+import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
+import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { temRecurso } from "@/lib/recursos";
 import { dataPorExtenso, horaEmSaoPaulo, primeiroNome, saudacao } from "@/lib/inicio";
 import { variacao, type Periodo } from "@/lib/painel";
 import { resumoPainel } from "@/lib/painel.functions";
@@ -119,6 +122,7 @@ function Inicio() {
   const { papel } = usePapel();
   const { data: tenant } = useContextoTenant();
   const souNexa = tenant?.souNexa === true;
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
   const [periodo, setPeriodo] = useState<Periodo>(periodoSalvo);
   // Padrão: Vendas para quem vende (atendente e equipe Nexa); Operacional para o admin da empresa.
   const [abaEscolhida, setAba] = useState<AbaInicio | null>(abaSalva);
@@ -192,7 +196,9 @@ function Inicio() {
 
       <AbasInicio valor={aba} aoMudar={mudarAba} />
 
-      {aba === "operacional" && pode("/promocao") ? <FaixaHorariosLivres /> : null}
+      {aba === "operacional" && pode("/promocao") && temRecurso(planoEmpresa, "marketing") ? (
+        <FaixaHorariosLivres />
+      ) : null}
 
       <section className="flex flex-col gap-3" aria-labelledby="painel-titulo">
         <h2 id="painel-titulo" className="sr-only">
@@ -365,10 +371,16 @@ function Inicio() {
             </Card>
             <Card aria-label="Vendas por origem">
               <h3 className="text-sm font-bold">Vendas por origem</h3>
-              {r ? (
-                <GraficoVendasPorOrigem dados={r.vendidoPorOrigem} />
+              {temRecurso(planoEmpresa, "vendas_origem") ? (
+                <>
+                  {r ? (
+                    <GraficoVendasPorOrigem dados={r.vendidoPorOrigem} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Carregando…</p>
+                  )}
+                </>
               ) : (
-                <p className="text-sm text-muted-foreground">Carregando…</p>
+                <RecursoBloqueado recurso="vendas_origem" compacto />
               )}
             </Card>
             <Card aria-label="Funil de leads">

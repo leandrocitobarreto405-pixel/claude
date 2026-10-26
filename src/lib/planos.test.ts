@@ -70,13 +70,18 @@ test("aviso do fim do grátis: 15 dias antes, só sem mensalidade", () => {
   assert.deepEqual(avisosFimGratis(eco, planos, "2027-01-05"), [
     "Ecoprime: período grátis terminou em 02/01 — defina a mensalidade",
   ]);
-  // R$ 0 também avisa; com valor definido (na assinatura ou no plano) não.
+  // R$ 0 também avisa; com valor definido (na assinatura ou no plano) avisa quanto passa a pagar,
+  // só até o fim do grátis.
   const zero = [{ nome: "Z", assinatura: assinatura({ valor_mensal: 0 }) }];
   assert.equal(avisosFimGratis(zero, planos, "2026-12-20").length, 1);
   const definida = [{ nome: "D", assinatura: assinatura({ valor_mensal: 297 }) }];
-  assert.deepEqual(avisosFimGratis(definida, planos, "2026-12-20"), []);
+  assert.deepEqual(avisosFimGratis(definida, planos, "2026-12-17"), []);
+  assert.deepEqual(avisosFimGratis(definida, planos, "2026-12-20"), [
+    "D: período grátis termina em 02/01 — passa a pagar R$\u00a0297,00 em 03/01/2027",
+  ]);
+  assert.deepEqual(avisosFimGratis(definida, planos, "2027-01-03"), []);
   const basico = [{ nome: "B", assinatura: assinatura({ plano_id: "basico" }) }];
-  assert.deepEqual(avisosFimGratis(basico, planos, "2026-12-20"), []);
+  assert.equal(avisosFimGratis(basico, planos, "2026-12-20").length, 1);
   // Sem grátis (Turbine, interna R$ 0), cancelada ou sem assinatura: nada.
   const outras = [
     { nome: "Turbine", assinatura: assinatura({ gratis_ate: null, valor_mensal: 0 }) },

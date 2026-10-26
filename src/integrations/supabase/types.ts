@@ -8,6 +8,39 @@ export type Database = {
   };
   public: {
     Tables: {
+      pedidos_plano: {
+        Row: {
+          criado_em: string;
+          empresa_id: string;
+          id: string;
+          plano_sugerido: string | null;
+          recurso: string | null;
+          user_id: string | null;
+          visto_em: string | null;
+          visto_por: string | null;
+        };
+        Insert: {
+          criado_em?: string;
+          empresa_id?: string;
+          id?: string;
+          plano_sugerido?: string | null;
+          recurso?: string | null;
+          user_id?: string | null;
+          visto_em?: string | null;
+          visto_por?: string | null;
+        };
+        Update: {
+          criado_em?: string;
+          empresa_id?: string;
+          id?: string;
+          plano_sugerido?: string | null;
+          recurso?: string | null;
+          user_id?: string | null;
+          visto_em?: string | null;
+          visto_por?: string | null;
+        };
+        Relationships: [];
+      };
       termos_aceites: {
         Row: {
           aceito_em: string;
@@ -214,6 +247,8 @@ export type Database = {
       };
       assinaturas: {
         Row: {
+          ciclo: string;
+          usuarios_extras: number;
           contrato_pdf_em: string | null;
           contrato_pdf_path: string | null;
           contrato_pdf_por: string | null;
@@ -236,6 +271,8 @@ export type Database = {
           vigencia_inicio: string;
         };
         Insert: {
+          ciclo?: string;
+          usuarios_extras?: number;
           contrato_pdf_em?: string | null;
           contrato_pdf_path?: string | null;
           contrato_pdf_por?: string | null;
@@ -258,6 +295,8 @@ export type Database = {
           vigencia_inicio: string;
         };
         Update: {
+          ciclo?: string;
+          usuarios_extras?: number;
           contrato_pdf_em?: string | null;
           contrato_pdf_path?: string | null;
           contrato_pdf_por?: string | null;
@@ -283,6 +322,8 @@ export type Database = {
       };
       planos: {
         Row: {
+          publico: boolean;
+          limite_usuarios: number | null;
           ativo: boolean;
           codigo: string;
           comissao_pct: number;
@@ -296,6 +337,8 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          publico?: boolean;
+          limite_usuarios?: number | null;
           ativo?: boolean;
           codigo: string;
           comissao_pct?: number;
@@ -309,6 +352,8 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          publico?: boolean;
+          limite_usuarios?: number | null;
           ativo?: boolean;
           codigo?: string;
           comissao_pct?: number;
@@ -6981,6 +7026,20 @@ export type Database = {
       };
     };
     Functions: {
+      plano_da_empresa: { Args: Record<PropertyKey, never>; Returns: Json };
+      empresa_tem_recurso: {
+        Args: {
+          _emp: string;
+          _recurso: string;
+        };
+        Returns: boolean;
+      };
+      tem_recurso: {
+        Args: {
+          _recurso: string;
+        };
+        Returns: boolean;
+      };
       consumo_empresas: {
         Args: {
           _mes: string;

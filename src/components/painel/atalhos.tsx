@@ -1,10 +1,17 @@
 import { Link } from "@tanstack/react-router";
 import { atalhosDoPapel } from "@/lib/painel";
 import type { Papel } from "@/lib/tenant";
+import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { recursoDaRota, temRecurso } from "@/lib/recursos";
 
 /** Grade de atalhos (4 por linha no celular), só com o que a pessoa pode abrir. */
 export function Atalhos({ papel, souNexa = false }: { papel: Papel | null; souNexa?: boolean }) {
-  const lista = atalhosDoPapel(papel, souNexa);
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
+  // Atalho de recurso fora do plano não aparece (a tela mostraria o cadeado).
+  const lista = atalhosDoPapel(papel, souNexa).filter((a) => {
+    const r = recursoDaRota(a.to);
+    return !r || temRecurso(planoEmpresa, r);
+  });
   if (lista.length === 0) return null;
   return (
     <nav aria-label="Atalhos">

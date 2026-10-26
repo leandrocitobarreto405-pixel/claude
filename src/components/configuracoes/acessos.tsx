@@ -13,6 +13,8 @@ import { dateBR } from "@/lib/format";
 import { useSalespeople, useTechnicians } from "@/lib/data";
 import { useMinhaEmpresa, type Papel } from "@/lib/tenant";
 import { convidarPorEmailFn, type ResultadoConvite } from "@/lib/convite.functions";
+import { CHAVE_PLANO_EMPRESA, usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { situacaoUsuarios } from "@/lib/recursos";
 import { agentesChatwootFn, ligarAgenteChatwootFn } from "@/lib/caixa-equipe.functions";
 import { enviarFotoTecnico } from "@/lib/equipe-fotos";
 import { useServerFn } from "@tanstack/react-start";
@@ -40,6 +42,8 @@ export function Acessos() {
 
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<Papel>("atendente");
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
+  const usuarios = situacaoUsuarios(planoEmpresa);
   // Dados da equipe no próprio convite: vendedora (atendente) ou técnico.
   const [nome, setNome] = useState("");
   const [comissao, setComissao] = useState("3");
@@ -101,6 +105,7 @@ export function Acessos() {
     void queryClient.invalidateQueries({ queryKey: ["technicians"] });
     void queryClient.invalidateQueries({ queryKey: ["convites_empresa"] });
     void queryClient.invalidateQueries({ queryKey: ["equipe_empresa"] });
+    void queryClient.invalidateQueries({ queryKey: CHAVE_PLANO_EMPRESA });
   }
 
   async function convidar() {
@@ -177,9 +182,14 @@ export function Acessos() {
   async function alterarPapel(id: string, novo: Papel) {
     const { error } = await supabase.from("usuarios_empresa").update({ papel: novo }).eq("id", id);
     if (error) {
-      toast.error("Não foi possível alterar o papel.");
+      toast.error(
+        error.message.includes("Limite de usuários")
+          ? error.message
+          : "Não foi possível alterar o papel.",
+      );
       return;
     }
+    void queryClient.invalidateQueries({ queryKey: CHAVE_PLANO_EMPRESA });
     toast.success(
       novo === "atendente"
         ? "Papel atualizado. A vendedora foi criada ou ligada abaixo."
@@ -277,7 +287,26 @@ export function Acessos() {
               </p>
             </div>
           ) : null}
-          <Button className="min-h-11 w-full sm:w-auto" onClick={convidar} disabled={enviando}>
+          {usuarios.limite !== null ? (
+            <p
+              className={
+                usuarios.noLimite
+                  ? "text-sm font-semibold text-problema-foreground"
+                  : "text-sm text-muted-foreground"
+              }
+            >
+              Usuários do plano: {usuarios.emUso} de {usuarios.limite} (admin e atendente; técnicos
+              não contam).
+              {usuarios.noLimite
+                ? " Limite atingido: para mais, usuário extra (R$ 29/mês) ou outro plano — fale com a Nexa."
+                : ""}
+            </p>
+          ) : null}
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            onClick={convidar}
+            disabled={enviando || (usuarios.noLimite && papel !== "tecnico")}
+          >
             {enviando ? "Enviando..." : "Convidar"}
           </Button>
           <p className="text-xs text-muted-foreground">

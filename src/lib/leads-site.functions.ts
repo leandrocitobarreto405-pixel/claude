@@ -11,6 +11,10 @@ import {
   requireEmpresa,
   requireEmpresaGravavel,
 } from "@/lib/empresa.middleware";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** crm: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("crm");
 
 export type SituacaoLeadSite = "nao_chamou" | "chamou" | "invalido" | "chamado_equipe";
 
@@ -43,7 +47,7 @@ async function exigirEscritorio(db: SupabaseClient<Database>) {
 const PERIODOS = { hoje: 0, "7d": 7, "30d": 30 } as const;
 
 export const listarLeadsSite = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { periodo: keyof typeof PERIODOS }) => {
     if (!(input.periodo in PERIODOS)) throw new Error("Período inválido.");
     return input;
@@ -116,7 +120,7 @@ const ID = /^[0-9a-f-]{36}$/i;
 
 /** "Marcar como chamado" (ou desfazer). */
 export const marcarLeadChamado = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { id: string; chamado: boolean }) => {
     if (!ID.test(input.id)) throw new Error("Lead inválido.");
     return input;
@@ -155,7 +159,7 @@ export const marcarLeadChamado = createServerFn({ method: "POST" })
 
 /** Manda o modelo aprovado ao lead (só quando alguém toca). Uma vez por lead. */
 export const chamarLeadPeloModelo = createServerFn({ method: "POST" })
-  .middleware([requireEmpresaGravavel])
+  .middleware([requireEmpresaGravavel, comRecurso])
   .inputValidator((input: { id: string }) => {
     if (!ID.test(input.id)) throw new Error("Lead inválido.");
     return input;
@@ -225,7 +229,7 @@ export type ConfigLeadsSite = {
 };
 
 export const configLeadsSite = createServerFn({ method: "GET" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ConfigLeadsSite> => {
     const db = context.supabase;
     const [{ data: planilhas }, { data: cfg }] = await Promise.all([
@@ -291,7 +295,7 @@ export function idDaPlanilha(valor: string): string | null {
 }
 
 export const salvarPlanilhaLeads = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(
     (input: { id?: string; nome: string; planilha: string; aba: string; ativa: boolean }) => {
       if (input.id && !ID.test(input.id)) throw new Error("Planilha inválida.");
@@ -331,7 +335,7 @@ export const salvarPlanilhaLeads = createServerFn({ method: "POST" })
 
 /** Lê o cabeçalho e conta as linhas, sem gravar nada (nem na planilha, nem no banco). */
 export const conferirPlanilhaLeads = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { planilha: string; aba: string }) => {
     if (!idDaPlanilha(input.planilha)) throw new Error("Cole o link da planilha do Google.");
     return input;
@@ -365,7 +369,7 @@ export const conferirPlanilhaLeads = createServerFn({ method: "POST" })
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const salvarConfigLeadsSite = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(
     (input: {
       avisoMinutos: number;
@@ -418,7 +422,7 @@ export const salvarConfigLeadsSite = createServerFn({ method: "POST" })
 
 /** "Ativar" / "Desativar" o envio automático. Só cadastros lidos depois de ativar recebem. */
 export const ativarEnvioLeadsSite = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { ligado: boolean }) => input)
   .handler(async ({ data, context }) => {
     const { dbServico } = await import("@/lib/mkt/contexto.server");

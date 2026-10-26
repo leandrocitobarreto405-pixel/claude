@@ -39,6 +39,8 @@ type Edicao = {
   comissao: string;
   recursos: Record<string, boolean>;
   ativo: boolean;
+  limite: string;
+  publico: boolean;
 };
 
 function pct(n: number) {
@@ -66,6 +68,11 @@ function PlanosNexa() {
       toast.error("Comissão inválida.");
       return;
     }
+    const limite = edicao.limite.trim() ? Math.round(Number(edicao.limite)) : null;
+    if (limite !== null && (!Number.isFinite(limite) || limite < 1 || limite > 999)) {
+      toast.error("Limite de usuários inválido (vazio = sem limite).");
+      return;
+    }
     if (edicao.nome.trim().length < 2) {
       toast.error("Informe o nome do plano.");
       return;
@@ -80,6 +87,8 @@ function PlanosNexa() {
         comissao_pct: comissao,
         recursos: edicao.recursos,
         ativo: edicao.ativo,
+        limite_usuarios: limite,
+        publico: edicao.publico,
       })
       .eq("id", edicao.plano.id);
     setSalvando(false);
@@ -138,6 +147,8 @@ function PlanosNexa() {
                     comissao: String(p.comissao_pct).replace(".", ","),
                     recursos: { ...p.recursos },
                     ativo: p.ativo,
+                    limite: p.limite_usuarios === null ? "" : String(p.limite_usuarios),
+                    publico: p.publico,
                   })
                 }
               >
@@ -204,7 +215,8 @@ function PlanosNexa() {
               <fieldset className="space-y-1">
                 <legend className="mb-1 text-sm font-medium">Recursos</legend>
                 <p className="text-xs text-muted-foreground">
-                  Agenda, OS, orçamento e financeiro estão em todos os planos.
+                  OS, orçamento com PDF, agenda, técnicos (agenda no WhatsApp), recebimentos,
+                  despesas, notas fiscais e exportações estão em todos os planos.
                 </p>
                 {RECURSOS_PLANO.map((r) => (
                   <label key={r.chave} className="flex min-h-11 items-center gap-2 text-sm">
@@ -219,10 +231,36 @@ function PlanosNexa() {
                         })
                       }
                     />
-                    {r.rotulo}
+                    <span>
+                      {r.rotulo}
+                      <span className="block text-xs text-muted-foreground">{r.telas}</span>
+                    </span>
                   </label>
                 ))}
               </fieldset>
+              <div className="space-y-2">
+                <Label htmlFor="plano-limite">Limite de usuários (admin e atendente)</Label>
+                <Input
+                  id="plano-limite"
+                  className="min-h-11"
+                  inputMode="numeric"
+                  placeholder="sem limite"
+                  value={edicao.limite}
+                  onChange={(e) =>
+                    setEdicao({ ...edicao, limite: e.target.value.replace(/\D/g, "") })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">Técnicos e equipe Nexa não contam.</p>
+              </div>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={edicao.publico}
+                  onChange={(e) => setEdicao({ ...edicao, publico: e.target.checked })}
+                />
+                Aparece na tabela pública de preços
+              </label>
               <label className="flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"

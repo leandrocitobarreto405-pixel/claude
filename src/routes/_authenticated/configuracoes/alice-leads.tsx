@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ComRecurso } from "@/components/plano/recurso-bloqueado";
 import { Link2, Megaphone, Upload } from "lucide-react";
 import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Listas } from "@/components/configuracoes/listas";
@@ -13,22 +14,32 @@ export const Route = createFileRoute("/_authenticated/configuracoes/alice-leads"
   component: () => (
     <PaginaGrupo grupo="alice-leads">
       <SecaoConfig titulo="Alice" aberta>
-        <AliceConfig />
+        <ComRecurso recurso="alice">
+          <AliceConfig />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Alice: ensaio do nome do cliente">
-        <EnsaioNome />
+        <ComRecurso recurso="alice">
+          <EnsaioNome />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Alice: responder em áudio">
-        <AliceAudio />
+        <ComRecurso recurso="alice">
+          <AliceAudio />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Leads do site">
-        <LeadsSiteConfig />
+        <ComRecurso recurso="crm">
+          <LeadsSiteConfig />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Listas de marketing e mensagens por origem">
-        <div className="grid gap-6">
-          <Listas />
-          <MensagensOrigem />
-        </div>
+        <ComRecurso recurso="marketing">
+          <div className="grid gap-6">
+            <Listas />
+            <MensagensOrigem />
+          </div>
+        </ComRecurso>
       </SecaoConfig>
       <LinkDeConfig
         to="/crm/integracoes"

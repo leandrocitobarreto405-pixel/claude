@@ -25,6 +25,10 @@ import {
 import type { Banco } from "@/lib/banco";
 import { exigirLivreOuMinha } from "@/lib/caixa-equipe.server";
 import type { Papel } from "@/lib/tenant";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** caixa_entrada: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("caixa_entrada");
 
 const ID = /^[0-9a-f-]{36}$/i;
 const validarConversa = (i: { conversaId: string }) => {
@@ -166,7 +170,7 @@ export type EstadoResposta = {
 
 /** O que a barra de resposta mostra: janela aberta (texto) ou fechada (modelos), e se pode. */
 export const estadoRespostaFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator(validarConversa)
   .handler(async ({ data, context }): Promise<EstadoResposta> => {
     const ctx = context as unknown as Contexto;
@@ -201,7 +205,7 @@ export const estadoRespostaFn = createServerFn({ method: "GET" })
 
 /** Texto livre, só dentro da janela de 24 h. */
 export const enviarTextoFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresaGravavel])
+  .middleware([requireEmpresaGravavel, comRecurso])
   .inputValidator((i: { conversaId: string; texto: string }) => ({
     ...validarConversa(i),
     texto: validarTexto(i.texto),
@@ -239,7 +243,7 @@ export const enviarTextoFn = createServerFn({ method: "POST" })
 
 /** Modelos aprovados da caixa desta conversa, já preenchidos com o nome do cliente. */
 export const modelosParaResponderFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator(validarConversa)
   .handler(async ({ data, context }): Promise<ModeloParaResponder[]> => {
     const ctx = context as unknown as Contexto;
@@ -252,7 +256,7 @@ export const modelosParaResponderFn = createServerFn({ method: "GET" })
 
 /** Modelo aprovado (fora da janela de 24 h). O texto gravado é o que o cliente vai ler. */
 export const enviarModeloFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresaGravavel])
+  .middleware([requireEmpresaGravavel, comRecurso])
   .inputValidator((i: { conversaId: string; nome: string; idioma: string }) => {
     const nome = String(i?.nome ?? "").trim();
     const idioma = String(i?.idioma ?? "").trim();
@@ -304,7 +308,7 @@ export const enviarModeloFn = createServerFn({ method: "POST" })
  * tem modelo aprovado.
  */
 export const enviarAnexoFn = createServerFn({ method: "POST" })
-  .middleware([requireEmpresaGravavel])
+  .middleware([requireEmpresaGravavel, comRecurso])
   .inputValidator((input: FormData) => {
     if (!(input instanceof FormData)) throw new Error("Envio inválido.");
     return input;

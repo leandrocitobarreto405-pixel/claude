@@ -5,6 +5,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import { MODELOS_ANTIGOS } from "@/lib/alice/pos-atendimento";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** alice: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("alice");
 
 export type ChavePos = "confirmacao" | "pos_venda" | "avaliacao";
 
@@ -127,7 +131,7 @@ const NOME_MODELO = /^[a-z0-9_]{1,512}$/;
 
 /** Horários, nomes dos modelos, link e texto da avaliação (não liga nada). */
 export const salvarPosAtendimento = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator(
     (input: {
       confirmacao_hora: string;
@@ -174,7 +178,7 @@ export const salvarPosAtendimento = createServerFn({ method: "POST" })
 
 /** "Ativar" / "Desativar": só aqui uma chave liga. */
 export const ativarPosAtendimento = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { chave: ChavePos; ligada: boolean }) => {
     if (!["confirmacao", "pos_venda", "avaliacao"].includes(input.chave))
       throw new Error("Opção inválida.");

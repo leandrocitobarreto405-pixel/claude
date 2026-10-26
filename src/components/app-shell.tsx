@@ -4,7 +4,7 @@ import { AceiteTermos } from "@/components/termos/aceite-termos";
 import { useSituacaoAssinatura } from "@/lib/assinatura-situacao";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ChevronLeft, Droplets, Inbox, LogOut, X } from "lucide-react";
+import { ChevronLeft, Droplets, Inbox, Lock, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +33,10 @@ import { useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
 import { itemAtivo, menuDoPapel } from "@/lib/menu";
 import { minhaImplantacaoFn } from "@/lib/implantacao.functions";
+import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
+import { recursoDaRota, temRecurso } from "@/lib/recursos";
+import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
+import { SinoNexa } from "@/components/plano/sino-nexa";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
@@ -58,6 +62,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         progresso: `${resumo.obrigatorias.prontas + resumo.opcionais.prontas} de ${resumo.obrigatorias.total + resumo.opcionais.total}`,
       }
     : null;
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
   const grupos = menuDoPapel(papel, souNexa, primeirosPassos, ctx?.painelNexa ?? false);
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
@@ -90,6 +95,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 ) : null}
                 <Icon className={cn("size-4 shrink-0", active && "text-destaque")} />
                 <span className="truncate">{item.rotulo}</span>
+                {(() => {
+                  const r = recursoDaRota(item.to);
+                  return r && !temRecurso(planoEmpresa, r) ? (
+                    <Lock
+                      className="ml-auto size-3.5 shrink-0 opacity-70"
+                      aria-label="Fora do plano"
+                    />
+                  ) : null;
+                })()}
               </Link>
             );
           })}
@@ -158,6 +172,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const liberado = podeAcessar(vinculo?.papel ?? null, pathname, ctx?.souNexa ?? false);
   const { data: assinatura } = useSituacaoAssinatura(vinculo?.empresa.id);
   const bloqueada = assinatura?.situacao === "bloqueada" && !ctx?.souNexa && !rotaNexa;
+  // Tela de recurso fora do plano: cadeado no lugar da tela (vale também para a equipe Nexa).
+  const { data: planoEmpresa } = usePlanoDaEmpresa();
+  const recursoDaTela = vinculo && !rotaNexa ? recursoDaRota(pathname) : null;
+  const telaForaDoPlano = recursoDaTela !== null && !temRecurso(planoEmpresa, recursoDaTela);
   const abasBase = painelNexa
     ? abasDoPapel(null, ctx?.souNexa ?? false, true)
     : vinculo
@@ -241,7 +259,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
 
-            <SinoDeAvisos ligado={Boolean(vinculo)} />
+            {painelNexa ? <SinoNexa /> : <SinoDeAvisos ligado={Boolean(vinculo)} />}
 
             <Button
               variant="ghost"
@@ -327,6 +345,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : bloqueada && vinculo ? (
             <EmpresaBloqueada nome={vinculo.empresa.nome} />
+          ) : liberado && telaForaDoPlano && recursoDaTela ? (
+            <RecursoBloqueado recurso={recursoDaTela} />
           ) : liberado ? (
             children
           ) : (

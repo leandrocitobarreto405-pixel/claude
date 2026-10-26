@@ -1,5 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { camposFaltando, limparCampos } from "@/lib/alice/campos-roteiro";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** Alice: recurso do plano (Profissional + Alice, Nexa Gestão, Interna). */
+const comRecurso = requireRecurso("alice");
 import { requireNexaAdmin } from "@/lib/nexa.middleware";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 
@@ -217,7 +221,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
   });
 
 export const salvarAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: Omit<ConfigAlice, "ativo">) => {
     if (!MODELOS_ALICE.some((m) => m.id === input.modelo)) throw new Error("Modelo inválido.");
     if (!["low", "medium", "high"].includes(input.esforco)) throw new Error("Esforço inválido.");
@@ -277,7 +281,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
 
 /** Liga/desliga a Alice: coloca (ou tira) o robô nas caixas de entrada da empresa no Chatwoot. */
 export const ligarAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { ativo: boolean }) => ({ ativo: Boolean(input.ativo) }))
   .handler(async ({ data, context }) => {
     const { ligarRoboNaCaixa, mudarSituacao } = await import("@/lib/alice/chatwoot-api.server");
@@ -406,7 +410,7 @@ export const criarRoboAlice = createServerFn({ method: "POST" })
  * pasta da empresa; o arquivo anterior do mesmo campo é apagado.
  */
 export const salvarMidiaAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((input: { campo: CampoMidia; caminho: string | null }) => {
     if (!CAMPOS_MIDIA.includes(input.campo)) throw new Error("Campo inválido.");
     if (input.caminho !== null && !/^[0-9a-f-]{36}\/[\w.-]{1,120}$/i.test(input.caminho))

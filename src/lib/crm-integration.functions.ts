@@ -2,6 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import { processWhatsappPayload } from "./crm-webhook.server";
 import { ENDERECO_SERVIDOR } from "@/lib/enderecos";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** crm: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("crm");
 
 async function assertStaff(
   supabase: {
@@ -38,7 +42,7 @@ const SECRET_LABELS: { name: string; label: string }[] = [
 ];
 
 export const getWhatsappStatus = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }): Promise<WhatsappIntegrationStatus> => {
     await assertStaff(context.supabase as never, context.userId);
 
@@ -83,7 +87,7 @@ export const getWhatsappStatus = createServerFn({ method: "GET" })
   });
 
 export const listWebhookEvents = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(async ({ context }) => {
     await assertStaff(context.supabase as never, context.userId);
     const { data, error } = await context.supabase
@@ -99,7 +103,7 @@ export const listWebhookEvents = createServerFn({ method: "GET" })
 
 /** Reprocessa um evento que ficou com erro, sem duplicar mensagens já gravadas. */
 export const reprocessWebhookEvent = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
   .handler(async ({ data, context }) => {
     await assertStaff(context.supabase as never, context.userId);
@@ -149,7 +153,7 @@ export const reprocessWebhookEvent = createServerFn({ method: "POST" })
 
 /** Simula um recebimento para validar o fluxo antes de conectar a Meta. */
 export const simulateWhatsappMessage = createServerFn({ method: "POST" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .inputValidator((input: { phone: string; name: string; text: string }) => ({
     phone: String(input.phone ?? "").slice(0, 20),
     name: String(input.name ?? "").slice(0, 120),

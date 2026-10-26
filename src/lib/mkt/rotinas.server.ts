@@ -255,8 +255,12 @@ export async function rotinaDiaria(opcoes: { hoje?: string; empresaId?: string |
   const { data, error } = await q;
   if (error) throw error;
   const resultados: ResultadoRotina[] = [];
-  for (const { empresa_id } of data ?? [])
+  const { empresaTemRecurso } = await import("@/lib/recursos.server");
+  for (const { empresa_id } of data ?? []) {
+    // Campanhas e reativação são do Profissional em diante.
+    if (!(await empresaTemRecurso(db as never, empresa_id, "marketing"))) continue;
     resultados.push(await rotinaEmpresa(db, empresa_id, hoje));
+  }
   return resultados;
 }
 

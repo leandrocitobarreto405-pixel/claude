@@ -19,6 +19,10 @@ import {
   vozValida,
   type Voz,
 } from "@/lib/alice/voz";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** alice: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("alice");
 
 export const CHAVE_AUDIO_ALICE = ["alice-audio"] as const;
 
@@ -130,7 +134,7 @@ export const vozesAlice = createServerFn({ method: "GET" })
 
 /** Ouvir uma voz: gera a frase de exemplo (registrada como teste, com o custo). */
 export const ouvirVozAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { voz: string; frase?: string }) => {
     if (!vozValida(i?.voz)) throw new Error("Voz inválida.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
@@ -176,7 +180,7 @@ const faixa = (v: unknown, min: number, max: number, nome: string) => {
 };
 
 export const salvarAudioAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: ConfigAudioForm) => {
     if (i.voz !== null && !vozValida(i.voz)) throw new Error("Voz inválida.");
     return {
@@ -211,7 +215,7 @@ export const salvarAudioAlice = createServerFn({ method: "POST" })
   });
 
 export const ativarAudioAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { ativo: boolean }) => ({ ativo: i?.ativo === true }))
   .handler(async ({ data, context }) => {
     const { data: atual } = await context.supabase
@@ -262,7 +266,7 @@ async function conversaDoContato(empresaId: string, telefone: string) {
 
 /** Contatos internos (equipe) para o teste de envio: nome e os 4 últimos dígitos. */
 export const contatosTesteAudio = createServerFn({ method: "GET" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }): Promise<ContatoTeste[]> => {
     const { data } = await context.supabase
       .from("contatos_internos")
@@ -284,7 +288,7 @@ export const contatosTesteAudio = createServerFn({ method: "GET" })
  * pelo mesmo caminho das respostas (anexo .ogg + nota privada). Nunca vai para cliente.
  */
 export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa, requireEmpresaGravavel])
+  .middleware([requireAdminEmpresa, requireEmpresaGravavel, comRecurso])
   .inputValidator((i: { contatoId: string; frase?: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i?.contatoId ?? ""))) throw new Error("Contato inválido.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;

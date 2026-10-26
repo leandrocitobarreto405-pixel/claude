@@ -11,6 +11,10 @@ import {
   validarRespostas,
   type RespostaPronta,
 } from "@/lib/respostas-prontas";
+import { requireRecurso } from "@/lib/recurso.middleware";
+
+/** caixa_entrada: recurso do plano (Essencial não tem). */
+const comRecurso = requireRecurso("caixa_entrada");
 
 const CHAVE = "respostas_prontas";
 
@@ -88,7 +92,7 @@ async function gravar(empresaId: string, g: Guardado) {
 }
 
 export const listarRespostasFn = createServerFn({ method: "GET" })
-  .middleware([requireEmpresa])
+  .middleware([requireEmpresa, comRecurso])
   .handler(
     async ({ context }): Promise<{ itens: RespostaPronta[]; importadoEm: string | null }> => {
       const { data: papel } = await context.supabase.rpc("meu_papel" as never);
@@ -115,7 +119,7 @@ export const listarRespostasFn = createServerFn({ method: "GET" })
   );
 
 export const salvarRespostasFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .inputValidator((i: { itens: RespostaPronta[] }) => ({
     itens: validarRespostas(Array.isArray(i?.itens) ? i.itens : []),
   }))
@@ -130,7 +134,7 @@ export const salvarRespostasFn = createServerFn({ method: "POST" })
 
 /** Importa de novo do Chatwoot só as que faltam (atalho que ainda não existe aqui). */
 export const importarRespostasChatwootFn = createServerFn({ method: "POST" })
-  .middleware([requireAdminEmpresa])
+  .middleware([requireAdminEmpresa, comRecurso])
   .handler(async ({ context }) => {
     const atual = (await lerGuardado(context.empresaId)) ?? {
       itens: [],

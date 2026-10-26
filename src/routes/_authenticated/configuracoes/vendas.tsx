@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ComRecurso } from "@/components/plano/recurso-bloqueado";
 import { PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Taxas } from "@/components/configuracoes/taxas";
 import { CuponsConfig } from "@/components/configuracoes/cupons";
@@ -24,7 +25,9 @@ function Vendas() {
         <OrcamentoRegrasConfig />
       </SecaoConfig>
       <SecaoConfig titulo="Cupons">
-        <CuponsConfig />
+        <ComRecurso recurso="cupons">
+          <CuponsConfig />
+        </ComRecurso>
       </SecaoConfig>
       <SecaoConfig titulo="Nota fiscal">
         <RegraNotaFiscal />

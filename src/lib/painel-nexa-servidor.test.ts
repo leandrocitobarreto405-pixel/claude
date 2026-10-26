@@ -105,6 +105,8 @@ const FUNCOES_DO_PAINEL: Array<[arquivo: string, funcao: string]> = [
   ["./implantacao.functions", "implantacoesNexaFn"],
   ["./implantacao.functions", "liberarEmpresaFn"],
   ["./alice.functions", "criarRoboAlice"],
+  ["./plano.functions", "pedidosPlanoNexaFn"],
+  ["./plano.functions", "marcarPedidoVistoFn"],
 ];
 
 const ENTRADA = {
