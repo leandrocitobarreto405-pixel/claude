@@ -729,6 +729,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                  | `29cd1e9`           | `1fb9286`                |
 | 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários       | `e1b4651`           | `f0dd67c`                |
 | 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)      | `19900e6`           | `72a7790`                |
+| 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)          | `7578347`           | `665e779`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -881,6 +882,20 @@ nada enviado nem gravado). Migração `20261216120000_alice_tecido_nao_identific
 (coluna nova com padrão "equipe"; Modelo Nexa e Turbine ficaram em "equipe"). Como desfazer:
 `git revert 19900e6` (sem force push); banco: `ALTER TABLE public.ia_configuracoes DROP COLUMN
 tecido_nao_identificado;` (só depois do revert do código, que lê e grava a coluna).
+
+Alice, regras de 26/10 ligadas (26/10, sem ensaio, acompanhamento no dia a dia): "pergunta
+respondida é pergunta encerrada" para todas as empresas; regra do tecido. Roteiro da Turbine e do
+Modelo Nexa: só a última frase da linha do tecido mudou ("Se ficar em dúvida, não marque e transfira
+com o motivo 'confirmar tecido'." → "Se o cliente não souber o tecido e a foto não deixar claro, siga
+a regra 'Tecido não identificado' (nas regras do sistema, acima)."), conferido pelo md5. Turbine em
+"Seguir com a classe B" (não pede foto de perto; foto que mostra o tecido vale; senão pergunta uma
+vez com exemplos; sem resposta, classe B sem falar de classe; nunca transfere por tecido). Modelo
+Nexa continua em "equipe". Cópias antes da mudança em app_settings `alice_roteiro_copia_20261026_tecido`
+(Turbine md5 e7e88fe9c2ab480c59842ad5ac609c81, Modelo f2099e08ef4fbf602b84cbe01551ce64). Como
+desfazer: roteiro: `UPDATE public.ia_configuracoes c SET instrucoes = s.value->>'instrucoes' FROM
+public.app_settings s WHERE s.empresa_id = c.empresa_id AND s.key = 'alice_roteiro_copia_20261026_tecido';`;
+Turbine em "equipe": `UPDATE public.ia_configuracoes SET tecido_nao_identificado = 'equipe' WHERE
+empresa_id = '11111111-1111-1111-1111-111111111111';`; regra: `git revert 7578347` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
