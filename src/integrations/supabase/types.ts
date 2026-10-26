@@ -1893,6 +1893,9 @@ export type Database = {
       };
       cupons: {
         Row: {
+          origem_id: string | null;
+          valido_ate: string | null;
+          percentual: number | null;
           ativo: boolean;
           canal: string | null;
           codigo: string;
@@ -1901,9 +1904,12 @@ export type Database = {
           id: string;
           servico: string;
           updated_at: string;
-          valor: number;
+          valor: number | null;
         };
         Insert: {
+          origem_id?: string | null;
+          valido_ate?: string | null;
+          percentual?: number | null;
           ativo?: boolean;
           canal?: string | null;
           codigo: string;
@@ -1912,9 +1918,12 @@ export type Database = {
           id?: string;
           servico: string;
           updated_at?: string;
-          valor: number;
+          valor?: number | null;
         };
         Update: {
+          origem_id?: string | null;
+          valido_ate?: string | null;
+          percentual?: number | null;
           ativo?: boolean;
           canal?: string | null;
           codigo?: string;
@@ -1923,7 +1932,7 @@ export type Database = {
           id?: string;
           servico?: string;
           updated_at?: string;
-          valor?: number;
+          valor?: number | null;
         };
         Relationships: [];
       };

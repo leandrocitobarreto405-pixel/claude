@@ -3,7 +3,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { precificar, totalizar, type ItemTabela } from "./orcamento-alice";
-import { conferirCupom, cupomNoTexto, maiorDesconto, type Cupom } from "./cupons";
+import {
+  conferirCupom,
+  cupomNoPrazo,
+  cupomNoTexto,
+  maiorDesconto,
+  rotuloCupom,
+  valorDoCupom,
+  type Cupom,
+} from "./cupons";
 import { REGRAS_DESLIGADAS, type RegrasOrcamento } from "@/lib/orcamento-regras";
 
 const turbine: RegrasOrcamento = {
@@ -28,7 +36,15 @@ function orcamento(codigo: string, servico: "higienizacao" | "impermeabilizacao"
   const c = conferirCupom(codigo, servico, CUPONS);
   assert.ok(c.ok, `cupom ${codigo} aceito`);
   const linha = precificar({ item: comum3, quantidade: 1 }, servico, turbine)!;
-  return totalizar([linha], { valor: c.cupom.valor, rotulo: `Cupom ${c.cupom.codigo}` }, 5, 5);
+  return totalizar(
+    [linha],
+    {
+      valor: valorDoCupom(c.cupom, linha.preco * linha.quantidade),
+      rotulo: `Cupom ${c.cupom.codigo}`,
+    },
+    5,
+    5,
+  );
 }
 
 for (const codigo of ["BLOG50", "SITE50"]) {
@@ -102,4 +118,23 @@ test("cupom citado na primeira mensagem é reconhecido (sem pedir de novo)", () 
   assert.equal(cupomNoTexto("(cupom site82).", CUPONS)?.codigo, "SITE82");
   assert.equal(cupomNoTexto("quero um orçamento", CUPONS), null);
   assert.equal(cupomNoTexto("BLOG500", CUPONS), null);
+});
+
+test("cupom em percentual, rótulo e validade (tela de cupons)", () => {
+  const pct: Cupom = {
+    codigo: "DEZ10",
+    valor: null,
+    percentual: 10,
+    servico: "higienizacao",
+    canal: null,
+  };
+  assert.equal(valorDoCupom(pct, 260), 26);
+  assert.equal(valorDoCupom({ valor: 300 }, 260), 260, "nunca maior que a base");
+  assert.equal(rotuloCupom(pct), "10%");
+  assert.equal(rotuloCupom({ valor: 50 }), "R$ 50,00");
+  assert.equal(maiorDesconto(260, pct, { pct: 5, rotulo: "Pix" })?.tipo, "cupom");
+  assert.equal(maiorDesconto(260, pct, { pct: 15, rotulo: "Indicação" })?.tipo, "pct");
+  assert.equal(cupomNoPrazo(null, "2026-10-26"), true);
+  assert.equal(cupomNoPrazo("2026-10-26", "2026-10-26"), true, "o último dia vale");
+  assert.equal(cupomNoPrazo("2026-10-25", "2026-10-26"), false);
 });

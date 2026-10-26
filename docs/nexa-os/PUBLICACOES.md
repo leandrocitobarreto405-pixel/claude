@@ -715,6 +715,9 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)      | `fe63886`           | `48551f8`                |
 | 24/10/2026       | Agenda dos técnicos para todas as empresas (envio desligado)        | `3183848`           | `38e7e1b`                |
 | 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada) | `15db309`           | `28385d8`                |
+| 26/10/2026       | Item 8: regra mínima de senha; plano grátis e plano de backup (D12) | `b028603`           | `dc1f08e`                |
+| 26/10/2026       | Fase B item 4: empresa-modelo neutra                                | `bcffe3f`           | `b028603`                |
+| 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa             | `788be83`           | `bcffe3f`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -723,8 +726,8 @@ interno. Modelo `agenda_tecnico_dia` cadastrado na Meta no número da Turbine em
 o token não saiu do banco) e registrado em `modelos_edicoes`. Como desfazer: `git revert 3183848`
 (sem force push); o modelo pode ficar na Meta (nada envia sem a agenda ligada).
 
-Fase B item 4 (26/10): empresa-modelo neutra (`20261209120000`, ensaio desfeito antes; registrada
-no histórico com o número do dia da aplicação). Empresa "Modelo Nexa (não usar)"
+Fase B item 4 (26/10): empresa-modelo neutra (`20261209120000`, ensaio desfeito antes; número
+no histórico acertado para `20261209120000`). Empresa "Modelo Nexa (não usar)"
 (`99999999-9999-4999-8999-999999999999`, inativa, sem usuários, escondida no Painel Nexa ›
 Empresas e na Implantação) com 97 opções (origens com "Site (orgânico)" e "Blog" sem palavras de
 cupom, etapas do CRM, serviços, estofados, pagamentos, despesas, motivos) e 3 mensagens padrão sem
@@ -737,12 +740,25 @@ Fase B item 8 (26/10, decisões C e H): código do "li e aceito" (janela no app,
 Planos › Termos) publicado sem efeito: enquanto `termos_versao` estiver vazio ninguém é perguntado,
 e sem a tabela nova o servidor só devolve "nada a aceitar". A migração `20261208120000`
 (`termos_aceites` com RLS, chaves `termos_versao`/`termos_url` vazias, search_path de
-`private.validar_proximo_numero_os`) foi aplicada em 26/10 depois do ensaio desfeito (registrada no
-histórico como `20261026024838`; acerto do número para `20261208120000` pendente). Regra mínima de
+`private.validar_proximo_numero_os`) foi aplicada em 26/10 depois do ensaio desfeito (número no
+histórico acertado de `20261026024838` para `20261208120000`). Regra mínima de
 senha (8 caracteres, letra e número) no cadastro e na troca de senha: só código.
 Como desfazer o código: `git revert` deste commit (sem force push). Banco (depois de aplicada):
 `DROP TABLE public.termos_aceites;` e
 `ALTER FUNCTION private.validar_proximo_numero_os() RESET search_path;`.
+
+Cupons com tela própria (26/10, Fase B item 5, decisão 4a): migração `20261210120000` aplicada
+depois do ensaio desfeito (os 4 cupons da Turbine continuaram com o mesmo valor e ganharam a
+origem: BLOG50/BLOG82 → Blog, SITE50/SITE82 → Site (orgânico)). Cupom passa a ter valor em reais
+OU percentual, validade (`valido_ate`) e origem (`origem_id`, só origem de lead da mesma empresa);
+o código fica em maiúsculas. Tela em Configurações › Vendas › Cupons (editar: admin; não apaga,
+inativa). No orçamento manual, Desconto › Cupom: digita o código e o desconto entra sozinho
+(grava como valor manual + código, igual à Alice). A Alice passou a aceitar cupom em % e ignora
+cupom vencido. Como desfazer o código: `git revert` do commit dos cupons (sem force push). Banco
+(só se não houver cupom em %): `DROP TRIGGER trg_cupons_conferir ON public.cupons; DROP FUNCTION
+private.cupons_conferir(); ALTER TABLE public.cupons DROP CONSTRAINT cupons_valor_ou_percentual,
+DROP COLUMN percentual, DROP COLUMN valido_ate, DROP COLUMN origem_id, ALTER COLUMN valor SET NOT
+NULL;`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.

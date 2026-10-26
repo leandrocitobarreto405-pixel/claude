@@ -25,7 +25,7 @@ import {
 import { rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { assinaturaOrcamento } from "./agendamento";
-import { conferirCupom, maiorDesconto, type Cupom } from "./cupons";
+import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import {
   descontoPermitido,
@@ -805,15 +805,20 @@ async function origemPorCodigo(ctx: ContextoFerramenta, codigo: string): Promise
 export async function cuponsAtivos(admin: Admin, empresaId: string): Promise<Cupom[]> {
   const { data } = await admin
     .from("cupons")
-    .select("codigo, valor, servico, canal")
+    .select("codigo, valor, percentual, servico, canal, valido_ate")
     .eq("empresa_id", empresaId)
     .eq("ativo", true);
-  return (data ?? []).map((c) => ({
-    codigo: c.codigo,
-    valor: Number(c.valor),
-    servico: c.servico as Servico,
-    canal: c.canal,
-  }));
+  const { cupomNoPrazo } = await import("./cupons");
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return (data ?? [])
+    .filter((c) => cupomNoPrazo(c.valido_ate, hoje))
+    .map((c) => ({
+      codigo: c.codigo,
+      valor: c.valor === null ? null : Number(c.valor),
+      percentual: c.percentual === null ? null : Number(c.percentual),
+      servico: c.servico as Servico,
+      canal: c.canal,
+    }));
 }
 
 async function consultarCliente(ctx: ContextoFerramenta) {
@@ -1137,7 +1142,10 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
     escolha?.tipo === "cupom"
-      ? { valor: escolha.cupom.valor, rotulo: `Cupom ${escolha.cupom.codigo}` }
+      ? {
+          valor: valorDoCupom(escolha.cupom, baseDesconto),
+          rotulo: `Cupom ${escolha.cupom.codigo}`,
+        }
       : escolha?.tipo === "pct"
         ? escolha.pct
         : null,

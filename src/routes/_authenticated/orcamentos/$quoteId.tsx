@@ -35,6 +35,9 @@ import {
   type OrigemDetectada,
 } from "@/lib/origem-venda";
 import { usePapel } from "@/lib/tenant";
+import { listarCuponsFn } from "@/lib/cupons.functions";
+import { aplicarCupom, CHAVE_CUPONS, limparCodigo } from "@/lib/cupons";
+import { rotuloCupom } from "@/lib/alice/cupons";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
 import { pdfDoOrcamentoFn } from "@/lib/documentos.functions";
@@ -190,10 +193,13 @@ function OrcamentoDetalhe() {
   const [observacoes, setObservacoes] = useState("");
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [desconto, setDesconto] = useState(0);
-  // Desconto: nenhum, campanha OU indicação (percentual das regras de marketing) ou valor manual.
-  const [descontoTipo, setDescontoTipo] = useState<"nenhum" | "campanha" | "indicacao" | "manual">(
-    "nenhum",
-  );
+  // Desconto: nenhum, campanha OU indicação (percentual das regras de marketing), cupom da
+  // empresa (Configurações › Vendas › Cupons) ou valor manual. Cupom grava como valor manual +
+  // código do cupom, igual ao orçamento da Alice.
+  const [descontoTipo, setDescontoTipo] = useState<
+    "nenhum" | "campanha" | "indicacao" | "cupom" | "manual"
+  >("nenhum");
+  const [cupomCodigo, setCupomCodigo] = useState("");
   // Valor no Pix: calculado (total − Pix da empresa); só fica fixo se a atendente editar.
   const [aVistaEditado, setAVistaEditado] = useState<number | null>(null);
   const [km, setKm] = useState(0);
@@ -267,7 +273,12 @@ function OrcamentoDetalhe() {
     setDataServico(q.data_servico ?? "");
     setObservacoes(q.observacoes ?? "");
     setDesconto(Number(q.desconto ?? 0));
-    setDescontoTipo(q.desconto_tipo ?? (Number(q.desconto ?? 0) > 0 ? "manual" : "nenhum"));
+    setCupomCodigo(q.cupom ?? "");
+    setDescontoTipo(
+      q.cupom && q.desconto_tipo === "manual"
+        ? "cupom"
+        : (q.desconto_tipo ?? (Number(q.desconto ?? 0) > 0 ? "manual" : "nenhum")),
+    );
     // Valor salvo; se for igual ao calculado, deixa de contar como editado (efeito abaixo).
     setAVistaEditado(q.valor_a_vista === null ? null : Number(q.valor_a_vista));
     setKm(Number(q.km_ida_volta ?? 0));
@@ -455,6 +466,12 @@ function OrcamentoDetalhe() {
       ? descontosCliente?.[descontoTipo]
       : undefined;
   const descontoPct = opcaoDesconto && "pct" in opcaoDesconto ? opcaoDesconto.pct : null;
+  const listarCupons = useServerFn(listarCuponsFn);
+  const { data: cuponsEmpresa } = useQuery({
+    queryKey: CHAVE_CUPONS,
+    enabled: descontoTipo === "cupom",
+    queryFn: () => listarCupons(),
+  });
 
   // Preço sugerido pelas regras (item principal cheio, adicionais com desconto) e valor final.
   const sugestoes = useMemo(
@@ -482,6 +499,33 @@ function OrcamentoDetalhe() {
   const taxaMantida = manterTaxa && taxaManual === null ? taxaEnviada : null;
   const sugeridoDe = (l: Linha) => sugestoes.get(l.key)?.precoSugerido ?? tabelaComAcrescimo(l);
   const finalDe = (l: Linha) => l.preco_editado ?? sugeridoDe(l);
+  // Cupom: desconto sobre os itens do serviço do cupom (reais ou %), recalculado a cada mudança.
+  const cupomAplicado = useMemo(() => {
+    if (descontoTipo !== "cupom" || !cuponsEmpresa) return null;
+    const base = { higienizacao: 0, impermeabilizacao: 0 };
+    for (const l of linhas) base[l.tipo_servico] += finalDe(l) * l.quantidade;
+    return aplicarCupom(
+      cupomCodigo,
+      cuponsEmpresa.cupons
+        .filter((c) => c.ativo)
+        .map((c) => ({
+          codigo: c.codigo,
+          valor: c.tipo === "valor" ? c.quantia : null,
+          percentual: c.tipo === "percentual" ? c.quantia : null,
+          servico: c.servico,
+          validoAte: c.validoAte,
+        })),
+      base,
+      new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descontoTipo, cuponsEmpresa, cupomCodigo, linhas, sugestoes]);
+  const descontoValor =
+    descontoTipo === "manual"
+      ? desconto
+      : descontoTipo === "cupom" && cupomAplicado?.ok
+        ? cupomAplicado.desconto
+        : 0;
   const totais = useMemo(
     () =>
       calcularTotais({
@@ -494,7 +538,7 @@ function OrcamentoDetalhe() {
         regras,
         muitoSujo,
         distanciaKm: kmIda,
-        desconto: descontoTipo === "manual" ? desconto : 0,
+        desconto: descontoValor,
         descontoPct,
         clienteNovo: clienteNovo !== false,
         taxaDistancia: taxaManual ?? taxaMantida,
@@ -506,8 +550,7 @@ function OrcamentoDetalhe() {
       regras,
       muitoSujo,
       kmIda,
-      desconto,
-      descontoTipo,
+      descontoValor,
       descontoPct,
       clienteNovo,
       taxaManual,
@@ -661,9 +704,11 @@ function OrcamentoDetalhe() {
           customer_id: null,
           data_servico: dataServico || null,
           observacoes: observacoes || null,
-          desconto: descontoTipo === "manual" ? desconto : 0,
-          desconto_tipo: descontoTipo === "nenhum" ? null : descontoTipo,
+          desconto: descontoValor,
+          desconto_tipo:
+            descontoTipo === "nenhum" ? null : descontoTipo === "cupom" ? "manual" : descontoTipo,
           desconto_pct: descontoPct,
+          cupom: descontoTipo === "cupom" && cupomAplicado?.ok ? cupomAplicado.cupom.codigo : null,
           valor_a_vista: aVista > 0 ? aVista : null,
           km_ida_volta: km,
           custo_produtos: custoProdutos,
@@ -1327,6 +1372,7 @@ function OrcamentoDetalhe() {
                   </option>
                 );
               })}
+              <option value="cupom">Cupom</option>
               <option value="manual">Valor manual (R$)</option>
             </select>
             {descontoTipo === "manual" ? (
@@ -1340,6 +1386,33 @@ function OrcamentoDetalhe() {
                   setAVistaEditado(null);
                 }}
               />
+            ) : descontoTipo === "cupom" ? (
+              <div className="mt-2 grid gap-1">
+                <Input
+                  value={cupomCodigo}
+                  onChange={(e) => {
+                    setCupomCodigo(limparCodigo(e.target.value));
+                    setCartaoEditado(null);
+                    setPixEditado(null);
+                    setAVistaEditado(null);
+                  }}
+                  placeholder="Código do cupom"
+                  aria-label="Código do cupom"
+                  autoCapitalize="characters"
+                  maxLength={30}
+                  className="h-11 font-mono uppercase sm:h-9"
+                />
+                {!cupomCodigo ? null : !cupomAplicado ? (
+                  <p className="text-xs text-muted-foreground">Conferindo o cupom…</p>
+                ) : cupomAplicado.ok ? (
+                  <p className="text-xs text-muted-foreground">
+                    Cupom {cupomAplicado.cupom.codigo} ({rotuloCupom(cupomAplicado.cupom)}): −
+                    {brl(cupomAplicado.desconto)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-destructive">{cupomAplicado.motivo}</p>
+                )}
+              </div>
             ) : opcaoDesconto && "pct" in opcaoDesconto ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 {opcaoDesconto.rotulo}: −{brl(totais.desconto)}
