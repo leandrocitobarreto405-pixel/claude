@@ -739,6 +739,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Painel Nexa: cobrança Cobrar / Isenta e "Em teste até"                | `fd83de8`           | `b2356e8`                |
 | 26/10/2026       | Terceirizados: faturamento líquido, repasse por OS, comissão cheia    | `14a8ed7`           | `f1d5f64`                |
 | 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face     | `ee6e322`           | `d6be9bd`                |
+| 26/10/2026       | Alice, custo ideia 2: cache do histórico ligado na Turbine            | `5ca133a`           | `aec7972`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -967,6 +968,11 @@ orçamento manual, na OS e na Alice ("Colchão queen – dupla face (2 faces + l
 `20261221120000_colchao_dupla_face` aplicada em 26/10 (ensaio antes; só colunas novas). Ensaio da
 conversa em Configurações › Alice. Como desfazer: `git revert ee6e322` (sem force push) e
 `supabase/manual/20261221120000_colchao_dupla_face_desfazer.sql` (desliga a dupla face).
+
+Alice, custo ideia 2 ligada na Turbine (26/10, sem ensaio, por decisão): janela do histórico de 20
+em 20 e cache de 1 hora no fim do histórico, só na Turbine. Base de 19 a 26/10: US$ 0,229 por
+conversa (66 conversas), 8,8 s por resposta em média. Medir 2–3 dias; se o custo não cair ou houver
+erro ou lentidão, desligar. Como desfazer: `git revert 5ca133a` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
