@@ -94,6 +94,23 @@ test("sem nada pendente, lista vazia e sem ponto na aba", () => {
   );
 });
 
+test("orçamentos sem desfecho: aviso para o escritório, não para o técnico", () => {
+  const com = { ...fontes, semDesfecho: 3 };
+  const a = montarAvisos(com, "atendente").find((x) => x.id === "sem-desfecho")!;
+  assert.equal(a.titulo, "3 orçamentos esperando o motivo");
+  assert.equal(a.tom, "atencao");
+  assert.deepEqual(a.link, { to: "/crm/sem-desfecho" });
+  assert.equal(
+    montarAvisos({ ...fontes, semDesfecho: 1 }, "admin").find((x) => x.id === "sem-desfecho")!
+      .titulo,
+    "1 orçamento esperando o motivo",
+  );
+  assert.ok(!montarAvisos(com, "tecnico").some((x) => x.id === "sem-desfecho"));
+  assert.ok(
+    !montarAvisos({ ...fontes, semDesfecho: 0 }, "admin").some((x) => x.id === "sem-desfecho"),
+  );
+});
+
 test("chaveTelefone igual à do banco (DDD + 8 últimos)", () => {
   assert.equal(chaveTelefone("(11) 98888-7777"), "1188887777");
   assert.equal(chaveTelefone("5511988887777"), "1188887777");

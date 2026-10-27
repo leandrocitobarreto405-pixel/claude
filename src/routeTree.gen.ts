@@ -70,6 +70,7 @@ import { Route as AuthenticatedCrmLeadsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCrmLeadsSiteRouteImport } from './routes/_authenticated/crm/leads-site'
 import { Route as AuthenticatedCrmRepescagensRouteImport } from './routes/_authenticated/crm/repescagens'
 import { Route as AuthenticatedCrmRetornosRouteImport } from './routes/_authenticated/crm/retornos'
+import { Route as AuthenticatedCrmSemDesfechoRouteImport } from './routes/_authenticated/crm/sem-desfecho'
 import { Route as AuthenticatedCrmVisaoGeralRouteImport } from './routes/_authenticated/crm/visao-geral'
 import { Route as AuthenticatedCrmWhatsappRouteImport } from './routes/_authenticated/crm/whatsapp'
 import { Route as AuthenticatedNexaAliceRouteImport } from './routes/_authenticated/nexa/alice'
@@ -428,6 +429,12 @@ const AuthenticatedCrmRetornosRoute =
     path: '/crm/retornos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCrmSemDesfechoRoute =
+  AuthenticatedCrmSemDesfechoRouteImport.update({
+    id: '/crm/sem-desfecho',
+    path: '/crm/sem-desfecho',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCrmVisaoGeralRoute =
   AuthenticatedCrmVisaoGeralRouteImport.update({
     id: '/crm/visao-geral',
@@ -660,6 +667,7 @@ export interface FileRoutesByFullPath {
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
+  '/crm/sem-desfecho': typeof AuthenticatedCrmSemDesfechoRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/alice': typeof AuthenticatedNexaAliceRoute
@@ -750,6 +758,7 @@ export interface FileRoutesByTo {
   '/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/crm/retornos': typeof AuthenticatedCrmRetornosRoute
+  '/crm/sem-desfecho': typeof AuthenticatedCrmSemDesfechoRoute
   '/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/nexa/alice': typeof AuthenticatedNexaAliceRoute
@@ -844,6 +853,7 @@ export interface FileRoutesById {
   '/_authenticated/crm/leads-site': typeof AuthenticatedCrmLeadsSiteRoute
   '/_authenticated/crm/repescagens': typeof AuthenticatedCrmRepescagensRoute
   '/_authenticated/crm/retornos': typeof AuthenticatedCrmRetornosRoute
+  '/_authenticated/crm/sem-desfecho': typeof AuthenticatedCrmSemDesfechoRoute
   '/_authenticated/crm/visao-geral': typeof AuthenticatedCrmVisaoGeralRoute
   '/_authenticated/crm/whatsapp': typeof AuthenticatedCrmWhatsappRoute
   '/_authenticated/nexa/alice': typeof AuthenticatedNexaAliceRoute
@@ -938,6 +948,7 @@ export interface FileRouteTypes {
     | '/crm/leads-site'
     | '/crm/repescagens'
     | '/crm/retornos'
+    | '/crm/sem-desfecho'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/alice'
@@ -1028,6 +1039,7 @@ export interface FileRouteTypes {
     | '/crm/leads-site'
     | '/crm/repescagens'
     | '/crm/retornos'
+    | '/crm/sem-desfecho'
     | '/crm/visao-geral'
     | '/crm/whatsapp'
     | '/nexa/alice'
@@ -1121,6 +1133,7 @@ export interface FileRouteTypes {
     | '/_authenticated/crm/leads-site'
     | '/_authenticated/crm/repescagens'
     | '/_authenticated/crm/retornos'
+    | '/_authenticated/crm/sem-desfecho'
     | '/_authenticated/crm/visao-geral'
     | '/_authenticated/crm/whatsapp'
     | '/_authenticated/nexa/alice'
@@ -1610,6 +1623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmRetornosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/crm/sem-desfecho': {
+      id: '/_authenticated/crm/sem-desfecho'
+      path: '/crm/sem-desfecho'
+      fullPath: '/crm/sem-desfecho'
+      preLoaderRoute: typeof AuthenticatedCrmSemDesfechoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/crm/visao-geral': {
       id: '/_authenticated/crm/visao-geral'
       path: '/crm/visao-geral'
@@ -1887,6 +1907,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrmLeadsSiteRoute: typeof AuthenticatedCrmLeadsSiteRoute
   AuthenticatedCrmRepescagensRoute: typeof AuthenticatedCrmRepescagensRoute
   AuthenticatedCrmRetornosRoute: typeof AuthenticatedCrmRetornosRoute
+  AuthenticatedCrmSemDesfechoRoute: typeof AuthenticatedCrmSemDesfechoRoute
   AuthenticatedCrmVisaoGeralRoute: typeof AuthenticatedCrmVisaoGeralRoute
   AuthenticatedCrmWhatsappRoute: typeof AuthenticatedCrmWhatsappRoute
   AuthenticatedNexaAliceRoute: typeof AuthenticatedNexaAliceRoute
@@ -1955,6 +1976,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrmLeadsSiteRoute: AuthenticatedCrmLeadsSiteRoute,
   AuthenticatedCrmRepescagensRoute: AuthenticatedCrmRepescagensRoute,
   AuthenticatedCrmRetornosRoute: AuthenticatedCrmRetornosRoute,
+  AuthenticatedCrmSemDesfechoRoute: AuthenticatedCrmSemDesfechoRoute,
   AuthenticatedCrmVisaoGeralRoute: AuthenticatedCrmVisaoGeralRoute,
   AuthenticatedCrmWhatsappRoute: AuthenticatedCrmWhatsappRoute,
   AuthenticatedNexaAliceRoute: AuthenticatedNexaAliceRoute,
