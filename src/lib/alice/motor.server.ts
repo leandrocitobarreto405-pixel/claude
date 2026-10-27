@@ -39,7 +39,14 @@ import { chavesValidas, modulosDaConfig } from "./modulos";
 import { aplicarCamposDoRoteiro } from "./campos-roteiro";
 import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
-import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
+import {
+  TEXTO_AUDIO_SEM_TRANSCRICAO,
+  dentroDaJanela,
+  dentroDoHorario,
+  proximoHorarioPermitido,
+  textoInterno,
+  ultimaEhAudioSemTranscricao,
+} from "./regras";
 import { primeiroNomeLimpo } from "./nome";
 import { passoDaEtapa, type Passo } from "./cadencia";
 import type { DadosCadencia } from "./cadencia.server";
@@ -858,6 +865,8 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       ]
         .filter(Boolean)
         .join(" ");
+  // A trava já passou (ninguém assumiu nem escreveu): a resposta do cliente vem para a Alice.
+  if (passo) await voltarParaAliceNoToque(db, d);
   return conversar(db, tarefa, cfg, d, aviso);
 }
 
@@ -920,6 +929,7 @@ async function toqueForaDaJanela(
       .eq("empresa_id", tarefa.empresa_id)
       .eq("ia_tarefa_id", tarefa.id);
     await concluirRepescagem(db, tarefa, `Modelo ${envio.modelo} enviado`, false);
+    await voltarParaAliceNoToque(db, d);
     await enviarNota(
       d,
       `🤖 Toque ${passo.etapa} (fora da janela de 24 h) pelo modelo ${envio.modelo}: ${envio.texto}`,
@@ -952,6 +962,25 @@ async function toqueForaDaJanela(
     await enfileirarPendentes(db);
   }
   return resultado;
+}
+
+/**
+ * Toque mandado numa conversa que não está com a Alice (aberta sem dono ou encerrada): a conversa
+ * volta para ela, para a resposta do cliente cair com a Alice (como no pós-venda e no lead do
+ * site). Antes, a resposta ficava com a equipe e ninguém via (27/10, retomada).
+ */
+async function voltarParaAliceNoToque(db: Admin, d: DadosConversa) {
+  if (d.conversa.status === "pending") return;
+  const token = d.tokenAdmin ?? d.tokenRobo;
+  if (token)
+    await mudarSituacao(d.conta, token, d.conversa.chatwoot_conversation_id, "pending").catch((e) =>
+      console.error("Alice: conversa não voltou para pending no Chatwoot", e),
+    );
+  await db
+    .from("conversas")
+    .update({ status: "pending", devolvida_para_alice_em: new Date().toISOString() })
+    .eq("id", d.conversa.id);
+  d.conversa.status = "pending";
 }
 
 async function primeiroNomeDoLead(db: Admin, empresaId: string, leadId: string | null) {
@@ -1328,6 +1357,21 @@ async function conversar(
     !interrompida &&
     (parada === "refusal" || (!textos.length && !saida.length && !ctx.passagem))
   ) {
+    // Áudio que não deu para transcrever: nunca em silêncio, vai o texto padrão.
+    if (!ehFollowup && d.tokenRobo && ultimaEhAudioSemTranscricao(hist.mensagens)) {
+      await enviarMensagem(
+        d.conta,
+        d.tokenRobo,
+        d.conversa.chatwoot_conversation_id,
+        TEXTO_AUDIO_SEM_TRANSCRICAO,
+      );
+      await db.from("ia_execucoes").insert({
+        ...registro,
+        erro: "sem resposta da IA: áudio sem transcrição, texto padrão enviado",
+        mensagens_enviadas: [TEXTO_AUDIO_SEM_TRANSCRICAO] as never,
+      });
+      return { situacao: "concluida", detalhe: "áudio sem transcrição: texto padrão" };
+    }
     await db.from("ia_execucoes").insert({ ...registro, erro: "sem resposta da IA" });
     if (ehFollowup) {
       await followupParaEquipe(db, tarefa, "a Alice não conseguiu escrever o toque");

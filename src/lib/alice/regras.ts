@@ -75,6 +75,18 @@ export function dentroDoHorario(d: Date, inicio: number, fim: number): boolean {
   return h >= inicio && h < fim;
 }
 
+/** Resposta fixa quando o áudio do cliente não pôde ser transcrito (a Alice nunca fica calada). */
+export const TEXTO_AUDIO_SEM_TRANSCRICAO =
+  "Não consegui ouvir seu áudio aqui 😕 Consegue me mandar por escrito?";
+
+/** A última mensagem do cliente é um áudio sem transcrição? */
+export function ultimaEhAudioSemTranscricao(
+  mensagens: { direcao: string; tipo?: string | null; transcricao?: string | null }[],
+): boolean {
+  const ultima = [...mensagens].reverse().find((m) => m.direcao === "Recebida");
+  return ultima?.tipo === "Áudio" && !ultima.transcricao?.trim();
+}
+
 /** Se ainda dá para mandar texto livre em `quando` (com folga), dada a última mensagem do cliente. */
 export function dentroDaJanela(ultimaDoCliente: Date | null, quando: Date): boolean {
   if (!ultimaDoCliente) return false;
