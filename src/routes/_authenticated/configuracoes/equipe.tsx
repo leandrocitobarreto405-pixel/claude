@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CabecalhoDeTela } from "@/components/nexa";
 import { Acessos } from "@/components/configuracoes/acessos";
 import { Equipe } from "@/components/configuracoes/equipe";
+import { Contadora } from "@/components/configuracoes/contadora";
 
 /** Usuários + vendedoras + técnicos num lugar só. */
 export const Route = createFileRoute("/_authenticated/configuracoes/equipe")({
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_authenticated/configuracoes/equipe")({
         voltarPara="/configuracoes/empresa"
       />
       <Acessos />
+      <Contadora />
       <Equipe />
     </div>
   ),

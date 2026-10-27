@@ -98,3 +98,12 @@ test("modelo personalizado e variável desconhecida preservada", () => {
   );
   assert.equal(msg, "NF 1234 João da Silva {{xyz}}");
 });
+
+test("{{endereco}} é opcional: entra quando o modelo pede e não conta como faltando", () => {
+  const t = tarefa();
+  (t.work_order!.customer as { full_address?: string | null }).full_address =
+    "Rua Exemplo, 1 — São Paulo/SP";
+  const d = dadosDaNota(t);
+  assert.equal(montarMensagemNota("End.: {{endereco}}", d), "End.: Rua Exemplo, 1 — São Paulo/SP");
+  assert.ok(!camposFaltando({ ...d, endereco: null }).includes("endereço"));
+});
