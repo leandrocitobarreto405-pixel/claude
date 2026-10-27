@@ -236,6 +236,58 @@ export function linhaDaConversao(c: Conversao): LinhaNova {
   ];
 }
 
+/**
+ * Aba "Ajustes" (retratação de venda já exportada que foi cancelada depois). Colunas do modelo de
+ * ajustes do Google Ads com o clique (Google Click ID + Conversion Time identificam a conversão);
+ * Adjusted Value fica vazio na retratação. https://support.google.com/google-ads/answer/7686280
+ */
+export const ABA_AJUSTES = "Ajustes";
+export const CABECALHO_AJUSTES = [
+  "Google Click ID",
+  "Conversion Name",
+  "Conversion Time",
+  "Adjustment Time",
+  "Adjustment Type",
+  "Adjusted Value",
+  "Adjusted Value Currency",
+] as const;
+/** O Google aceita ajustes até 54 dias depois da conversão. */
+const DIAS_AJUSTES = 54;
+
+/** Horário de São Paulo no formato da planilha (yyyy-MM-dd HH:mm:ss-03:00). */
+export function horarioSP(d: Date): string {
+  return `${d.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 19)}-03:00`;
+}
+
+/** Por que a venda não vale mais (null = continua valendo). */
+export function motivoInvalida(os: {
+  status: string | null;
+  deleted_at: string | null;
+  eh_teste: boolean | null;
+}): string | null {
+  if (os.deleted_at) return "OS apagada";
+  if (os.status === "Cancelada") return "OS cancelada";
+  if (os.eh_teste) return "OS de teste";
+  return null;
+}
+
+export function linhaDoEstorno(c: {
+  gclid: string | null;
+  conversao_nome: string;
+  conversao_horario: string;
+  estorno_horario: string | null;
+}): string[] {
+  return [
+    c.gclid ?? "",
+    c.conversao_nome,
+    c.conversao_horario,
+    c.estorno_horario ?? "",
+    "RETRACT",
+    "",
+    "",
+  ];
+}
+
 /** E-mail e telefone (com hash) da venda: cliente da OS e, sem telefone, o do lead. */
 async function contatoDaVenda(db: Db, workOrderId: string, leadId: string | null) {
   const { data: w } = await db
@@ -306,13 +358,7 @@ async function guardarAsDaPlanilha(db: Db, empresaId: string, linhas: LinhaLida[
       log("WARNING", "exportacao.linha_sem_venda", { gclid: `${l.gclid.slice(0, 12)}…` });
       continue;
     }
-    const invalida = os.deleted_at
-      ? "OS apagada"
-      : os.status === "Cancelada"
-        ? "OS cancelada"
-        : os.eh_teste
-          ? "OS de teste"
-          : null;
+    const invalida = motivoInvalida(os);
     const contato = await contatoDaVenda(db, os.id, c.crm_lead_id);
     const { error } = await db.from("ads_conversoes_google").insert({
       empresa_id: empresaId,
@@ -334,6 +380,100 @@ async function guardarAsDaPlanilha(db: Db, empresaId: string, linhas: LinhaLida[
     else guardadas++;
   }
   return { guardadas, retiradas };
+}
+
+/**
+ * Venda já exportada que foi cancelada, apagada ou marcada como teste depois: sai da planilha
+ * (retirada) e, se tem gclid, ganha o horário da retratação (vai para a aba Ajustes). Sem gclid
+ * (só e-mail/telefone) o Google não aceita retratação sem Order ID: só sai da planilha.
+ */
+async function marcarEstornos(db: Db, empresaId: string, agora: Date) {
+  const { data, error } = await db
+    .from("ads_conversoes_google")
+    .select("id, gclid, work_order:work_order_id ( os_number, status, deleted_at, eh_teste )")
+    .eq("empresa_id", empresaId)
+    .not("exportada_em", "is", null)
+    .is("retirada_em", null);
+  if (error) throw new Error(`leitura das exportadas: ${error.message}`);
+  const estornadas: string[] = [];
+  const semGclid: string[] = [];
+  for (const r of (data ?? []) as unknown as Array<{
+    id: string;
+    gclid: string | null;
+    work_order: {
+      os_number: string;
+      status: string | null;
+      deleted_at: string | null;
+      eh_teste: boolean | null;
+    } | null;
+  }>) {
+    const motivo = r.work_order ? motivoInvalida(r.work_order) : "OS não encontrada";
+    if (!motivo) continue;
+    const { error: e } = await db
+      .from("ads_conversoes_google")
+      .update({
+        retirada_em: agora.toISOString(),
+        motivo_retirada: motivo,
+        ...(r.gclid ? { estorno_horario: horarioSP(agora) } : {}),
+      })
+      .eq("id", r.id);
+    if (e) throw new Error(`marcar o estorno: ${e.message}`);
+    (r.gclid ? estornadas : semGclid).push(`OS ${r.work_order?.os_number ?? "?"} (${motivo})`);
+  }
+  return { estornadas, semGclid };
+}
+
+/** Grava a aba Ajustes (cria se faltar) com as retratações dos últimos 54 dias. */
+async function gravarAjustes(db: Db, empresaId: string, token: string, id: string, agora: Date) {
+  const limite = new Date(agora.getTime() - DIAS_AJUSTES * 24 * 3600 * 1000);
+  const { data, error } = await db
+    .from("ads_conversoes_google")
+    .select("id, gclid, conversao_nome, conversao_horario, estorno_horario, estorno_exportado_em")
+    .eq("empresa_id", empresaId)
+    .not("estorno_horario", "is", null)
+    .not("gclid", "is", null)
+    .order("estorno_horario");
+  if (error) throw new Error(`leitura dos estornos: ${error.message}`);
+  const lista = (
+    (data ?? []) as Array<{
+      id: string;
+      gclid: string | null;
+      conversao_nome: string;
+      conversao_horario: string;
+      estorno_horario: string | null;
+      estorno_exportado_em: string | null;
+    }>
+  ).filter((c) => {
+    const quando = dataDaLinha(c.estorno_horario ?? "");
+    return quando !== null && quando >= limite;
+  });
+  if (!lista.length) return 0;
+  const info = (await sheets(token, `${id}?fields=sheets.properties.title`)) as {
+    sheets?: Array<{ properties?: { title?: string } }>;
+  };
+  if (!info.sheets?.some((s) => s.properties?.title === ABA_AJUSTES)) {
+    await sheets(token, `${id}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: ABA_AJUSTES } } }] }),
+    });
+  }
+  const faixa = encodeURIComponent(`'${ABA_AJUSTES}'!A1:Z`);
+  await sheets(token, `${id}/values/${faixa}:clear`, { method: "POST", body: "{}" });
+  await sheets(
+    token,
+    `${id}/values/${encodeURIComponent(`'${ABA_AJUSTES}'!A1:G`)}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ values: [[...CABECALHO_AJUSTES], ...lista.map(linhaDoEstorno)] }),
+    },
+  );
+  const novos = lista.filter((c) => !c.estorno_exportado_em).map((c) => c.id);
+  if (novos.length)
+    await db
+      .from("ads_conversoes_google")
+      .update({ estorno_exportado_em: agora.toISOString() })
+      .in("id", novos);
+  return lista.length;
 }
 
 /** Vendas novas (com clique ou com origem Google Ads), já com e-mail e telefone em hash. */
@@ -417,6 +557,9 @@ async function exportarEmpresa(
 
   // 1. O que já estava na planilha fica guardado com o mesmo nome/horário/valor.
   const sincronia = await guardarAsDaPlanilha(db, empresaId, lerLinhas(valores));
+  // 1b. Exportada e cancelada depois: sai da planilha e vira retratação (aba Ajustes).
+  const estornos = await marcarEstornos(db, empresaId, new Date());
+  const ajustes = await gravarAjustes(db, empresaId, token, id, new Date());
   // 2. As novas entram na tabela (ainda sem exportada_em).
   if (novas.length) {
     const { error } = await db.from("ads_conversoes_google").upsert(
@@ -533,6 +676,9 @@ async function exportarEmpresa(
       sem_clique: contar((c) => !c.gclid && !c.gbraid && !c.wbraid),
       guardadas_da_planilha: sincronia.guardadas,
       retiradas: sincronia.retiradas,
+      estornos: estornos.estornadas,
+      retiradas_sem_gclid: estornos.semGclid,
+      linhas_ajustes: ajustes,
       cliques_marcados: marcados,
       cabecalho: [...CABECALHO],
       formato: FORMATO,

@@ -610,6 +610,8 @@ export type Database = {
           created_at: string;
           crm_lead_id: string | null;
           email_sha256: string | null;
+          estorno_exportado_em: string | null;
+          estorno_horario: string | null;
           empresa_id: string;
           exportada_em: string | null;
           gbraid: string | null;
@@ -630,6 +632,8 @@ export type Database = {
           created_at?: string;
           crm_lead_id?: string | null;
           email_sha256?: string | null;
+          estorno_exportado_em?: string | null;
+          estorno_horario?: string | null;
           empresa_id: string;
           exportada_em?: string | null;
           gbraid?: string | null;
@@ -650,6 +654,8 @@ export type Database = {
           created_at?: string;
           crm_lead_id?: string | null;
           email_sha256?: string | null;
+          estorno_exportado_em?: string | null;
+          estorno_horario?: string | null;
           empresa_id?: string;
           exportada_em?: string | null;
           gbraid?: string | null;

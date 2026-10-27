@@ -189,3 +189,40 @@ test("linhas para registro: gclid abreviado, cabeçalho inteiro", () => {
     "BRL",
   ]);
 });
+
+test("estorno: venda cancelada vira retratação com o mesmo gclid, nome e horário", async () => {
+  const { linhaDoEstorno, motivoInvalida, horarioSP, CABECALHO_AJUSTES } =
+    await import("./exportar-google.server");
+  assert.equal(
+    motivoInvalida({ status: "Cancelada", deleted_at: null, eh_teste: false }),
+    "OS cancelada",
+  );
+  assert.equal(
+    motivoInvalida({ status: "Agendada", deleted_at: "2026-10-27", eh_teste: false }),
+    "OS apagada",
+  );
+  assert.equal(
+    motivoInvalida({ status: "Agendada", deleted_at: null, eh_teste: true }),
+    "OS de teste",
+  );
+  assert.equal(motivoInvalida({ status: "Concluída", deleted_at: null, eh_teste: false }), null);
+  assert.equal(horarioSP(new Date("2026-10-27T16:25:13Z")), "2026-10-27 13:25:13-03:00");
+  assert.deepEqual(
+    linhaDoEstorno({
+      gclid: "gclid-ficticio",
+      conversao_nome: "Venda Higienização",
+      conversao_horario: "2026-10-20 10:00:00-03:00",
+      estorno_horario: "2026-10-27 13:25:13-03:00",
+    }),
+    [
+      "gclid-ficticio",
+      "Venda Higienização",
+      "2026-10-20 10:00:00-03:00",
+      "2026-10-27 13:25:13-03:00",
+      "RETRACT",
+      "",
+      "",
+    ],
+  );
+  assert.equal(CABECALHO_AJUSTES.length, 7);
+});
