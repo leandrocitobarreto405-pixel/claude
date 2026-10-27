@@ -81,7 +81,7 @@ SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 5) = 'na
 SELECT pg_temp.ok((SELECT situacao = 'chamou' AND chamou_em = pg_temp.t(-30)
                           AND crm_lead_id = 'c3600000-0000-0000-0000-00000000000a'
                      FROM public.leads_site WHERE linha = 2), 'A chamou 30 min antes e ligou ao lead do CRM');
-SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 4) = 'nao_chamou', 'repetido fica de fora');
+SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 4) = 'chamou', 'repetido segue a original que chamou (27/10)');
 SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 6) = 'nao_chamou', 'F escreveu 2 h antes: não conta');
 SELECT pg_temp.ok((SELECT situacao FROM public.leads_site WHERE linha = 7) = 'chamou', 'G sem o 9 no contato: chamou');
 SELECT pg_temp.ok((SELECT lp_origem = 'LP Teste' AND utm_term = 'termo antigo' AND gclid = 'gclid-a'
