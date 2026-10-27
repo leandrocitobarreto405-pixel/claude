@@ -103,3 +103,9 @@ test("dois horários reais em dias diferentes", () => {
   assert.equal(doisHorarios([{ data: "2026-10-29", livres: [{ hora: "10:00" }] }]), null);
   assert.equal(doisHorarios([]), null);
 });
+
+test("retomada: um toque só, com modelo e horários", () => {
+  const r = passoDaEtapa("R")!;
+  assert.equal(r.modelo, "fu_retomada_horarios");
+  assert.equal(r.horarios, true);
+});

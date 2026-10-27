@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
       POST: async ({ request }) => {
         const { tarefaAutorizada } = await import("@/lib/robo.server");
         if (!tarefaAutorizada(request)) return json({ error: "Não autorizado." }, 401);
-        const { log } = await import("@/lib/mkt/contexto.server");
+        const { log, dbServico: dbServicoFila } = await import("@/lib/mkt/contexto.server");
         const resultado: Record<string, unknown> = {};
         let ok = true;
         const passo = async (nome: string, f: () => Promise<unknown>) => {
@@ -48,6 +48,9 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         await passo("agenda_tecnicos", () =>
           rotinaAgendaTecnicos(agora ? new Date(agora) : undefined),
         );
+        // Fila da Alice: entrega tarefas criadas sem webhook (ex.: toques e retomadas agendados).
+        const { enfileirarPendentes } = await import("@/lib/alice/fila.server");
+        await passo("fila_alice", async () => enfileirarPendentes(await dbServicoFila()));
         // Alarme de crédito da IA: repete o aviso à Nexa de 2 em 2 horas (testa a conta antes).
         const { rotinaAlarmeIa } = await import("@/lib/alice/parada-ia.server");
         const { dbServico } = await import("@/lib/mkt/contexto.server");

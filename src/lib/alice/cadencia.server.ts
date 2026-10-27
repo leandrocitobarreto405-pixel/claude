@@ -62,6 +62,8 @@ export async function seguirCadencia(
   },
 ): Promise<boolean> {
   if (!o.cfg.cadencia_followup || !o.leadId) return false;
+  // A retomada é uma mensagem só: não abre a sequência de toques depois.
+  if (o.atual?.etapa === "R") return false;
   const lead = await lerLead(db, o.empresaId, o.leadId);
   if (travaDoLead(lead)) return false;
   const agora = o.agora ?? new Date();

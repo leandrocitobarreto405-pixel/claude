@@ -14,7 +14,7 @@
  */
 export type Trilha = "A" | "B";
 export type Etapa =
-  "A1" | "A2" | "A3" | "A4" | "A5" | "A_FIM" | "B1" | "B2" | "B3" | "B4" | "B_FIM";
+  "A1" | "A2" | "A3" | "A4" | "A5" | "A_FIM" | "B1" | "B2" | "B3" | "B4" | "B_FIM" | "R";
 
 export type Passo = {
   etapa: Etapa;
@@ -128,8 +128,22 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
 /** Modelo da retomada de orçamentos parados (nome, dia1, dia2). */
 export const MODELO_RETOMADA = "fu_retomada_horarios";
 
+/**
+ * Retomada de orçamento parado (aprovada caso a caso): UMA mensagem com dois horários reais, sem
+ * abrir a sequência de toques depois.
+ */
+export const PASSO_RETOMADA: Passo = {
+  etapa: "R",
+  trilha: "A",
+  quando: { minutos: 0 },
+  guia: "Retome o orçamento que o cliente pediu: ofereça dois horários reais da agenda (consulte com consultar_agenda) e pergunte se algum funciona.",
+  modelo: MODELO_RETOMADA,
+  horarios: true,
+};
+
 export function passoDaEtapa(etapa: string | null | undefined): Passo | null {
   if (!etapa) return null;
+  if (etapa === "R") return PASSO_RETOMADA;
   for (const t of ["A", "B"] as const) {
     const p = CADENCIA[t].find((x) => x.etapa === etapa);
     if (p) return p;
