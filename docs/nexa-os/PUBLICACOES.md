@@ -755,6 +755,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Cadência: conversa encerrada ou aberta sem dono não trava nenhum toque (A, B e R)            | `8f50297`                                 | `abd18c0`                            |
 | 27/10/2026       | Retomada dos 22 reagendada para 27/10 14h e 4 cliques antigos das LPs ligados ao lead        | banco (chat)                              | —                                    |
 | 27/10/2026       | Contadora: área própria, fora da equipe e do limite de usuários                              | `0d6c118`                                 | `8f50297`                            |
+| 27/10/2026       | Google Ads: conversões otimizadas para leads (e-mail e telefone em hash) na planilha         | `0e7099a`                                 | `fd68193`                            |
+| 27/10/2026       | Sem desfecho (E): aba em Leads, motivos em um clique, aviso e Perdas por motivo              | `53d1321`                                 | `0e7099a`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1132,6 +1134,31 @@ na equipe nem no limite de usuários, não vê nenhuma tela da empresa e só lê
 Nenhuma contadora cadastrada ainda. Como desfazer:
 `supabase/manual/20261228140000_contadora_desfazer.sql` e `git revert -m 1 0d6c118` (sem force
 push).
+
+Google Ads, conversões otimizadas para leads (27/10): commits `3e12d2f` e o da troca de formato
+(merge `0e7099a`), migração `20261228160000_google_conversoes_leads` aplicada (ensaio antes). A
+planilha passou a ter, na ordem: Google Click ID, GBRAID, WBRAID, Email, Phone Number, Conversion
+Name, Conversion Time, Conversion Value, Conversion Currency. E-mail e telefone vão normalizados
+(E.164) e em SHA-256; nada em claro fica guardado (tabela `ads_conversoes_google`, uma linha por
+venda, com nome e horário fixos). Entram vendas com clique (gclid; gbraid/wbraid só sem gclid) e
+vendas sem clique de origem Google Ads (landing, botão do anúncio, frase da landing); cliente da
+base, recompra e origem "Google" sem sinal de anúncio ficam fora. As colunas mudaram em 27/10 às
+13:25:13 (São Paulo): 19 linhas (16 com gclid, 3 sem clique; 18 com e-mail, 19 com telefone); as 15
+linhas antigas mantiveram nome, horário e valor; a OS 1688 (cancelada, entrou na planilha só em
+20/10, depois da última leitura do Google) saiu. A regra "já exportou hoje" passou a contar só a
+exportação no formato atual, para a troca rodar uma vez no mesmo dia. Como desfazer:
+`git revert -m 1 0e7099a` (sem force push) e
+`supabase/manual/20261228160000_google_conversoes_leads_desfazer.sql`; a próxima exportação volta às
+5 colunas (remapear a conexão no Google Ads).
+
+Sem desfecho, item E (27/10): merge `53d1321`, migração `20261228150000_sem_desfecho` aplicada
+(ensaio antes). Aba "Sem desfecho" em Leads e funil, aviso "X orçamentos esperando o motivo" no
+Início e no sininho, motivos em um clique (11 padrões por empresa), a Alice só sugere o motivo
+quando o orçamento já foi enviado, relatório "Perdas por motivo". Registrados no banco os motivos
+aprovados: finais 2729, 6785 e 8313 "Preço alto – desistiu/adiou"; 4956 e 6995 "Não respondeu
+depois dos follow-ups"; 5217 "Agenda cheia" (sem data); 0381 "Não precisa mais"; 4320 segue com o
+follow-up de 07/11. Como desfazer: `git revert -m 1 53d1321` (sem force push) e
+`supabase/manual/20261228150000_sem_desfecho_desfazer.sql` (o arquivo mostra como reabrir um lead).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
