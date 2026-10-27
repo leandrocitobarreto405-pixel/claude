@@ -25,6 +25,8 @@ export type UsoAudio = {
   caracteres: number;
   segundos: number | null;
   custo: number;
+  /** Créditos da ElevenLabs (0 quando saiu pelo Google). */
+  creditos: number;
   texto: string;
   chatwootMessageId: number | null;
   erro: string | null;
@@ -32,6 +34,8 @@ export type UsoAudio = {
 
 export type DepsAudio = {
   gastoHoje: () => Promise<number>;
+  /** Créditos da ElevenLabs já usados hoje pela empresa (teto diário em créditos). */
+  creditosHoje?: () => Promise<number>;
   sintetizar: (texto: string, voz: string) => Promise<{ bytes: Uint8Array } | { erro: string }>;
   sintetizarEleven?: (
     texto: string,
@@ -44,6 +48,8 @@ export type DepsAudio = {
   registrar: (uso: UsoAudio) => Promise<void>;
   /** Aviso só no app (sininho), uma vez por dia. */
   avisarLimite: () => Promise<void>;
+  /** Aviso só no app quando o dia passa de 80% do teto em créditos (uma vez por dia). */
+  avisar80?: () => Promise<void>;
 };
 
 export type ResultadoAudio =
@@ -58,6 +64,8 @@ export async function responderComAudio(
     soTexto: boolean;
     ehFollowup: boolean;
     resposta: string;
+    /** Texto escrito para falar (enviar_audio): vai em áudio mesmo com o cliente escrevendo. */
+    explicacao?: string | undefined;
   },
   deps: DepsAudio,
 ): Promise<ResultadoAudio> {
@@ -65,7 +73,11 @@ export async function responderComAudio(
   const previa = decidirAudio({ ...e, gastoHojeReais: 0 });
   if (previa.modo === "texto") return { enviado: false, decisao: previa };
 
-  const decisao = decidirAudio({ ...e, gastoHojeReais: await deps.gastoHoje() });
+  const [gastoHojeReais, creditosHoje] = await Promise.all([
+    deps.gastoHoje(),
+    deps.creditosHoje ? deps.creditosHoje() : Promise.resolve(0),
+  ]);
+  const decisao = decidirAudio({ ...e, gastoHojeReais, creditosHoje });
   if (decisao.modo === "texto") {
     if (decisao.limite) await deps.avisarLimite().catch(() => undefined);
     return { enviado: false, decisao };
@@ -75,6 +87,7 @@ export async function responderComAudio(
   let provedor: Provedor = decisao.provedor;
   let voz = decisao.voz;
   let custoFeito = decisao.custo;
+  let creditosFeitos = decisao.creditos;
   let aviso: string | null = null;
 
   const falhou = async (erro: string, custo: number, segundos: number | null) => {
@@ -89,6 +102,7 @@ export async function responderComAudio(
         caracteres: decisao.caracteres,
         segundos,
         custo,
+        creditos: custo ? creditosFeitos : 0,
         texto: decisao.fala,
         chatwootMessageId: null,
         erro: erro.slice(0, 500),
@@ -106,6 +120,7 @@ export async function responderComAudio(
       provedor = "google";
       voz = decisao.vozReserva;
       custoFeito = custoReais(decisao.caracteres, Number(e.cfg.audio_cotacao_dolar));
+      creditosFeitos = 0;
       sintese = await deps.sintetizar(decisao.fala, voz);
     }
   } else {
@@ -137,10 +152,13 @@ export async function responderComAudio(
       caracteres: decisao.caracteres,
       segundos,
       custo: custoFeito,
+      creditos: creditosFeitos,
       texto: decisao.fala,
       chatwootMessageId: id ?? null,
       erro: null,
     })
     .catch((err) => console.error("Alice: uso do áudio não registrado", err));
+  if (decisao.aviso80 && creditosFeitos && deps.avisar80)
+    await deps.avisar80().catch(() => undefined);
   return { enviado: true, texto: decisao.texto, decisao };
 }

@@ -7,6 +7,7 @@
  * conversado da resposta; do primeiro trecho com dado em diante (valor, orçamento, endereço,
  * data/hora, link, Pix, lista) tudo vai em texto, na ordem.
  */
+import { numerosParaFala } from "./fala";
 
 /** US$ por caractere das vozes Chirp 3 HD (tabela do Google: US$ 30 por milhão). */
 export const USD_POR_CARACTERE = 30 / 1_000_000;
@@ -164,22 +165,32 @@ const ABREVIACOES: Array<[RegExp, string]> = [
   [/\bqdo\b/gi, "quando"],
   [/\bmsg\b/gi, "mensagem"],
   [/\bhj\b/gi, "hoje"],
+  [/\bn[º°]\s*/gi, "número "],
+  [/\bsr\.\s*/gi, "senhor "],
+  [/\bsra\.\s*/gi, "senhora "],
+  [/\betc\.?/gi, "etcétera"],
+  [/\bkm\b/gi, "quilômetros"],
+  [/\bmin\b\.?/gi, "minutos"],
+  [/\bapto\.?\s*/gi, "apartamento "],
 ];
 
 /**
- * Mesmo texto da resposta, pronto para falar: sem emojis nem marcação, abreviações por extenso. Os
- * números ficam em algarismos: a voz do Google já lê por extenso e acerta o gênero ("2 fotos" →
- * "duas fotos"), o que uma troca automática aqui erraria.
+ * Mesmo texto da resposta, pronto para falar: sem emojis, marcação nem links, abreviações por
+ * extenso, valores em reais, horários, porcentagens, "5x" e m² por extenso (a ElevenLabs Flash lê
+ * mal "R$ 249,90" e "9h"). Números soltos ficam em algarismos: a voz lê e acerta o gênero
+ * ("2 fotos" → "duas fotos"), o que uma troca automática aqui erraria.
  */
 export function paraFala(texto: string): string {
-  let t = texto
+  let t = numerosParaFala(texto.replace(/https?:\/\/\S+|www\.\S+/gi, ""))
     .replace(
       /\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|\p{Emoji_Modifier}|\u200d|\ufe0f|\u20e3/gu,
       "",
     )
     .replace(/[*_~`#>]/g, "")
     .replace(/^\s*[-•]\s+/gm, "");
-  for (const [re, por] of ABREVIACOES) t = t.replace(re, por);
+  // Mantém a maiúscula do começo ("Vc" → "Você").
+  for (const [re, por] of ABREVIACOES)
+    t = t.replace(re, (m) => (/^[A-Z]/.test(m) ? por[0]!.toUpperCase() + por.slice(1) : por));
   return t
     .replace(/[ \t]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
@@ -238,7 +249,19 @@ export type ConfigAudio = {
   audio_eleven_voz?: string | null;
   audio_eleven_modelo?: string | null;
   eleven_usd_por_mil_creditos?: number;
+  /** Teto diário em créditos da ElevenLabs (null = só o teto em R$). */
+  audio_limite_diario_creditos?: number | null;
 };
+
+/** Explicação em áudio (enviar_audio): até ~60 s. */
+export const MAX_CARACTERES_EXPLICACAO = 700;
+export const MAX_SEGUNDOS_EXPLICACAO = 60;
+/** Aviso no sininho quando o dia passa desta fração do teto em créditos. */
+export const AVISO_TETO_CREDITOS = 0.8;
+
+export function creditosEleven(caracteres: number, modelo: ModeloEleven): number {
+  return Math.ceil(caracteres * CREDITOS_POR_CARACTERE[modelo]);
+}
 
 export type Decisao =
   | { modo: "texto"; motivo: string; limite?: boolean }
@@ -256,30 +279,45 @@ export type Decisao =
       texto: string;
       caracteres: number;
       custo: number;
+      /** Créditos da ElevenLabs deste áudio (0 no Google). */
+      creditos: number;
+      /** Este áudio passa o dia de 80% do teto em créditos (aviso no sininho). */
+      aviso80: boolean;
     };
 
-/** Decide se a resposta (texto do começo da resposta) sai com áudio. */
+/**
+ * Decide se a resposta sai com áudio. Sem `explicacao`: o começo conversado da resposta, só quando o
+ * cliente mandou áudio. Com `explicacao` (enviar_audio): o texto que a Alice escreveu para falar,
+ * mesmo que o cliente tenha escrito, até ~60 s.
+ */
 export function decidirAudio(e: {
   cfg: ConfigAudio;
   ultimaDoClienteEhAudio: boolean;
   soTexto: boolean;
   ehFollowup: boolean;
   gastoHojeReais: number;
+  creditosHoje?: number;
   resposta: string;
+  explicacao?: string | undefined;
 }): Decisao {
   const { cfg } = e;
   const eleven = cfg.audio_provedor === "elevenlabs" && vozElevenValida(cfg.audio_eleven_voz);
   if (!cfg.audio_ativo || (!eleven && !vozValida(cfg.audio_voz)))
     return { modo: "texto", motivo: "áudio desligado" };
   if (e.ehFollowup) return { modo: "texto", motivo: "follow-up" };
-  if (!e.ultimaDoClienteEhAudio) return { modo: "texto", motivo: "cliente escreveu" };
+  const explicacao = e.explicacao !== undefined;
+  if (!explicacao && !e.ultimaDoClienteEhAudio)
+    return { modo: "texto", motivo: "cliente escreveu" };
   if (e.soTexto) return { modo: "texto", motivo: "cliente pediu por escrito" };
-  const { fala: bruto, texto } = separarResposta(e.resposta);
+  const { fala: bruto, texto } = explicacao
+    ? { fala: e.explicacao!, texto: "" }
+    : separarResposta(e.resposta);
   const fala = paraFala(bruto);
   if (!fala) return { modo: "texto", motivo: "resposta só com dados" };
-  if (fala.length > cfg.audio_max_caracteres)
-    return { modo: "texto", motivo: "resposta longa (caracteres)" };
-  if (segundosEstimados(fala.length) > cfg.audio_max_segundos)
+  const maxCar = explicacao ? MAX_CARACTERES_EXPLICACAO : cfg.audio_max_caracteres;
+  const maxSeg = explicacao ? MAX_SEGUNDOS_EXPLICACAO : cfg.audio_max_segundos;
+  if (fala.length > maxCar) return { modo: "texto", motivo: "resposta longa (caracteres)" };
+  if (segundosEstimados(fala.length) > maxSeg)
     return { modo: "texto", motivo: "resposta longa (segundos)" };
   const modelo = eleven ? modeloEleven(cfg.audio_eleven_modelo) : null;
   const custo = modelo
@@ -292,6 +330,11 @@ export function decidirAudio(e: {
     : custoReais(fala.length, Number(cfg.audio_cotacao_dolar));
   if (e.gastoHojeReais + custo > Number(cfg.audio_limite_diario_reais))
     return { modo: "texto", motivo: "limite diário", limite: true };
+  const creditos = modelo ? creditosEleven(fala.length, modelo) : 0;
+  const teto = cfg.audio_limite_diario_creditos ?? null;
+  const usados = e.creditosHoje ?? 0;
+  if (modelo && teto && usados + creditos > teto)
+    return { modo: "texto", motivo: "teto diário de créditos", limite: true };
   return {
     modo: "audio",
     provedor: eleven ? "elevenlabs" : "google",
@@ -302,6 +345,13 @@ export function decidirAudio(e: {
     texto,
     caracteres: fala.length,
     custo,
+    creditos,
+    aviso80: Boolean(
+      modelo &&
+      teto &&
+      usados < teto * AVISO_TETO_CREDITOS &&
+      usados + creditos >= teto * AVISO_TETO_CREDITOS,
+    ),
   };
 }
 

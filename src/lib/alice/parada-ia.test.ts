@@ -63,3 +63,13 @@ test("textos dos avisos", () => {
   assert.equal(duracaoDaParada(desde, agora), "55 min");
   assert.equal(duracaoDaParada(new Date("2026-10-27T15:45:00Z"), agora), "2 h 15 min");
 });
+
+test("saldo da ElevenLabs: aviso em 30% e em 10%, uma vez cada", async () => {
+  const { nivelDeSaldo } = await import("./parada-ia.server");
+  assert.equal(nivelDeSaldo(0.5, []), null);
+  assert.equal(nivelDeSaldo(0.3, []), 30);
+  assert.equal(nivelDeSaldo(0.25, ["ciclo", "30"]), null);
+  assert.equal(nivelDeSaldo(0.1, ["ciclo", "30"]), 10);
+  assert.equal(nivelDeSaldo(0.05, []), 10);
+  assert.equal(nivelDeSaldo(0.05, ["10"]), null);
+});

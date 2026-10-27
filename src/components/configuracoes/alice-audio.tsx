@@ -28,11 +28,21 @@ import {
 const reais = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/\u00a0/g, " ");
 
-type ChaveNumero = "max_caracteres" | "max_segundos" | "limite_diario_reais" | "cotacao_dolar";
+type ChaveNumero =
+  | "max_caracteres"
+  | "max_segundos"
+  | "limite_diario_reais"
+  | "limite_diario_creditos"
+  | "cotacao_dolar";
 const NUMEROS: Array<{ chave: ChaveNumero; rotulo: string; passo: string }> = [
   { chave: "max_caracteres", rotulo: "Máximo de caracteres falados", passo: "10" },
   { chave: "max_segundos", rotulo: "Máximo de segundos", passo: "1" },
   { chave: "limite_diario_reais", rotulo: "Limite por dia (R$)", passo: "0.5" },
+  {
+    chave: "limite_diario_creditos",
+    rotulo: "Teto por dia em créditos da ElevenLabs (0 = sem teto)",
+    passo: "100",
+  },
   { chave: "cotacao_dolar", rotulo: "Cotação do dólar (R$)", passo: "0.05" },
 ];
 
@@ -184,6 +194,10 @@ export function AliceAudio() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Numero rotulo="Hoje" valor={reais(uso.hojeReais)} />
           <Numero rotulo="No mês" valor={reais(uso.mesReais)} />
+          <Numero
+            rotulo="Créditos ElevenLabs (hoje · mês)"
+            valor={`${uso.hojeCreditos.toLocaleString("pt-BR")} · ${uso.mesCreditos.toLocaleString("pt-BR")}`}
+          />
           <Numero rotulo="Por conversa (mês)" valor={reais(uso.mediaPorConversaReais)} />
           <Numero
             rotulo="Áudios no mês"
@@ -225,8 +239,8 @@ export function AliceAudio() {
           <Label htmlFor="audio-frase">Frase de exemplo</Label>
           <Textarea
             id="audio-frase"
-            rows={2}
-            maxLength={300}
+            rows={4}
+            maxLength={700}
             value={frase}
             onChange={(e) => setFrase(e.target.value)}
           />
@@ -313,8 +327,9 @@ export function AliceAudio() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Ao passar do limite do dia, a Alice volta a responder só por escrito até o dia seguinte e
-          avisa a equipe no sininho do app.
+          Ao passar do limite do dia (em R$ ou em créditos), a Alice volta a responder só por
+          escrito até o dia seguinte e avisa a equipe no sininho do app (e já avisa ao passar de 80%
+          do teto em créditos).
         </p>
         <Botao
           disabled={ocupado || !mudou}

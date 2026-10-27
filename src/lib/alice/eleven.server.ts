@@ -95,6 +95,42 @@ export async function testarContaEleven(): Promise<CausaParada | "outro" | null>
   }
 }
 
+export type SaldoEleven = {
+  usados: number;
+  limite: number;
+  /** Fração restante (0 a 1). */
+  restante: number;
+  renovaEm: string | null;
+  plano: string | null;
+};
+
+/** Créditos da conta (assinatura): usados, limite do ciclo e quando renova. Não gasta crédito. */
+export async function saldoEleven(): Promise<SaldoEleven | null> {
+  if (!elevenConfigurada()) return null;
+  const res = await fetch(`${base()}/v1/user/subscription`, {
+    headers: { "xi-api-key": chave() },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(erroCurto(res.status, await res.text().catch(() => "")));
+  const j = (await res.json()) as {
+    character_count?: number;
+    character_limit?: number;
+    next_character_count_reset_unix?: number;
+    tier?: string;
+  };
+  const usados = Number(j.character_count ?? 0);
+  const limite = Number(j.character_limit ?? 0);
+  return {
+    usados,
+    limite,
+    restante: limite > 0 ? Math.max(0, (limite - usados) / limite) : 0,
+    renovaEm: j.next_character_count_reset_unix
+      ? new Date(j.next_character_count_reset_unix * 1000).toISOString()
+      : null,
+    plano: j.tier ?? null,
+  };
+}
+
 export type VozEleven = { id: string; nome: string; descricao: string; previa: string | null };
 
 /** Vozes da conta (as que a Nexa adicionou) que falam português do Brasil. */

@@ -2550,6 +2550,7 @@ export type Database = {
       };
       ia_audios_uso: {
         Row: {
+          creditos: number | null;
           aviso: string | null;
           modelo: string | null;
           provedor: string;
@@ -2567,6 +2568,7 @@ export type Database = {
           voz: string;
         };
         Insert: {
+          creditos?: number | null;
           aviso?: string | null;
           modelo?: string | null;
           provedor?: string;
@@ -2584,6 +2586,7 @@ export type Database = {
           voz: string;
         };
         Update: {
+          creditos?: number | null;
           aviso?: string | null;
           modelo?: string | null;
           provedor?: string;
@@ -2604,6 +2607,8 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          audio_explicacoes: boolean;
+          audio_limite_diario_creditos: number | null;
           modulos: Json;
           audio_eleven_modelo: string;
           audio_eleven_voz: string | null;
@@ -2657,6 +2662,8 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          audio_explicacoes?: boolean;
+          audio_limite_diario_creditos?: number | null;
           modulos?: Json;
           audio_eleven_modelo?: string;
           audio_eleven_voz?: string | null;
@@ -2710,6 +2717,8 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          audio_explicacoes?: boolean;
+          audio_limite_diario_creditos?: number | null;
           modulos?: Json;
           audio_eleven_modelo?: string;
           audio_eleven_voz?: string | null;
@@ -7245,6 +7254,11 @@ export type Database = {
       ia_encerrar_paradas: {
         Args: { _provedor: string };
         Returns: { empresa_id: string; inicio: string; fim: string; conversas: number }[];
+      };
+      ia_saldo_estimado: { Args: Record<PropertyKey, never>; Returns: Json };
+      ia_saldo_hora_de_avisar: {
+        Args: Record<PropertyKey, never>;
+        Returns: { nivel: number; restante_usd: number; pct_restante: number }[];
       };
       ia_parada_hora_de_avisar: {
         Args: { _provedor: string };

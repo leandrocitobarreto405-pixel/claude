@@ -11,8 +11,11 @@ import {
 } from "@/lib/empresa.middleware";
 import {
   FRASE_EXEMPLO,
+  MAX_CARACTERES_EXPLICACAO,
   MODELOS_ELEVEN,
   USD_POR_MIL_CREDITOS_PADRAO,
+  creditosEleven,
+  paraFala,
   VOZES_CONHECIDAS,
   custoElevenReais,
   custoReais,
@@ -42,11 +45,16 @@ export type ConfigAudioForm = {
   max_caracteres: number;
   max_segundos: number;
   limite_diario_reais: number;
+  /** Teto diário em créditos da ElevenLabs (0 = sem teto em créditos). */
+  limite_diario_creditos: number;
   cotacao_dolar: number;
 };
 
 export type ResumoUsoAudio = {
   hojeReais: number;
+  /** Créditos da ElevenLabs usados hoje e no mês. */
+  hojeCreditos: number;
+  mesCreditos: number;
   mesReais: number;
   audiosMes: number;
   minutosMes: number;
@@ -83,6 +91,7 @@ const PADRAO: ConfigAudioForm = {
   max_caracteres: 350,
   max_segundos: 25,
   limite_diario_reais: 5,
+  limite_diario_creditos: 0,
   cotacao_dolar: 5.5,
 };
 
@@ -95,13 +104,13 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
       context.supabase
         .from("ia_configuracoes")
         .select(
-          "audio_ativo, audio_voz, audio_max_caracteres, audio_max_segundos, audio_limite_diario_reais, audio_cotacao_dolar, audio_provedor, audio_eleven_voz, audio_eleven_modelo",
+          "audio_ativo, audio_voz, audio_max_caracteres, audio_max_segundos, audio_limite_diario_reais, audio_limite_diario_creditos, audio_cotacao_dolar, audio_provedor, audio_eleven_voz, audio_eleven_modelo",
         )
         .eq("empresa_id", context.empresaId)
         .maybeSingle(),
       context.supabase
         .from("ia_audios_uso")
-        .select("situacao, conversa_id, segundos, custo_reais, created_at")
+        .select("situacao, conversa_id, segundos, custo_reais, creditos, created_at")
         .eq("empresa_id", context.empresaId)
         .gte("created_at", inicioDoMesBrasilia())
         .limit(20000),
@@ -125,6 +134,7 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
             max_caracteres: cfg.audio_max_caracteres,
             max_segundos: cfg.audio_max_segundos,
             limite_diario_reais: Number(cfg.audio_limite_diario_reais),
+            limite_diario_creditos: Number(cfg.audio_limite_diario_creditos ?? 0),
             cotacao_dolar: Number(cfg.audio_cotacao_dolar),
           }
         : PADRAO,
@@ -135,6 +145,12 @@ export const situacaoAudioAlice = createServerFn({ method: "GET" })
             .reduce((s, u) => s + Number(u.custo_reais ?? 0), 0),
         ),
         mesReais: r2(mesReais),
+        hojeCreditos: Math.round(
+          lista
+            .filter((u) => u.created_at >= hoje)
+            .reduce((s, u) => s + Number(u.creditos ?? 0), 0),
+        ),
+        mesCreditos: Math.round(lista.reduce((s, u) => s + Number(u.creditos ?? 0), 0)),
         audiosMes: enviados.length,
         minutosMes: Math.round(enviados.reduce((s, u) => s + Number(u.segundos ?? 0), 0) / 6) / 10,
         falhasMes: lista.filter((u) => u.situacao === "falhou").length,
@@ -178,8 +194,10 @@ export const ouvirVozElevenAlice = createServerFn({ method: "POST" })
     if (!vozElevenValida(i?.voz)) throw new Error("Voz inválida.");
     if (!(MODELOS_ELEVEN as readonly string[]).includes(i.modelo))
       throw new Error("Modelo inválido.");
-    const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
-    if (frase.length > 300) throw new Error("Frase de exemplo: até 300 caracteres.");
+    // O mesmo preparo do áudio de verdade (valores, horários e abreviações por extenso).
+    const frase = paraFala(String(i.frase ?? "").trim() || FRASE_EXEMPLO);
+    if (frase.length > MAX_CARACTERES_EXPLICACAO)
+      throw new Error(`Frase de exemplo: até ${MAX_CARACTERES_EXPLICACAO} caracteres.`);
     return { voz: i.voz, modelo: i.modelo as ModeloEleven, frase };
   })
   .handler(async ({ data, context }): Promise<{ base64: string; tipo: string }> => {
@@ -199,6 +217,7 @@ export const ouvirVozElevenAlice = createServerFn({ method: "POST" })
       modelo: data.modelo,
       situacao: ok ? "teste" : "falhou",
       caracteres: data.frase.length,
+      creditos: ok ? creditosEleven(data.frase.length, data.modelo) : 0,
       segundos: ok ? segundosEstimados(data.frase.length) : null,
       custo_reais: ok
         ? custoElevenReais(
@@ -247,7 +266,8 @@ export const ouvirVozAlice = createServerFn({ method: "POST" })
   .inputValidator((i: { voz: string; frase?: string }) => {
     if (!vozValida(i?.voz)) throw new Error("Voz inválida.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
-    if (frase.length > 300) throw new Error("Frase de exemplo: até 300 caracteres.");
+    if (frase.length > MAX_CARACTERES_EXPLICACAO)
+      throw new Error(`Frase de exemplo: até ${MAX_CARACTERES_EXPLICACAO} caracteres.`);
     return { voz: i.voz, frase };
   })
   .handler(async ({ data, context }): Promise<{ base64: string }> => {
@@ -304,6 +324,9 @@ export const salvarAudioAlice = createServerFn({ method: "POST" })
       max_caracteres: Math.round(faixa(i.max_caracteres, 50, 1500, "Máximo de caracteres")),
       max_segundos: Math.round(faixa(i.max_segundos, 5, 120, "Máximo de segundos")),
       limite_diario_reais: r2(faixa(i.limite_diario_reais, 0, 1000, "Limite diário (R$)")),
+      limite_diario_creditos: Math.round(
+        faixa(i.limite_diario_creditos ?? 0, 0, 1_000_000, "Teto diário (créditos)"),
+      ),
       cotacao_dolar: r2(faixa(i.cotacao_dolar, 1, 20, "Cotação do dólar")),
     };
   })
@@ -326,6 +349,7 @@ export const salvarAudioAlice = createServerFn({ method: "POST" })
         audio_max_caracteres: data.max_caracteres,
         audio_max_segundos: data.max_segundos,
         audio_limite_diario_reais: data.limite_diario_reais,
+        audio_limite_diario_creditos: data.limite_diario_creditos || null,
         audio_cotacao_dolar: data.cotacao_dolar,
       })
       .eq("empresa_id", context.empresaId);
@@ -414,7 +438,8 @@ export const enviarTesteAudioAlice = createServerFn({ method: "POST" })
   .inputValidator((i: { contatoId: string; frase?: string; provedor?: Provedor }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(i?.contatoId ?? ""))) throw new Error("Contato inválido.");
     const frase = String(i.frase ?? "").trim() || FRASE_EXEMPLO;
-    if (frase.length > 300) throw new Error("Frase de exemplo: até 300 caracteres.");
+    if (frase.length > MAX_CARACTERES_EXPLICACAO)
+      throw new Error(`Frase de exemplo: até ${MAX_CARACTERES_EXPLICACAO} caracteres.`);
     const provedor: Provedor = i.provedor === "elevenlabs" ? "elevenlabs" : "google";
     return { contatoId: i.contatoId, frase, provedor };
   })

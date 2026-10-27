@@ -28,6 +28,7 @@ import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
+import { MAX_CARACTERES_EXPLICACAO } from "./voz";
 import {
   blocoDosModulos,
   chavesValidas,
@@ -52,6 +53,8 @@ type Servico = "higienizacao" | "impermeabilizacao";
 export type Saida =
   /** bloco: vai numa mensagem só, com as linhas em branco dentro (enviar_mensagem). */
   | { tipo: "texto"; texto: string; bloco?: boolean }
+  /** Texto escrito para ser falado (falar_em_audio); sem áudio, sai como texto. */
+  | { tipo: "fala"; texto: string }
   | {
       tipo: "anexo";
       caminho: string;
@@ -65,6 +68,8 @@ export type Saida =
     };
 
 export type ContextoFerramenta = {
+  /** Já mandou um áudio (falar_em_audio) nesta resposta: nunca dois seguidos. */
+  falouEmAudio?: boolean;
   admin: Admin;
   empresaId: string;
   cfg: ConfigIa;
@@ -485,6 +490,23 @@ export function ferramentasDisponiveis(
       additionalProperties: false,
     },
   });
+  if (cfg.audio_ativo && cfg.audio_explicacoes)
+    lista.push({
+      name: "falar_em_audio",
+      description:
+        "Manda AGORA um áudio de voz com o texto que você escrever para ser falado: explicação do serviço, valor ligado ao problema do cliente, diferenças entre serviços, secagem, garantia, segurança e objeções. Escreva como quem grava um áudio no WhatsApp: frases curtas, sem emoji, lista, asterisco, link nem abreviação; comece pelo nome do cliente (se tiver) e termine com uma pergunta simples. Até 700 caracteres (~1 minuto). Valores, parcelas, horários, endereço, Pix, links e o cartão do orçamento NUNCA vão no áudio: mande em texto, depois. No máximo um áudio por resposta. Se o cliente pediu só texto, o sistema manda escrito.",
+      input_schema: {
+        type: "object",
+        properties: {
+          texto: {
+            type: "string",
+            description: "O texto exato que será falado (até 700 caracteres).",
+          },
+        },
+        required: ["texto"],
+        additionalProperties: false,
+      },
+    });
   const temVideo = cfg.video_higienizacao || cfg.video_impermeabilizacao;
   const temAudio = cfg.audio_higienizacao || cfg.audio_impermeabilizacao;
   const servicosCom = (h: string | null, i: string | null) =>
@@ -1820,6 +1842,27 @@ export async function executarFerramenta(
           return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
         ctx.saida.push({ tipo: "texto", texto: p.data.texto, bloco: true });
         return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
+      }
+      case "falar_em_audio": {
+        if (!ctx.cfg.audio_ativo || !ctx.cfg.audio_explicacoes)
+          return { conteudo: "Áudio não liberado: mande em texto.", erro: true };
+        const p = EnviarMensagem.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        if (ctx.precoTravado && temPreco(p.data.texto))
+          return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
+        if (p.data.texto.length > MAX_CARACTERES_EXPLICACAO)
+          return {
+            conteudo: `O áudio passou de ${MAX_CARACTERES_EXPLICACAO} caracteres (${p.data.texto.length}): encurte e chame de novo.`,
+            erro: true,
+          };
+        if (ctx.saida.some((s) => s.tipo === "fala") || ctx.falouEmAudio)
+          return {
+            conteudo: "Já tem um áudio nesta resposta (nunca dois seguidos): mande este em texto.",
+            erro: true,
+          };
+        ctx.falouEmAudio = true;
+        ctx.saida.push({ tipo: "fala", texto: p.data.texto.trim() });
+        return { conteudo: "Áudio será enviado neste ponto da conversa.", erro: false };
       }
       case "enviar_video":
       case "enviar_audio_padrao": {

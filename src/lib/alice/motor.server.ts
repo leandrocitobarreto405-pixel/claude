@@ -1332,7 +1332,7 @@ async function conversar(
     ctx.agendouFollowup = true; // entrega à fila no fim
     enviadas.push(
       ...depoisItens.map((i) =>
-        i.tipo === "texto" ? `[em ${espera}s] ${i.texto}` : `[em ${espera}s] [mídia] ${i.nome}`,
+        i.tipo === "anexo" ? `[em ${espera}s] [mídia] ${i.nome}` : `[em ${espera}s] ${i.texto}`,
       ),
     );
   }
@@ -1455,17 +1455,28 @@ async function comAudio(
     );
   }
 
+  // Explicação em áudio (falar_em_audio): o que vem antes sai primeiro, na ordem; depois o áudio.
+  const iFala = itens.findIndex((i) => i.tipo === "fala");
+  let explicacao: string | undefined;
+  let antes: string[] = [];
   let n = 0;
-  while (n < itens.length) {
-    const i = itens[n]!;
-    if (i.tipo !== "texto" || i.bloco) break;
-    n++;
+  let resposta = "";
+  if (iFala >= 0) {
+    antes = await enviarItens(db, empresaId, d, itens.slice(0, iFala));
+    explicacao = (itens[iFala] as { texto: string }).texto;
+    n = iFala + 1;
+  } else {
+    while (n < itens.length) {
+      const i = itens[n]!;
+      if (i.tipo !== "texto" || i.bloco) break;
+      n++;
+    }
+    if (!n) return null;
+    resposta = itens
+      .slice(0, n)
+      .map((i) => (i.tipo === "texto" ? i.texto : ""))
+      .join("\n\n");
   }
-  if (!n) return null;
-  const resposta = itens
-    .slice(0, n)
-    .map((i) => (i.tipo === "texto" ? i.texto : ""))
-    .join("\n\n");
 
   const { responderComAudio } = await import("./resposta-audio");
   const { sintetizar } = await import("./voz.server");
@@ -1492,11 +1503,13 @@ async function comAudio(
         audio_eleven_voz: cfg.audio_eleven_voz,
         audio_eleven_modelo: cfg.audio_eleven_modelo,
         eleven_usd_por_mil_creditos: Number(precoEleven?.valor) || USD_POR_MIL_CREDITOS_PADRAO,
+        audio_limite_diario_creditos: cfg.audio_limite_diario_creditos ?? null,
       },
       ultimaDoClienteEhAudio: ultima?.tipo === "Áudio",
       soTexto,
       ehFollowup,
       resposta,
+      explicacao,
     },
     {
       gastoHoje: async () => {
@@ -1559,16 +1572,37 @@ async function comAudio(
           caracteres: u.caracteres,
           segundos: u.segundos,
           custo_reais: u.custo,
+          creditos: u.creditos,
           texto_falado: u.texto,
           erro: u.erro,
         });
         if (error) throw new Error(error.message);
       },
+      creditosHoje: async () => {
+        const { data } = await db
+          .from("ia_audios_uso")
+          .select("creditos")
+          .eq("empresa_id", empresaId)
+          .gte("created_at", inicioDoDiaBrasilia());
+        return (data ?? []).reduce((s, u) => s + Number(u.creditos ?? 0), 0);
+      },
+      avisar80: async () => {
+        await db.from("mkt_avisos").insert({
+          empresa_id: empresaId,
+          tipo: "alice_audio_80",
+          titulo: `${cfg.nome}: 80% do teto de áudio de hoje`,
+          mensagem: `A ${cfg.nome} já usou 80% dos ${Number(cfg.audio_limite_diario_creditos).toLocaleString("pt-BR")} créditos de áudio de hoje. Ao chegar no teto, ela responde só em texto até amanhã.`,
+          so_no_app: true,
+          referencia: `alice-audio-80:${diaBrasilia()}`,
+        } as never);
+      },
       avisarLimite: async () => {
-        const limite = Number(cfg.audio_limite_diario_reais).toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        });
+        const limite = cfg.audio_limite_diario_creditos
+          ? `${Number(cfg.audio_limite_diario_creditos).toLocaleString("pt-BR")} créditos (ou ${Number(cfg.audio_limite_diario_reais).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`
+          : Number(cfg.audio_limite_diario_reais).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            });
         // Um aviso por dia, só no app (a referência repetida é recusada pelo índice único).
         await db.from("mkt_avisos").insert({
           empresa_id: empresaId,
@@ -1581,10 +1615,19 @@ async function comAudio(
       },
     },
   );
-  if (!r.enviado) return null;
+  // Nunca dois áudios seguidos: outra fala no resto da resposta sai em texto.
+  const semFala = (l: Saida[]): Saida[] =>
+    l.map((i) => (i.tipo === "fala" ? { tipo: "texto", texto: i.texto, bloco: true } : i));
+  if (!r.enviado)
+    return explicacao !== undefined
+      ? {
+          itens: semFala([{ tipo: "fala", texto: explicacao }, ...itens.slice(n)]),
+          enviadas: antes,
+        }
+      : null;
   const resto: Saida[] = r.texto ? [{ tipo: "texto", texto: r.texto }] : [];
   const fala = r.decisao.modo === "audio" ? r.decisao.fala : "";
-  return { itens: [...resto, ...itens.slice(n)], enviadas: [`[áudio] ${fala}`] };
+  return { itens: semFala([...resto, ...itens.slice(n)]), enviadas: [...antes, `[áudio] ${fala}`] };
 }
 
 // ---------------------------------------------------------------- envio
@@ -1619,8 +1662,12 @@ async function enviarItens(
   if (!d.tokenRobo) return enviadas;
   for (const item of itens) {
     if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
-    if (item.tipo === "texto") {
-      const partes = item.bloco ? [limparTexto(item.texto)] : dividirResposta(item.texto);
+    if (item.tipo === "texto" || item.tipo === "fala") {
+      // Fala sem áudio (desligado, só texto ou falha): o texto escrito para falar sai inteiro.
+      const partes =
+        item.tipo === "fala" || item.bloco
+          ? [limparTexto(item.texto)]
+          : dividirResposta(item.texto);
       for (const parte of partes) {
         if (enviadas.length >= MAX_MENSAGENS_POR_RESPOSTA) break;
         await enviarMensagem(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, parte);

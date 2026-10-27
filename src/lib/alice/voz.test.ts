@@ -324,3 +324,69 @@ test("ElevenLabs funcionando: registra provedor, modelo e custo da ElevenLabs", 
   assert.equal(uso.aviso, null);
   assert.ok(uso.custo > custoReais(uso.caracteres, 5.5));
 });
+
+// ---------------------------------------------------------------- explicação em áudio e teto em créditos
+const VANESSA: ConfigAudio = {
+  ...CFG,
+  audio_ativo: true,
+  audio_provedor: "elevenlabs",
+  audio_eleven_voz: "BQzELs93jJsUOf5rCb9p",
+  audio_eleven_modelo: "eleven_flash_v2_5",
+  audio_limite_diario_reais: 100,
+  audio_limite_diario_creditos: 1000,
+};
+const EXPLICA =
+  "Marcos, a higienização tira a sujeira de dentro das fibras, sabe? E o técnico só termina quando tirou o máximo da mancha. Ficou alguma dúvida?";
+
+test("explicação vai em áudio mesmo com o cliente escrevendo", () => {
+  const d = decidirAudio({
+    cfg: VANESSA,
+    ultimaDoClienteEhAudio: false,
+    soTexto: false,
+    ehFollowup: false,
+    gastoHojeReais: 0,
+    creditosHoje: 0,
+    resposta: "",
+    explicacao: EXPLICA,
+  });
+  assert.equal(d.modo, "audio");
+  if (d.modo === "audio") {
+    assert.equal(d.provedor, "elevenlabs");
+    assert.equal(d.creditos, Math.ceil(EXPLICA.length * 0.5));
+    assert.equal(d.texto, "");
+  }
+});
+
+test("explicação: só texto, follow-up e mais de 700 caracteres ficam em texto", () => {
+  const base = {
+    cfg: VANESSA,
+    ultimaDoClienteEhAudio: false,
+    soTexto: false,
+    ehFollowup: false,
+    gastoHojeReais: 0,
+    resposta: "",
+  };
+  assert.equal(decidirAudio({ ...base, soTexto: true, explicacao: EXPLICA }).modo, "texto");
+  assert.equal(decidirAudio({ ...base, ehFollowup: true, explicacao: EXPLICA }).modo, "texto");
+  assert.equal(decidirAudio({ ...base, explicacao: "a".repeat(701) }).modo, "texto");
+  assert.equal(decidirAudio({ ...base, explicacao: "Oi. ".repeat(170) }).modo, "audio");
+});
+
+test("teto diário em créditos: aviso ao passar de 80% e texto ao bater o teto", () => {
+  const base = {
+    cfg: VANESSA,
+    ultimaDoClienteEhAudio: false,
+    soTexto: false,
+    ehFollowup: false,
+    gastoHojeReais: 0,
+    resposta: "",
+    explicacao: EXPLICA,
+  };
+  const c = Math.ceil(EXPLICA.length * 0.5);
+  const a = decidirAudio({ ...base, creditosHoje: 800 - c + 1 });
+  assert.ok(a.modo === "audio" && a.aviso80);
+  const b = decidirAudio({ ...base, creditosHoje: 100 });
+  assert.ok(b.modo === "audio" && !b.aviso80);
+  const t = decidirAudio({ ...base, creditosHoje: 1000 - c + 1 });
+  assert.ok(t.modo === "texto" && t.limite);
+});

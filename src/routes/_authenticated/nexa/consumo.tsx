@@ -29,6 +29,7 @@ import {
 } from "@/lib/consumo";
 import { duracaoDaParada } from "@/lib/alice/parada-ia";
 import { paradasDoMesFn, type ParadaIa } from "@/lib/paradas-ia.functions";
+import { SaldoContas } from "@/components/plano/saldo-contas";
 
 export const Route = createFileRoute("/_authenticated/nexa/consumo")({
   head: () => ({ meta: [{ title: "Consumo das empresas — Nexa OS" }] }),
@@ -105,6 +106,7 @@ function ConsumoNexa() {
         descricao="IA da Alice, áudio e mensagens automáticas de cada empresa no mês."
       />
 
+      <SaldoContas />
       <ValorDaPlataforma
         chave="alice_cotacao_dolar"
         titulo="Cotação do dólar (custo da Alice em R$)"

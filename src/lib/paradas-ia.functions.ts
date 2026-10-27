@@ -78,3 +78,23 @@ export const paradasDoMesFn = createServerFn({ method: "GET" })
       .limit(200);
     return ((linhas ?? []) as unknown as Linha[]).map(lerParada);
   });
+
+export type SaldoElevenPainel = {
+  usados: number;
+  limite: number;
+  restante: number;
+  renovaEm: string | null;
+  plano: string | null;
+} | null;
+
+/** Créditos da ElevenLabs na conta da Nexa (consulta ao vivo; não gasta crédito). */
+export const saldoElevenFn = createServerFn({ method: "GET" })
+  .middleware([requireNexaAdmin])
+  .handler(async (): Promise<SaldoElevenPainel> => {
+    const { saldoEleven } = await import("@/lib/alice/eleven.server");
+    try {
+      return await saldoEleven();
+    } catch {
+      return null;
+    }
+  });
