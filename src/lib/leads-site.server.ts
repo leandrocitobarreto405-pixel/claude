@@ -7,6 +7,8 @@
  *     da equipe (so_no_app);
  *  4. envio do modelo ao lead depois de N min (padrão 5): DESLIGADO por padrão, só cadastros
  *     lidos depois de "Ativar", uma vez, 24 h (ou no horário escolhido), só número válido.
+ *     Pula telefone já cadastrado antes de ativar, contato com conversa na caixa e quem o
+ *     contexto bloqueia (mesma leitura dos toques da Alice).
  * Nada de telefone ou nome de lead nos logs.
  */
 import {
@@ -312,6 +314,25 @@ async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
         .lt("created_at", cfg.envio_ativado_em)
         .limit(1);
       if (antes?.length) throw new EnvioPulado("pulado: telefone cadastrado antes da ativação");
+      // Mesma leitura de contexto dos toques: quem já disse que fechou com outra empresa, achou
+      // mais barato, já fez, não quer ou pediu para parar não recebe.
+      const { data: contato } = await db
+        .from("whatsapp_contacts")
+        .select("id")
+        .eq("empresa_id", cfg.empresa_id)
+        .eq("normalized_phone", l.telefone!)
+        .maybeSingle();
+      if (contato) {
+        const { contextoDoCliente } = await import("./alice/contexto-toque.server");
+        const { ROTULO_CONTEXTO } = await import("./alice/contexto-toque");
+        const lido = await contextoDoCliente(db as never, {
+          empresaId: cfg.empresa_id,
+          contatoId: contato.id,
+          conversaId: null,
+        });
+        if (lido && lido.classe !== "segue")
+          throw new EnvioPulado(`pulado: contexto (cliente ${ROTULO_CONTEXTO[lido.classe]})`);
+      }
       await enviarModeloAoLead(db, { ...l, telefone: l.telefone! }, cfg.envio_modelo, {
         soContatoNovo: true,
       });

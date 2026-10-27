@@ -1,5 +1,6 @@
 /**
- * Antes de cada toque automático (A, B, R e qualquer follow-up da Alice): a IA barata lê o
+ * Antes de cada toque automático (A, B, R e qualquer follow-up da Alice) e do envio automático ao
+ * lead do site: a IA barata lê o
  * histórico do cliente (últimos 60 dias, todas as conversas do contato). Bloqueia o toque quando o
  * cliente já disse que fechou com outra empresa, achou mais barato, já fez, não quer mais ou pediu
  * para parar. Falha da IA: o toque segue (registra no log).
@@ -16,7 +17,7 @@ type Db = SupabaseClient;
 
 export async function contextoDoCliente(
   db: Db,
-  o: { empresaId: string; contatoId: string | null; conversaId: string },
+  o: { empresaId: string; contatoId: string | null; conversaId: string | null },
 ): Promise<{ classe: ClasseContexto; trecho: string } | null> {
   const desde = new Date(Date.now() - 60 * 86_400_000).toISOString();
   let q = db
@@ -27,7 +28,9 @@ export async function contextoDoCliente(
     .gte("message_timestamp", desde)
     .order("message_timestamp", { ascending: false })
     .limit(80);
-  q = o.contatoId ? q.eq("whatsapp_contact_id", o.contatoId) : q.eq("conversa_id", o.conversaId);
+  if (o.contatoId) q = q.eq("whatsapp_contact_id", o.contatoId);
+  else if (o.conversaId) q = q.eq("conversa_id", o.conversaId);
+  else return null;
   const { data } = await q;
   const msgs = (
     (data ?? []) as Array<{
