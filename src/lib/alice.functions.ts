@@ -53,6 +53,14 @@ export type ConfigAlice = {
   teto_excedente_reais: number | null;
   /** Roteiro por serviço: módulos carregados sob demanda (vazio = instruções inteiras). */
   modulos: ModuloRoteiro[];
+  /** Follow-up: a sequência de toques é do sistema (trilhas A e B). */
+  cadencia_followup: boolean;
+  /** Fora da janela de 24 h, manda o modelo aprovado da Meta (senão vira tarefa da equipe). */
+  followup_modelos: boolean;
+  /** Oferta do último follow-up (D2 16h): % ou R$ sobre o valor do orçamento. */
+  oferta_followup_ligada: boolean;
+  oferta_followup_tipo: "pct" | "reais";
+  oferta_followup_valor: number | null;
 };
 
 export const CAMPOS_MIDIA = [
@@ -101,6 +109,11 @@ const PADRAO: ConfigAlice = {
   tecido_nao_identificado: "equipe",
   continuar_apos_franquia: false,
   teto_excedente_reais: null,
+  cadencia_followup: true,
+  followup_modelos: false,
+  oferta_followup_ligada: false,
+  oferta_followup_tipo: "pct",
+  oferta_followup_valor: null,
   modulos: [],
 };
 
@@ -220,6 +233,12 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             teto_excedente_reais:
               cfg.teto_excedente_reais === null ? null : Number(cfg.teto_excedente_reais),
             modulos: modulosDaConfig(cfg.modulos),
+            cadencia_followup: cfg.cadencia_followup,
+            followup_modelos: cfg.followup_modelos,
+            oferta_followup_ligada: cfg.oferta_followup_ligada,
+            oferta_followup_tipo: cfg.oferta_followup_tipo === "reais" ? "reais" : "pct",
+            oferta_followup_valor:
+              cfg.oferta_followup_valor === null ? null : Number(cfg.oferta_followup_valor),
           }
         : PADRAO,
       midias: cfg
@@ -295,6 +314,18 @@ export const salvarAlice = createServerFn({ method: "POST" })
         descadastro_resposta: Boolean(data.descadastro_resposta),
         tecido_nao_identificado: tecidoDaConfig(data.tecido_nao_identificado),
         continuar_apos_franquia: Boolean(data.continuar_apos_franquia),
+        cadencia_followup: data.cadencia_followup !== false,
+        followup_modelos: Boolean(data.followup_modelos),
+        oferta_followup_tipo: data.oferta_followup_tipo === "reais" ? "reais" : "pct",
+        oferta_followup_valor:
+          data.oferta_followup_valor === null || !(Number(data.oferta_followup_valor) > 0)
+            ? null
+            : Math.min(
+                Math.round(Number(data.oferta_followup_valor) * 100) / 100,
+                data.oferta_followup_tipo === "reais" ? 10000 : 50,
+              ),
+        oferta_followup_ligada:
+          Boolean(data.oferta_followup_ligada) && Number(data.oferta_followup_valor) > 0,
         teto_excedente_reais:
           data.teto_excedente_reais === null || !(Number(data.teto_excedente_reais) >= 0)
             ? null

@@ -434,6 +434,83 @@ export function AliceConfig() {
             </p>
           </div>
         ) : null}
+        <div className="grid gap-2 rounded-lg border border-border p-3">
+          <p className="text-sm font-semibold">Follow-up</p>
+          <label className="flex min-h-11 items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.cadencia_followup}
+              onChange={(e) => campo("cadencia_followup", e.target.checked)}
+            />
+            <span>
+              Sequência de toques garantida pelo sistema (10 min, 40 min, dia seguinte 10h e 14h, D2
+              16h)
+            </span>
+          </label>
+          <label className="flex min-h-11 items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.followup_modelos}
+              onChange={(e) => campo("followup_modelos", e.target.checked)}
+            />
+            <span>
+              Fora da janela de 24 h do WhatsApp, mandar o modelo aprovado pela Meta (desligado: o
+              toque vira tarefa da equipe)
+            </span>
+          </label>
+          <label className="flex min-h-11 items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.oferta_followup_ligada}
+              onChange={(e) => campo("oferta_followup_ligada", e.target.checked)}
+            />
+            <span>Oferta do último follow-up (D2 16h, só depois do orçamento)</span>
+          </label>
+          {form.oferta_followup_ligada ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="alice-oferta-tipo">Desconto em</Label>
+                <select
+                  id="alice-oferta-tipo"
+                  className={SELECT_CLASS}
+                  value={form.oferta_followup_tipo}
+                  onChange={(e) =>
+                    campo("oferta_followup_tipo", e.target.value === "reais" ? "reais" : "pct")
+                  }
+                >
+                  <option value="pct">% sobre o orçamento</option>
+                  <option value="reais">R$ sobre o orçamento</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="alice-oferta-valor">
+                  {form.oferta_followup_tipo === "reais" ? "Valor (R$)" : "Percentual (%)"}
+                </Label>
+                <Input
+                  id="alice-oferta-valor"
+                  inputMode="decimal"
+                  value={
+                    form.oferta_followup_valor === null ? "" : String(form.oferta_followup_valor)
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.replace(",", ".").trim();
+                    campo("oferta_followup_valor", v === "" ? null : Number(v) || 0);
+                  }}
+                  placeholder={form.oferta_followup_tipo === "reais" ? "Ex.: 30" : "Ex.: 10"}
+                />
+              </div>
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Qualquer mensagem do cliente cancela os toques e a sequência recomeça da última resposta
+            da {form.nome || "Alice"}. Nenhum toque sai se a equipe assumiu ou escreveu, se já tem
+            OS, visita ou agendamento, se o lead foi ganho, perdido ou adiado, ou se o cliente pediu
+            para não receber. A oferta só sai com valor preenchido e vale até o dia seguinte.
+          </p>
+        </div>
         <div className="space-y-1">
           <Label htmlFor="alice-tecido">Tecido padrão quando não identificado</Label>
           <select

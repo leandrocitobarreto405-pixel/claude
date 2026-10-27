@@ -70,6 +70,8 @@ export type Saida =
 export type ContextoFerramenta = {
   /** Já mandou um áudio (falar_em_audio) nesta resposta: nunca dois seguidos. */
   falouEmAudio?: boolean;
+  /** A Alice agendou um toque nesta resposta (trilha C ou curto): a cadência espera por ele. */
+  agendouToque?: boolean;
   admin: Admin;
   empresaId: string;
   cfg: ConfigIa;
@@ -206,7 +208,7 @@ const CriarOrcamento = z.object({
     .max(15),
   cep: z.string().trim().max(10).optional(),
   rotulo: z.string().trim().max(40).optional(),
-  desconto: z.enum(["campanha", "indicacao"]).optional(),
+  desconto: z.enum(["campanha", "indicacao", "oferta_followup"]).optional(),
   cupom: z.string().trim().min(3).max(30).optional(),
 });
 const AdicionalPosFechamento = z.object({
@@ -422,9 +424,9 @@ export function ferramentasDisponiveis(
           rotulo: { type: "string", description: "Ex.: 'Opção 1'." },
           desconto: {
             type: "string",
-            enum: ["campanha", "indicacao"],
+            enum: ["campanha", "indicacao", "oferta_followup"],
             description:
-              "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao). O sistema calcula o percentual. Nunca os dois juntos.",
+              "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao), ou se o sistema mandou a condição do último follow-up nesta conversa e o cliente quis ver (oferta_followup). O sistema calcula o desconto. Nunca dois juntos.",
           },
           cupom: {
             type: "string",
@@ -662,7 +664,7 @@ export function ferramentasDisponiveis(
   lista.push(
     {
       name: "agendar_followup",
-      description: `Agenda o próximo toque para quando o cliente parar de responder (substitui o follow-up pendente desta conversa). Informe em_minutos OU data_hora (AAAA-MM-DDTHH:MM, horário de Brasília). Toques fora das ${cfg.hora_inicio}h–${cfg.hora_fim}h vão para o início do próximo horário permitido. Depois de 24 h da última mensagem do cliente, o WhatsApp não permite texto livre: o toque vira tarefa para a equipe.`,
+      description: `${cfg.cadencia_followup ? "Os toques das trilhas A e B o sistema agenda sozinho depois de cada resposta: use esta ferramenta só para a trilha C (data combinada com o cliente) ou um toque curto de até 30 minutos (ex.: mandar o orçamento depois do vídeo). " : ""}Agenda o próximo toque para quando o cliente parar de responder (substitui o follow-up pendente desta conversa). Informe em_minutos OU data_hora (AAAA-MM-DDTHH:MM, horário de Brasília). Toques fora das ${cfg.hora_inicio}h–${cfg.hora_fim}h vão para o início do próximo horário permitido. Depois de 24 h da última mensagem do cliente, o WhatsApp não permite texto livre: o toque vira tarefa para a equipe.`,
       input_schema: {
         type: "object",
         properties: {
@@ -1194,7 +1196,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const lead = await lerLead(ctx);
   // Desconto de campanha ou de indicação: linha separada; o Pix vale sobre o total com desconto.
   let regraDesconto: { pct: number; rotulo: string } | null = null;
-  if (input.desconto) {
+  const baseOferta =
+    Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
+  if (input.desconto === "oferta_followup") {
+    const o = await ofertaDoFollowup(ctx, baseOferta);
+    if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
+    regraDesconto = o;
+  } else if (input.desconto) {
     const d = descontoPermitido(await lerMarketing(ctx), input.desconto);
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
     regraDesconto = d;
@@ -1255,9 +1263,10 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     Number(ctx.cfg.desconto_pix_percentual),
     taxa.valor,
   );
+  // A condição do último follow-up fica como desconto manual no orçamento (rótulo nas observações).
   const tipoDesconto = !desconto
     ? null
-    : cupomUsado
+    : cupomUsado || input.desconto === "oferta_followup"
       ? ("manual" as const)
       : (input.desconto ?? null);
   const chaveDesconto = cupomUsado ? `cupom:${cupomUsado.codigo}` : tipoDesconto;
@@ -1548,8 +1557,57 @@ export async function cancelarFollowupPendente(
     .eq("status", "Pendente");
 }
 
+/**
+ * Condição do último follow-up (D2 16h): vale só se o toque A5 saiu nesta conversa (pela Alice ou
+ * pelo modelo) nas últimas 48 h e a oferta está ligada. Em R$, vira o percentual equivalente.
+ */
+async function ofertaDoFollowup(
+  ctx: ContextoFerramenta,
+  base: number,
+): Promise<{ pct: number; rotulo: string } | { erro: string }> {
+  const valor = Number(ctx.cfg.oferta_followup_valor ?? 0);
+  if (!ctx.cfg.oferta_followup_ligada || !valor)
+    return { erro: "A condição do último follow-up não está ligada nesta empresa." };
+  const { data } = await ctx.admin
+    .from("crm_followups")
+    .select("id")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("conversa_id", ctx.conversaId)
+    .eq("etapa", "A5")
+    .eq("status", "Concluída")
+    .in("canal", ["texto", "modelo"])
+    .gte("completed_at", new Date(ctx.agora.getTime() - 48 * 3600_000).toISOString())
+    .limit(1);
+  if (!data?.length)
+    return {
+      erro: "Não há condição do último follow-up válida nesta conversa (vale até o dia seguinte ao envio).",
+    };
+  const pct =
+    ctx.cfg.oferta_followup_tipo === "reais"
+      ? base > 0
+        ? Math.min(100, Math.round((valor / base) * 10000) / 100)
+        : 0
+      : Math.min(100, valor);
+  if (pct <= 0) return { erro: "Condição do último follow-up sem valor." };
+  return { pct, rotulo: "Condição especial (vaga nesta semana)" };
+}
+
 async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof AgendarFollowup>) {
   if (!ctx.leadId) return { erro: true, texto: "Sem lead nesta conversa; não dá para agendar." };
+  // Cadência do sistema (C/D): os toques das trilhas A e B são agendados sozinhos depois de cada
+  // resposta. A Alice só agenda o toque curto (até 30 min, ex.: o orçamento depois do vídeo) e a
+  // trilha C (data combinada com o cliente).
+  if (
+    ctx.cfg.cadencia_followup &&
+    input.trilha !== "C" &&
+    (input.em_minutos === undefined || input.em_minutos > 30)
+  ) {
+    return {
+      erro: false,
+      texto:
+        "Não precisa agendar: os toques das trilhas A e B o sistema agenda sozinho (10 min, 40 min, dia seguinte e D2). Agende só a trilha C (data combinada) ou um toque curto de até 30 minutos.",
+    };
+  }
   let quando: Date | null =
     input.em_minutos !== undefined
       ? new Date(ctx.agora.getTime() + input.em_minutos * 60_000)
@@ -1589,6 +1647,7 @@ async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof Ag
     if (error) return { erro: true, texto: `Não foi possível agendar: ${error.message}` };
     tarefaId = t.id;
     ctx.agendouFollowup = true;
+    ctx.agendouToque = true;
   }
   const notas = daAlice
     ? `🤖 Follow-up da ${ctx.cfg.nome} (trilha ${input.trilha}): ${input.motivo}. Sugestão: ${input.mensagem_sugerida}`
@@ -1600,6 +1659,7 @@ async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof Ag
     scheduled_at: quando.toISOString(),
     responsavel: daAlice ? "alice" : "equipe",
     ia_tarefa_id: tarefaId,
+    trilha: input.trilha,
     notes: notas,
   });
   if (errFollow) return { erro: true, texto: `Não foi possível agendar: ${errFollow.message}` };

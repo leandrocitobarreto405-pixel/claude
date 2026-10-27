@@ -41,6 +41,8 @@ import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
+import { passoDaEtapa, type Passo } from "./cadencia";
+import type { DadosCadencia } from "./cadencia.server";
 import { causaDaParadaVoz, notaParadaConversa } from "./parada-ia";
 import { ParadaIa, chamarIa, encerrarParadas, registrarParada } from "./parada-ia.server";
 import { USD_POR_MIL_CREDITOS_PADRAO } from "./voz";
@@ -703,8 +705,6 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
   return conversar(db, tarefa, cfg, d, null);
 }
 
-type DadosFollowup = { trilha?: string; motivo?: string; mensagem_sugerida?: string };
-
 /** A repescagem do follow-up vai para a equipe (com o motivo). */
 async function followupParaEquipe(db: Admin, tarefa: Tarefa, motivo: string) {
   const { data: f } = await db
@@ -719,9 +719,20 @@ async function followupParaEquipe(db: Admin, tarefa: Tarefa, motivo: string) {
     .from("crm_followups")
     .update({
       responsavel: "equipe",
+      canal: "equipe",
       notes: `${f.notes ?? ""}\nFicou para a equipe: ${motivo}.`.trim(),
     })
     .eq("id", f.id);
+}
+
+/** Toque cancelado pela trava (o motivo fica no follow-up). */
+async function cancelarToque(db: Admin, tarefa: Tarefa, motivo: string) {
+  await db
+    .from("crm_followups")
+    .update({ status: "Cancelada", completed_at: new Date().toISOString(), result: motivo })
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("ia_tarefa_id", tarefa.id)
+    .eq("status", "Pendente");
 }
 
 async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
@@ -731,15 +742,8 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     return { situacao: "ignorada", detalhe: "Alice desligada" };
   }
   const d = await dadosConversa(db, tarefa);
-  if (d.contato?.ia_desligada) {
-    await cancelarFollowupPendente(
-      db,
-      tarefa.empresa_id,
-      d.conversa.id,
-      "IA desligada para o cliente",
-    );
-    return { situacao: "ignorada", detalhe: "IA desligada para o cliente" };
-  }
+  const dados = (tarefa.dados ?? {}) as DadosCadencia;
+  const passo = dados.cadencia ? passoDaEtapa(dados.etapa) : null;
   // Contato interno da equipe (marcado pelo admin) não recebe follow-up de cliente.
   const chave = chaveTelefone(d.contato?.normalized_phone);
   if (chave) {
@@ -769,9 +773,27 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       return { situacao: "ignorada", detalhe: "contato interno da equipe" };
     }
   }
-  if (d.conversa.status !== "pending") {
-    await followupParaEquipe(db, tarefa, "conversa está com a equipe");
-    return { situacao: "ignorada", detalhe: "conversa com atendente humano" };
+  // Trava antes de cada toque (C/D): equipe assumiu ou escreveu, OS/visita/agendamento, lead
+  // ganho/perdido/adiou, descadastro, IA desligada ou sem pós-venda → não manda e registra o motivo.
+  const { travaDoToque } = await import("./cadencia.server");
+  const trava = await travaDoToque(db, {
+    empresaId: tarefa.empresa_id,
+    conversa: d.conversa,
+    contato: d.contato,
+    desde: new Date(tarefa.created_at),
+  });
+  if (trava) {
+    await cancelarToque(db, tarefa, trava);
+    return { situacao: "ignorada", detalhe: `toque cancelado: ${trava}` };
+  }
+  // Fim da trilha sem resposta: o lead vai para "Orçamentos sem desfecho".
+  if (passo?.fim) {
+    if (d.conversa.crm_lead_id) {
+      const { marcarSemDesfecho } = await import("./cadencia.server");
+      await marcarSemDesfecho(db, tarefa.empresa_id, d.conversa.crm_lead_id, passo.trilha);
+    }
+    await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
+    return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
   }
 
   const { data: ultima } = await db
@@ -789,7 +811,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
 
   if (!dentroDoHorario(agora, cfg.hora_inicio, cfg.hora_fim)) {
     const depois = proximoHorarioPermitido(agora, cfg.hora_inicio, cfg.hora_fim);
-    if (dentroDaJanela(ultimaDoCliente, depois)) {
+    if (dentroDaJanela(ultimaDoCliente, depois) || passo) {
       await db
         .from("ia_tarefas")
         .update({ situacao: "pendente", executar_apos: depois.toISOString(), enfileirada: false })
@@ -810,6 +832,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     return { situacao: "ignorada", detalhe: "fora do horário e da janela de 24 h" };
   }
   if (!dentroDaJanela(ultimaDoCliente, agora)) {
+    if (passo) return toqueForaDaJanela(db, tarefa, cfg, d, passo, dados);
     await followupParaEquipe(
       db,
       tarefa,
@@ -818,17 +841,124 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     return { situacao: "ignorada", detalhe: "fora da janela de 24 h do WhatsApp" };
   }
 
-  const dados = (tarefa.dados ?? {}) as DadosFollowup;
-  const aviso = [
-    `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
-    dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
-    "O cliente não respondeu desde a última mensagem da empresa. Faça agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só). Se as instruções mandarem fazer algo neste toque (ex.: mandar o orçamento), use as ferramentas normalmente.",
-    `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
-    "Se for o caso, agende o próximo toque com agendar_followup.",
+  const aviso = passo
+    ? avisoDoToque(passo, cfg)
+    : [
+        `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
+        dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
+        "O cliente não respondeu desde a última mensagem da empresa. Faça agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só). Se as instruções mandarem fazer algo neste toque (ex.: mandar o orçamento), use as ferramentas normalmente.",
+        `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
+        cfg.cadencia_followup
+          ? "Não agende o próximo toque: o sistema agenda sozinho."
+          : "Se for o caso, agende o próximo toque com agendar_followup.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+  return conversar(db, tarefa, cfg, d, aviso);
+}
+
+/** Instrução do toque da cadência dentro da janela de 24 h (a Alice escreve, adaptando o guia). */
+function avisoDoToque(passo: Passo, cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>) {
+  const valor = Number(cfg.oferta_followup_valor ?? 0);
+  const condicao =
+    cfg.oferta_followup_tipo === "reais"
+      ? valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      : `${valor.toLocaleString("pt-BR")}%`;
+  return [
+    `Hora do toque ${passo.etapa} da trilha ${passo.trilha} (cadência do sistema). O cliente não respondeu desde a última mensagem da empresa.`,
+    `O que dizer (adapte à conversa, com o nome se tiver): "${passo.guia}"`,
+    passo.oferta
+      ? `A condição é ${condicao} de desconto sobre o valor do orçamento, válida até amanhã. Não diga o valor da condição nesta mensagem; se o cliente quiser ver, refaça o orçamento com criar_orcamento e desconto "oferta_followup".`
+      : null,
+    'Uma pergunta só, nunca "está aí?" nem só o nome com interrogação.',
+    `Se não fizer sentido mandar (atendimento encerrado, cliente já decidiu), responda exatamente ${NADA}.`,
+    "Não agende o próximo toque: o sistema agenda sozinho.",
   ]
     .filter(Boolean)
     .join(" ");
-  return conversar(db, tarefa, cfg, d, aviso);
+}
+
+/**
+ * Toque da cadência fora da janela de 24 h: modelo aprovado da Meta (com a cadência de modelos
+ * ligada) ou tarefa da equipe. Nos dois casos, o próximo toque já fica agendado.
+ */
+async function toqueForaDaJanela(
+  db: Admin,
+  tarefa: Tarefa,
+  cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
+  d: DadosConversa,
+  passo: Passo,
+  dados: DadosCadencia,
+): Promise<ResultadoTarefa> {
+  const { enviarToqueModelo, seguirCadencia } = await import("./cadencia.server");
+  let resultado: ResultadoTarefa;
+  const envio =
+    cfg.followup_modelos && passo.modelo
+      ? await enviarToqueModelo(db, {
+          empresaId: tarefa.empresa_id,
+          chatwootConversa: d.conversa.chatwoot_conversation_id,
+          nomeCliente: await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id),
+          passo,
+        }).catch((e) => ({
+          ok: false as const,
+          motivo: `falha ao mandar o modelo: ${e instanceof Error ? e.message : String(e)}`,
+        }))
+      : {
+          ok: false as const,
+          motivo: passo.modelo
+            ? "modelos fora da janela desligados"
+            : "toque sem modelo fora da janela de 24 h",
+        };
+  if (envio.ok) {
+    await db
+      .from("crm_followups")
+      .update({ canal: "modelo", modelo: envio.modelo })
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("ia_tarefa_id", tarefa.id);
+    await concluirRepescagem(db, tarefa, `Modelo ${envio.modelo} enviado`, false);
+    await enviarNota(
+      d,
+      `🤖 Toque ${passo.etapa} (fora da janela de 24 h) pelo modelo ${envio.modelo}: ${envio.texto}`,
+    );
+    resultado = {
+      situacao: "concluida",
+      detalhe: `toque ${passo.etapa} pelo modelo ${envio.modelo}`,
+    };
+  } else {
+    await followupParaEquipe(
+      db,
+      tarefa,
+      `toque ${passo.etapa} fora da janela de 24 h (${envio.motivo}). Sugestão: ${passo.guia}`,
+    );
+    resultado = {
+      situacao: "ignorada",
+      detalhe: `toque ${passo.etapa} para a equipe: ${envio.motivo}`,
+    };
+  }
+  if (
+    await seguirCadencia(db, {
+      empresaId: tarefa.empresa_id,
+      conversaId: d.conversa.id,
+      leadId: d.conversa.crm_lead_id,
+      cfg,
+      atual: dados,
+    })
+  ) {
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+  }
+  return resultado;
+}
+
+async function primeiroNomeDoLead(db: Admin, empresaId: string, leadId: string | null) {
+  if (!leadId) return null;
+  const { data } = await db
+    .from("crm_leads")
+    .select("lead_name")
+    .eq("id", leadId)
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  return primeiroNomeLimpo(data?.lead_name ?? null);
 }
 
 /** Conclui a repescagem ligada ao follow-up. */
@@ -844,6 +974,9 @@ async function concluirRepescagem(
       status: cancelada ? "Cancelada" : "Concluída",
       completed_at: new Date().toISOString(),
       result: resultado,
+      ...(cancelada || resultado.startsWith("Modelo") || resultado.startsWith("sem desfecho")
+        ? {}
+        : { canal: "texto" }),
     })
     .eq("empresa_id", tarefa.empresa_id)
     .eq("ia_tarefa_id", tarefa.id)
@@ -1377,6 +1510,24 @@ async function conversar(
         .eq("empresa_id", tarefa.empresa_id)
         .is("salesperson_id", null);
     }
+  }
+
+  // Cadência do follow-up (C/D): respondeu e o cliente ainda não voltou → o sistema agenda o
+  // próximo toque (toque da cadência feito agenda o seguinte). Toque curto ou trilha C agendados pela
+  // Alice nesta resposta vêm primeiro; a cadência continua depois deles.
+  if (!ctx.passagem && !ctx.osAcao && enviadas.length && !ctx.agendouToque) {
+    const { seguirCadencia } = await import("./cadencia.server");
+    const agendou = await seguirCadencia(db, {
+      empresaId: tarefa.empresa_id,
+      conversaId: d.conversa.id,
+      leadId: d.conversa.crm_lead_id,
+      cfg,
+      atual: ehFollowup ? ((tarefa.dados ?? {}) as DadosCadencia) : null,
+    }).catch((e) => {
+      console.error("Alice: cadência não agendada", e instanceof Error ? e.message : e);
+      return false;
+    });
+    if (agendou) ctx.agendouFollowup = true;
   }
 
   if (ctx.agendouFollowup) {

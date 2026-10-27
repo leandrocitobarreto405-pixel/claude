@@ -1514,6 +1514,11 @@ export type Database = {
       };
       crm_followups: {
         Row: {
+          trilha: string | null;
+          etapa: string | null;
+          canal: string | null;
+          modelo: string | null;
+          respondido_em: string | null;
           assigned_to: string | null;
           completed_at: string | null;
           created_at: string;
@@ -1530,6 +1535,11 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          trilha?: string | null;
+          etapa?: string | null;
+          canal?: string | null;
+          modelo?: string | null;
+          respondido_em?: string | null;
           assigned_to?: string | null;
           completed_at?: string | null;
           created_at?: string;
@@ -1546,6 +1556,11 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          trilha?: string | null;
+          etapa?: string | null;
+          canal?: string | null;
+          modelo?: string | null;
+          respondido_em?: string | null;
           assigned_to?: string | null;
           completed_at?: string | null;
           created_at?: string;
@@ -1633,6 +1648,8 @@ export type Database = {
       };
       crm_leads: {
         Row: {
+          sem_desfecho_em: string | null;
+          sem_desfecho_motivo: string | null;
           ad_id: string | null;
           agendado_em: string | null;
           campaign_id: string | null;
@@ -1688,6 +1705,8 @@ export type Database = {
           utm_term: string | null;
         };
         Insert: {
+          sem_desfecho_em?: string | null;
+          sem_desfecho_motivo?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;
@@ -1742,6 +1761,8 @@ export type Database = {
           utm_term?: string | null;
         };
         Update: {
+          sem_desfecho_em?: string | null;
+          sem_desfecho_motivo?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;
@@ -2607,6 +2628,11 @@ export type Database = {
       };
       ia_configuracoes: {
         Row: {
+          cadencia_followup: boolean;
+          followup_modelos: boolean;
+          oferta_followup_ligada: boolean;
+          oferta_followup_tipo: string;
+          oferta_followup_valor: number | null;
           audio_explicacoes: boolean;
           audio_limite_diario_creditos: number | null;
           modulos: Json;
@@ -2662,6 +2688,11 @@ export type Database = {
           video_impermeabilizacao: string | null;
         };
         Insert: {
+          cadencia_followup?: boolean;
+          followup_modelos?: boolean;
+          oferta_followup_ligada?: boolean;
+          oferta_followup_tipo?: string;
+          oferta_followup_valor?: number | null;
           audio_explicacoes?: boolean;
           audio_limite_diario_creditos?: number | null;
           modulos?: Json;
@@ -2717,6 +2748,11 @@ export type Database = {
           video_impermeabilizacao?: string | null;
         };
         Update: {
+          cadencia_followup?: boolean;
+          followup_modelos?: boolean;
+          oferta_followup_ligada?: boolean;
+          oferta_followup_tipo?: string;
+          oferta_followup_valor?: number | null;
           audio_explicacoes?: boolean;
           audio_limite_diario_creditos?: number | null;
           modulos?: Json;
