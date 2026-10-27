@@ -748,6 +748,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Follow-up com cadência do sistema, trava antes de cada toque e oferta do D2                | `b71f9ad`           | `d79c8db`                |
 | 27/10/2026       | Alice: seção Follow-up do núcleo (cadência do sistema)                                     | migração (chat)     | `366aaa3`                |
 | 27/10/2026       | Retomada dos 22 orçamentos parados e oferta do D2 (10%) na Turbine                         | `8b6c926`           | `366aaa3`                |
+| 27/10/2026       | Pix com fonte única (Regras de orçamento › Pagamento): Turbine 5%, Ecoprime 10%, Modelo 5% | `f41daf3`           | `8d3b57b`                |
+| 27/10/2026       | LPs: pop-up ligado ao lead pelo código, "LP sem pop-up" por semana (servidor)              | `e016fa8`           | `f41daf3`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1057,6 +1059,24 @@ da agenda), agendado para 27/10 às 10h, com a trava de sempre; as 22 tarefas da
 foram encerradas. A fila da Alice também passa a ser entregue pela rotina de cada minuto. Como
 desfazer: `git revert 8b6c926` (sem force push); oferta: desligar em Configurações › Alice ›
 Follow-up; retomada ainda não enviada: cancelar as tarefas pendentes com etapa "R".
+
+Pix com fonte única (27/10): o Pix passa a ser um valor só por empresa, em Configurações › Regras
+de orçamento › Pagamento (`orcamento_configuracoes.pix_pct`); a Alice, o orçamento manual, o PDF e a
+promoção da agenda leem dele (as colunas antigas viraram cópias, mantidas por gatilho; a promoção da
+agenda fica no que couber no teto de 25%). Turbine 5% (o que já valia na prática), Ecoprime 10%
+(vitrine, sem mudança), Modelo Nexa 5% (linha criada). Migração
+`20261228120000_pix_fonte_unica`. Como desfazer: `supabase/manual/20261228120000_pix_fonte_unica_desfazer.sql`
+e `git revert f41daf3 4d51cf1 f6ff588` (sem force push); o Pix da Turbine na vitrine era 10%.
+
+LPs, lado do servidor (27/10): `ads_clicks.ref_code` (o pop-up manda um código curto; a mensagem do
+cliente com "(cód. XXXX)" no fim liga o clique ao lead mesmo com outro telefone, e a venda entra na
+exportação do Google Ads); `mensagens_origem.exige_popup` nas 3 frases das LPs da Turbine;
+`crm_leads.lp_sem_popup_em` (lead que chegou com a frase da LP sem registro do pop-up; sai se o
+clique for ligado depois), com o cartão "LP sem pop-up" por semana em Marketing › Google. A Alice
+não vê o código. A ligação por telefone, a planilha e a exportação das 5h não mudaram. Migração
+`20261228130000_ads_ref_lp_sem_popup`. Como desfazer:
+`supabase/manual/20261228130000_ads_ref_lp_sem_popup_desfazer.sql` e `git revert e016fa8` (sem
+force push); as colunas ficam.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
