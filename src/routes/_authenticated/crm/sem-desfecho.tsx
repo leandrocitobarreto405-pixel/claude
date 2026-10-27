@@ -40,7 +40,7 @@ type LeadSemDesfecho = {
   resumo: string | null;
   sugerido: string | null;
   data_desejada: string | null;
-  entrou: "cadencia" | "validade";
+  entrou: "cadencia" | "alice" | "validade";
   conversa_id: string | null;
 };
 
@@ -185,7 +185,11 @@ function LinhaLead({ lead, motivos }: { lead: LeadSemDesfecho; motivos: Motivo[]
       ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
         <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-          {lead.entrou === "cadencia" ? "Terminou os follow-ups" : "Orçamento vencido"}
+          {lead.entrou === "cadencia"
+            ? "Terminou os follow-ups"
+            : lead.entrou === "alice"
+              ? "A Alice registrou o motivo"
+              : "Orçamento vencido"}
         </span>
         {lead.sugerido ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-atencao px-2 py-0.5 text-atencao-foreground">
@@ -384,7 +388,7 @@ function RelatorioPerdas() {
                     <span className="tabular-nums">
                       {a.quantidade} · {brl(a.valor)}
                       {a.dias_frente_media != null
-                        ? ` · queriam em ${a.dias_frente_media} dia(s)`
+                        ? ` · queriam para ${a.dias_frente_media} dia(s) depois, em média`
                         : ""}
                     </span>
                   </li>

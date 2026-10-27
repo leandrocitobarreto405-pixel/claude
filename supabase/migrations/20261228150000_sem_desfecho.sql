@@ -66,7 +66,8 @@ BEGIN
           'resumo', l.summary,
           'sugerido', coalesce(l.sem_desfecho_sugerido, l.sem_desfecho_motivo),
           'data_desejada', l.data_desejada,
-          'entrou', CASE WHEN l.sem_desfecho_em IS NOT NULL THEN 'cadencia' ELSE 'validade' END,
+          'entrou', CASE WHEN l.sem_desfecho_em IS NOT NULL THEN 'cadencia'
+                         WHEN l.sem_desfecho_sugerido IS NOT NULL THEN 'alice' ELSE 'validade' END,
           'conversa_id', (SELECT c.id FROM public.conversas c WHERE c.crm_lead_id = l.id
                            ORDER BY c.ultima_atividade_em DESC NULLS LAST LIMIT 1)) AS x
           FROM public.crm_leads l
@@ -82,7 +83,7 @@ BEGIN
            AND l.loss_reason_id IS NULL AND l.perdido_em IS NULL AND l.desfecho_em IS NULL
            AND coalesce(l.is_open, true)
            AND (l.next_follow_up_at IS NULL OR l.next_follow_up_at < now())
-           AND (l.sem_desfecho_em IS NOT NULL
+           AND (l.sem_desfecho_em IS NOT NULL OR l.sem_desfecho_sugerido IS NOT NULL
                 OR (l.orcamento_enviado_em AT TIME ZONE 'America/Sao_Paulo')::date + validade + 2
                    < (now() AT TIME ZONE 'America/Sao_Paulo')::date)) s), '[]'::jsonb);
 END $$;
