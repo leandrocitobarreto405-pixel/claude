@@ -333,3 +333,17 @@ test("cache do histórico: ponto de 1 hora só no último bloco do último turno
   );
   assert.equal(JSON.stringify(marcado).match(/cache_control/g)!.length, 1);
 });
+
+test("código do pop-up no fim da 1ª mensagem não chega à Alice", async () => {
+  const { semCodigoDoPopup } = await import("./prompt");
+  assert.equal(
+    semCodigoDoPopup(
+      "Olá, gostaria de um orçamento para higienização dos meus estofados, por favor. (cód. 4F2KQ)",
+    ),
+    "Olá, gostaria de um orçamento para higienização dos meus estofados, por favor.",
+  );
+  assert.equal(
+    semCodigoDoPopup("Meu código é (cód. 4F2KQ) do pedido"),
+    "Meu código é (cód. 4F2KQ) do pedido",
+  );
+});

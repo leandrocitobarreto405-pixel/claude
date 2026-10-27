@@ -482,6 +482,7 @@ export type Database = {
           nome: string | null;
           normalized_phone: string;
           page_url: string | null;
+          ref_code: string | null;
           servico: string | null;
           telefone_raw: string;
           utm_campaign: string | null;
@@ -507,6 +508,7 @@ export type Database = {
           nome?: string | null;
           normalized_phone: string;
           page_url?: string | null;
+          ref_code?: string | null;
           servico?: string | null;
           telefone_raw: string;
           utm_campaign?: string | null;
@@ -532,6 +534,7 @@ export type Database = {
           nome?: string | null;
           normalized_phone?: string;
           page_url?: string | null;
+          ref_code?: string | null;
           servico?: string | null;
           telefone_raw?: string;
           utm_campaign?: string | null;
@@ -1701,6 +1704,7 @@ export type Database = {
           etapa: string | null;
           gbraid: string | null;
           gclid: string | null;
+          lp_sem_popup_em: string | null;
           lp_origem: string | null;
           utm_term: string | null;
         };
@@ -1757,6 +1761,7 @@ export type Database = {
           whatsapp_contact_id?: string | null;
           gbraid?: string | null;
           gclid?: string | null;
+          lp_sem_popup_em?: string | null;
           lp_origem?: string | null;
           utm_term?: string | null;
         };
@@ -1813,6 +1818,7 @@ export type Database = {
           whatsapp_contact_id?: string | null;
           gbraid?: string | null;
           gclid?: string | null;
+          lp_sem_popup_em?: string | null;
           lp_origem?: string | null;
           utm_term?: string | null;
         };
@@ -3535,6 +3541,7 @@ export type Database = {
           created_at: string;
           descricao: string | null;
           empresa_id: string;
+          exige_popup: boolean;
           id: string;
           sales_origin_id: string;
           servico: string | null;
@@ -3547,6 +3554,7 @@ export type Database = {
           created_at?: string;
           descricao?: string | null;
           empresa_id?: string;
+          exige_popup?: boolean;
           id?: string;
           sales_origin_id: string;
           servico?: string | null;
@@ -3559,6 +3567,7 @@ export type Database = {
           created_at?: string;
           descricao?: string | null;
           empresa_id?: string;
+          exige_popup?: boolean;
           id?: string;
           sales_origin_id?: string;
           servico?: string | null;
@@ -7292,6 +7301,7 @@ export type Database = {
         Returns: { empresa_id: string; inicio: string; fim: string; conversas: number }[];
       };
       ia_saldo_estimado: { Args: Record<PropertyKey, never>; Returns: Json };
+      ads_definir_ref: { Args: { _clique: string; _ref: string }; Returns: Json };
       ia_saldo_hora_de_avisar: {
         Args: Record<PropertyKey, never>;
         Returns: { nivel: number; restante_usd: number; pct_restante: number }[];

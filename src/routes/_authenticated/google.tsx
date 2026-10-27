@@ -97,6 +97,36 @@ function useResumoGoogle(mes: string) {
   });
 }
 
+/** Leads que chegaram com a frase de uma LP sem passar pelo pop-up, nas últimas 8 semanas. */
+function useLpSemPopup() {
+  return useQuery({
+    queryKey: ["google", "lp-sem-popup"],
+    queryFn: async () => {
+      const desde = new Date(Date.now() - 8 * 7 * 86_400_000);
+      const { data, error } = await supabase
+        .from("crm_leads")
+        .select("lp_sem_popup_em")
+        .not("lp_sem_popup_em", "is", null)
+        .gte("lp_sem_popup_em", desde.toISOString());
+      if (error) throw error;
+      // Semana começando na segunda-feira (data de São Paulo).
+      const semanaDe = (iso: string) => {
+        const d = new Date(
+          `${new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" })}T12:00:00Z`,
+        );
+        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+        return d.toISOString().slice(0, 10);
+      };
+      const porSemana = new Map<string, number>();
+      for (const l of data ?? []) {
+        const s = semanaDe(l.lp_sem_popup_em!);
+        porSemana.set(s, (porSemana.get(s) ?? 0) + 1);
+      }
+      return [...porSemana.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    },
+  });
+}
+
 const RESULTADO: Record<string, string> = {
   enviado: "enviada",
   formatada: "planilha preparada",
@@ -108,6 +138,7 @@ const RESULTADO: Record<string, string> = {
 function Google() {
   const [mes, setMes] = useState(currentMonth());
   const { data: d, isLoading, error } = useResumoGoogle(mes);
+  const semPopup = useLpSemPopup();
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
@@ -200,6 +231,30 @@ function Google() {
           A exportação roda todo dia a partir das 5h; só vão vendas de OS ligadas a um lead com
           clique de até 90 dias antes.
         </p>
+      </Card>
+
+      <Card aria-label="LP sem pop-up">
+        <h2 className="text-sm font-bold">LP sem pop-up</h2>
+        <p className="text-xs text-muted-foreground">
+          Leads que chegaram no WhatsApp com a frase de uma landing page sem o registro do pop-up (o
+          clique não fica ligado ao lead e a venda não vai para o Google Ads). O ideal é zero.
+        </p>
+        {semPopup.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : !semPopup.data?.length ? (
+          <p className="text-sm text-muted-foreground">Nenhum nas últimas 8 semanas.</p>
+        ) : (
+          <ol className="space-y-1 text-sm">
+            {semPopup.data.map(([semana, n]) => (
+              <li key={semana} className="flex justify-between gap-3">
+                <span>
+                  Semana de {semana.slice(8, 10)}/{semana.slice(5, 7)}
+                </span>
+                <span className="font-semibold tabular-nums">{n}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </Card>
     </div>
   );

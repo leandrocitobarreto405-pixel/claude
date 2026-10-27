@@ -362,8 +362,13 @@ export function montarTurnos(
   return turnos;
 }
 
+/** Código do pop-up das LPs no fim da 1ª mensagem ("(cód. 4F2KQ)"): é do sistema, a Alice não vê. */
+export function semCodigoDoPopup(texto: string): string {
+  return texto.replace(/\s*\(\s*c[oó]d\.?\s*[A-Za-z0-9]{4,8}\s*\)\s*$/u, "");
+}
+
 function descreverMensagem(m: MensagemHistorico): string {
-  const texto = (m.texto ?? "").trim();
+  const texto = semCodigoDoPopup((m.texto ?? "").trim());
   const tipo = m.tipo ?? "Texto";
   let anexo = "";
   if (tipo === "Áudio") {

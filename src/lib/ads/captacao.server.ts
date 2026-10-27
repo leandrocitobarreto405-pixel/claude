@@ -22,6 +22,8 @@ const APELIDOS = {
   utm_content: ["utm_content", "utmContent"],
   page_url: ["page_url", "pageUrl", "url", "landing_page", "landingPage"],
   servico: ["servico", "serviço", "service"],
+  /** Código curto do pop-up que vai no fim da mensagem do WhatsApp ("(cód. 4F2KQ)"). */
+  ref: ["ref", "ref_code", "codigo"],
 } as const satisfies Record<string, readonly string[]>;
 type Campo = keyof typeof APELIDOS;
 type Dados = Partial<Record<Campo, string>>;
@@ -257,11 +259,24 @@ export async function registrarClique(request: Request): Promise<Resultado> {
   const r = (data ?? {}) as { resultado?: string; id?: string; motivo?: string; avisos?: string[] };
   const resultado = r.resultado ?? "desconhecido";
   const gravou = resultado === "gravado" || resultado === "duplicado";
+  // Código do pop-up: liga o clique ao lead pela mensagem, mesmo com outro telefone.
+  let ref: string | null = null;
+  const codigo = (dados.ref ?? "").toUpperCase();
+  if (gravou && r.id && /^[A-Z0-9]{4,8}$/.test(codigo)) {
+    const { data: d2, error: e2 } = await supabaseAdmin.rpc("ads_definir_ref", {
+      _clique: r.id,
+      _ref: codigo,
+    });
+    ref = e2
+      ? `erro: ${e2.message}`
+      : String((d2 as { resultado?: string } | null)?.resultado ?? "");
+  }
   log(gravou ? "INFO" : "WARNING", `captacao.${resultado}`, {
     ...base,
     id: r.id ?? null,
     motivo: r.motivo ?? null,
     avisos: r.avisos ?? [],
+    ref,
   });
   return { ok: gravou, resultado, ...(r.motivo ? { motivo: r.motivo } : {}) };
 }
