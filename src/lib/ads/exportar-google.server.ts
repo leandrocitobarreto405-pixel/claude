@@ -23,6 +23,9 @@ import { hashEmail, hashTelefone } from "./hash-google";
  * (gclid, ou gbraid/wbraid de iPhone quando não há gclid), o e-mail e o telefone já em SHA-256
  * (hex minúsculo); a linha pode ter clique, e-mail/telefone ou os dois.
  */
+/** Versão do formato da planilha (2 = colunas com e-mail e telefone em hash, 27/10/2026). */
+export const FORMATO = 2;
+
 export const CABECALHO = [
   "Google Click ID",
   "GBRAID",
@@ -381,7 +384,7 @@ async function exportarEmpresa(
         empresa_id: empresaId,
         tipo: "exportacao_google",
         resultado: "sem_planilha",
-        detalhe: { pendentes: novas.length },
+        detalhe: { pendentes: novas.length, formato: FORMATO },
       });
     }
     return { ...base, na_planilha: 0, situacao: "sem_planilha" };
@@ -450,7 +453,13 @@ async function exportarEmpresa(
       empresa_id: empresaId,
       tipo: "exportacao_google",
       resultado: "nada_novo",
-      detalhe: { planilha, aba, na_planilha: linhas.length, localidade: localidade.para },
+      detalhe: {
+        planilha,
+        aba,
+        na_planilha: linhas.length,
+        localidade: localidade.para,
+        formato: FORMATO,
+      },
     });
     return { ...base, na_planilha: linhas.length, situacao: "nada_novo" };
   }
@@ -526,6 +535,7 @@ async function exportarEmpresa(
       retiradas: sincronia.retiradas,
       cliques_marcados: marcados,
       cabecalho: [...CABECALHO],
+      formato: FORMATO,
       valores_como_texto: comoTexto,
       localidade: localidade.para,
     },
@@ -579,6 +589,9 @@ async function exportouHoje(empresaId: string, hojeSP: string): Promise<boolean>
     .eq("empresa_id", empresaId)
     .eq("tipo", "exportacao_google")
     .in("resultado", ["enviado", "formatada", "nada_novo", "sem_planilha"])
+    // Só conta a exportação no formato atual: na troca de formato, a varredura roda uma vez a
+    // mais no mesmo dia, logo depois da publicação.
+    .contains("detalhe", { formato: FORMATO })
     .gte("created_at", `${hojeSP}T00:00:00-03:00`);
   return (count ?? 0) > 0;
 }
