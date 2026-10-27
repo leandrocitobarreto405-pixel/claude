@@ -4,6 +4,7 @@
  * envio passa pelo mesmo ffmpeg da barra de resposta e vira mensagem de voz OGG/Opus mono (a regra
  * que resolveu o iPhone). ELEVENLABS_API_URL troca o endereço da API (testes).
  */
+import { causaDaParadaVoz, type CausaParada } from "./parada-ia";
 import { TEMPO_MAX_SINTESE_MS, type ModeloEleven } from "./voz";
 
 function base() {
@@ -65,6 +66,32 @@ export async function sintetizarEleven(
       return { erro: `ElevenLabs demorou mais de ${Math.round(tempoMs / 1000)} s` };
     const msg = e instanceof Error ? e.message : String(e);
     return { erro: msg.slice(0, 200) };
+  }
+}
+
+/**
+ * Teste da conta de voz (alarme de crédito): consulta a assinatura (não gasta crédito). null = tem
+ * crédito e a chave vale; senão, a causa ("outro" = não deu para saber).
+ */
+export async function testarContaEleven(): Promise<CausaParada | "outro" | null> {
+  if (!elevenConfigurada()) return "outro";
+  try {
+    const res = await fetch(`${base()}/v1/user/subscription`, {
+      headers: { "xi-api-key": chave() },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok)
+      return causaDaParadaVoz(erroCurto(res.status, await res.text().catch(() => ""))) ?? "outro";
+    const j = (await res.json()) as { character_count?: number; character_limit?: number };
+    if (
+      typeof j.character_count === "number" &&
+      typeof j.character_limit === "number" &&
+      j.character_count >= j.character_limit
+    )
+      return "credito";
+    return null;
+  } catch {
+    return "outro";
   }
 }
 

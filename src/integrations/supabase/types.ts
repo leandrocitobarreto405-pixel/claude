@@ -47,6 +47,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      ia_paradas: {
+        Row: {
+          avisado_nexa_em: string | null;
+          causa: string;
+          conversas: string[];
+          created_at: string;
+          empresa_id: string;
+          erros: number;
+          fim: string | null;
+          id: string;
+          inicio: string;
+          provedor: string;
+          ultimo_erro_em: string;
+        };
+        Insert: {
+          avisado_nexa_em?: string | null;
+          causa: string;
+          conversas?: string[];
+          created_at?: string;
+          empresa_id: string;
+          erros?: number;
+          fim?: string | null;
+          id?: string;
+          inicio?: string;
+          provedor: string;
+          ultimo_erro_em?: string;
+        };
+        Update: {
+          avisado_nexa_em?: string | null;
+          causa?: string;
+          conversas?: string[];
+          created_at?: string;
+          empresa_id?: string;
+          erros?: number;
+          fim?: string | null;
+          id?: string;
+          inicio?: string;
+          provedor?: string;
+          ultimo_erro_em?: string;
+        };
+        Relationships: [];
+      };
       pedidos_plano: {
         Row: {
           criado_em: string;
@@ -7195,6 +7237,18 @@ export type Database = {
           valor_excedente: number;
           para_equipe: number;
         }[];
+      };
+      ia_registrar_parada: {
+        Args: { _emp: string; _provedor: string; _causa: string; _conversa?: string | null };
+        Returns: { parada_id: string; nova: boolean; desde: string; avisar_nexa: boolean }[];
+      };
+      ia_encerrar_paradas: {
+        Args: { _provedor: string };
+        Returns: { empresa_id: string; inicio: string; fim: string; conversas: number }[];
+      };
+      ia_parada_hora_de_avisar: {
+        Args: { _provedor: string };
+        Returns: { desde: string; causa: string; empresas: number; conversas: number }[];
       };
       alice_uso_do_mes: {
         Args: Record<PropertyKey, never>;

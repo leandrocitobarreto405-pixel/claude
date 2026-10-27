@@ -48,6 +48,10 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         await passo("agenda_tecnicos", () =>
           rotinaAgendaTecnicos(agora ? new Date(agora) : undefined),
         );
+        // Alarme de crédito da IA: repete o aviso à Nexa de 2 em 2 horas (testa a conta antes).
+        const { rotinaAlarmeIa } = await import("@/lib/alice/parada-ia.server");
+        const { dbServico } = await import("@/lib/mkt/contexto.server");
+        await passo("alarme_ia", async () => rotinaAlarmeIa(await dbServico()));
         // Notificações no celular (Web Push da Nexa; não usa WhatsApp).
         const { processarNotificacoes } = await import("@/lib/push/notificacoes.server");
         await passo("notificacoes", () =>

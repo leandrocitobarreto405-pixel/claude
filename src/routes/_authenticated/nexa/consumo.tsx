@@ -2,9 +2,11 @@
 // de cada empresa no mês. A agenda dos técnicos não usa IA: entra só como mensagens enviadas.
 // Franquia da Alice (26/10): conversas do mês x incluídas, excedente, conversas mais caras e a
 // cotação do dólar (a Nexa edita; aviso se não for revista há mais de 30 dias).
+// Alarme de crédito (27/10): paradas da IA e da voz no mês, com as conversas que foram para a equipe.
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Botao, CabecalhoDeTela, Card, Chip, NumeroGrande } from "@/components/nexa";
@@ -25,6 +27,8 @@ import {
   type ConsumoEmpresa,
   type FranquiaEmpresa,
 } from "@/lib/consumo";
+import { duracaoDaParada } from "@/lib/alice/parada-ia";
+import { paradasDoMesFn, type ParadaIa } from "@/lib/paradas-ia.functions";
 
 export const Route = createFileRoute("/_authenticated/nexa/consumo")({
   head: () => ({ meta: [{ title: "Consumo das empresas — Nexa OS" }] }),
@@ -69,6 +73,12 @@ function ConsumoNexa() {
         ]),
       );
     },
+  });
+  const listarParadas = useServerFn(paradasDoMesFn);
+  const paradas = useQuery({
+    queryKey: ["nexa_paradas_ia_mes", mes],
+    enabled: souNexa,
+    queryFn: () => listarParadas({ data: { mes: monthStart(mes) } }),
   });
   const caras = useQuery({
     queryKey: ["nexa_conversas_caras", mes],
@@ -177,10 +187,48 @@ function ConsumoNexa() {
               <Item rotulo="Agenda dos técnicos" valor={int(c.agenda_mensagens)} />
               <Item rotulo="Automáticas no total" valor={int(mensagensAutomaticas(c))} />
               <ItemFranquia f={franquias.data?.get(c.empresa_id)} />
+              <ItemParadas
+                lista={(paradas.data ?? []).filter(
+                  (p) => p.empresa_id === c.empresa_id && p.provedor === "ia",
+                )}
+              />
             </dl>
           </Card>
         ))
       )}
+
+      <Card>
+        <h2 className="text-base font-bold">Paradas da Alice no mês (crédito ou chave da conta)</h2>
+        {paradas.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : !paradas.data?.length ? (
+          <p className="text-sm text-muted-foreground">Nenhuma parada neste mês.</p>
+        ) : (
+          <ol className="grid gap-2">
+            {paradas.data.map((p) => (
+              <li key={p.id} className="grid gap-0.5 rounded-card border border-border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">{p.empresa}</span>
+                  {p.fim ? null : <Chip>Parada agora</Chip>}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {p.provedor === "ia" ? "IA" : "Voz"} ·{" "}
+                  {p.causa === "credito" ? "sem crédito" : "chave recusada"} · desde{" "}
+                  {dateTimeBR(p.inicio)}
+                  {p.fim ? ` até ${dateTimeBR(p.fim)}` : ""} ·{" "}
+                  {duracaoDaParada(new Date(p.inicio), p.fim ? new Date(p.fim) : new Date())} ·{" "}
+                  {int(p.conversas)} conversa(s) para a equipe
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="text-xs text-muted-foreground">
+          A Nexa recebe notificação no primeiro erro e de 2 em 2 horas enquanto durar; a empresa vê
+          no sininho que a Alice está pausada. A parada fecha sozinha na primeira resposta que der
+          certo.
+        </p>
+      </Card>
 
       <Card>
         <h2 className="text-base font-bold">Conversas mais caras da Alice no mês</h2>
@@ -215,6 +263,21 @@ function ConsumoNexa() {
         </p>
       </Card>
     </div>
+  );
+}
+
+function ItemParadas({ lista }: { lista: ParadaIa[] }) {
+  if (!lista.length) return null;
+  const minutos = lista.reduce(
+    (s, p) => s + ((p.fim ? Date.parse(p.fim) : Date.now()) - Date.parse(p.inicio)) / 60_000,
+    0,
+  );
+  const conversas = lista.reduce((s, p) => s + p.conversas, 0);
+  return (
+    <Item
+      rotulo="Alice parada (crédito)"
+      valor={`${int(lista.length)}× · ${duracaoDaParada(new Date(0), new Date(minutos * 60_000))} · ${int(conversas)} p/ equipe`}
+    />
   );
 }
 

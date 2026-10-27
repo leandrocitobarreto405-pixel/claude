@@ -37,6 +37,7 @@ import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
 import { recursoDaRota, temRecurso } from "@/lib/recursos";
 import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { SinoNexa } from "@/components/plano/sino-nexa";
+import { AlertaParadaIa } from "@/components/plano/alerta-parada-ia";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
@@ -313,6 +314,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}
+          {painelNexa && rotaNexa ? <AlertaParadaIa /> : null}
           <AceiteTermos />
           {carregandoVinculo || trocandoParaPainel || saindoDoPainel ? (
             <p className="text-sm text-muted-foreground">

@@ -41,6 +41,8 @@ import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
 import { dentroDaJanela, dentroDoHorario, proximoHorarioPermitido, textoInterno } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
+import { causaDaParadaVoz, notaParadaConversa } from "./parada-ia";
+import { ParadaIa, chamarIa, encerrarParadas, registrarParada } from "./parada-ia.server";
 import { USD_POR_MIL_CREDITOS_PADRAO } from "./voz";
 import {
   CONFIRMACAO_DESCADASTRO,
@@ -126,15 +128,24 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
     const mensagem = e instanceof Error ? e.message : String(e);
     console.error("Alice: erro na tarefa", tarefa.id, mensagem);
     await concluir(db, tarefa.id, "erro", mensagem);
+    // Sem crédito ou chave recusada na conta da IA: registra a parada (avisa a Nexa e a empresa).
+    const parada = e instanceof ParadaIa ? e.causa : null;
+    if (parada) await registrarParada(db, tarefa.empresa_id, "ia", parada, tarefa.conversa_id);
     if (tarefa.tipo === "followup") {
-      await followupParaEquipe(db, tarefa, "a Alice teve um erro técnico no follow-up").catch(
-        () => undefined,
-      );
+      await followupParaEquipe(
+        db,
+        tarefa,
+        parada
+          ? "a Alice está pausada (conta da IA sem crédito ou chave recusada)"
+          : "a Alice teve um erro técnico no follow-up",
+      ).catch(() => undefined);
     } else {
       await socorroHumano(
         db,
         tarefa,
-        "A Alice teve um problema técnico e não conseguiu responder.",
+        parada
+          ? notaParadaConversa(parada)
+          : "A Alice teve um problema técnico e não conseguiu responder.",
       ).catch((e2) => console.error("Alice: falha ao passar para humano após erro", e2));
     }
     return { situacao: "erro", detalhe: mensagem };
@@ -1087,19 +1098,23 @@ async function conversar(
       if (interrompida) break;
     }
     rodadas++;
-    const resposta = await cliente.beta.messages.create({
-      model: cfg.modelo,
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: cfg.esforco as "low" | "medium" | "high" },
-      ...(COM_FALLBACK.includes(cfg.modelo)
-        ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
-        : {}),
-      cache_control: { type: "ephemeral" },
-      system: sistema,
-      tools: ferramentas,
-      messages: mensagens,
-    });
+    const resposta = await chamarIa(() =>
+      cliente.beta.messages.create({
+        model: cfg.modelo,
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: { effort: cfg.esforco as "low" | "medium" | "high" },
+        ...(COM_FALLBACK.includes(cfg.modelo)
+          ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
+          : {}),
+        cache_control: { type: "ephemeral" },
+        system: sistema,
+        tools: ferramentas,
+        messages: mensagens,
+      }),
+    );
+    // A conta da IA respondeu: se havia parada por crédito ou chave, fecha (uma vez por resposta).
+    if (rodadas === 1) await encerrarParadas(db, "ia");
     modeloUsado = resposta.model;
     uso.entrada += resposta.usage.input_tokens;
     uso.saida += resposta.usage.output_tokens;
@@ -1498,7 +1513,13 @@ async function comAudio(
       sintetizarEleven: async (texto, voz, modelo) => {
         const { sintetizarEleven } = await import("./eleven.server");
         const r = await sintetizarEleven(texto, voz, modelo);
-        if ("erro" in r) return r;
+        // Alarme de crédito da voz: sem crédito ou chave recusada abre a parada; deu certo, fecha.
+        if ("erro" in r) {
+          const causa = causaDaParadaVoz(r.erro);
+          if (causa) await registrarParada(db, empresaId, "voz", causa, null);
+          return r;
+        }
+        await encerrarParadas(db, "voz");
         try {
           const { paraOggOpus } = await import("@/lib/audio-voz.server");
           return { bytes: await paraOggOpus(r.bytes) };
