@@ -214,6 +214,43 @@ export async function coletarItens(
 }
 
 /**
+ * Orçamentos sem desfecho com a mesma regra da aba (leads_sem_desfecho): terminou os follow-ups,
+ * a Alice sugeriu o motivo ou o orçamento venceu há 2 dias; sem OS, perda, desfecho nem follow-up
+ * futuro. A função do banco exige usuário logado; aqui o aviso roda sem usuário.
+ */
+async function contarSemDesfecho(db: Db, emp: string, hoje: string): Promise<number> {
+  const [{ data: cfg }, { data: leads }] = await Promise.all([
+    db.from("orcamento_configuracoes").select("validade_dias").eq("empresa_id", emp).maybeSingle(),
+    db
+      .from("crm_leads")
+      .select(
+        "orcamento_enviado_em, sem_desfecho_em, sem_desfecho_sugerido, next_follow_up_at, is_open",
+      )
+      .eq("empresa_id", emp)
+      .not("orcamento_enviado_em", "is", null)
+      .is("os_criada_em", null)
+      .is("linked_work_order_id", null)
+      .is("loss_reason_id", null)
+      .is("perdido_em", null)
+      .is("desfecho_em", null)
+      .limit(2000),
+  ]);
+  const validade = Number(cfg?.validade_dias ?? 7) || 7;
+  const agora = Date.now();
+  return (leads ?? []).filter((l) => {
+    if (l.is_open === false) return false;
+    if (l.next_follow_up_at && Date.parse(l.next_follow_up_at) >= agora) return false;
+    if (l.sem_desfecho_em || l.sem_desfecho_sugerido) return true;
+    const enviado = new Date(l.orcamento_enviado_em!).toLocaleDateString("en-CA", {
+      timeZone: "America/Sao_Paulo",
+    });
+    const limite = new Date(`${enviado}T12:00:00Z`);
+    limite.setUTCDate(limite.getUTCDate() + validade + 2);
+    return limite.toISOString().slice(0, 10) < hoje;
+  }).length;
+}
+
+/**
  * Aviso das 10h no sininho (só no app, nunca WhatsApp): o resumo do "Precisa de você" do dia, uma
  * vez por dia, nas empresas com a Alice ligada. Lista zerada não gera aviso.
  */
@@ -239,14 +276,7 @@ export async function avisoDasDezPrecisa(agora = new Date()) {
       .limit(1);
     if (ja?.length) continue;
     const itens = await coletarItens(db, emp, agora);
-    const { count } = await db
-      .from("crm_leads")
-      .select("id", { count: "exact", head: true })
-      .eq("empresa_id", emp)
-      .eq("is_open", true)
-      .is("loss_reason_id", null)
-      .or("sem_desfecho_em.not.is.null,sem_desfecho_sugerido.not.is.null");
-    const texto = resumoDoDia(itens, { quantidade: count ?? 0 });
+    const texto = resumoDoDia(itens, { quantidade: await contarSemDesfecho(db, emp, hoje) });
     if (!texto) continue;
     await db.from("mkt_avisos").insert({
       empresa_id: emp,
