@@ -3917,6 +3917,7 @@ export type Database = {
           lido_em: string | null;
           lote_id: string | null;
           mensagem: string;
+          referencia: string | null;
           so_no_app: boolean;
           tipo: string;
           titulo: string;
@@ -3932,6 +3933,7 @@ export type Database = {
           lido_em?: string | null;
           lote_id?: string | null;
           mensagem: string;
+          referencia?: string | null;
           so_no_app?: boolean;
           tipo: string;
           titulo: string;
@@ -3947,6 +3949,7 @@ export type Database = {
           lido_em?: string | null;
           lote_id?: string | null;
           mensagem?: string;
+          referencia?: string | null;
           so_no_app?: boolean;
           tipo?: string;
           titulo?: string;

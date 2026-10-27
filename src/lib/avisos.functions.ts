@@ -40,7 +40,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
         escritorio
           ? db
               .from("mkt_avisos")
-              .select("id, tipo, titulo, mensagem, created_at, lido_em")
+              .select("id, tipo, titulo, mensagem, created_at, lido_em, conversa_id")
               .eq("empresa_id", context.empresaId)
               // A espera já aparece pela própria conversa; este tipo só existe para o WhatsApp.
               .neq("tipo", "cliente_esperando")
@@ -131,6 +131,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
           mensagem: string;
           created_at: string;
           lido_em: string | null;
+          conversa_id: string | null;
         }>
       ).map((m) => ({
         id: m.id,
@@ -139,6 +140,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
         mensagem: m.mensagem,
         criadoEm: m.created_at,
         lidoEm: m.lido_em,
+        conversaId: m.conversa_id,
       })),
       atrasados: atrasados.count ?? 0,
       semTecnico: semTecnico.count ?? 0,

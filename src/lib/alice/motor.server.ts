@@ -49,6 +49,12 @@ import {
 } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
 import { passoDaEtapa, type Passo } from "./cadencia";
+import {
+  MOTIVO_DO_CONTEXTO,
+  ROTULO_CONTEXTO,
+  ehConcorrencia,
+  type ClasseContexto,
+} from "./contexto-toque";
 import type { DadosCadencia } from "./cadencia.server";
 import { causaDaParadaVoz, notaParadaConversa } from "./parada-ia";
 import { ParadaIa, chamarIa, encerrarParadas, registrarParada } from "./parada-ia.server";
@@ -745,6 +751,65 @@ async function cancelarToque(db: Admin, tarefa: Tarefa, motivo: string) {
     .eq("status", "Pendente");
 }
 
+/** Toque bloqueado pelo contexto: cancela, sugere o motivo e, se foi concorrência, avisa urgente. */
+async function bloquearPorContexto(
+  db: Admin,
+  tarefa: Tarefa,
+  d: DadosConversa,
+  lido: { classe: Exclude<ClasseContexto, "segue">; trecho: string },
+): Promise<ResultadoTarefa> {
+  const motivo = `contexto: cliente ${ROTULO_CONTEXTO[lido.classe]}${lido.trecho ? ` ("${lido.trecho}")` : ""}`;
+  await cancelarToque(db, tarefa, motivo);
+  const leadId = d.conversa.crm_lead_id;
+  if (leadId) {
+    await db
+      .from("crm_leads")
+      .update({
+        sem_desfecho_sugerido: MOTIVO_DO_CONTEXTO[lido.classe],
+        desfecho_obs: lido.trecho || null,
+        next_follow_up_at: null,
+      })
+      .eq("id", leadId)
+      .eq("empresa_id", tarefa.empresa_id)
+      .is("loss_reason_id", null);
+  }
+  if (ehConcorrencia(lido.classe) && leadId) {
+    const referencia = `concorrente:${leadId}`;
+    const { data: ja } = await db
+      .from("mkt_avisos")
+      .select("id")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("referencia", referencia)
+      .limit(1);
+    if (!ja?.length) {
+      const [{ data: lead }, { data: orc }] = await Promise.all([
+        db.from("crm_leads").select("lead_name").eq("id", leadId).maybeSingle(),
+        db
+          .from("quotes")
+          .select("total")
+          .eq("crm_lead_id", leadId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const valor =
+        orc?.total != null
+          ? Number(orc.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+          : "sem orçamento";
+      await db.from("mkt_avisos").insert({
+        empresa_id: tarefa.empresa_id,
+        tipo: "concorrente",
+        titulo: `URGENTE: ${lead?.lead_name ?? "cliente"} foi para a concorrência`,
+        mensagem: `O cliente disse: "${lido.trecho || ROTULO_CONTEXTO[lido.classe]}". Nosso orçamento: ${valor}. Pergunte quanto ficou com a outra empresa e veja com o gestor uma condição melhor.`,
+        conversa_id: d.conversa.id,
+        so_no_app: true,
+        referencia,
+      });
+    }
+  }
+  return { situacao: "ignorada", detalhe: `toque cancelado: ${motivo}` };
+}
+
 async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
   const cfg = await lerConfig(db, tarefa.empresa_id);
   if (!cfg?.ativo) {
@@ -796,6 +861,19 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   if (trava) {
     await cancelarToque(db, tarefa, trava);
     return { situacao: "ignorada", detalhe: `toque cancelado: ${trava}` };
+  }
+  // Contexto (27/10): o cliente já disse que fechou com outra empresa, achou mais barato, já fez,
+  // não quer ou pediu para parar? O toque não sai e o lead vai para "Sem desfecho".
+  if (!passo?.fim) {
+    const { contextoDoCliente } = await import("./contexto-toque.server");
+    const lido = await contextoDoCliente(db as never, {
+      empresaId: tarefa.empresa_id,
+      contatoId: d.conversa.whatsapp_contact_id,
+      conversaId: d.conversa.id,
+    });
+    const classe = lido?.classe ?? "segue";
+    if (lido && classe !== "segue")
+      return bloquearPorContexto(db, tarefa, d, { classe, trecho: lido.trecho });
   }
   // Fim da trilha sem resposta: o lead vai para "Orçamentos sem desfecho".
   if (passo?.fim) {
