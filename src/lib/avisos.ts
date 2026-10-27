@@ -55,6 +55,7 @@ function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
   if (tipo === "pausa_automatica" || tipo === "lembretes_aprovacao") return "atencao";
   if (tipo === "lead_site_erro") return "problema";
   if (tipo === "concorrente") return "problema";
+  if (tipo === "precisa_resumo") return "atencao";
   if (tipo === "lead_site_sem_chamar") return "atencao";
   if (tipo === "servico_nao_concluido") return "atencao";
   if (tipo === "nota_emitida") return "sucesso";
@@ -98,11 +99,13 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
         ? { to: "/os/$osNumber", params: { osNumber: os } }
         : m.tipo === "concorrente" && m.conversaId
           ? { to: "/conversas/$conversaId", params: { conversaId: m.conversaId } }
-          : m.tipo === "nota_emitida"
-            ? { to: "/notas" }
-            : m.tipo.startsWith("lead_site")
-              ? { to: "/crm/leads-site" }
-              : { to: "/marketing" },
+          : m.tipo === "precisa_resumo"
+            ? { to: "/inicio" }
+            : m.tipo === "nota_emitida"
+              ? { to: "/notas" }
+              : m.tipo.startsWith("lead_site")
+                ? { to: "/crm/leads-site" }
+                : { to: "/marketing" },
       escritorio: true,
     });
   }

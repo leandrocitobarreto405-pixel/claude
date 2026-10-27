@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronRight, Plus } from "lucide-react";
 import { AvatarEmpresa, Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
+import { PrecisaDeVoce } from "@/components/inicio/precisa-de-voce";
 import { ResumoFranquiaAlice } from "@/components/alice/franquia-medidor";
 import { Atalhos } from "@/components/painel/atalhos";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
@@ -194,6 +195,9 @@ function Inicio() {
           ) : null
         }
       />
+
+      {/* Item F: o que depende da pessoa hoje, sempre no topo (atendente e admin da empresa). */}
+      {(papel === "admin" || papel === "atendente") && !souNexa ? <PrecisaDeVoce /> : null}
 
       <AbasInicio valor={aba} aoMudar={mudarAba} />
 

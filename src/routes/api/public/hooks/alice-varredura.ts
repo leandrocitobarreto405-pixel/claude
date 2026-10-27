@@ -66,6 +66,15 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             );
             return null;
           });
+          // "Precisa de você": resumo do dia no sininho às 10h (só no app).
+          const { avisoDasDezPrecisa } = await import("@/lib/precisa-de-voce.server");
+          const precisaResumo = await avisoDasDezPrecisa().catch((e) => {
+            console.error(
+              "Precisa de você: falha no aviso das 10h",
+              e instanceof Error ? e.message : e,
+            );
+            return null;
+          });
           // Google Ads: exportação diária das vendas (uma vez por dia, a partir das 5h).
           const { exportacaoDiaria } = await import("@/lib/ads/exportar-google.server");
           const exportacaoGoogle = await exportacaoDiaria()
@@ -87,6 +96,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             vinculoOs,
             retornosExpirados,
             servicosNaoConcluidos,
+            precisaResumo,
             exportacaoGoogle,
           });
         } catch (erro) {
