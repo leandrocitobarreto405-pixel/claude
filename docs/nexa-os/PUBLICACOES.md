@@ -751,6 +751,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Pix com fonte única (Regras de orçamento › Pagamento): Turbine 5%, Ecoprime 10%, Modelo 5%   | `f41daf3`                                 | `8d3b57b`                            |
 | 27/10/2026       | LPs: pop-up ligado ao lead pelo código, "LP sem pop-up" por semana (servidor)                | `e016fa8`                                 | `f41daf3`                            |
 | 27/10/2026       | LPs (Lovable): botões sem link pronto, pop-up grava antes de abrir o WhatsApp, código no fim | Lovable `db3ad04` / `aea482d` / `2ee736c` | Lovable (commit anterior de cada LP) |
+| 27/10/2026       | Cores e logo da Nexa, tema escuro automático (só na `redesign`/`nexaos-teste`)               | `4238175`                                 | `4a8465f`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1088,6 +1089,16 @@ toque rápido antes do carregamento, toque longo/clique do meio, com e sem gclid
 telefone fixo. A planilha de leads das LPs continua recebendo igual. Como desfazer: no Lovable, em
 cada projeto, voltar para a versão anterior ao commit acima (Histórico › Restaurar) e publicar; o
 servidor aceita os dois jeitos.
+
+Cores e logo da Nexa (27/10, só no teste): commit `4238175` na branch `redesign` (endereço
+`nexaos-teste`); a produção não muda até o seu OK. Tokens da paleta da Nexa no claro e no escuro
+(tema escuro automático, segue o aparelho), logo vetorizado em `public/brand`, favicon e ícones do
+app (192, 512, maskable, Apple) a partir do N, logo no login, menu, topo e páginas legais (dentro de
+uma empresa o logo dela continua onde já aparecia; o Painel Nexa só mostra o da Nexa) e cores
+soltas dos componentes trocadas pelos tokens. Contraste AA conferido. Enquanto estiver só no teste,
+a `redesign` recebe a produção por merge (não mais `HEAD:redesign`). Como desfazer no teste:
+`git revert 4238175` na `redesign` (sem force push); para publicar: merge da `redesign` na branch
+principal.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
