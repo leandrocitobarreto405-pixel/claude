@@ -182,3 +182,21 @@ export function podeAcessar(papel: Papel | null, pathname: string, souNexa = fal
 export function rotaInicial(papel: Papel | null): string {
   return papel === "tecnico" ? "/agenda" : "/inicio";
 }
+
+/** Quem é só contadora (sem equipe e sem Nexa) vai para a área dela. Conferido uma vez por login. */
+const soContadora = new Map<string, Promise<boolean>>();
+export function ehSoContadora(userId: string): Promise<boolean> {
+  let p = soContadora.get(userId);
+  if (!p) {
+    p = (async () => {
+      const [equipe, nexa, contabil] = await Promise.all([
+        supabase.from("usuarios_empresa").select("empresa_id").eq("user_id", userId).limit(1),
+        supabase.rpc("sou_admin_nexa" as never),
+        supabase.rpc("contadora_minhas_empresas"),
+      ]);
+      return !equipe.data?.length && nexa.data !== true && Boolean(contabil.data?.length);
+    })().catch(() => false);
+    soContadora.set(userId, p);
+  }
+  return p;
+}

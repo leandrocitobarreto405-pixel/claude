@@ -52,6 +52,7 @@ function tomDoMarketing(tipo: string, mensagem = ""): TomChip {
   if (tipo === "lead_site_erro") return "problema";
   if (tipo === "lead_site_sem_chamar") return "atencao";
   if (tipo === "servico_nao_concluido") return "atencao";
+  if (tipo === "nota_emitida") return "sucesso";
   return "neutro";
 }
 
@@ -90,9 +91,11 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
       novo: !m.lidoEm,
       link: os
         ? { to: "/os/$osNumber", params: { osNumber: os } }
-        : m.tipo.startsWith("lead_site")
-          ? { to: "/crm/leads-site" }
-          : { to: "/marketing" },
+        : m.tipo === "nota_emitida"
+          ? { to: "/notas" }
+          : m.tipo.startsWith("lead_site")
+            ? { to: "/crm/leads-site" }
+            : { to: "/marketing" },
       escritorio: true,
     });
   }

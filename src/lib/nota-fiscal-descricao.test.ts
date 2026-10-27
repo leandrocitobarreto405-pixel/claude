@@ -305,6 +305,7 @@ test("mensagem: descrição no fim, ou no lugar de {{descricao_servicos}}", () =
     forma_pagamento: "Pix",
     valor: "R$ 100,00",
     numero_os: "0001",
+    endereco: null,
   };
   const desc = "Serviço de higienização de estofados realizado em 10/03/2026:";
   assert.equal(

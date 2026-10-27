@@ -1266,6 +1266,40 @@ export type Database = {
         };
         Relationships: [];
       };
+      contadoras_empresa: {
+        Row: {
+          created_at: string;
+          criado_por: string | null;
+          email: string;
+          empresa_id: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          criado_por?: string | null;
+          email: string;
+          empresa_id: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          criado_por?: string | null;
+          email?: string;
+          empresa_id?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contadoras_empresa_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       contatos_internos: {
         Row: {
           chave: string;
@@ -1473,6 +1507,40 @@ export type Database = {
             foreignKeyName: "conversas_whatsapp_contact_id_fkey";
             columns: ["whatsapp_contact_id"];
             referencedRelation: "whatsapp_contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      convites_contadora: {
+        Row: {
+          aceito_em: string | null;
+          created_at: string;
+          criado_por: string | null;
+          email: string;
+          empresa_id: string;
+          id: string;
+        };
+        Insert: {
+          aceito_em?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          email: string;
+          empresa_id: string;
+          id?: string;
+        };
+        Update: {
+          aceito_em?: string | null;
+          created_at?: string;
+          criado_por?: string | null;
+          email?: string;
+          empresa_id?: string;
+          id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "convites_contadora_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
             referencedColumns: ["id"];
           },
         ];
@@ -2495,11 +2563,18 @@ export type Database = {
           beneficiary: string | null;
           category: string;
           competence_date: string;
+          comprovante_em: string | null;
+          comprovante_nome: string | null;
+          comprovante_path: string | null;
           created_at: string;
           daily_route_id: string | null;
           deleted_at: string | null;
           deleted_by: string | null;
           description: string;
+          drive_erro: string | null;
+          drive_situacao: string | null;
+          drive_tentativas: number;
+          drive_url: string | null;
           due_date: string | null;
           empresa_id: string;
           expected_amount: number;
@@ -2522,11 +2597,18 @@ export type Database = {
           beneficiary?: string | null;
           category?: string;
           competence_date?: string;
+          comprovante_em?: string | null;
+          comprovante_nome?: string | null;
+          comprovante_path?: string | null;
           created_at?: string;
           daily_route_id?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           description: string;
+          drive_erro?: string | null;
+          drive_situacao?: string | null;
+          drive_tentativas?: number;
+          drive_url?: string | null;
           due_date?: string | null;
           empresa_id?: string;
           expected_amount?: number;
@@ -2549,11 +2631,18 @@ export type Database = {
           beneficiary?: string | null;
           category?: string;
           competence_date?: string;
+          comprovante_em?: string | null;
+          comprovante_nome?: string | null;
+          comprovante_path?: string | null;
           created_at?: string;
           daily_route_id?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           description?: string;
+          drive_erro?: string | null;
+          drive_situacao?: string | null;
+          drive_tentativas?: number;
+          drive_url?: string | null;
           due_date?: string | null;
           empresa_id?: string;
           expected_amount?: number;
@@ -3294,18 +3383,27 @@ export type Database = {
           created_at: string;
           customer_id: string | null;
           document_number: string | null;
+          drive_erro: string | null;
+          drive_situacao: string | null;
+          drive_tentativas: number;
+          drive_url: string | null;
+          emitida_em: string | null;
+          emitida_por: string | null;
           empresa_id: string;
           file_url: string | null;
           id: string;
           invoice_amount: number;
           invoice_number: string | null;
           issue_date: string | null;
+          motivo_cancelamento: string | null;
           notes: string | null;
           service_date: string | null;
           solicitada_em: string | null;
           status: string;
           updated_at: string;
           work_order_id: string;
+          xml_nome: string | null;
+          xml_path: string | null;
         };
         Insert: {
           arquivo_nome?: string | null;
@@ -3313,18 +3411,27 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           document_number?: string | null;
+          drive_erro?: string | null;
+          drive_situacao?: string | null;
+          drive_tentativas?: number;
+          drive_url?: string | null;
+          emitida_em?: string | null;
+          emitida_por?: string | null;
           empresa_id?: string;
           file_url?: string | null;
           id?: string;
           invoice_amount?: number;
           invoice_number?: string | null;
           issue_date?: string | null;
+          motivo_cancelamento?: string | null;
           notes?: string | null;
           service_date?: string | null;
           solicitada_em?: string | null;
           status?: string;
           updated_at?: string;
           work_order_id: string;
+          xml_nome?: string | null;
+          xml_path?: string | null;
         };
         Update: {
           arquivo_nome?: string | null;
@@ -3332,18 +3439,27 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           document_number?: string | null;
+          drive_erro?: string | null;
+          drive_situacao?: string | null;
+          drive_tentativas?: number;
+          drive_url?: string | null;
+          emitida_em?: string | null;
+          emitida_por?: string | null;
           empresa_id?: string;
           file_url?: string | null;
           id?: string;
           invoice_amount?: number;
           invoice_number?: string | null;
           issue_date?: string | null;
+          motivo_cancelamento?: string | null;
           notes?: string | null;
           service_date?: string | null;
           solicitada_em?: string | null;
           status?: string;
           updated_at?: string;
           work_order_id?: string;
+          xml_nome?: string | null;
+          xml_path?: string | null;
         };
         Relationships: [
           {
@@ -7343,6 +7459,26 @@ export type Database = {
         };
         Returns: number;
       };
+      contadora_despesas: {
+        Args: { _ate: string; _de: string; _emp: string };
+        Returns: Json;
+      };
+      contadora_minhas_empresas: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          empresa_id: string;
+          nome: string;
+        }[];
+      };
+      contadora_notas: {
+        Args: { _ate?: string; _de?: string; _emp: string; _filtro?: string };
+        Returns: Json;
+      };
+      contadora_os_realizadas: {
+        Args: { _ate: string; _de: string; _emp: string };
+        Returns: Json;
+      };
+      contadora_pode: { Args: { _emp: string }; Returns: boolean };
       os_abertas_do_item: {
         Args: {
           _item: string;

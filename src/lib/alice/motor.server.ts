@@ -181,6 +181,8 @@ type DadosConversa = {
   conta: Conta;
   tokenRobo: string | null;
   tokenAdmin: string | null;
+  /** Agente-robô da Alice no Chatwoot (responsável que não é "dono" da conversa). */
+  botId?: number | null;
   contato: {
     ia_desligada: boolean;
     sem_pos_venda: boolean;
@@ -195,7 +197,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
   const { data: conversa } = await db
     .from("conversas")
     .select(
-      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em, alice_modulos",
+      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em, alice_modulos, assumida_por, responsavel_id",
     )
     .eq("id", tarefa.conversa_id)
     .eq("empresa_id", tarefa.empresa_id)
@@ -204,7 +206,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
   const [{ data: conexao }, { data: segredos }, { data: contato }] = await Promise.all([
     db
       .from("chatwoot_conexoes")
-      .select("base_url, account_id")
+      .select("base_url, account_id, alice_bot_id")
       .eq("id", conversa.conexao_id)
       .single(),
     db
@@ -230,6 +232,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
     tokenRobo: segredos?.alice_bot_token ?? null,
     tokenAdmin: segredos?.api_token ?? null,
     contato: contato ?? null,
+    botId: conexao.alice_bot_id == null ? null : Number(conexao.alice_bot_id),
   };
 }
 
@@ -781,6 +784,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     conversa: d.conversa,
     contato: d.contato,
     desde: new Date(tarefa.created_at),
+    botId: d.botId ?? null,
   });
   if (trava) {
     await cancelarToque(db, tarefa, trava);
