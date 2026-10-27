@@ -1462,7 +1462,7 @@ function RepasseTerceirizado({
         </div>
       </dl>
       {semCusto.length ? (
-        <p className="mt-2 text-amber-700 dark:text-amber-400">
+        <p className="mt-2 text-atencao-foreground">
           Falta o custo do parceiro em{" "}
           {semCusto.length === 1 ? "1 item" : `${semCusto.length} itens`}: o repasse ainda não foi
           informado. {ehAdmin ? "Informe abaixo." : "Peça ao administrador para informar."}

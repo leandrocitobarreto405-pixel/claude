@@ -33,7 +33,7 @@ export function AvatarEmpresa({
   return (
     <span
       className={cn(
-        "grid shrink-0 place-items-center rounded-xl bg-marca font-titulo text-destaque",
+        "grid shrink-0 place-items-center rounded-xl bg-navy-deep font-titulo text-destaque ring-1 ring-inset ring-navy-foreground/15",
         className,
       )}
       style={estilo}

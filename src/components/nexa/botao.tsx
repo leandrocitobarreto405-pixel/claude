@@ -8,7 +8,7 @@ const botaoVariants = cva(
   {
     variants: {
       variante: {
-        /** Ação principal: verde-escuro da marca, texto branco. */
+        /** Ação principal: azul-marinho da marca, texto branco (no escuro: azul claro, texto escuro). */
         primario: "bg-marca text-marca-foreground hover:bg-marca/90 active:bg-marca-fundo",
         /** Ação secundária: borda da marca sobre o cartão. */
         contorno:

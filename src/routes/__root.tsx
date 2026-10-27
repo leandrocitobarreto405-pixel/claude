@@ -115,7 +115,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b5e54605-7fb3-44c8-9f9b-7120f6f4085b/id-preview-67e71186--be2075a7-0c81-417d-8280-5ebccc9a7987.lovable.app-1785727604517.png",
       },
-      { name: "theme-color", content: "#0B3D36" },
+      { name: "theme-color", content: "#0B2749" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
@@ -134,7 +134,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/png", href: "/favicon.png", sizes: "32x32" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   }),
@@ -144,10 +145,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+/**
+ * Tema escuro: segue o aparelho, antes de pintar a tela (sem piscar). "nexa-tema" no
+ * localStorage ("claro" ou "escuro") fixa um dos dois.
+ */
+const SCRIPT_TEMA = `(function(){try{var m=window.matchMedia("(prefers-color-scheme: dark)");var a=function(){var t=localStorage.getItem("nexa-tema");var e=t==="escuro"||(t!=="claro"&&m.matches);var h=document.documentElement;h.classList.toggle("dark",e);h.style.colorScheme=e?"dark":"light";var c=document.querySelector('meta[name="theme-color"]');if(c)c.setAttribute("content",e?"#0A1628":"#0B2749");};a();m.addEventListener("change",a);}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
         <HeadContent />
       </head>
       <body>

@@ -6,17 +6,20 @@
 
 /*
  * Design system — Nexa OS
- * Verde-escuro da marca + verde-água de destaque sobre fundo claro levemente quente.
- * Todas as cores em oklch. Nunca usar cores literais nos componentes.
+ * Azul-marinho da Nexa + azul vivo de destaque sobre fundo claro levemente azulado; tema escuro
+ * automático (segue o aparelho). Nunca usar cores literais nos componentes.
  *
  * Tokens da marca (use estes nas telas novas, via src/components/nexa):
- *   marca / marca-foreground   verde-escuro (#0B3D36) com texto branco
- *   marca-fundo                verde mais escuro (barra lateral)
- *   marca-claro                fundo verde-claro (#DCF3E9)
- *   destaque                   verde-água sobre o escuro (#7CE8C2)
- *   dado                       verde de gráficos e barras (#2FB58A); não usar em texto
+ *   marca / marca-foreground   azul-marinho (#0B2749) com texto branco; no escuro, azul claro
+ *                              com texto marinho
+ *   marca-fundo                marinho mais escuro (barra lateral)
+ *   marca-claro                fundo azul-claro (#E6F0FD)
+ *   destaque                   azul vivo (#0A7CF7): ícones, foco e realce sobre o marinho
+ *   dado                       azul médio (#0A5BC4) de gráficos e barras
+ *   chart-1..5                 gráficos: vivo → médio → profundo → cinza-azulado
  *   atencao / problema         fundos de aviso, com o texto em *-foreground
  *   alerta                     badge de alerta (#C9430E, contraste 4,9 com o branco)
+ *   tema-marinho               painel marinho com texto branco nos dois temas (CardEscuro)
  * Os tokens antigos (primary, navy, secondary, success, warning, destructive…) apontam para
  * as mesmas cores, para as telas atuais seguirem o tema.
  */
@@ -58,8 +61,8 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   /* Sem sombras pesadas: o cartão se separa do fundo pela borda. */
-  --shadow-card: 0 1px 2px 0 oklch(0.2226 0.0248 182 / 4%);
-  --shadow-card-hover: 0 2px 6px 0 oklch(0.2226 0.0248 182 / 7%);
+  --shadow-card: 0 1px 2px 0 rgb(var(--sombra) / 5%);
+  --shadow-card-hover: 0 2px 6px 0 rgb(var(--sombra) / 9%);
   --color-navy: var(--navy);
   --color-navy-foreground: var(--navy-foreground);
   --color-navy-deep: var(--navy-deep);
@@ -85,104 +88,104 @@
   --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Cores da Nexa (27/10/2026). Paleta da marca: azul-marinho #0B2749, azul vivo #0A7CF7, azul
+   médio #0A5BC4, azul profundo #0A3D85 e cinza-azulado #6E7F91. As cores de situação (atenção,
+   problema, alerta, sucesso) continuam as mesmas. Componentes usam só estes tokens. */
 :root {
   --radius: 0.75rem;
-  /* Marca */
-  --marca: oklch(0.3259 0.0526 181.4);
-  --marca-foreground: oklch(1 0 0);
-  --marca-fundo: oklch(0.2623 0.0412 182);
-  --marca-claro: oklch(0.9445 0.0276 167.8);
-  --destaque: oklch(0.8558 0.1148 168.5);
-  --dado: oklch(0.6919 0.1298 166.5);
+
+  --marca: #0b2749;
+  --marca-foreground: #ffffff;
+  --marca-fundo: #081d37;
+  --marca-claro: #e6f0fd;
+  --destaque: #0a7cf7;
+  --dado: #0a5bc4;
   --atencao: oklch(0.9622 0.0384 83.8);
   --atencao-foreground: oklch(0.479 0.1124 59.9);
   --problema: oklch(0.9484 0.0231 11);
   --problema-foreground: oklch(0.4563 0.1728 18.9);
   --alerta: oklch(0.5676 0.179 38.1);
   --alerta-foreground: oklch(1 0 0);
-  --desligado: oklch(0.8157 0.0148 180.6);
-  /* Base */
-  --background: oklch(0.9656 0.0041 121.6);
-  --foreground: oklch(0.2226 0.0248 182);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2226 0.0248 182);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2226 0.0248 182);
+  --desligado: #c3ccd6;
+
+  --background: #f3f6fa;
+  --foreground: #0e1b2e;
+  --card: #ffffff;
+  --card-foreground: #0e1b2e;
+  --popover: #ffffff;
+  --popover-foreground: #0e1b2e;
   --primary: var(--marca);
   --primary-foreground: var(--marca-foreground);
   --secondary: var(--marca-claro);
   --secondary-foreground: var(--marca);
-  --muted: oklch(0.9422 0.0058 153.8);
-  --muted-foreground: oklch(0.5124 0.0214 179.6);
+  --muted: #eaeff5;
+  --muted-foreground: #526175;
   --accent: var(--marca-claro);
   --accent-foreground: var(--marca);
   --destructive: var(--problema-foreground);
   --destructive-foreground: oklch(1 0 0);
-  /* Verde de texto e ícone (o verde de dados é claro demais para texto). */
+
   --success: oklch(0.5171 0.0989 169.7);
   --success-foreground: oklch(1 0 0);
   --warning: var(--atencao-foreground);
   --warning-foreground: var(--atencao-foreground);
-  --border: oklch(0.9238 0.0068 145.5);
-  --input: oklch(0.9238 0.0068 145.5);
-  --ring: var(--dado);
+  --border: #dce3ec;
+  --input: #d3dbe6;
+  --ring: var(--destaque);
   --navy: var(--marca);
-  --navy-foreground: var(--marca-foreground);
+  --navy-foreground: #ffffff;
   --navy-deep: var(--marca-fundo);
   --teal-soft: var(--marca-claro);
-  --chart-1: var(--marca);
-  --chart-2: var(--dado);
-  --chart-3: var(--destaque);
-  --chart-4: var(--atencao-foreground);
-  --chart-5: var(--alerta);
+  /* Gráficos: vivo → médio → profundo → cinza. */
+  --chart-1: #0a7cf7;
+  --chart-2: #0a5bc4;
+  --chart-3: #0a3d85;
+  --chart-4: #6e7f91;
+  --chart-5: #a9b6c4;
+  --sombra: 11 39 73;
 }
 
+/* Tema escuro: segue o aparelho (classe "dark" no <html>, ver __root.tsx). Texto e botões da
+   marca ficam claros sobre o fundo azul-marinho. */
 .dark {
-  --background: oklch(0.19 0.03 258);
-  --foreground: oklch(0.97 0.004 240);
-  --card: oklch(0.24 0.04 258);
-  --card-foreground: oklch(0.97 0.004 240);
-  --popover: oklch(0.24 0.04 258);
-  --popover-foreground: oklch(0.97 0.004 240);
-  --primary: oklch(0.7 0.09 183);
-  --primary-foreground: oklch(0.19 0.03 258);
-  --secondary: oklch(0.3 0.04 258);
-  --secondary-foreground: oklch(0.97 0.004 240);
-  --muted: oklch(0.3 0.04 258);
-  --muted-foreground: oklch(0.72 0.03 250);
-  --accent: oklch(0.63 0.1 183);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.65 0.19 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.65 0.13 155);
-  --success-foreground: oklch(0.15 0.02 258);
-  --warning: oklch(0.78 0.14 70);
-  --warning-foreground: oklch(0.2 0.03 258);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.63 0.1 183);
-  --chart-1: oklch(0.7 0.09 183);
-  --chart-2: oklch(0.65 0.13 155);
-  --chart-3: oklch(0.78 0.14 70);
-  --chart-4: oklch(0.65 0.19 25);
-  --chart-5: oklch(0.65 0.15 300);
-  --navy: oklch(0.3259 0.0526 181.4);
-  --navy-foreground: oklch(1 0 0);
-  --navy-deep: oklch(0.2623 0.0412 182);
-  --teal-soft: oklch(0.3 0.04 180);
-  --marca: oklch(0.3259 0.0526 181.4);
-  --marca-foreground: oklch(1 0 0);
-  --marca-fundo: oklch(0.2623 0.0412 182);
-  --marca-claro: oklch(0.3 0.04 180);
-  --destaque: oklch(0.8558 0.1148 168.5);
-  --dado: oklch(0.6919 0.1298 166.5);
+  --marca: #7db5ff;
+  --marca-foreground: #06142a;
+  --marca-fundo: #06101f;
+  --marca-claro: #13304f;
+  --destaque: #4fa2ff;
+  --dado: #5aa8ff;
   --atencao: oklch(0.35 0.06 70);
   --atencao-foreground: oklch(0.9622 0.0384 83.8);
   --problema: oklch(0.35 0.08 18);
   --problema-foreground: oklch(0.9484 0.0231 11);
   --alerta: oklch(0.5676 0.179 38.1);
   --alerta-foreground: oklch(1 0 0);
-  --desligado: oklch(0.45 0.02 180);
+  --desligado: #3a4b60;
+
+  --background: #0a1628;
+  --foreground: #e9eff7;
+  --card: #0f2036;
+  --card-foreground: #e9eff7;
+  --popover: #0f2036;
+  --popover-foreground: #e9eff7;
+  --muted: #16293f;
+  --muted-foreground: #9daec2;
+  --destructive: oklch(0.65 0.19 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.65 0.13 155);
+  --success-foreground: oklch(0.15 0.02 258);
+  --warning: oklch(0.78 0.14 70);
+  --warning-foreground: oklch(0.2 0.03 258);
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 16%);
+  --navy: #dce8f7;
+  --navy-foreground: #ffffff;
+  --chart-1: #4fa2ff;
+  --chart-2: #2f7fe0;
+  --chart-3: #1e5fb3;
+  --chart-4: #8a9bb0;
+  --chart-5: #5c6d82;
+  --sombra: 0 0 0;
 }
 
 @layer base {
@@ -238,6 +241,20 @@
   }
 }
 
+/* Painel azul-marinho com texto branco (ex.: cartão da Alice) nos dois temas: dentro dele a marca
+   volta a ser o marinho e o botão claro fica branco com texto marinho. */
+@utility tema-marinho {
+  --marca: #0b2749;
+  --marca-foreground: #ffffff;
+  --marca-claro: #e6f0fd;
+  --destaque: #4fa2ff;
+  --card: #ffffff;
+  --card-foreground: #0e1b2e;
+  :where(.dark) & {
+    --marca: #133a69;
+  }
+}
+
 @utility card-accent-teal {
   border-left: 3px solid var(--color-primary);
 }
@@ -274,7 +291,7 @@
 }
 
 @utility field-readonly {
-  background-color: color-mix(in oklab, var(--color-muted) 80%, white);
+  background-color: color-mix(in oklab, var(--color-muted) 80%, var(--color-card));
   color: var(--color-muted-foreground);
 }
 

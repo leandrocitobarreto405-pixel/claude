@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Droplets } from "lucide-react";
+import { LogoNexa } from "@/components/nexa";
 
 /** Layout das páginas públicas de Política de Privacidade e Termos de Serviço. */
 export function PaginaLegal({
@@ -14,12 +14,9 @@ export function PaginaLegal({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-linear-to-b from-navy-deep to-navy px-4 py-6 text-navy-foreground">
+      <header className="bg-navy-deep px-4 py-6 text-navy-foreground">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Droplets className="size-5" />
-          </span>
-          <span className="text-lg font-semibold">Nexa OS</span>
+          <LogoNexa sobre="escuro" className="h-7" alt="Nexa OS" />
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-8">

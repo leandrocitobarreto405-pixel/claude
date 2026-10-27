@@ -43,9 +43,9 @@ export function useModeloNota() {
 }
 
 const CLASSE_STATUS: Record<string, string> = {
-  Pendente: "bg-amber-100 text-amber-900",
+  Pendente: "bg-atencao text-atencao-foreground",
   Solicitada: "bg-primary/10 text-primary",
-  Emitida: "bg-emerald-100 text-emerald-800",
+  Emitida: "bg-success/12 text-success",
   Cancelada: "bg-secondary text-muted-foreground",
   "Não necessária": "bg-secondary text-muted-foreground",
   "Não emitir": "bg-secondary text-muted-foreground",
@@ -133,17 +133,20 @@ export function AcoesNota({ tarefa, onChange }: { tarefa: TarefaNota; onChange: 
   return (
     <div className="grid gap-2">
       {faltando.length ? (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md bg-atencao px-3 py-2 text-xs text-atencao-foreground">
           Falta no cadastro: {faltando.join(", ")}. A mensagem sai com “não informado”.
         </p>
       ) : null}
       {descricao.aviso ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">
+        <p
+          role="alert"
+          className="rounded-md bg-problema px-3 py-2 text-xs text-problema-foreground"
+        >
           {descricao.aviso}
         </p>
       ) : null}
       {descricao.agrupado ? (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md bg-atencao px-3 py-2 text-xs text-atencao-foreground">
           Itens iguais foram agrupados na descrição para caber em 2.000 caracteres.
         </p>
       ) : null}

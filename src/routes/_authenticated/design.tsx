@@ -42,15 +42,15 @@ const ABAS: ItemDeNavegacao[] = [
 ];
 
 const CORES: { nome: string; classe: string; hex: string; texto?: string }[] = [
-  { nome: "Fundo do app", classe: "bg-background", hex: "#F3F4F1" },
+  { nome: "Fundo do app", classe: "bg-background", hex: "#F3F6FA" },
   { nome: "Cartão", classe: "bg-card", hex: "#FFFFFF" },
-  { nome: "Borda", classe: "bg-border", hex: "#E3E7E3" },
-  { nome: "Texto", classe: "bg-foreground", hex: "#0D1F1C", texto: "text-background" },
-  { nome: "Texto secundário", classe: "bg-muted-foreground", hex: "#5A6B67", texto: "text-card" },
-  { nome: "Marca", classe: "bg-marca", hex: "#0B3D36", texto: "text-marca-foreground" },
-  { nome: "Marca clara", classe: "bg-marca-claro", hex: "#DCF3E9" },
-  { nome: "Destaque no escuro", classe: "bg-destaque", hex: "#7CE8C2" },
-  { nome: "Verde de dado", classe: "bg-dado", hex: "#2FB58A" },
+  { nome: "Borda", classe: "bg-border", hex: "#DCE3EC" },
+  { nome: "Texto", classe: "bg-foreground", hex: "#0E1B2E", texto: "text-background" },
+  { nome: "Texto secundário", classe: "bg-muted-foreground", hex: "#526175", texto: "text-card" },
+  { nome: "Marca", classe: "bg-marca", hex: "#0B2749", texto: "text-marca-foreground" },
+  { nome: "Marca clara", classe: "bg-marca-claro", hex: "#E6F0FD" },
+  { nome: "Azul vivo (destaque)", classe: "bg-destaque", hex: "#0A7CF7" },
+  { nome: "Azul médio (dado)", classe: "bg-dado", hex: "#0A5BC4" },
   { nome: "Atenção", classe: "bg-atencao", hex: "#FFF1D6", texto: "text-atencao-foreground" },
   { nome: "Problema", classe: "bg-problema", hex: "#FDE8EA", texto: "text-problema-foreground" },
   { nome: "Alerta", classe: "bg-alerta", hex: "#C9430E", texto: "text-alerta-foreground" },

@@ -363,7 +363,7 @@ function Origem({ lead }: { lead: CrmLeadRow }) {
       <p className="truncate">
         {lead.entrada === "ativo" && !lead.origem ? (
           <span
-            className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+            className="rounded-full bg-marca-claro px-2 py-0.5 text-xs font-medium text-marca"
             title="Vocês chamaram primeiro (reativação); não conta como lead novo"
           >
             Reativação
@@ -403,7 +403,7 @@ function TipoCliente({ existente }: { existente: boolean }) {
   return (
     <span
       className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] ${
-        existente ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-muted-foreground"
+        existente ? "bg-success/12 text-success" : "bg-secondary text-muted-foreground"
       }`}
     >
       {existente ? "Cliente existente" : "Cliente novo"}
@@ -525,7 +525,7 @@ function NovoLeadDialog({
               onBlur={(e) => void verificarDuplicado(e.target.value)}
               placeholder="(11) 99999-9999"
             />
-            {aviso ? <p className="text-xs text-amber-700">{aviso}</p> : null}
+            {aviso ? <p className="text-xs text-atencao-foreground">{aviso}</p> : null}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="n-data">Data do primeiro contato</Label>

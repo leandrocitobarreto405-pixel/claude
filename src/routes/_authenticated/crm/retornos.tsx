@@ -166,7 +166,7 @@ function Retornos() {
               className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${
                 f.responsavel === "alice"
                   ? "bg-primary/10 text-primary"
-                  : "bg-amber-100 text-amber-900"
+                  : "bg-atencao text-atencao-foreground"
               }`}
             >
               {f.responsavel === "alice" ? "Alice" : "Equipe"}

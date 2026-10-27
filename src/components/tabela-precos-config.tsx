@@ -258,7 +258,7 @@ function Linha({
               </span>
             ) : null}
             {custoImperIgnorado(item) ? (
-              <span className="pb-3 text-xs text-amber-700 dark:text-amber-400">
+              <span className="pb-3 text-xs text-atencao-foreground">
                 Impermeabilização de tapete é feita pela empresa: este custo não é usado (sem
                 repasse). Pode apagar.
               </span>

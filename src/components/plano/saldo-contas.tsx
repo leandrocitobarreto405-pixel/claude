@@ -24,7 +24,7 @@ const dataBR = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 
 function cor(pct: number) {
-  return pct <= 10 ? "text-destructive" : pct <= 30 ? "text-amber-600" : "text-foreground";
+  return pct <= 10 ? "text-destructive" : pct <= 30 ? "text-atencao-foreground" : "text-foreground";
 }
 
 export function SaldoContas() {
