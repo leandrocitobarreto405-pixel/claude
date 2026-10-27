@@ -140,6 +140,7 @@ export async function travaDoToque(
       status: string | null;
       crm_lead_id: string | null;
       assumida_por?: string | null;
+      responsavel_id?: number | string | null;
     };
     contato: {
       ia_desligada: boolean;
@@ -148,19 +149,20 @@ export async function travaDoToque(
     } | null;
     /** Desde quando olhar mensagens da equipe (última resposta da Alice / início da trilha). */
     desde: Date;
-    /**
-     * Retomada de orçamento parado: a conversa costuma estar encerrada (ou aberta, sem dono) há
-     * dias; isso não é "equipe assumiu". Vale só alguém ter assumido ou escrito ao cliente.
-     */
-    retomada?: boolean;
+    /** Agente-robô da Alice no Chatwoot: responsável que não conta como dono. */
+    botId?: number | null;
   },
 ): Promise<string | null> {
   if (o.contato?.ia_desligada) return "IA desligada para o cliente";
   if (o.contato?.sem_pos_venda) return "cliente marcado sem pós-venda";
   if (o.contato?.marketing_optout_em) return "cliente pediu para não receber mensagens";
-  if (o.retomada) {
-    if (o.conversa.assumida_por) return "equipe assumiu a conversa";
-  } else if (o.conversa.status !== "pending") return "equipe assumiu a conversa";
+  // Conversa encerrada (inclusive pelo encerramento automático por inatividade) ou aberta sem
+  // dono não é "equipe assumiu": trava só quem assumiu pelo Nexa ou uma pessoa responsável pela
+  // conversa aberta no Chatwoot (ou alguém ter escrito ao cliente, logo abaixo).
+  if (o.conversa.assumida_por) return "equipe assumiu a conversa";
+  const responsavel = o.conversa.responsavel_id == null ? null : Number(o.conversa.responsavel_id);
+  if (o.conversa.status === "open" && responsavel != null && responsavel !== (o.botId ?? null))
+    return "equipe assumiu a conversa";
   const { data: daEquipe } = await db
     .from("whatsapp_messages")
     .select("id")
