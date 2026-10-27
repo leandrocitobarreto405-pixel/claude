@@ -135,7 +135,12 @@ export async function travaDoToque(
   db: Db,
   o: {
     empresaId: string;
-    conversa: { id: string; status: string | null; crm_lead_id: string | null };
+    conversa: {
+      id: string;
+      status: string | null;
+      crm_lead_id: string | null;
+      assumida_por?: string | null;
+    };
     contato: {
       ia_desligada: boolean;
       sem_pos_venda: boolean;
@@ -143,12 +148,19 @@ export async function travaDoToque(
     } | null;
     /** Desde quando olhar mensagens da equipe (última resposta da Alice / início da trilha). */
     desde: Date;
+    /**
+     * Retomada de orçamento parado: a conversa costuma estar encerrada (ou aberta, sem dono) há
+     * dias; isso não é "equipe assumiu". Vale só alguém ter assumido ou escrito ao cliente.
+     */
+    retomada?: boolean;
   },
 ): Promise<string | null> {
   if (o.contato?.ia_desligada) return "IA desligada para o cliente";
   if (o.contato?.sem_pos_venda) return "cliente marcado sem pós-venda";
   if (o.contato?.marketing_optout_em) return "cliente pediu para não receber mensagens";
-  if (o.conversa.status !== "pending") return "equipe assumiu a conversa";
+  if (o.retomada) {
+    if (o.conversa.assumida_por) return "equipe assumiu a conversa";
+  } else if (o.conversa.status !== "pending") return "equipe assumiu a conversa";
   const { data: daEquipe } = await db
     .from("whatsapp_messages")
     .select("id")

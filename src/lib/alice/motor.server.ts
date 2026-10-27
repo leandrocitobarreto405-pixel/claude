@@ -195,7 +195,7 @@ async function dadosConversa(db: Admin, tarefa: Tarefa): Promise<DadosConversa> 
   const { data: conversa } = await db
     .from("conversas")
     .select(
-      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em, alice_modulos",
+      "id, chatwoot_conversation_id, status, crm_lead_id, conexao_id, whatsapp_contact_id, alice_so_texto_em, alice_modulos, assumida_por",
     )
     .eq("id", tarefa.conversa_id)
     .eq("empresa_id", tarefa.empresa_id)
@@ -781,6 +781,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     conversa: d.conversa,
     contato: d.contato,
     desde: new Date(tarefa.created_at),
+    retomada: passo?.etapa === "R",
   });
   if (trava) {
     await cancelarToque(db, tarefa, trava);
