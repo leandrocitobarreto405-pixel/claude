@@ -202,14 +202,15 @@ export async function horariosParaModelo(
     const { agendaLivre } = await import("./agenda");
     const { agoraSP, carregarAgenda } = await import("./agendamento.server");
     const agora = agoraSP();
-    const ate = new Date(new Date(`${agora.data}T12:00:00Z`).getTime() + 5 * 86_400_000)
+    // 13 dias à frente: dá para achar um segundo dia (de semana ou sábado) com agenda cheia.
+    const ate = new Date(new Date(`${agora.data}T12:00:00Z`).getTime() + 13 * 86_400_000)
       .toISOString()
       .slice(0, 10);
     const agenda = await carregarAgenda({ admin: db, empresaId } as never, agora.data, ate);
     if ("erro" in agenda) return null;
     const dias = agendaLivre({
       inicio: agora.data,
-      dias: 6,
+      dias: 14,
       base: agenda.horarios,
       ocupacoes: agenda.ocupacoes,
       periodo: "qualquer",
