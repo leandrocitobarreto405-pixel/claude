@@ -91,6 +91,7 @@ test("planilha: linha da conversão nas colunas novas (clique, e-mail e telefone
     conversao_horario: "2026-10-21 09:00:00-03:00",
     valor: 649.9,
     base: "clique",
+    order_id: "9001",
   });
   assert.deepEqual(linha, [
     "",
@@ -102,8 +103,10 @@ test("planilha: linha da conversão nas colunas novas (clique, e-mail e telefone
     "2026-10-21 09:00:00-03:00",
     649.9,
     "BRL",
+    "9001",
   ]);
   assert.equal(linha.length, CABECALHO.length);
+  assert.equal(CABECALHO.at(-1), "Order ID");
 });
 
 test("planilha: formato da importação (cabeçalho na linha 1)", () => {
@@ -210,6 +213,7 @@ test("estorno: venda cancelada vira retratação com o mesmo gclid, nome e horá
   assert.deepEqual(
     linhaDoEstorno({
       gclid: "gclid-ficticio",
+      order_id: "9001",
       conversao_nome: "Venda Higienização",
       conversao_horario: "2026-10-20 10:00:00-03:00",
       estorno_horario: "2026-10-27 13:25:13-03:00",
@@ -222,7 +226,19 @@ test("estorno: venda cancelada vira retratação com o mesmo gclid, nome e horá
       "RETRACT",
       "",
       "",
+      "",
     ],
   );
-  assert.equal(CABECALHO_AJUSTES.length, 7);
+  // Sem gclid: pelo Order ID (número da OS), sem o horário da conversão.
+  assert.deepEqual(
+    linhaDoEstorno({
+      gclid: null,
+      order_id: "9001",
+      conversao_nome: "Venda Higienização",
+      conversao_horario: "2026-10-20 10:00:00-03:00",
+      estorno_horario: "2026-10-27 13:25:13-03:00",
+    }),
+    ["", "Venda Higienização", "", "2026-10-27 13:25:13-03:00", "RETRACT", "", "", "9001"],
+  );
+  assert.equal(CABECALHO_AJUSTES.at(-1), "Order ID");
 });
