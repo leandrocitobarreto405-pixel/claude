@@ -55,6 +55,9 @@ export const Route = createFileRoute("/api/public/hooks/mkt-disparo")({
         const { rotinaAlarmeIa } = await import("@/lib/alice/parada-ia.server");
         const { dbServico } = await import("@/lib/mkt/contexto.server");
         await passo("alarme_ia", async () => rotinaAlarmeIa(await dbServico()));
+        // Cópia das notas e comprovantes da contadora para o Drive (nova tentativa).
+        const { rotinaDriveContabil } = await import("@/lib/contabil.server");
+        await passo("drive_contabil", () => rotinaDriveContabil());
         // Notificações no celular (Web Push da Nexa; não usa WhatsApp).
         const { processarNotificacoes } = await import("@/lib/push/notificacoes.server");
         await passo("notificacoes", () =>
