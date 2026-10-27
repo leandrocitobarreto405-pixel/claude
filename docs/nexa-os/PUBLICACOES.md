@@ -763,6 +763,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Alice: dois horários em dias diferentes (dia de semana e sábado), busca de 14 dias                   | `15eeb0d`                                 | `e62a110`                            |
 | 27/10/2026       | Notificações: recibo do aparelho, aviso no topo, teste, equipe, esperas agrupadas e sem falso alarme | `26f6173`                                 | `15eeb0d`                            |
 | 27/10/2026       | Leads do site: repetida segue a original, 8 dígitos e clique do pop-up (reprocessados 30 dias)       | migração (chat)                           | —                                    |
+| 27/10/2026       | Alice: lê o contexto antes de qualquer toque (IA barata) e não insiste com quem já desistiu          | `be8b0aa`                                 | `b3306f1`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1219,6 +1220,8 @@ pelos últimos 8 dígitos e pelo clique do pop-up já ligado ao lead, e a linha 
 original. Reprocessados os últimos 30 dias: 8 linhas foram para "chamou" (5 repetidas, entre elas
 0695, 3615 e 6900, e 3 cadastros mais antigos). Como desfazer:
 `supabase/manual/20261228190000_leads_site_ligacao_desfazer.sql` (as linhas já marcadas ficam).
+
+Contexto antes do toque (27/10, item 3): merge `be8b0aa`, só código (banco não muda). Antes de qualquer toque automático (A, B, R e follow-ups), a IA barata lê as últimas mensagens do contato (60 dias) e classifica: segue, fechou com outra empresa, achou mais barato, já fez, não quer ou pediu para parar. Fora "segue", o toque é cancelado com o motivo "contexto: ...", o motivo vai sugerido para Sem desfecho e, se for concorrência, cria um aviso URGENTE só no app com o link da conversa. Se a leitura falhar, o toque segue como antes. Como desfazer: `git revert -m 1 be8b0aa` (sem force push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
