@@ -752,6 +752,9 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | LPs: pop-up ligado ao lead pelo código, "LP sem pop-up" por semana (servidor)                | `e016fa8`                                 | `f41daf3`                            |
 | 27/10/2026       | LPs (Lovable): botões sem link pronto, pop-up grava antes de abrir o WhatsApp, código no fim | Lovable `db3ad04` / `aea482d` / `2ee736c` | Lovable (commit anterior de cada LP) |
 | 27/10/2026       | Cores e logo da Nexa, tema escuro automático (só na `redesign`/`nexaos-teste`)               | `4238175`                                 | `4a8465f`                            |
+| 27/10/2026       | Cadência: conversa encerrada ou aberta sem dono não trava nenhum toque (A, B e R)            | `8f50297`                                 | `abd18c0`                            |
+| 27/10/2026       | Retomada dos 22 reagendada para 27/10 14h e 4 cliques antigos das LPs ligados ao lead        | banco (chat)                              | —                                    |
+| 27/10/2026       | Contadora: área própria, fora da equipe e do limite de usuários                              | `0d6c118`                                 | `8f50297`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1099,6 +1102,36 @@ soltas dos componentes trocadas pelos tokens. Contraste AA conferido. Enquanto e
 a `redesign` recebe a produção por merge (não mais `HEAD:redesign`). Como desfazer no teste:
 `git revert 4238175` na `redesign` (sem force push); para publicar: merge da `redesign` na branch
 principal.
+
+Trava dos toques (27/10): commit `ffda707` (merge `8f50297`). Às 10h os 22 toques R foram
+cancelados com "equipe assumiu a conversa" porque a trava tratava toda conversa fora da Alice como
+assumida (17 estavam encerradas pelo encerramento automático de 24 h e 5 abertas sem dono). A regra
+vale agora para todos os toques: conversa encerrada ou aberta sem dono não trava; trava quem
+assumiu pelo Nexa, uma pessoa responsável pela conversa aberta no Chatwoot (o robô da Alice não
+conta) ou a equipe ter escrito ao cliente; as outras travas seguem iguais. Na cadência normal,
+desde o início nenhum toque foi cancelado por conversa encerrada (o encerramento automático não
+fecha conversa com follow-up pendente); os 2 "atendente humano assumiu" (A3 e B1) tiveram mensagem
+da equipe. Como desfazer: `git revert -m 1 8f50297` (sem force push); banco não muda.
+
+Retomada reagendada (27/10, banco): 22 tarefas novas da Alice para 27/10 17:00Z (14h), mesmo
+modelo `fu_retomada_horarios` com dois horários reais, marcadas com `dados.reagendada_de` (a
+tarefa cancelada às 10h) e com os `crm_followups` ligados. Como desfazer antes de enviar:
+`UPDATE ia_tarefas SET situacao = 'ignorada', motivo = 'retomada desfeita' WHERE dados ?
+'reagendada_de' AND situacao = 'pendente'` e o mesmo em `crm_followups` (status `Cancelada`) pelo
+`ia_tarefa_id`. Cliques antigos das LPs (27/10, banco): os 4 cliques sem vínculo (finais do clique
+2344, 0891, 1944 e 7588) ligados aos leads de finais 3433, 6789 (OS 1692), 1944 e 7588 (lead
+criado 10 s depois do clique). Só o 6789 tem venda e entra na próxima exportação das 5h com gclid.
+Como desfazer: `UPDATE ads_clicks SET crm_lead_id = NULL` nesses 4 cliques (ids no histórico da
+conversa) antes da exportação.
+
+Contadora (27/10): commits `f99c837` e `f84fb01` (merge `0d6c118`), migração
+`20261228140000_contadora` aplicada (ensaio antes; `ensure_my_access` conferida igual à do banco
+antes de trocar). A contadora fica em `contadoras_empresa`, fora de `usuarios_empresa`: não entra
+na equipe nem no limite de usuários, não vê nenhuma tela da empresa e só lê pelas funções
+`contadora_*` (notas, OS realizadas, despesas, exportar o mês). Convite em Configurações › Equipe.
+Nenhuma contadora cadastrada ainda. Como desfazer:
+`supabase/manual/20261228140000_contadora_desfazer.sql` e `git revert -m 1 0d6c118` (sem force
+push).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
