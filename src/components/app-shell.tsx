@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
+import { AvisoNotificacoesAparelho } from "@/components/avisos/aviso-notificacoes-aparelho";
 import { AvatarEmpresa, BarraDeNavegacaoInferior, LogoNexa } from "@/components/nexa";
 import { useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
@@ -309,6 +310,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {rotaConversa ? null : (
             <div className={rotaConversas ? "lg:hidden" : undefined}>
               <InstallPrompt />
+              {vinculo && !rotaNexa ? <AvisoNotificacoesAparelho /> : null}
             </div>
           )}
           {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}

@@ -126,3 +126,71 @@ test("agendamento da Alice: cliente, dia, horário e valor; abre a OS", () => {
   assert.equal(n.corpo, "Ana Souza · qui 08/10 às 10:00 · R$ 797,72 no Pix");
   assert.equal(n.url, "/os/1625");
 });
+
+test("esperas agrupadas: aviso aos 5 min, lembrete aos 10, no máximo a cada 15 min", async () => {
+  const { avisoAgrupadoDeEsperas, inscricaoMorta } = await import("./notificacoes");
+  const agora = new Date("2026-10-27T15:00:00Z");
+  const min = (m: number) => new Date(agora.getTime() - m * 60_000).toISOString();
+  const esperas = [
+    { id: "c1", nome: "Cliente 1", desde: min(6), ultimaDoCliente: true, donoUserId: null },
+    { id: "c2", nome: "Cliente 2", desde: min(12), ultimaDoCliente: true, donoUserId: null },
+    { id: "c3", nome: "Cliente 3", desde: min(3), ultimaDoCliente: true, donoUserId: null },
+    { id: "c4", nome: "Cliente 4", desde: min(30), ultimaDoCliente: true, donoUserId: "outra" },
+    { id: "c5", nome: "Cliente 5", desde: min(30), ultimaDoCliente: false, donoUserId: null },
+  ];
+  const base = { esperas, userId: "eu", papel: "atendente" as const, agora };
+  const r = avisoAgrupadoDeEsperas({ ...base, jaAvisadas: new Set(), ultimoAvisoEm: null })!;
+  // c3 tem 3 min; c4 é de outra pessoa; c5 não espera de verdade.
+  assert.equal(r.n.titulo, "2 clientes esperando");
+  assert.match(r.n.corpo, /Cliente 2 \(12 min\), Cliente 1 \(6 min\)/);
+  assert.deepEqual(
+    r.marcar.sort(),
+    [`c1:${min(6)}:1`, `c2:${min(12)}:1`, `c2:${min(12)}:2`].sort(),
+  );
+  // Tudo já avisado: nada.
+  assert.equal(
+    avisoAgrupadoDeEsperas({ ...base, jaAvisadas: new Set(r.marcar), ultimoAvisoEm: null }),
+    null,
+  );
+  // Aviso há 10 min: espera.
+  assert.equal(
+    avisoAgrupadoDeEsperas({ ...base, jaAvisadas: new Set(), ultimoAvisoEm: min(10) }),
+    null,
+  );
+  // O dono recebe a dele; o técnico não recebe as sem dono.
+  const dono = avisoAgrupadoDeEsperas({
+    ...base,
+    userId: "outra",
+    jaAvisadas: new Set(),
+    ultimoAvisoEm: null,
+  })!;
+  assert.match(dono.n.corpo, /Cliente 4/);
+  assert.equal(
+    avisoAgrupadoDeEsperas({
+      ...base,
+      papel: "tecnico",
+      jaAvisadas: new Set(),
+      ultimoAvisoEm: null,
+    }),
+    null,
+  );
+
+  // Inscrição morta: 10+ envios aceitos e nenhum recibo em 7 dias (nunca a recém-criada).
+  const dias = (d: number) => new Date(agora.getTime() - d * 86_400_000).toISOString();
+  assert.equal(
+    inscricaoMorta({ created_at: dias(20), envios_sem_recibo: 12, confirmado_em: null }, agora),
+    true,
+  );
+  assert.equal(
+    inscricaoMorta({ created_at: dias(20), envios_sem_recibo: 12, confirmado_em: dias(1) }, agora),
+    false,
+  );
+  assert.equal(
+    inscricaoMorta({ created_at: dias(1), envios_sem_recibo: 30, confirmado_em: null }, agora),
+    false,
+  );
+  assert.equal(
+    inscricaoMorta({ created_at: dias(20), envios_sem_recibo: 3, confirmado_em: null }, agora),
+    false,
+  );
+});

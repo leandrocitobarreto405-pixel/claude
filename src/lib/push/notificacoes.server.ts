@@ -10,12 +10,12 @@ import { dbServico, log, type Db } from "@/lib/mkt/contexto.server";
 import type { Papel } from "@/lib/tenant";
 import {
   PREFERENCIAS_PADRAO,
-  esperasParaNotificar,
+  avisoAgrupadoDeEsperas,
+  inscricaoMorta,
   horaDoResumo,
   notificacaoAgendamentoAlice,
   notificacaoCampanha,
   notificacaoConcluido,
-  notificacaoEspera,
   notificacaoPromocao,
   notificacaoResumo,
   notificacaoResumoTecnico,
@@ -28,8 +28,16 @@ import {
   type TipoPush,
 } from "./notificacoes";
 import { enviarPush, endpointPermitido } from "./webpush.server";
+import { esperaDeVerdade } from "@/lib/conversas-espera";
 
-type Inscrito = { id: string; endpoint: string; p256dh: string; auth: string };
+type Inscrito = {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  /** Uuid que o aparelho devolve ao receber (sw.js → /api/public/push/recibo). */
+  recibo?: string | null;
+};
 type Pessoa = { userId: string; papel: Papel; pref: PreferenciasPush; celulares: Inscrito[] };
 
 const MAX_POR_RODADA = 60;
@@ -46,13 +54,11 @@ export async function enviarParaPessoa(
   for (const c of celulares) {
     if (!endpointPermitido(c.endpoint)) continue;
     try {
-      const r = await enviarPush(c, nota);
+      const r = await enviarPush(c, { ...nota, ...(c.recibo ? { recibo: c.recibo } : {}) });
+      // Guarda o status devolvido (Apple/Google) e conta os envios até o aparelho confirmar.
+      await db.rpc("push_registrar_envio" as never, { _id: c.id, _status: r.status } as never);
       if (r.ok) {
         enviados++;
-        await db
-          .from("push_inscricoes")
-          .update({ ultimo_envio_em: new Date().toISOString(), falhas: 0 })
-          .eq("id", c.id);
       } else if (r.expirada) {
         falhas++;
         await db.from("push_inscricoes").delete().eq("id", c.id);
@@ -100,11 +106,26 @@ export async function pessoasComCelular(
 ): Promise<Map<string, Pessoa[]>> {
   let consulta = db
     .from("push_inscricoes")
-    .select("id, empresa_id, user_id, endpoint, p256dh, auth");
+    .select(
+      "id, empresa_id, user_id, endpoint, p256dh, auth, recibo, created_at, confirmado_em, envios_sem_recibo",
+    );
   if (empresaId) consulta = consulta.eq("empresa_id", empresaId);
-  const { data: inscricoes } = await consulta;
+  const { data: todas } = await consulta;
   const porEmpresa = new Map<string, Pessoa[]>();
-  if (!inscricoes?.length) return porEmpresa;
+  // Inscrição morta (muitos envios aceitos e nenhum recibo do aparelho): sai da lista.
+  const mortas = (todas ?? []).filter((i) => inscricaoMorta(i));
+  if (mortas.length) {
+    await db
+      .from("push_inscricoes")
+      .delete()
+      .in(
+        "id",
+        mortas.map((i) => i.id),
+      );
+    log("INFO", "push.inscricoes_mortas", { removidas: mortas.length });
+  }
+  const inscricoes = (todas ?? []).filter((i) => !mortas.includes(i));
+  if (!inscricoes.length) return porEmpresa;
   const users = [...new Set(inscricoes.map((i) => i.user_id))];
   const [{ data: papeis }, { data: prefs }] = await Promise.all([
     db.from("usuarios_empresa").select("empresa_id, user_id, papel").in("user_id", users),
@@ -136,18 +157,33 @@ export async function pessoasComCelular(
       lista.push(pessoa);
       porEmpresa.set(i.empresa_id, lista);
     }
-    pessoa.celulares.push({ id: i.id, endpoint: i.endpoint, p256dh: i.p256dh, auth: i.auth });
+    pessoa.celulares.push({
+      id: i.id,
+      endpoint: i.endpoint,
+      p256dh: i.p256dh,
+      auth: i.auth,
+      recibo: i.recibo,
+    });
   }
   return porEmpresa;
 }
 
-type Evento = { tipo: TipoPush; ref: string; n: Notificacao; para?: (p: Pessoa) => boolean };
+type Evento = {
+  tipo: TipoPush;
+  ref: string;
+  n: Notificacao;
+  para?: (p: Pessoa) => boolean;
+  /** Chaves gravadas depois do envio (estágios das esperas já avisadas). */
+  marcar?: string[];
+};
 
 async function esperasDaEmpresa(db: Db, empresaId: string, agora: Date): Promise<EsperaPush[]> {
   const desde = new Date(agora.getTime() - 24 * 3600_000).toISOString();
   const { data: conversas } = await db
     .from("conversas")
-    .select("id, aguardando_desde, contato:whatsapp_contact_id ( profile_name, display_phone )")
+    .select(
+      "id, aguardando_desde, assumida_por, responsavel_id, contato:whatsapp_contact_id ( profile_name, display_phone )",
+    )
     .eq("empresa_id", empresaId)
     .eq("status", "open")
     .gte("aguardando_desde", desde)
@@ -155,12 +191,32 @@ async function esperasDaEmpresa(db: Db, empresaId: string, agora: Date): Promise
   const lista = (conversas ?? []) as unknown as Array<{
     id: string;
     aguardando_desde: string;
+    assumida_por: string | null;
+    responsavel_id: number | string | null;
     contato: { profile_name: string | null; display_phone: string | null } | null;
   }>;
   if (!lista.length) return [];
+  // Dono da conversa: quem assumiu pelo app ou a pessoa atribuída no Chatwoot (a Alice não conta).
+  const [{ data: vinculos }, { data: conexoes }] = await Promise.all([
+    db
+      .from("usuarios_empresa")
+      .select("user_id, chatwoot_agent_id")
+      .eq("empresa_id", empresaId)
+      .not("chatwoot_agent_id", "is", null),
+    db.from("chatwoot_conexoes").select("alice_bot_id"),
+  ]);
+  const usuarioDoAgente = new Map<number, string>();
+  for (const v of vinculos ?? [])
+    if (v.chatwoot_agent_id != null) usuarioDoAgente.set(Number(v.chatwoot_agent_id), v.user_id);
+  const bots = new Set((conexoes ?? []).map((c) => Number(c.alice_bot_id)));
+  const donoDe = (c: (typeof lista)[number]) => {
+    if (c.assumida_por) return c.assumida_por;
+    const r = c.responsavel_id == null ? null : Number(c.responsavel_id);
+    return r == null || bots.has(r) ? null : (usuarioDoAgente.get(r) ?? null);
+  };
   const { data: msgs } = await db
     .from("whatsapp_messages")
-    .select("conversa_id, direction, message_timestamp, created_at")
+    .select("conversa_id, direction, text_content, message_type, message_timestamp, created_at")
     .in(
       "conversa_id",
       lista.map((c) => c.id),
@@ -169,15 +225,14 @@ async function esperasDaEmpresa(db: Db, empresaId: string, agora: Date): Promise
     .gte("created_at", desde)
     .order("created_at", { ascending: false })
     .limit(1000);
-  return lista.map((c) => {
-    const ultima = msgs?.find((m) => m.conversa_id === c.id);
-    return {
-      id: c.id,
-      nome: c.contato?.profile_name || c.contato?.display_phone || "Cliente",
-      desde: c.aguardando_desde,
-      ultimaDoCliente: ultima?.direction === "Recebida",
-    };
-  });
+  return lista.map((c) => ({
+    id: c.id,
+    nome: c.contato?.profile_name || c.contato?.display_phone || "Cliente",
+    desde: c.aguardando_desde,
+    // Última do cliente e pedindo resposta ("ok, obrigado" depois da equipe não conta).
+    ultimaDoCliente: esperaDeVerdade((msgs ?? []).filter((m) => m.conversa_id === c.id)),
+    donoUserId: donoDe(c),
+  }));
 }
 
 async function eventosDaEmpresa(
@@ -191,15 +246,41 @@ async function eventosDaEmpresa(
   const recente = new Date(agora.getTime() - 30 * 60_000).toISOString();
 
   if (quer("cliente_esperando")) {
+    // Um aviso agrupado por pessoa (27/10): conversas dela + sem dono, aos 5 min e lembrete aos
+    // 10 min, no máximo a cada 15 min. Antes saía um por conversa (114 no dia 26/10).
     const esperas = await esperasDaEmpresa(db, empresaId, agora);
+    const desde = new Date(agora.getTime() - 24 * 3600_000).toISOString();
     for (const p of pessoas) {
       if (!querReceber("cliente_esperando", p.papel, p.pref)) continue;
-      for (const e of esperasParaNotificar(esperas, p.pref.espera_minutos, agora))
+      const { data: ja } = await db
+        .from("push_envios")
+        .select("ref, created_at")
+        .eq("empresa_id", empresaId)
+        .eq("user_id", p.userId)
+        .eq("tipo", "cliente_esperando")
+        .gte("created_at", desde)
+        .limit(2000);
+      const grupos = (ja ?? []).filter((r) => r.ref.startsWith("grupo:"));
+      const plano = avisoAgrupadoDeEsperas({
+        esperas,
+        userId: p.userId,
+        papel: p.papel,
+        jaAvisadas: new Set((ja ?? []).map((r) => r.ref)),
+        ultimoAvisoEm: grupos.length
+          ? grupos
+              .map((r) => r.created_at)
+              .sort()
+              .at(-1)!
+          : null,
+        agora,
+      });
+      if (plano)
         eventos.push({
           tipo: "cliente_esperando",
-          ref: `${e.id}:${e.desde}`,
-          n: notificacaoEspera(e, agora),
+          ref: `grupo:${agora.toISOString()}`,
+          n: plano.n,
           para: (x) => x.userId === p.userId,
+          marcar: plano.marcar,
         });
     }
   }
@@ -431,6 +512,18 @@ export async function processarNotificacoes(agora = new Date()) {
         if (!id) continue; // já notificado
         const r = await enviarParaPessoa(db, p.celulares, ev.n);
         await db.from("push_envios").update({ enviados: r.enviados }).eq("id", id);
+        if (ev.marcar?.length)
+          await db.from("push_envios").upsert(
+            ev.marcar.map((ref) => ({
+              empresa_id: empresaId,
+              user_id: p.userId,
+              tipo: ev.tipo,
+              ref,
+              titulo: "(espera avisada)",
+              enviados: 0,
+            })),
+            { onConflict: "empresa_id,user_id,tipo,ref", ignoreDuplicates: true },
+          );
         enviadas += r.enviados;
         falhas += r.falhas;
       }

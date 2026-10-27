@@ -86,6 +86,8 @@ export type EsperaPush = {
   desde: string;
   /** A última mensagem da conversa é do cliente (senão não é espera de verdade). */
   ultimaDoCliente: boolean;
+  /** Usuário do app que é dono da conversa (assumiu ou está atribuído); null = sem dono. */
+  donoUserId?: string | null;
 };
 
 const MIN = 60_000;
@@ -116,6 +118,66 @@ export function notificacaoEspera(e: EsperaPush, agora = new Date()): Notificaca
     url: `/conversas/${e.id}`,
     tag: `espera-${e.id}`,
   };
+}
+
+// ---------------------------------------------------------------- esperas agrupadas (27/10)
+/** Primeiro aviso aos 5 min, lembrete aos 10 min; no máximo um aviso a cada 15 min por pessoa. */
+export const ESPERA_AVISO_MIN = 5;
+export const ESPERA_LEMBRETE_MIN = 10;
+export const ESPERA_INTERVALO_MIN = 15;
+
+const tempo = (min: number) =>
+  min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : `${min} min`;
+
+/**
+ * Um aviso só com todos os clientes esperando que são desta pessoa: conversas dela e, para
+ * admin/atendente, as sem dono. Sai quando alguma espera chega aos 5 min (aviso) ou aos 10 min
+ * (lembrete) e ainda não foi avisada nesse estágio, respeitando 15 min desde o último aviso.
+ * `jaAvisadas` são as chaves `${id}:${desde}:1|2` já marcadas.
+ */
+export function avisoAgrupadoDeEsperas(o: {
+  esperas: EsperaPush[];
+  userId: string;
+  papel: Papel;
+  jaAvisadas: Set<string>;
+  ultimoAvisoEm: string | null;
+  agora?: Date;
+}): { n: Notificacao; marcar: string[] } | null {
+  const agora = (o.agora ?? new Date()).getTime();
+  const idade = (e: EsperaPush) => Math.floor((agora - Date.parse(e.desde)) / MIN);
+  const escritorio = o.papel === "admin" || o.papel === "atendente";
+  const minhas = o.esperas
+    .filter((e) => e.ultimaDoCliente && idade(e) < 24 * 60)
+    .filter((e) => (e.donoUserId ? e.donoUserId === o.userId : escritorio))
+    .filter((e) => idade(e) >= ESPERA_AVISO_MIN)
+    .sort((a, b) => Date.parse(a.desde) - Date.parse(b.desde));
+  const chaves = (e: EsperaPush) => [
+    `${e.id}:${e.desde}:1`,
+    ...(idade(e) >= ESPERA_LEMBRETE_MIN ? [`${e.id}:${e.desde}:2`] : []),
+  ];
+  const pendentes = minhas.flatMap(chaves).filter((k) => !o.jaAvisadas.has(k));
+  if (!pendentes.length) return null;
+  if (o.ultimoAvisoEm && agora - Date.parse(o.ultimoAvisoEm) < ESPERA_INTERVALO_MIN * MIN)
+    return null;
+  const primeira = minhas[0]!;
+  const n: Notificacao =
+    minhas.length === 1
+      ? {
+          titulo: "Cliente esperando a equipe",
+          corpo: `${primeira.nome} espera resposta há ${tempo(idade(primeira))}.`,
+          url: `/conversas/${primeira.id}`,
+          tag: "esperas",
+        }
+      : {
+          titulo: `${minhas.length} clientes esperando`,
+          corpo: `${minhas
+            .slice(0, 3)
+            .map((e) => `${e.nome} (${tempo(idade(e))})`)
+            .join(", ")}${minhas.length > 3 ? ` e mais ${minhas.length - 3}` : ""}.`,
+          url: "/conversas",
+          tag: "esperas",
+        };
+  return { n, marcar: minhas.flatMap(chaves) };
 }
 
 // ---------------------------------------------------------------- serviço, campanha, promoção
@@ -242,6 +304,25 @@ export function tecnicoDoUsuario(
 /** Janela em que o resumo pode sair (São Paulo): das 9h às 11h, uma vez por dia. */
 export function horaDoResumo(horaSP: number): boolean {
   return horaSP >= 9 && horaSP < 11;
+}
+
+/**
+ * Inscrição morta: o serviço de push aceitou pelo menos 10 envios e o aparelho não devolveu
+ * nenhum recibo nos últimos 7 dias (ex.: app apagado/reinstalado no iPhone, que a Apple segue
+ * aceitando). Inscrição nova (menos de 2 dias) nunca é morta.
+ */
+export function inscricaoMorta(
+  i: {
+    created_at?: string | null;
+    confirmado_em?: string | null;
+    envios_sem_recibo?: number | null;
+  },
+  agora = new Date(),
+): boolean {
+  const dia = 86_400_000;
+  if (!i.created_at || agora.getTime() - Date.parse(i.created_at) < 2 * dia) return false;
+  if ((i.envios_sem_recibo ?? 0) < 10) return false;
+  return !i.confirmado_em || agora.getTime() - Date.parse(i.confirmado_em) > 7 * dia;
 }
 
 /** Só caminhos internos do app (nada de link para fora). */
