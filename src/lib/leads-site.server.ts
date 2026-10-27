@@ -171,6 +171,9 @@ async function resumoDeOntem(db: Db, empresaId: string, agora: Date) {
   return true;
 }
 
+/** Envio automático pulado de propósito (não é erro: a equipe já cuida desse contato). */
+export class EnvioPulado extends Error {}
+
 export type LeadParaModelo = {
   id: string;
   empresa_id: string;
@@ -180,12 +183,14 @@ export type LeadParaModelo = {
 
 /**
  * Manda o modelo (ex.: tc_lead_site) para o lead pelo Chatwoot, com o token do robô, e deixa a
- * conversa com a Alice. Usado pelo envio automático (desligado) e pelo botão da tela.
+ * conversa com a Alice. Usado pelo envio automático e pelo botão da tela. No automático
+ * (soContatoNovo), contato que já tem conversa na caixa é pulado: não puxa conversa da equipe.
  */
 export async function enviarModeloAoLead(
   db: Db,
   lead: LeadParaModelo,
   nomeModelo: string,
+  opcoes: { soContatoNovo?: boolean } = {},
 ): Promise<{ conversa: number }> {
   const { contextoEmpresa } = await import("./mkt/contexto.server");
   const ctx = await contextoEmpresa(db, lead.empresa_id);
@@ -219,8 +224,11 @@ export async function enviarModeloAoLead(
     nome || null,
     null,
   );
+  const existente = await conversaExistente(ctx.conta, ctx.tokenAdmin, cw.id, ctx.caixa);
+  if (existente && opcoes.soContatoNovo)
+    throw new EnvioPulado("pulado: o contato já tem conversa no WhatsApp");
   const conversa =
-    (await conversaExistente(ctx.conta, ctx.tokenAdmin, cw.id, ctx.caixa)) ??
+    existente ??
     (await criarConversa(ctx.conta, ctx.tokenRobo, ctx.caixa, cw, lead.telefone, "pending"));
   await enviarModelo(
     ctx.conta,
@@ -295,9 +303,24 @@ async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
       .select("id");
     if (!reservado?.length) continue;
     try {
-      await enviarModeloAoLead(db, { ...l, telefone: l.telefone! }, cfg.envio_modelo);
+      // Telefone que já tinha cadastro antes de ativar: a equipe já cuida, não manda.
+      const { data: antes } = await db
+        .from("leads_site")
+        .select("id")
+        .eq("empresa_id", cfg.empresa_id)
+        .eq("telefone", l.telefone!)
+        .lt("created_at", cfg.envio_ativado_em)
+        .limit(1);
+      if (antes?.length) throw new EnvioPulado("pulado: telefone cadastrado antes da ativação");
+      await enviarModeloAoLead(db, { ...l, telefone: l.telefone! }, cfg.envio_modelo, {
+        soContatoNovo: true,
+      });
       enviados++;
     } catch (e) {
+      if (e instanceof EnvioPulado) {
+        await db.from("leads_site").update({ modelo_erro: e.message }).eq("id", l.id);
+        continue;
+      }
       erros++;
       const msg = (e instanceof Error ? e.message : String(e)).slice(0, 300);
       await db.from("leads_site").update({ modelo_erro: msg }).eq("id", l.id);
