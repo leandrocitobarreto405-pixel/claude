@@ -57,7 +57,7 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
       etapa: "A3",
       trilha: "A",
       quando: { dia: 1, hora: 10 },
-      guia: "Ofereça dois horários reais da agenda (consulte com consultar_agenda) para o serviço do orçamento e pergunte se algum funciona.",
+      guia: "Ofereça dois horários reais da agenda (consulte com consultar_agenda) para o serviço do orçamento, em dias diferentes (o primeiro horário livre e outro em outro dia, de preferência um dia de semana e um sábado), e pergunte se algum funciona.",
       modelo: "fu_orcamento_horarios",
       horarios: true,
     },
@@ -136,7 +136,7 @@ export const PASSO_RETOMADA: Passo = {
   etapa: "R",
   trilha: "A",
   quando: { minutos: 0 },
-  guia: "Retome o orçamento que o cliente pediu: ofereça dois horários reais da agenda (consulte com consultar_agenda) e pergunte se algum funciona.",
+  guia: "Retome o orçamento que o cliente pediu: ofereça dois horários reais da agenda (consulte com consultar_agenda), em dias diferentes (o primeiro horário livre e outro em outro dia, de preferência um dia de semana e um sábado), e pergunte se algum funciona.",
   modelo: MODELO_RETOMADA,
   horarios: true,
 };
@@ -225,16 +225,22 @@ export function doisHorarios(
   dias: Array<{ data: string; livres: Array<{ hora: string }> }>,
 ): [string, string] | null {
   const NOMES = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  const diaDaSemana = (data: string) => new Date(`${data}T12:00:00Z`).getUTCDay();
   const texto = (data: string, hora: string) => {
-    const d = new Date(`${data}T12:00:00Z`);
     const [h, m] = hora.split(":");
     const hh = `${Number(h)}h${m && m !== "00" ? m : ""}`;
-    return `${NOMES[d.getUTCDay()]} (${data.slice(8, 10)}/${data.slice(5, 7)}) às ${hh}`;
+    return `${NOMES[diaDaSemana(data)]} (${data.slice(8, 10)}/${data.slice(5, 7)}) às ${hh}`;
   };
   const comHorario = dias.filter((d) => d.livres.length);
   if (!comHorario.length) return null;
-  const [a, b] = comHorario;
+  // O primeiro horário livre e outro em OUTRO dia: de preferência um dia de semana e um sábado
+  // (27/10: a retomada saiu com dois horários no mesmo sábado).
+  const [a, ...outros] = comHorario;
+  const sabado = (d: { data: string }) => diaDaSemana(d.data) === 6;
+  const b =
+    (sabado(a!) ? outros.find((d) => !sabado(d)) : outros.find(sabado)) ?? outros[0] ?? null;
   if (b) return [texto(a!.data, a!.livres[0]!.hora), texto(b.data, b.livres[0]!.hora)];
+  // Só um dia com vaga na janela: dois horários do mesmo dia (melhor que nenhum).
   if (a!.livres.length >= 2)
     return [texto(a!.data, a!.livres[0]!.hora), texto(a!.data, a!.livres.at(-1)!.hora)];
   return null;
