@@ -2,6 +2,7 @@
  * Ferramentas da Alice. Toda leitura/gravação é filtrada pela empresa da tarefa (o processador
  * usa a chave de serviço, então o filtro por empresa é obrigatório em cada consulta).
  */
+import { SUGESTOES_DA_ALICE, sugestaoDaAlice } from "@/lib/sem-desfecho";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import { rotuloServico, textoQuantidade, unidadeDaCategoria } from "@/lib/unidade";
 import type { Categoria } from "@/lib/orcamento-regras";
@@ -252,6 +253,7 @@ const AgendarFollowup = z
   });
 const RegistrarPerda = z.object({
   motivo: z.enum(MOTIVOS_PERDA),
+  sugestao: z.string().trim().max(80).optional(),
   detalhe: z.string().trim().max(500).optional(),
   data_retorno: z
     .string()
@@ -692,11 +694,17 @@ export function ferramentasDisponiveis(
     {
       name: "registrar_motivo_perda",
       description:
-        "Marca o lead como perdido com um motivo da lista (quando o cliente disser que não quer). Se o cliente adiou com data, informe data_retorno: a equipe recebe uma repescagem nesse dia.",
+        "Registra por que o cliente não vai fechar (quando ele disser que não quer). Se o orçamento já foi enviado, vira uma sugestão de motivo que a equipe confirma em Leads › Sem desfecho; antes do orçamento, marca o lead como perdido. Se o cliente adiou com data, informe data_retorno: a equipe recebe uma repescagem nesse dia.",
       input_schema: {
         type: "object",
         properties: {
           motivo: { type: "string", enum: [...MOTIVOS_PERDA] },
+          sugestao: {
+            type: "string",
+            enum: [...SUGESTOES_DA_ALICE],
+            description:
+              "Só com orçamento enviado: o motivo mais próximo desta lista (ex.: achou caro e desistiu → 'Preço alto – desistiu/adiou'; achou caro e fechou com outra → 'Preço alto – fechou com outra empresa').",
+          },
           detalhe: { type: "string", description: "O que o cliente disse, em poucas palavras." },
           data_retorno: { type: "string", description: "AAAA-MM-DD (só para 'Adiou')." },
         },
@@ -1754,6 +1762,50 @@ async function registrarPerda(ctx: ContextoFerramenta, input: z.infer<typeof Reg
   const lead = await lerLead(ctx);
   if (!lead) return { erro: true, texto: "Sem lead nesta conversa." };
   const motivo = input.motivo as MotivoPerda;
+  // Orçamento já enviado e sem OS: a Alice só sugere; a equipe confirma em Leads › Sem desfecho.
+  const { data: orc } = await ctx.admin
+    .from("crm_leads")
+    .select("orcamento_enviado_em, linked_work_order_id")
+    .eq("id", lead.id)
+    .eq("empresa_id", ctx.empresaId)
+    .maybeSingle();
+  if (orc?.orcamento_enviado_em && !orc.linked_work_order_id) {
+    const sugerido = sugestaoDaAlice(motivo, input.detalhe, input.sugestao);
+    await ctx.admin
+      .from("crm_leads")
+      .update({
+        sem_desfecho_sugerido: sugerido,
+        desfecho_obs: input.detalhe ?? null,
+      })
+      .eq("id", lead.id)
+      .eq("empresa_id", ctx.empresaId);
+    await cancelarFollowupPendente(
+      ctx.admin,
+      ctx.empresaId,
+      ctx.conversaId,
+      `motivo sugerido: ${sugerido}`,
+    );
+    const retorno = input.data_retorno ? lerDataHoraLocal(input.data_retorno) : null;
+    if (retorno) {
+      await ctx.admin.from("crm_followups").insert({
+        empresa_id: ctx.empresaId,
+        crm_lead_id: lead.id,
+        conversa_id: ctx.conversaId,
+        scheduled_at: retorno.toISOString(),
+        responsavel: "equipe",
+        notes: `🤖 ${ctx.cfg.nome}: cliente adiou${input.detalhe ? ` (${input.detalhe})` : ""}. Retomar o contato.`,
+      });
+      await ctx.admin
+        .from("crm_leads")
+        .update({ next_follow_up_at: retorno.toISOString() })
+        .eq("id", lead.id)
+        .eq("empresa_id", ctx.empresaId);
+    }
+    return {
+      erro: false,
+      texto: `Motivo sugerido para a equipe confirmar (${sugerido}).${retorno ? " Retorno agendado para a equipe." : ""} Agradeça ao cliente com gentileza.`,
+    };
+  }
   let razao = await opcaoPorNome(ctx, "crm_loss_reason", SINONIMOS_PERDA[motivo]);
   if (!razao) {
     const { data: criada, error } = await ctx.admin

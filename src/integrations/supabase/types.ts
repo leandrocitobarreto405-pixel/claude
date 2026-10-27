@@ -1809,6 +1809,11 @@ export type Database = {
         Row: {
           sem_desfecho_em: string | null;
           sem_desfecho_motivo: string | null;
+          data_desejada: string | null;
+          desfecho_em: string | null;
+          desfecho_obs: string | null;
+          desfecho_por: string | null;
+          sem_desfecho_sugerido: string | null;
           ad_id: string | null;
           agendado_em: string | null;
           campaign_id: string | null;
@@ -1867,6 +1872,11 @@ export type Database = {
         Insert: {
           sem_desfecho_em?: string | null;
           sem_desfecho_motivo?: string | null;
+          data_desejada?: string | null;
+          desfecho_em?: string | null;
+          desfecho_obs?: string | null;
+          desfecho_por?: string | null;
+          sem_desfecho_sugerido?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;
@@ -1924,6 +1934,11 @@ export type Database = {
         Update: {
           sem_desfecho_em?: string | null;
           sem_desfecho_motivo?: string | null;
+          data_desejada?: string | null;
+          desfecho_em?: string | null;
+          desfecho_obs?: string | null;
+          desfecho_por?: string | null;
+          sem_desfecho_sugerido?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;
@@ -7469,6 +7484,17 @@ export type Database = {
           empresa_id: string;
           nome: string;
         }[];
+      };
+      contar_sem_desfecho: { Args: never; Returns: number };
+      leads_sem_desfecho: { Args: never; Returns: Json };
+      motivos_sem_desfecho: { Args: never; Returns: Json };
+      perdas_por_motivo: {
+        Args: { _ate: string; _de: string; _origem?: string; _servico?: string };
+        Returns: Json;
+      };
+      registrar_desfecho: {
+        Args: { _data?: string; _lead: string; _motivo: string; _obs?: string };
+        Returns: Json;
       };
       contadora_notas: {
         Args: { _ate?: string; _de?: string; _emp: string; _filtro?: string };

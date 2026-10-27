@@ -39,6 +39,8 @@ export type FontesDeAvisos = {
   semTecnico: number;
   reagendados: { id: string; cliente: string; data: string; hora: string }[];
   pagamentosPendentes: number;
+  /** Orçamentos esperando o motivo (aba Leads › Sem desfecho). */
+  semDesfecho?: number;
 };
 
 const ORDEM_TOM: Record<TomChip, number> = { problema: 0, atencao: 1, sucesso: 2, neutro: 3 };
@@ -154,6 +156,23 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
       quando: null,
       novo: false,
       link: { to: "/pagamentos", search: { status: "Não pago" } },
+      escritorio: true,
+    });
+  }
+
+  const semDesfecho = f.semDesfecho ?? 0;
+  if (semDesfecho > 0) {
+    lista.push({
+      id: "sem-desfecho",
+      tom: "atencao",
+      titulo:
+        semDesfecho === 1
+          ? "1 orçamento esperando o motivo"
+          : `${semDesfecho} orçamentos esperando o motivo`,
+      texto: "Marque em um clique por que não fechou (Leads › Sem desfecho).",
+      quando: null,
+      novo: true,
+      link: { to: "/crm/sem-desfecho" },
       escritorio: true,
     });
   }

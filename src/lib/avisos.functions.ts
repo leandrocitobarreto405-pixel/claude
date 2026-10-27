@@ -23,7 +23,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
     const desde14 = new Date(Date.now() - 14 * 86_400_000).toISOString();
     const vazio = { data: [] as never[], count: 0 };
 
-    const [conversas, marketing, atrasados, semTecnico, reagendados, pagamentos] =
+    const [conversas, marketing, atrasados, semTecnico, reagendados, pagamentos, semDesfecho] =
       await Promise.all([
         escritorio
           ? db
@@ -78,6 +78,9 @@ export const listarAvisos = createServerFn({ method: "GET" })
               // Só o que foi reaberto: "Parcialmente pago" é dinheiro recebido, não pendência.
               .eq("payment_status", "Não pago")
           : Promise.resolve(vazio),
+        escritorio
+          ? db.rpc("contar_sem_desfecho" as never)
+          : Promise.resolve({ data: 0 as unknown }),
       ]);
 
     type LinhaConversa = {
@@ -153,6 +156,7 @@ export const listarAvisos = createServerFn({ method: "GET" })
         hora: r.scheduled_time ?? "",
       })),
       pagamentosPendentes: pagamentos.count ?? 0,
+      semDesfecho: Number(semDesfecho.data ?? 0) || 0,
     };
     return montarAvisos(fontes, papel);
   });
