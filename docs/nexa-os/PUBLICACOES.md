@@ -758,6 +758,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Google Ads: conversões otimizadas para leads (e-mail e telefone em hash) na planilha         | `0e7099a`                                 | `fd68193`                            |
 | 27/10/2026       | Sem desfecho (E): aba em Leads, motivos em um clique, aviso e Perdas por motivo              | `53d1321`                                 | `0e7099a`                            |
 | 27/10/2026       | Cores e logo da Nexa, ícones do app e tema escuro automático na produção                     | `3d887dc`                                 | `5cfc778`                            |
+| 27/10/2026       | Google Ads: estorno automático (aba Ajustes) e coluna Order ID na planilha                   | `25e327e`                                 | `0052311`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1168,6 +1169,18 @@ do app. Dentro de cada empresa continua o avatar/logo dela; os PDFs (orçamento,
 mudaram e seguem com o logo da empresa no cabeçalho; o Painel Nexa mostra só o logo da Nexa. A
 `redesign` voltou a ser igual à produção (`HEAD:redesign` depois de cada envio). Como desfazer:
 `git revert -m 1 3d887dc` (sem force push); banco não muda.
+
+Google Ads, estorno e Order ID (27/10): commits `d48df3e` e `59dbede` (merge `25e327e`), migração
+`20261228170000_google_estorno` aplicada (ensaio antes; só colunas `estorno_horario` e
+`estorno_exportado_em`). A planilha de conversões ganhou "Order ID" (número da OS) como última
+coluna, em todas as linhas, sem mudar nome, horário e valor (nome oficial da coluna:
+support.google.com/google-ads/answer/7014069 e /7686280). Venda já exportada que for cancelada,
+apagada ou marcada como teste sai da planilha e vai para a aba "Ajustes" (criada só quando houver
+o primeiro estorno) com Adjustment Type RETRACT: pelo gclid + horário quando há clique, pelo Order
+ID quando não há. Colunas da aba Ajustes: Google Click ID, Conversion Name, Conversion Time,
+Adjustment Time, Adjustment Type, Adjusted Value, Adjusted Value Currency, Order ID. A coluna entrou em 27/10 às 15:05:12 (São Paulo), 19 linhas, nenhum estorno. Nenhum ajuste
+foi subido no Google. Como desfazer: `git revert -m 1 25e327e` (sem force push; a planilha volta às
+9 colunas na exportação seguinte) e `supabase/manual/20261228170000_google_estorno_desfazer.sql`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
