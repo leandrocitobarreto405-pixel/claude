@@ -588,177 +588,181 @@ Voltar a versão do app continua seguro: o app anterior não usa as tabelas nova
 do banco continuam funcionando com ele (uma promoção criada antes da volta é pausada sozinha,
 sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 
-| Data (UTC)       | Etapa                                                                                        | Commit publicado                          | Versão anterior (commit)             |
-| ---------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
-| 02/10/2026 00:56 | Base + Agenda                                                                                | `86d9d15`                                 | `4a942a7`                            |
-| 02/10/2026 13:41 | Início + Conversas                                                                           | `a8568c6`                                 | `86d9d15`                            |
-| 02/10/2026 13:59 | Avisos (tela)                                                                                | `133e6bc`                                 | `fab37c7`                            |
-| 02/10/2026 14:21 | Avisos no WhatsApp                                                                           | `91771de`                                 | `61c19e2`                            |
-| 02/10/2026 14:31 | Marketing                                                                                    | `79ef000`                                 | `8d7cbd9`                            |
-| 02/10/2026 16:56 | Agenda + promoção                                                                            | `f9e84ce`                                 | `4d9ef1f`                            |
-| 02/10/2026 17:28 | Modelos de mensagem                                                                          | `316b11e`                                 | `2f900e8`                            |
-| 02/10/2026 18:27 | Notificações push                                                                            | `b84c49d`                                 | `50112f8`                            |
-| 02/10/2026 18:38 | Tela do serviço                                                                              | `3c40039`                                 | `b84c49d`                            |
-| 02/10/2026 19:15 | Conversas (espera)                                                                           | `716ea28`                                 | `3c40039`                            |
-| 02/10/2026 22:19 | Config. por empresa                                                                          | `0e7ab52`                                 | `716ea28`                            |
-| 02/10/2026 22:44 | Checklist empresa                                                                            | `4a6ac5a`                                 | `30a7c79`                            |
-| 03/10/2026 13:40 | Cidade e estado                                                                              | `78be8c4`                                 | `e4aa78c`                            |
-| 03/10/2026 18:32 | Convite (WhatsApp)                                                                           | `4e03e42`                                 | `25a9ad6`                            |
-| 03/10/2026 20:14 | Esqueci a senha                                                                              | `2703b3f`                                 | `f54d21b`                            |
-| 04/10/2026 01:07 | Encerrar conversas                                                                           | `eeaaa67`                                 | `ff9f68e`                            |
-| 04/10/2026 01:46 | Listas de leads                                                                              | `869d8bf`                                 | `0584c05`                            |
-| 04/10/2026 02:20 | Promoção dia vago                                                                            | `523dc67`                                 | `869d8bf`                            |
-| 04/10/2026 05:55 | Campanhas e listas                                                                           | `e74d8b3`                                 | `b0d51b4`                            |
-| 04/10/2026 12:23 | Domínio e km guardado                                                                        | `48e5b05`                                 | `624dbf1`                            |
-| 04/10/2026 13:18 | Planilha das listas                                                                          | `2120cf0`                                 | `76bf5e9`                            |
-| 04/10/2026 17:23 | Pediu orçamento                                                                              | `9d2ff92`                                 | `cd89379`                            |
-| 04/10/2026 22:43 | Modelos e lembretes                                                                          | `2a0e0a6`                                 | `f7b9952`                            |
-| 04/10/2026 23:10 | Faixas sem sobrepor                                                                          | `2fd5120`                                 | `cfcfdd9`                            |
-| 04/10/2026 23:10 | Rascunhos de modelos                                                                         | `6287c8e`                                 | `2fd5120`                            |
-| 05/10/2026 14:51 | Nova campanha                                                                                | `31b70cb`                                 | `007631d`                            |
-| 05/10/2026 13:55 | Quantas pessoas                                                                              | `9145f99`                                 | `0348392`                            |
-| 06/10/2026       | Equipe (vendedoras)                                                                          | `6b92091`                                 | `9f501df`                            |
-| 06/10/2026       | Comissão da Nexa                                                                             | `db1aa08`                                 | `1c22651`                            |
-| 06/10/2026       | Saudação e modelos                                                                           | `b3944d7`                                 | `db1aa08`                            |
-| 07/10/2026       | Transcrição de áudio                                                                         | `607ace7`                                 | `cf99f6e`                            |
-| 07/10/2026       | Agenda livre (Alice)                                                                         | `88dca53`                                 | `607ace7`                            |
-| 07/10/2026       | Áudio longo                                                                                  | `f8f2043`                                 | `88dca53`                            |
-| 07/10/2026       | Usuários e Equipe                                                                            | `d46f737`                                 | `f8f2043`                            |
-| 07/10/2026       | Foto do técnico                                                                              | `c638c08`                                 | `d46f737`                            |
-| 07/10/2026       | Alice agenda e faz OS                                                                        | `680c36c`                                 | `8f45a3f`                            |
-| 07/10/2026       | Alice sem relatório                                                                          | `368a4a8`                                 | `91e8a0a`                            |
-| 07/10/2026       | Avisos e envio                                                                               | `bc90d8f`                                 | `45b5b25`                            |
-| 07/10/2026       | Tirar e chamar à mão                                                                         | `90a2c85`                                 | `3f5f954`                            |
-| 07/10/2026       | Lotes e qualidade                                                                            | `8721715`                                 | `1534642`                            |
-| 07/10/2026       | Tela após chamada                                                                            | `aac86f7`                                 | `eb2390c`                            |
-| 07/10/2026       | Um documento por OS                                                                          | `bc1eee9`                                 | `7c62927`                            |
-| 07/10/2026       | Fotos e vídeos (Drive)                                                                       | `6604089`                                 | `e6a59d8`                            |
-| 08/10/2026 00:40 | Regras do orçamento                                                                          | `dd5864a`                                 | `f107c0d`                            |
-| 08/10/2026 01:30 | Termo por modelo                                                                             | `478ed9c`                                 | `6783fec`                            |
-| 08/10/2026 23:55 | Classe e acréscimos                                                                          | `460cd55`                                 | `3b7a39b`                            |
-| 09/10/2026 00:40 | Colchão adicional                                                                            | `f9fd9d4`                                 | `4348cb9`                            |
-| 12/10/2026 08:35 | Alice: fila e remarcar                                                                       | `3a187c2`                                 | `57b03a0`                            |
-| 12/10/2026 21:00 | Tapete m² e persiana                                                                         | `fbc8359`                                 | `d333a88`                            |
-| 13/10/2026       | Aviso do colchão                                                                             | `c24f447`                                 | `4d77c77`                            |
-| 13/10/2026 01:10 | Alice: pós-venda                                                                             | `88a35ff`                                 | `c70334a`                            |
-| 13/10/2026       | Leads do site                                                                                | `330c885`                                 | `e4bd2b4`                            |
-| 13/10/2026       | Modelos sem dia fixo                                                                         | `8dd3429`                                 | `3525b5b`                            |
-| 13/10/2026       | Leads: chave/teste                                                                           | `cb57b45`                                 | `8dd3429`                            |
-| 13/10/2026       | Modelos \_v2                                                                                 | `726a216`                                 | `ff6838f`                            |
-| 13/10/2026       | Leads: 5 min e 24 h                                                                          | `7f074bd`                                 | `726a216`                            |
-| 13/10/2026       | Véspera todo dia                                                                             | `d9bfba9`                                 | `52468cd`                            |
-| 13/10/2026       | Orçamento: Pix à parte                                                                       | `35bd321`                                 | `aede577`                            |
-| 13/10/2026       | Ads: venda pela OS                                                                           | `c2d5c6e`                                 | `a7324bc`                            |
-| 13/10/2026       | Ads: LP do colchão                                                                           | `00d9199`                                 | `c2d5c6e`                            |
-| 13/10/2026       | Ads: exportação diária                                                                       | `80af6e0`                                 | `ed44911`                            |
-| 13/10/2026       | OS → lead automático                                                                         | `8da17fb`                                 | `9fcb153`                            |
-| 13/10/2026       | Ads: valor como número                                                                       | `653c16c`                                 | `8da17fb`                            |
-| 14/10/2026       | Custo km tela + DRE                                                                          | `10cdec4`                                 | `19b6aac`                            |
-| 14/10/2026       | Repaginada fase 1 (só na `redesign`/`nexaos-teste`)                                          | `dcdcee3`…`5e5664c`                       | `ec181d0`                            |
-| 14/10/2026       | Repaginada fase 2 (só na `redesign`/`nexaos-teste`)                                          | `2608685`…`9c8ebbd`                       | `99f7a88`                            |
-| 14/10/2026 22:19 | Alice: Reagendado e OS de teste (produção)                                                   | `8b85f6d`                                 | `ec181d0`                            |
-| 14/10/2026       | Repaginada fase 3 (só na `redesign`/`nexaos-teste`)                                          | `d2ab520`…`a2b7099`                       | `ce3ff5d`                            |
-| 15/10/2026 02:00 | Repaginada fases 1, 2 e 3 (merge da `redesign`)                                              | `db7a286`                                 | `8b85f6d`                            |
-| 15/10/2026 03:16 | Google Ads: planilha em en_US                                                                | `af804c4`                                 | `0279885`                            |
-| 15/10/2026       | Marketing sem quem tem OS ou garantia                                                        | `8bc25cb`                                 | `fff5cb2`                            |
-| 18/10/2026       | Alice mais barata + painel Nexa › Alice                                                      | `9438aa0`…`caf0b6a`                       | `c935863`                            |
-| 18/10/2026       | Terceirizados (tapete e persiana)                                                            | `6594530`                                 | `d93b042`                            |
-| 18/10/2026       | Funil e comissão pelo valor líquido                                                          | `58cd399`                                 | `a5fd147`                            |
-| 19/10/2026       | Orçamento enviado, proposta, origem Google Ads                                               | `9efdd87`…`7503746`                       | `9cd38a0`                            |
-| 19/10/2026       | PDF da OS no app (Documentos, dados e logo)                                                  | `e96b898`…`4baad41`                       | `b3a28aa`                            |
-| 19/10/2026       | Cupons na Alice, origem Site x Blog e landing                                                | `976ce44`                                 | `b60f3a9`                            |
-| 19/10/2026       | Correção: modo dos documentos (cache e servidor)                                             | `fcbc246`                                 | `d6add27`                            |
-| 19/10/2026       | PDF do orçamento direto no app                                                               | `15ca130`                                 | `61f50d0`                            |
-| 19/10/2026       | Correção: Início zerado e erros em português                                                 | `b300e7a`                                 | `04bb91d`                            |
-| 19/10/2026       | Número sequencial do orçamento (Nº 0153)                                                     | `43354bd`                                 | `879f892`                            |
-| 19/10/2026       | Notas fiscais: descrição dos serviços (NFS-e)                                                | `60755c0`                                 | `2a7e1aa`                            |
-| 19/10/2026       | Alice responde em áudio (desligado)                                                          | `82d022b`                                 | `ee4cd9a`                            |
-| 19/10/2026       | Notas: Não emitir, Pedir nota, descrição simples                                             | `16cff45`                                 | `0ca79a1`                            |
-| 20/10/2026       | Alice: áudio como mensagem de voz                                                            | `056570b`                                 | `a198be9`                            |
-| 20/10/2026       | Notas: soma que não bate vira aviso                                                          | `3a5d85b`                                 | `056570b`                            |
-| 20/10/2026       | A: Vendido pela data do serviço (cheio)                                                      | `7a6fb96`                                 | `3a5d85b`                            |
-| 20/10/2026       | B: OS de teste fora e A receber por OS                                                       | `8d5322e`                                 | `e263014`                            |
-| 20/10/2026       | C: DRE pelo recebimento e Comissões a pagar                                                  | `b731429`                                 | `8d5322e`                            |
-| 21/10/2026       | Caixa de entrada 1: responder texto e modelo                                                 | `f946886`                                 | `ed18ced`                            |
-| 21/10/2026       | Caixa de entrada 2: tempo real e status                                                      | `2b48bb7`                                 | `7761283`                            |
-| 21/10/2026       | Caixa de entrada 1b: foto, documento e áudio (voz)                                           | `bc88f85`                                 | `b371c77`                            |
-| 21/10/2026       | Conversas: abrir no fim, teclado, remetente, foto                                            | `b248490`                                 | `a5a8771`                            |
-| 21/10/2026       | Empresa: logo/avatar, numeração de OS, PDF configurável                                      | `83e8145`                                 | `705ce65`                            |
-| 21/10/2026       | Caixa 2b: tempo real por empresa; voz como o Chatwoot                                        | `0e23814`                                 | `5325e8c`                            |
-| 21/10/2026       | Correção do gatilho do tempo real; voz sem marcação                                          | `6995a2a`                                 | `bbb4b21`                            |
-| 21/10/2026       | Voz: OGG normalizado (granules, pre-skip 0)                                                  | `ddf7900`                                 | `bed0829`                            |
-| 21/10/2026       | Conversas: busca, ordem, encerramento automático, teste 530                                  | `5513402`                                 | `ddf7900`                            |
-| 21/10/2026       | Voz a 40 kbit/s, balão otimista dos anexos, tempos                                           | `f52b421`                                 | `a4bf278`                            |
-| 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora                                     | `f2eb81c`                                 | `8f1101e`                            |
-| 21/10/2026       | Player de áudio, foto com orientação, Opus no navegador                                      | `2841475`                                 | `bf7d2f5`                            |
-| 21/10/2026       | Voz: OGG cru do gravador, trava de início duplo                                              | `9967f00`                                 | `40740f2`                            |
-| 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe                           | `2272dd4`                                 | `8f98a46`                            |
-| 21/10/2026       | Caixa 3: Minhas, assumir, não lidas, digitando… e lido                                       | `a84c99c`                                 | `c0f0ec3`                            |
-| 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas                                  | `fb1e008`                                 | `76f86a4`                            |
-| 21/10/2026       | Caixa 4: duas atendentes (faixa, presença, assumir antes)                                    | `6705084`                                 | `5335ab0`                            |
-| 21/10/2026       | Caixa 5: push do webhook (conversa nova, cliente respondeu)                                  | `b2a1fc4`                                 | `a4de66c`                            |
-| 21/10/2026       | Conversa no iPhone: barra grudada, sem vão, sem zoom no campo                                | `093a559`                                 | `6e5ea8a`                            |
-| 21/10/2026       | Digitando…: tentativas com a resposta da Meta em Configurações                               | `7b53ee8`                                 | `7d892a3`                            |
-| 21/10/2026       | Push na hora da passagem da Alice para a equipe                                              | `45b811d`                                 | `7b53ee8`                            |
-| 21/10/2026       | Alice: regra do nome (desligada) e ensaio de 5 conversas                                     | `61fe673`                                 | `2191f6c`                            |
-| 22/10/2026       | Ensaio do nome em Configurações; doc da fase D                                               | `2b60b02`                                 | `1cf51de`                            |
-| 22/10/2026       | Conversa: barra fixa, voltar à lista, lado a lado no PC                                      | `8ed0976`                                 | `31660ac`                            |
-| 22/10/2026       | Ensaio do nome: cliente antigo pelo nome, também ao transferir                               | `ac1a7fb`                                 | `e012a54`                            |
-| 22/10/2026       | Lista compacta e respostas prontas com "/"                                                   | `ef476b4`                                 | `ac1a7fb`                            |
-| 22/10/2026       | Alice: regra do nome ligada (nome confirmado em OS, orçamento etc.)                          | `5f363c2`                                 | `e4c5b9c`                            |
-| 22/10/2026       | Descadastro de marketing: pedido do cliente, interruptor, listas                             | `a70d30f`                                 | `bf584de`                            |
-| 22/10/2026       | Origem automática no orçamento e na OS; troca registrada                                     | `69e414a`                                 | `b21f336`                            |
-| 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)                                    | `ea6d4e6`                                 | `3270e60`                            |
-| 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine                             | `0b94069`                                 | `cda1301`                            |
-| 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia                               | `175d4d6`                                 | `67044cc`                            |
-| 23/10/2026       | Fase B item 1: planos, assinaturas, vendido por, % na data da venda                          | `bf9e68c`                                 | `7f0276c`                            |
-| 23/10/2026       | Fase B item 2: portão da assinatura (carência e somente leitura)                             | `bed5f09`                                 | `75e29d4`                            |
-| 23/10/2026       | 5º dia útil das comissões pula os feriados nacionais (D9)                                    | `d291ae1`                                 | `3fb0fe5`                            |
-| 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)                                  | `6562709`                                 | `d291ae1`                            |
-| 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)                               | `fe63886`                                 | `48551f8`                            |
-| 24/10/2026       | Agenda dos técnicos para todas as empresas (envio desligado)                                 | `3183848`                                 | `38e7e1b`                            |
-| 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada)                        | `15db309`                                 | `28385d8`                            |
-| 26/10/2026       | Item 8: regra mínima de senha; plano grátis e plano de backup (D12)                          | `b028603`                                 | `dc1f08e`                            |
-| 26/10/2026       | Fase B item 4: empresa-modelo neutra                                                         | `bcffe3f`                                 | `b028603`                            |
-| 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa                                      | `788be83`                                 | `bcffe3f`                            |
-| 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual                                 | `16226c0`                                 | `788be83`                            |
-| 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)                                       | `3d2998b`                                 | `921f91c`                            |
-| 26/10/2026       | Painel Nexa como espaço separado das empresas                                                | `a71a5b7`                                 | `fba1057`                            |
-| 26/10/2026       | Empresa de teste fora do MRR e dos relatórios do Painel Nexa                                 | `39200f2`                                 | `8fec6b2`                            |
-| 26/10/2026       | Alice: roteiro-base para qualquer empresa (campos por empresa)                               | `f26be36`                                 | `166cb12`                            |
-| 26/10/2026       | Limpeza dos eventos do Chatwoot (desligada até o backup)                                     | `c85a7a8`                                 | `a5c5084`                            |
-| 26/10/2026       | Fase B item 7: consumo das empresas no Painel Nexa                                           | `c1b2bf7`                                 | `8fdbb89`                            |
-| 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa                                   | `21ed1a2`                                 | `5ae6116`                            |
-| 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                                           | `29cd1e9`                                 | `1fb9286`                            |
-| 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários                                | `e1b4651`                                 | `f0dd67c`                            |
-| 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)                               | `19900e6`                                 | `72a7790`                            |
-| 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)                                   | `7578347`                                 | `665e779`                            |
-| 26/10/2026       | Franquia da Alice: medidor, avisos, teto e trava por custo                                   | `bb32e40`                                 | `11f47b0`                            |
-| 26/10/2026       | Alice: áudio com a ElevenLabs (padrão Google, desligado)                                     | `cba4ec3`                                 | `70e7760`                            |
-| 26/10/2026       | Alice, custo ideia 2: cache do histórico (desligado) e ensaio                                | `b2356e8`                                 | `7e7fddd`                            |
-| 26/10/2026       | Painel Nexa: cobrança Cobrar / Isenta e "Em teste até"                                       | `fd83de8`                                 | `b2356e8`                            |
-| 26/10/2026       | Terceirizados: faturamento líquido, repasse por OS, comissão cheia                           | `14a8ed7`                                 | `f1d5f64`                            |
-| 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face                            | `ee6e322`                                 | `d6be9bd`                            |
-| 26/10/2026       | Alice, custo ideia 2: cache do histórico ligado na Turbine                                   | `5ca133a`                                 | `aec7972`                            |
-| 27/10/2026       | Alice: roteiro por serviço (código e módulos; núcleo ainda não)                              | `2cd270d`                                 | `89d4855`                            |
-| 27/10/2026       | Alarme de crédito da IA: Alice parada avisa a Nexa e a empresa                               | `1d5c917`                                 | `5fc36bb`                            |
-| 27/10/2026       | Alice: núcleo do roteiro (Turbine e Modelo) e upsell da Turbine em 20%                       | migração (chat)                           | `2cd270d`                            |
-| 27/10/2026       | Alice em áudio com a ElevenLabs, teto em créditos e saldo das contas                         | `ac9becb`                                 | `5130abe`                            |
-| 27/10/2026       | Alice: núcleo para áudio (regra 15, explicação, seção 8) e explicações em áudio na Turbine   | migração (chat)                           | `ab47e07`                            |
-| 27/10/2026       | Follow-up com cadência do sistema, trava antes de cada toque e oferta do D2                  | `b71f9ad`                                 | `d79c8db`                            |
-| 27/10/2026       | Alice: seção Follow-up do núcleo (cadência do sistema)                                       | migração (chat)                           | `366aaa3`                            |
-| 27/10/2026       | Retomada dos 22 orçamentos parados e oferta do D2 (10%) na Turbine                           | `8b6c926`                                 | `366aaa3`                            |
-| 27/10/2026       | Pix com fonte única (Regras de orçamento › Pagamento): Turbine 5%, Ecoprime 10%, Modelo 5%   | `f41daf3`                                 | `8d3b57b`                            |
-| 27/10/2026       | LPs: pop-up ligado ao lead pelo código, "LP sem pop-up" por semana (servidor)                | `e016fa8`                                 | `f41daf3`                            |
-| 27/10/2026       | LPs (Lovable): botões sem link pronto, pop-up grava antes de abrir o WhatsApp, código no fim | Lovable `db3ad04` / `aea482d` / `2ee736c` | Lovable (commit anterior de cada LP) |
-| 27/10/2026       | Cores e logo da Nexa, tema escuro automático (só na `redesign`/`nexaos-teste`)               | `4238175`                                 | `4a8465f`                            |
-| 27/10/2026       | Cadência: conversa encerrada ou aberta sem dono não trava nenhum toque (A, B e R)            | `8f50297`                                 | `abd18c0`                            |
-| 27/10/2026       | Retomada dos 22 reagendada para 27/10 14h e 4 cliques antigos das LPs ligados ao lead        | banco (chat)                              | —                                    |
-| 27/10/2026       | Contadora: área própria, fora da equipe e do limite de usuários                              | `0d6c118`                                 | `8f50297`                            |
-| 27/10/2026       | Google Ads: conversões otimizadas para leads (e-mail e telefone em hash) na planilha         | `0e7099a`                                 | `fd68193`                            |
-| 27/10/2026       | Sem desfecho (E): aba em Leads, motivos em um clique, aviso e Perdas por motivo              | `53d1321`                                 | `0e7099a`                            |
-| 27/10/2026       | Cores e logo da Nexa, ícones do app e tema escuro automático na produção                     | `3d887dc`                                 | `5cfc778`                            |
-| 27/10/2026       | Google Ads: estorno automático (aba Ajustes) e coluna Order ID na planilha                   | `25e327e`                                 | `0052311`                            |
+| Data (UTC)       | Etapa                                                                                                | Commit publicado                          | Versão anterior (commit)             |
+| ---------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
+| 02/10/2026 00:56 | Base + Agenda                                                                                        | `86d9d15`                                 | `4a942a7`                            |
+| 02/10/2026 13:41 | Início + Conversas                                                                                   | `a8568c6`                                 | `86d9d15`                            |
+| 02/10/2026 13:59 | Avisos (tela)                                                                                        | `133e6bc`                                 | `fab37c7`                            |
+| 02/10/2026 14:21 | Avisos no WhatsApp                                                                                   | `91771de`                                 | `61c19e2`                            |
+| 02/10/2026 14:31 | Marketing                                                                                            | `79ef000`                                 | `8d7cbd9`                            |
+| 02/10/2026 16:56 | Agenda + promoção                                                                                    | `f9e84ce`                                 | `4d9ef1f`                            |
+| 02/10/2026 17:28 | Modelos de mensagem                                                                                  | `316b11e`                                 | `2f900e8`                            |
+| 02/10/2026 18:27 | Notificações push                                                                                    | `b84c49d`                                 | `50112f8`                            |
+| 02/10/2026 18:38 | Tela do serviço                                                                                      | `3c40039`                                 | `b84c49d`                            |
+| 02/10/2026 19:15 | Conversas (espera)                                                                                   | `716ea28`                                 | `3c40039`                            |
+| 02/10/2026 22:19 | Config. por empresa                                                                                  | `0e7ab52`                                 | `716ea28`                            |
+| 02/10/2026 22:44 | Checklist empresa                                                                                    | `4a6ac5a`                                 | `30a7c79`                            |
+| 03/10/2026 13:40 | Cidade e estado                                                                                      | `78be8c4`                                 | `e4aa78c`                            |
+| 03/10/2026 18:32 | Convite (WhatsApp)                                                                                   | `4e03e42`                                 | `25a9ad6`                            |
+| 03/10/2026 20:14 | Esqueci a senha                                                                                      | `2703b3f`                                 | `f54d21b`                            |
+| 04/10/2026 01:07 | Encerrar conversas                                                                                   | `eeaaa67`                                 | `ff9f68e`                            |
+| 04/10/2026 01:46 | Listas de leads                                                                                      | `869d8bf`                                 | `0584c05`                            |
+| 04/10/2026 02:20 | Promoção dia vago                                                                                    | `523dc67`                                 | `869d8bf`                            |
+| 04/10/2026 05:55 | Campanhas e listas                                                                                   | `e74d8b3`                                 | `b0d51b4`                            |
+| 04/10/2026 12:23 | Domínio e km guardado                                                                                | `48e5b05`                                 | `624dbf1`                            |
+| 04/10/2026 13:18 | Planilha das listas                                                                                  | `2120cf0`                                 | `76bf5e9`                            |
+| 04/10/2026 17:23 | Pediu orçamento                                                                                      | `9d2ff92`                                 | `cd89379`                            |
+| 04/10/2026 22:43 | Modelos e lembretes                                                                                  | `2a0e0a6`                                 | `f7b9952`                            |
+| 04/10/2026 23:10 | Faixas sem sobrepor                                                                                  | `2fd5120`                                 | `cfcfdd9`                            |
+| 04/10/2026 23:10 | Rascunhos de modelos                                                                                 | `6287c8e`                                 | `2fd5120`                            |
+| 05/10/2026 14:51 | Nova campanha                                                                                        | `31b70cb`                                 | `007631d`                            |
+| 05/10/2026 13:55 | Quantas pessoas                                                                                      | `9145f99`                                 | `0348392`                            |
+| 06/10/2026       | Equipe (vendedoras)                                                                                  | `6b92091`                                 | `9f501df`                            |
+| 06/10/2026       | Comissão da Nexa                                                                                     | `db1aa08`                                 | `1c22651`                            |
+| 06/10/2026       | Saudação e modelos                                                                                   | `b3944d7`                                 | `db1aa08`                            |
+| 07/10/2026       | Transcrição de áudio                                                                                 | `607ace7`                                 | `cf99f6e`                            |
+| 07/10/2026       | Agenda livre (Alice)                                                                                 | `88dca53`                                 | `607ace7`                            |
+| 07/10/2026       | Áudio longo                                                                                          | `f8f2043`                                 | `88dca53`                            |
+| 07/10/2026       | Usuários e Equipe                                                                                    | `d46f737`                                 | `f8f2043`                            |
+| 07/10/2026       | Foto do técnico                                                                                      | `c638c08`                                 | `d46f737`                            |
+| 07/10/2026       | Alice agenda e faz OS                                                                                | `680c36c`                                 | `8f45a3f`                            |
+| 07/10/2026       | Alice sem relatório                                                                                  | `368a4a8`                                 | `91e8a0a`                            |
+| 07/10/2026       | Avisos e envio                                                                                       | `bc90d8f`                                 | `45b5b25`                            |
+| 07/10/2026       | Tirar e chamar à mão                                                                                 | `90a2c85`                                 | `3f5f954`                            |
+| 07/10/2026       | Lotes e qualidade                                                                                    | `8721715`                                 | `1534642`                            |
+| 07/10/2026       | Tela após chamada                                                                                    | `aac86f7`                                 | `eb2390c`                            |
+| 07/10/2026       | Um documento por OS                                                                                  | `bc1eee9`                                 | `7c62927`                            |
+| 07/10/2026       | Fotos e vídeos (Drive)                                                                               | `6604089`                                 | `e6a59d8`                            |
+| 08/10/2026 00:40 | Regras do orçamento                                                                                  | `dd5864a`                                 | `f107c0d`                            |
+| 08/10/2026 01:30 | Termo por modelo                                                                                     | `478ed9c`                                 | `6783fec`                            |
+| 08/10/2026 23:55 | Classe e acréscimos                                                                                  | `460cd55`                                 | `3b7a39b`                            |
+| 09/10/2026 00:40 | Colchão adicional                                                                                    | `f9fd9d4`                                 | `4348cb9`                            |
+| 12/10/2026 08:35 | Alice: fila e remarcar                                                                               | `3a187c2`                                 | `57b03a0`                            |
+| 12/10/2026 21:00 | Tapete m² e persiana                                                                                 | `fbc8359`                                 | `d333a88`                            |
+| 13/10/2026       | Aviso do colchão                                                                                     | `c24f447`                                 | `4d77c77`                            |
+| 13/10/2026 01:10 | Alice: pós-venda                                                                                     | `88a35ff`                                 | `c70334a`                            |
+| 13/10/2026       | Leads do site                                                                                        | `330c885`                                 | `e4bd2b4`                            |
+| 13/10/2026       | Modelos sem dia fixo                                                                                 | `8dd3429`                                 | `3525b5b`                            |
+| 13/10/2026       | Leads: chave/teste                                                                                   | `cb57b45`                                 | `8dd3429`                            |
+| 13/10/2026       | Modelos \_v2                                                                                         | `726a216`                                 | `ff6838f`                            |
+| 13/10/2026       | Leads: 5 min e 24 h                                                                                  | `7f074bd`                                 | `726a216`                            |
+| 13/10/2026       | Véspera todo dia                                                                                     | `d9bfba9`                                 | `52468cd`                            |
+| 13/10/2026       | Orçamento: Pix à parte                                                                               | `35bd321`                                 | `aede577`                            |
+| 13/10/2026       | Ads: venda pela OS                                                                                   | `c2d5c6e`                                 | `a7324bc`                            |
+| 13/10/2026       | Ads: LP do colchão                                                                                   | `00d9199`                                 | `c2d5c6e`                            |
+| 13/10/2026       | Ads: exportação diária                                                                               | `80af6e0`                                 | `ed44911`                            |
+| 13/10/2026       | OS → lead automático                                                                                 | `8da17fb`                                 | `9fcb153`                            |
+| 13/10/2026       | Ads: valor como número                                                                               | `653c16c`                                 | `8da17fb`                            |
+| 14/10/2026       | Custo km tela + DRE                                                                                  | `10cdec4`                                 | `19b6aac`                            |
+| 14/10/2026       | Repaginada fase 1 (só na `redesign`/`nexaos-teste`)                                                  | `dcdcee3`…`5e5664c`                       | `ec181d0`                            |
+| 14/10/2026       | Repaginada fase 2 (só na `redesign`/`nexaos-teste`)                                                  | `2608685`…`9c8ebbd`                       | `99f7a88`                            |
+| 14/10/2026 22:19 | Alice: Reagendado e OS de teste (produção)                                                           | `8b85f6d`                                 | `ec181d0`                            |
+| 14/10/2026       | Repaginada fase 3 (só na `redesign`/`nexaos-teste`)                                                  | `d2ab520`…`a2b7099`                       | `ce3ff5d`                            |
+| 15/10/2026 02:00 | Repaginada fases 1, 2 e 3 (merge da `redesign`)                                                      | `db7a286`                                 | `8b85f6d`                            |
+| 15/10/2026 03:16 | Google Ads: planilha em en_US                                                                        | `af804c4`                                 | `0279885`                            |
+| 15/10/2026       | Marketing sem quem tem OS ou garantia                                                                | `8bc25cb`                                 | `fff5cb2`                            |
+| 18/10/2026       | Alice mais barata + painel Nexa › Alice                                                              | `9438aa0`…`caf0b6a`                       | `c935863`                            |
+| 18/10/2026       | Terceirizados (tapete e persiana)                                                                    | `6594530`                                 | `d93b042`                            |
+| 18/10/2026       | Funil e comissão pelo valor líquido                                                                  | `58cd399`                                 | `a5fd147`                            |
+| 19/10/2026       | Orçamento enviado, proposta, origem Google Ads                                                       | `9efdd87`…`7503746`                       | `9cd38a0`                            |
+| 19/10/2026       | PDF da OS no app (Documentos, dados e logo)                                                          | `e96b898`…`4baad41`                       | `b3a28aa`                            |
+| 19/10/2026       | Cupons na Alice, origem Site x Blog e landing                                                        | `976ce44`                                 | `b60f3a9`                            |
+| 19/10/2026       | Correção: modo dos documentos (cache e servidor)                                                     | `fcbc246`                                 | `d6add27`                            |
+| 19/10/2026       | PDF do orçamento direto no app                                                                       | `15ca130`                                 | `61f50d0`                            |
+| 19/10/2026       | Correção: Início zerado e erros em português                                                         | `b300e7a`                                 | `04bb91d`                            |
+| 19/10/2026       | Número sequencial do orçamento (Nº 0153)                                                             | `43354bd`                                 | `879f892`                            |
+| 19/10/2026       | Notas fiscais: descrição dos serviços (NFS-e)                                                        | `60755c0`                                 | `2a7e1aa`                            |
+| 19/10/2026       | Alice responde em áudio (desligado)                                                                  | `82d022b`                                 | `ee4cd9a`                            |
+| 19/10/2026       | Notas: Não emitir, Pedir nota, descrição simples                                                     | `16cff45`                                 | `0ca79a1`                            |
+| 20/10/2026       | Alice: áudio como mensagem de voz                                                                    | `056570b`                                 | `a198be9`                            |
+| 20/10/2026       | Notas: soma que não bate vira aviso                                                                  | `3a5d85b`                                 | `056570b`                            |
+| 20/10/2026       | A: Vendido pela data do serviço (cheio)                                                              | `7a6fb96`                                 | `3a5d85b`                            |
+| 20/10/2026       | B: OS de teste fora e A receber por OS                                                               | `8d5322e`                                 | `e263014`                            |
+| 20/10/2026       | C: DRE pelo recebimento e Comissões a pagar                                                          | `b731429`                                 | `8d5322e`                            |
+| 21/10/2026       | Caixa de entrada 1: responder texto e modelo                                                         | `f946886`                                 | `ed18ced`                            |
+| 21/10/2026       | Caixa de entrada 2: tempo real e status                                                              | `2b48bb7`                                 | `7761283`                            |
+| 21/10/2026       | Caixa de entrada 1b: foto, documento e áudio (voz)                                                   | `bc88f85`                                 | `b371c77`                            |
+| 21/10/2026       | Conversas: abrir no fim, teclado, remetente, foto                                                    | `b248490`                                 | `a5a8771`                            |
+| 21/10/2026       | Empresa: logo/avatar, numeração de OS, PDF configurável                                              | `83e8145`                                 | `705ce65`                            |
+| 21/10/2026       | Caixa 2b: tempo real por empresa; voz como o Chatwoot                                                | `0e23814`                                 | `5325e8c`                            |
+| 21/10/2026       | Correção do gatilho do tempo real; voz sem marcação                                                  | `6995a2a`                                 | `bbb4b21`                            |
+| 21/10/2026       | Voz: OGG normalizado (granules, pre-skip 0)                                                          | `ddf7900`                                 | `bed0829`                            |
+| 21/10/2026       | Conversas: busca, ordem, encerramento automático, teste 530                                          | `5513402`                                 | `ddf7900`                            |
+| 21/10/2026       | Voz a 40 kbit/s, balão otimista dos anexos, tempos                                                   | `f52b421`                                 | `a4bf278`                            |
+| 21/10/2026       | Encerramento automático ligado: regras 1-3, hora em hora                                             | `f2eb81c`                                 | `8f1101e`                            |
+| 21/10/2026       | Player de áudio, foto com orientação, Opus no navegador                                              | `2841475`                                 | `bf7d2f5`                            |
+| 21/10/2026       | Voz: OGG cru do gravador, trava de início duplo                                                      | `9967f00`                                 | `40740f2`                            |
+| 21/10/2026       | Encerramento: cliente por último nunca encerra; por tempo x equipe                                   | `2272dd4`                                 | `8f98a46`                            |
+| 21/10/2026       | Caixa 3: Minhas, assumir, não lidas, digitando… e lido                                               | `a84c99c`                                 | `c0f0ec3`                            |
+| 21/10/2026       | Caixa 3b: largura travada, fonte 16 px, aba conta conversas                                          | `fb1e008`                                 | `76f86a4`                            |
+| 21/10/2026       | Caixa 4: duas atendentes (faixa, presença, assumir antes)                                            | `6705084`                                 | `5335ab0`                            |
+| 21/10/2026       | Caixa 5: push do webhook (conversa nova, cliente respondeu)                                          | `b2a1fc4`                                 | `a4de66c`                            |
+| 21/10/2026       | Conversa no iPhone: barra grudada, sem vão, sem zoom no campo                                        | `093a559`                                 | `6e5ea8a`                            |
+| 21/10/2026       | Digitando…: tentativas com a resposta da Meta em Configurações                                       | `7b53ee8`                                 | `7d892a3`                            |
+| 21/10/2026       | Push na hora da passagem da Alice para a equipe                                                      | `45b811d`                                 | `7b53ee8`                            |
+| 21/10/2026       | Alice: regra do nome (desligada) e ensaio de 5 conversas                                             | `61fe673`                                 | `2191f6c`                            |
+| 22/10/2026       | Ensaio do nome em Configurações; doc da fase D                                                       | `2b60b02`                                 | `1cf51de`                            |
+| 22/10/2026       | Conversa: barra fixa, voltar à lista, lado a lado no PC                                              | `8ed0976`                                 | `31660ac`                            |
+| 22/10/2026       | Ensaio do nome: cliente antigo pelo nome, também ao transferir                                       | `ac1a7fb`                                 | `e012a54`                            |
+| 22/10/2026       | Lista compacta e respostas prontas com "/"                                                           | `ef476b4`                                 | `ac1a7fb`                            |
+| 22/10/2026       | Alice: regra do nome ligada (nome confirmado em OS, orçamento etc.)                                  | `5f363c2`                                 | `e4c5b9c`                            |
+| 22/10/2026       | Descadastro de marketing: pedido do cliente, interruptor, listas                                     | `a70d30f`                                 | `bf584de`                            |
+| 22/10/2026       | Origem automática no orçamento e na OS; troca registrada                                             | `69e414a`                                 | `b21f336`                            |
+| 22/10/2026       | Taxa de deslocamento por faixa de valor (ainda desligada)                                            | `ea6d4e6`                                 | `3270e60`                            |
+| 22/10/2026       | Orçamento enviado mantém a taxa do envio; taxa ligada na Turbine                                     | `0b94069`                                 | `cda1301`                            |
+| 22/10/2026       | Taxa a partir de 25 km; técnico mais perto que trabalha no dia                                       | `175d4d6`                                 | `67044cc`                            |
+| 23/10/2026       | Fase B item 1: planos, assinaturas, vendido por, % na data da venda                                  | `bf9e68c`                                 | `7f0276c`                            |
+| 23/10/2026       | Fase B item 2: portão da assinatura (carência e somente leitura)                                     | `bed5f09`                                 | `75e29d4`                            |
+| 23/10/2026       | 5º dia útil das comissões pula os feriados nacionais (D9)                                            | `d291ae1`                                 | `3fb0fe5`                            |
+| 23/10/2026       | Sem mensalidade não há atraso; aviso do fim do grátis (D10)                                          | `6562709`                                 | `d291ae1`                            |
+| 23/10/2026       | Fase B item 3: faturas do Asaas, webhook e telas (sem a chave)                                       | `fe63886`                                 | `48551f8`                            |
+| 24/10/2026       | Agenda dos técnicos para todas as empresas (envio desligado)                                         | `3183848`                                 | `38e7e1b`                            |
+| 26/10/2026       | Fase B item 8: "li e aceito" dos termos (migração ainda não aplicada)                                | `15db309`                                 | `28385d8`                            |
+| 26/10/2026       | Item 8: regra mínima de senha; plano grátis e plano de backup (D12)                                  | `b028603`                                 | `dc1f08e`                            |
+| 26/10/2026       | Fase B item 4: empresa-modelo neutra                                                                 | `bcffe3f`                                 | `b028603`                            |
+| 26/10/2026       | Alice: {nome_empresa} no roteiro vira o nome da empresa                                              | `788be83`                                 | `bcffe3f`                            |
+| 26/10/2026       | Fase B item 5: cupons com tela própria e no orçamento manual                                         | `16226c0`                                 | `788be83`                            |
+| 26/10/2026       | Fase B item 5: Vendas da Nexa x da empresa (decisão E)                                               | `3d2998b`                                 | `921f91c`                            |
+| 26/10/2026       | Painel Nexa como espaço separado das empresas                                                        | `a71a5b7`                                 | `fba1057`                            |
+| 26/10/2026       | Empresa de teste fora do MRR e dos relatórios do Painel Nexa                                         | `39200f2`                                 | `8fec6b2`                            |
+| 26/10/2026       | Alice: roteiro-base para qualquer empresa (campos por empresa)                                       | `f26be36`                                 | `166cb12`                            |
+| 26/10/2026       | Limpeza dos eventos do Chatwoot (desligada até o backup)                                             | `c85a7a8`                                 | `a5c5084`                            |
+| 26/10/2026       | Fase B item 7: consumo das empresas no Painel Nexa                                                   | `c1b2bf7`                                 | `8fdbb89`                            |
+| 26/10/2026       | Fase B item 6: rotas e quilometragem para qualquer empresa                                           | `21ed1a2`                                 | `5ae6116`                            |
+| 26/10/2026       | Fase B item 5: abas Vendas / Operacional no Início                                                   | `29cd1e9`                                 | `1fb9286`                            |
+| 26/10/2026       | Planos novos: recursos por plano, travas e limite de usuários                                        | `e1b4651`                                 | `f0dd67c`                            |
+| 26/10/2026       | Alice: respostas e tecido não identificado (regras desligadas)                                       | `19900e6`                                 | `72a7790`                            |
+| 26/10/2026       | Alice: liga as regras de respostas e tecido (Turbine em B)                                           | `7578347`                                 | `665e779`                            |
+| 26/10/2026       | Franquia da Alice: medidor, avisos, teto e trava por custo                                           | `bb32e40`                                 | `11f47b0`                            |
+| 26/10/2026       | Alice: áudio com a ElevenLabs (padrão Google, desligado)                                             | `cba4ec3`                                 | `70e7760`                            |
+| 26/10/2026       | Alice, custo ideia 2: cache do histórico (desligado) e ensaio                                        | `b2356e8`                                 | `7e7fddd`                            |
+| 26/10/2026       | Painel Nexa: cobrança Cobrar / Isenta e "Em teste até"                                               | `fd83de8`                                 | `b2356e8`                            |
+| 26/10/2026       | Terceirizados: faturamento líquido, repasse por OS, comissão cheia                                   | `14a8ed7`                                 | `f1d5f64`                            |
+| 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face                                    | `ee6e322`                                 | `d6be9bd`                            |
+| 26/10/2026       | Alice, custo ideia 2: cache do histórico ligado na Turbine                                           | `5ca133a`                                 | `aec7972`                            |
+| 27/10/2026       | Alice: roteiro por serviço (código e módulos; núcleo ainda não)                                      | `2cd270d`                                 | `89d4855`                            |
+| 27/10/2026       | Alarme de crédito da IA: Alice parada avisa a Nexa e a empresa                                       | `1d5c917`                                 | `5fc36bb`                            |
+| 27/10/2026       | Alice: núcleo do roteiro (Turbine e Modelo) e upsell da Turbine em 20%                               | migração (chat)                           | `2cd270d`                            |
+| 27/10/2026       | Alice em áudio com a ElevenLabs, teto em créditos e saldo das contas                                 | `ac9becb`                                 | `5130abe`                            |
+| 27/10/2026       | Alice: núcleo para áudio (regra 15, explicação, seção 8) e explicações em áudio na Turbine           | migração (chat)                           | `ab47e07`                            |
+| 27/10/2026       | Follow-up com cadência do sistema, trava antes de cada toque e oferta do D2                          | `b71f9ad`                                 | `d79c8db`                            |
+| 27/10/2026       | Alice: seção Follow-up do núcleo (cadência do sistema)                                               | migração (chat)                           | `366aaa3`                            |
+| 27/10/2026       | Retomada dos 22 orçamentos parados e oferta do D2 (10%) na Turbine                                   | `8b6c926`                                 | `366aaa3`                            |
+| 27/10/2026       | Pix com fonte única (Regras de orçamento › Pagamento): Turbine 5%, Ecoprime 10%, Modelo 5%           | `f41daf3`                                 | `8d3b57b`                            |
+| 27/10/2026       | LPs: pop-up ligado ao lead pelo código, "LP sem pop-up" por semana (servidor)                        | `e016fa8`                                 | `f41daf3`                            |
+| 27/10/2026       | LPs (Lovable): botões sem link pronto, pop-up grava antes de abrir o WhatsApp, código no fim         | Lovable `db3ad04` / `aea482d` / `2ee736c` | Lovable (commit anterior de cada LP) |
+| 27/10/2026       | Cores e logo da Nexa, tema escuro automático (só na `redesign`/`nexaos-teste`)                       | `4238175`                                 | `4a8465f`                            |
+| 27/10/2026       | Cadência: conversa encerrada ou aberta sem dono não trava nenhum toque (A, B e R)                    | `8f50297`                                 | `abd18c0`                            |
+| 27/10/2026       | Retomada dos 22 reagendada para 27/10 14h e 4 cliques antigos das LPs ligados ao lead                | banco (chat)                              | —                                    |
+| 27/10/2026       | Contadora: área própria, fora da equipe e do limite de usuários                                      | `0d6c118`                                 | `8f50297`                            |
+| 27/10/2026       | Google Ads: conversões otimizadas para leads (e-mail e telefone em hash) na planilha                 | `0e7099a`                                 | `fd68193`                            |
+| 27/10/2026       | Sem desfecho (E): aba em Leads, motivos em um clique, aviso e Perdas por motivo                      | `53d1321`                                 | `0e7099a`                            |
+| 27/10/2026       | Cores e logo da Nexa, ícones do app e tema escuro automático na produção                             | `3d887dc`                                 | `5cfc778`                            |
+| 27/10/2026       | Google Ads: estorno automático (aba Ajustes) e coluna Order ID na planilha                           | `25e327e`                                 | `0052311`                            |
+| 27/10/2026       | Alice: toque em conversa sem dono/encerrada devolve a conversa a ela; áudio nunca sem resposta       | `e62a110`                                 | `d0db02a`                            |
+| 27/10/2026       | Alice: dois horários em dias diferentes (dia de semana e sábado), busca de 14 dias                   | `15eeb0d`                                 | `e62a110`                            |
+| 27/10/2026       | Notificações: recibo do aparelho, aviso no topo, teste, equipe, esperas agrupadas e sem falso alarme | `26f6173`                                 | `15eeb0d`                            |
+| 27/10/2026       | Leads do site: repetida segue a original, 8 dígitos e clique do pop-up (reprocessados 30 dias)       | migração (chat)                           | —                                    |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1181,6 +1185,40 @@ ID quando não há. Colunas da aba Ajustes: Google Click ID, Conversion Name, Co
 Adjustment Time, Adjustment Type, Adjusted Value, Adjusted Value Currency, Order ID. A coluna entrou em 27/10 às 15:05:12 (São Paulo), 19 linhas, nenhum estorno. Nenhum ajuste
 foi subido no Google. Como desfazer: `git revert -m 1 25e327e` (sem force push; a planilha volta às
 9 colunas na exportação seguinte) e `supabase/manual/20261228170000_google_estorno_desfazer.sql`.
+
+Retomada, 27/10 tarde. Causa do áudio sem resposta (final 0282) e do "." (9806): a retomada saiu
+em conversas abertas com a equipe (sem dono); a resposta do cliente caiu com a equipe e a Alice
+não pega conversa que não está com ela (a transcrição funcionou). Correção (`84b57aa`, merge
+`e62a110`): toque da cadência mandado em conversa sem dono ou encerrada devolve a conversa para a
+Alice (pending), como já faziam o pós-venda e o lead do site; e áudio sem transcrição com a IA sem
+resposta recebe o texto fixo "Não consegui ouvir seu áudio aqui 😕 Consegue me mandar por
+escrito?". A regra de resposta curta a "."/emoji não foi publicada (recusada). Horários em dias
+diferentes: `95bdb2e` (merge `15eeb0d`). Registro no banco: final 2461 com o motivo "Fechou com outra
+empresa (motivo não informado)" e contato de manutenção da equipe em 18/10/2027 10h; final 1969
+segue com o follow-up de 16/11 10h (15/11 é domingo). Como desfazer: `git revert -m 1 e62a110` e
+`git revert -m 1 15eeb0d` (sem force push); para o 2461, `UPDATE crm_leads SET loss_reason_id =
+NULL, perdido_em = NULL, is_open = true, closed_at = NULL, desfecho_em = NULL` no lead e cancelar o
+follow-up de 2027.
+
+Notificações e cliente esperando (27/10, item 5 e 6 a–f): merge `26f6173`, migração
+`20261228180000_push_recibo` aplicada (ensaio antes). O sw.js devolve um recibo a cada
+notificação; o envio guarda o status do serviço de push e conta os envios sem recibo; inscrição
+morta (10+ envios aceitos sem recibo em 7 dias) e reinscrição do mesmo aparelho apagam a antiga.
+Aviso no topo do app no celular sem notificação ("Ativar"; no iPhone explica abrir pelo ícone),
+teste só para o próprio aparelho com o resultado na tela, e Configurações › Equipe mostra quem tem
+notificação, aparelho, último envio e última confirmação. "Cliente esperando" não conta mais "ok",
+"combinado", "obrigado", 👍 etc. depois da resposta da equipe/Alice; os avisos viraram um só por
+pessoa (as dela e as sem dono) aos 5 min, lembrete aos 10, no máximo a cada 15 min, e o push a cada
+mensagem do cliente ("conversa nova") foi desligado. Simulação 22–27/10: 13, 11, 2, 0, 13 e 8 avisos
+por dia (antes 60, 52, 23, 10, 114 e 31). Como desfazer: `git revert -m 1 26f6173` (sem force push) e
+`supabase/manual/20261228180000_push_recibo_desfazer.sql`.
+
+Leads do site × CRM (27/10, item 8a): migração `20261228190000_leads_site_ligacao` aplicada (ensaio
+antes; teste 360 atualizado: a repetida agora segue a original). `leads_site_atualizar` casa também
+pelos últimos 8 dígitos e pelo clique do pop-up já ligado ao lead, e a linha repetida segue a
+original. Reprocessados os últimos 30 dias: 8 linhas foram para "chamou" (5 repetidas, entre elas
+0695, 3615 e 6900, e 3 cadastros mais antigos). Como desfazer:
+`supabase/manual/20261228190000_leads_site_ligacao_desfazer.sql` (as linhas já marcadas ficam).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
