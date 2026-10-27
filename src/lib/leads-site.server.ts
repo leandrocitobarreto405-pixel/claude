@@ -14,6 +14,7 @@
 import {
   dentroDoHorario,
   horarioSP,
+  janelaDoEnvio,
   linhasNovas,
   primeiroNomeLead,
   momentoDoAviso,
@@ -271,13 +272,19 @@ type ConfigLeads = {
   envio_modelo: string;
 };
 
-/** Envio automático (só com "Ativar"): N min depois do cadastro, até 1 h depois; 24 h ou no horário escolhido. */
+/**
+ * Envio automático (só com "Ativar"): N min depois do cadastro; 24 h ou no horário escolhido. Fora
+ * do horário, o cadastro espera e recebe na abertura (8h), se ninguém chamou até lá.
+ */
 async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
   if (!cfg.envio_ligado || !cfg.envio_ativado_em) return { enviados: 0, erros: 0 };
   if (!cfg.envio_24h && !dentroDoHorario(agora, cfg.envio_hora_inicio, cfg.envio_hora_fim))
     return { enviados: 0, erros: 0 };
-  const ate = new Date(agora.getTime() - cfg.envio_apos_minutos * 60_000);
-  const desde = new Date(ate.getTime() - 3600_000);
+  const { desde, ate } = janelaDoEnvio(agora, cfg.envio_apos_minutos, {
+    envio24h: cfg.envio_24h,
+    inicio: cfg.envio_hora_inicio,
+    fim: cfg.envio_hora_fim,
+  });
   const { data } = await db
     .from("leads_site")
     .select("id, empresa_id, nome, telefone")
