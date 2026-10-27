@@ -740,6 +740,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Terceirizados: faturamento líquido, repasse por OS, comissão cheia    | `14a8ed7`           | `f1d5f64`                |
 | 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face     | `ee6e322`           | `d6be9bd`                |
 | 26/10/2026       | Alice, custo ideia 2: cache do histórico ligado na Turbine            | `5ca133a`           | `aec7972`                |
+| 27/10/2026       | Alice: roteiro por serviço (código e módulos; núcleo ainda não)       | `2cd270d`           | `89d4855`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -973,6 +974,16 @@ Alice, custo ideia 2 ligada na Turbine (26/10, sem ensaio, por decisão): janela
 em 20 e cache de 1 hora no fim do histórico, só na Turbine. Base de 19 a 26/10: US$ 0,229 por
 conversa (66 conversas), 8,8 s por resposta em média. Medir 2–3 dias; se o custo não cair ou houver
 erro ou lentidão, desligar. Como desfazer: `git revert 5ca133a` (sem force push).
+
+Alice, roteiro por serviço, passo 1 (27/10): os 9 módulos (colchão, sofá, impermeabilização,
+cadeiras, tapete, persiana, carpete, outros e campanhas) gravados na Turbine e no Modelo Nexa pela
+migração `20261223120000_alice_roteiro_modulos_textos`, com o md5 de cada texto conferido contra
+a proposta (docs/nexa-os/alice/roteiro-modular-proposta.md). O núcleo ainda é o roteiro inteiro de
+antes, então a Alice segue com o roteiro completo mais os módulos. Passo 2 (núcleo da Turbine e do
+Modelo e upsell da Turbine em 20%) cancelado na confirmação do Supabase; o arquivo está na branch
+`migracao-roteiro-nucleo-sql`, ainda não aplicado. Como desfazer: `git revert 2cd270d` (sem force
+push) e `supabase/manual/20261222120000_alice_roteiro_modulos_desfazer.sql` (volta o roteiro da
+cópia, esvazia os módulos e desliga o upsell).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
