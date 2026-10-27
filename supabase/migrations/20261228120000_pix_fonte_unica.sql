@@ -1,4 +1,4 @@
--- Pix com uma fonte só por empresa (proposta de 27/10/2026, aplicar só com OK).
+-- Pix com uma fonte só por empresa (aprovado em 27/10/2026).
 -- Fonte: orcamento_configuracoes.pix_pct (Configurações › Regras de orçamento › Pagamento).
 -- As colunas antigas ficam (o código ainda lê algumas delas), mas passam a ser cópias:
 --   ia_configuracoes.desconto_pix_percentual (Alice, orçamento manual, PDF) e
@@ -6,8 +6,8 @@
 -- Um gatilho copia o valor para as duas ao salvar o Pix; outro impede que elas sejam mudadas por
 -- fora (voltam para o valor da fonte). Nada é apagado.
 
--- 1. Valor inicial da fonte. Turbine: VALOR A CONFIRMAR PELO USUÁRIO (hoje a Alice, o orçamento
---    manual, o PDF e a promoção usam 5%; o campo da vitrine, desligada, tem 10%).
+-- 1. Valor inicial da fonte. Turbine: 5% (confirmado; é o que a Alice, o orçamento manual, o PDF e a
+--    promoção já usavam; o campo da vitrine, desligada, tinha 10%). Ecoprime fica com 10% (vitrine).
 UPDATE public.orcamento_configuracoes SET pix_pct = 5
  WHERE empresa_id = '11111111-1111-1111-1111-111111111111';
 -- Empresa com Alice e sem regras de orçamento (Modelo Nexa): cria a linha com o Pix da Alice.
