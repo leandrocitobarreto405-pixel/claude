@@ -192,6 +192,22 @@ export function horarioSP(d: Date): { data: string; hora: string } {
   return { data: s.slice(0, 10), hora: s.slice(11, 16) };
 }
 
+/**
+ * Cadastros que o envio automático pega agora: até N min atrás e, para trás, 1 h (envio 24 h) ou
+ * 1 h + a noite fora do horário (8h–20h: 13 h). Quem se cadastra depois das 20h ou antes das 8h
+ * recebe às 8h (27/10: um cadastro das 22h34 ficou sem contato).
+ */
+export function janelaDoEnvio(
+  agora: Date,
+  aposMinutos: number,
+  cfg: { envio24h: boolean; inicio: string; fim: string },
+): { desde: Date; ate: Date } {
+  const ate = new Date(agora.getTime() - aposMinutos * 60_000);
+  const min = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+  const foraMin = cfg.envio24h ? 0 : Math.max(0, 24 * 60 - (min(cfg.fim) - min(cfg.inicio)));
+  return { desde: new Date(ate.getTime() - (60 + foraMin) * 60_000), ate };
+}
+
 /** "08:00" ≤ agora < "20:00" (São Paulo). */
 export function dentroDoHorario(agora: Date, inicio: string, fim: string): boolean {
   const h = horarioSP(agora).hora;

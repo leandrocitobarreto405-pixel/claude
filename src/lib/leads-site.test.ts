@@ -4,6 +4,7 @@ import {
   cadastroDeTeste,
   chaveDoCadastro,
   dentroDoHorario,
+  janelaDoEnvio,
   lerDataHora,
   linhasNovas,
   momentoDoAviso,
@@ -219,4 +220,27 @@ test("aviso: 10 min depois da mensagem automática; sem ela, 10 min depois do ca
     quando: new Date("2026-10-14T00:40:00Z"),
     depoisDaMensagem: false,
   });
+});
+
+test("envio fora do horário: cadastro da noite recebe às 8h; durante o dia, 5 min depois", () => {
+  const cfg = { envio24h: false, inicio: "08:00", fim: "20:00" };
+  const dentro = (cadastro: string, agora: string) => {
+    const j = janelaDoEnvio(new Date(agora), 5, cfg);
+    const c = Date.parse(cadastro);
+    return c >= j.desde.getTime() && c <= j.ate.getTime();
+  };
+  // 22h34 de São Paulo (01:34Z) → rotina das 8h05 (11:05Z) do dia seguinte pega.
+  assert.equal(dentro("2026-10-28T01:34:00Z", "2026-10-28T11:05:00Z"), true);
+  // 19h58 → 8h05 do dia seguinte também.
+  assert.equal(dentro("2026-10-27T22:58:00Z", "2026-10-28T11:05:00Z"), true);
+  // 7h58 → 8h05.
+  assert.equal(dentro("2026-10-28T10:58:00Z", "2026-10-28T11:05:00Z"), true);
+  // De dia: 10h00 → 10h05 pega; cadastro de anteontem não.
+  assert.equal(dentro("2026-10-28T13:00:00Z", "2026-10-28T13:05:00Z"), true);
+  assert.equal(dentro("2026-10-26T13:00:00Z", "2026-10-28T13:05:00Z"), false);
+  // Menos de 5 min: ainda não.
+  assert.equal(dentro("2026-10-28T13:02:00Z", "2026-10-28T13:05:00Z"), false);
+  // 24 h: só a última hora.
+  const j = janelaDoEnvio(new Date("2026-10-28T13:05:00Z"), 5, { ...cfg, envio24h: true });
+  assert.equal(j.ate.getTime() - j.desde.getTime(), 3600_000);
 });
