@@ -39,9 +39,9 @@ const EVENTOS = [
 ];
 
 const STATUS_CLASSE: Record<string, string> = {
-  processado: "bg-emerald-100 text-emerald-800",
+  processado: "bg-success/12 text-success",
   ignorado: "bg-secondary text-muted-foreground",
-  inbox_nao_mapeado: "bg-amber-100 text-amber-800",
+  inbox_nao_mapeado: "bg-atencao text-atencao-foreground",
   erro: "bg-destructive/10 text-destructive",
   recebido: "bg-primary/10 text-primary",
 };
@@ -379,7 +379,7 @@ function ChatwootNexa() {
           <section className="card-surface mb-6 space-y-4 p-5">
             <h2 className="text-lg font-semibold">Caixas de entrada → empresas</h2>
             {semMapa.length ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="rounded-lg border border-atencao-foreground/30 bg-atencao p-3 text-sm text-atencao-foreground">
                 Eventos recebidos de caixas sem empresa:{" "}
                 {semMapa.map(([id, n]) => (
                   <button

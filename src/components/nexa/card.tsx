@@ -23,13 +23,13 @@ export function Card({ as = "section", espaco = "normal", className, ...props }:
   );
 }
 
-/** Cartão no verde-escuro da marca, com texto branco (destaques como "Alice online"). */
+/** Cartão azul-marinho da marca, com texto branco (destaques como "Alice online"), nos dois temas. */
 export function CardEscuro({ as = "section", espaco = "normal", className, ...props }: CardProps) {
   const Comp = as;
   return (
     <Comp
       className={cn(
-        "rounded-card-lg bg-marca text-marca-foreground",
+        "tema-marinho rounded-card-lg bg-marca text-marca-foreground",
         espaco === "normal" && "flex flex-col gap-4 p-5",
         // Títulos dentro do cartão escuro também ficam brancos.
         "[&_h1]:text-marca-foreground [&_h2]:text-marca-foreground [&_h3]:text-marca-foreground",

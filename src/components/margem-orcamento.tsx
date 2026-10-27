@@ -9,8 +9,11 @@ import {
 } from "@/lib/quotes";
 
 const ESTILO: Record<AvaliacaoMargem["status"], { box: string; Icon: typeof CheckCircle2 }> = {
-  verde: { box: "border-emerald-300 bg-emerald-50 text-emerald-800", Icon: CheckCircle2 },
-  amarelo: { box: "border-amber-300 bg-amber-50 text-amber-800", Icon: AlertTriangle },
+  verde: { box: "border-success/30 bg-success/12 text-success", Icon: CheckCircle2 },
+  amarelo: {
+    box: "border-atencao-foreground/30 bg-atencao text-atencao-foreground",
+    Icon: AlertTriangle,
+  },
   vermelho: { box: "border-destructive/40 bg-destructive/10 text-destructive", Icon: XCircle },
 };
 
@@ -101,7 +104,7 @@ export function MargemOrcamento({
       </div>
 
       {agenda ? (
-        <p className="rounded-xl border border-amber-300 bg-amber-50/60 p-3 text-xs text-amber-900">
+        <p className="rounded-xl border border-atencao-foreground/30 bg-atencao p-3 text-xs text-atencao-foreground">
           Serviço de preenchimento de agenda: ele não cobre o rateio de custos fixos
           {custos.fixo > 0 ? ` (${brl(custos.fixo)} por serviço)` : ""}, então deve ser exceção — só
           para ocupar horário que ficaria ocioso.

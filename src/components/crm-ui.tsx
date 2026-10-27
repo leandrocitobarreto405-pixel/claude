@@ -49,8 +49,8 @@ export function NativeSelect({
 const COLOR_CLASSES: Record<string, string> = {
   navy: "bg-navy/10 text-navy border-navy/20",
   teal: "bg-primary/12 text-primary border-primary/25",
-  success: "bg-emerald-500/12 text-emerald-700 border-emerald-500/25",
-  warning: "bg-amber-500/15 text-amber-700 border-amber-500/30",
+  success: "bg-success/12 text-success border-success/25",
+  warning: "bg-atencao text-atencao-foreground border-atencao-foreground/30",
   danger: "bg-destructive/12 text-destructive border-destructive/25",
 };
 

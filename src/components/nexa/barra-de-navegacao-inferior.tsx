@@ -25,7 +25,7 @@ function ativa(pathname: string, item: ItemDeNavegacao) {
 }
 
 /**
- * Barra de abas fixa no rodapé (celular). Aba ativa com a pílula verde-clara atrás do ícone.
+ * Barra de abas fixa no rodapé (celular). Aba ativa com a pílula azul-clara atrás do ícone.
  * `fixa={false}` desenha a barra no lugar (para a página de componentes).
  */
 export function BarraDeNavegacaoInferior({

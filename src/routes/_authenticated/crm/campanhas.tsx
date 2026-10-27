@@ -241,7 +241,7 @@ function Campanhas() {
                   Anúncio vinculado: {c.ad_external_id}
                 </p>
               ) : (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-atencao-foreground">
                   Sem id de anúncio: os leads precisarão ser vinculados manualmente.
                 </p>
               )}

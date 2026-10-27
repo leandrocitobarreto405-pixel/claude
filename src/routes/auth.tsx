@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Droplets } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureAccess } from "@/lib/session";
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { problemaDaSenha } from "@/lib/senha";
+import { LogoNexa } from "@/components/nexa";
 import { enderecoDoApp } from "@/lib/enderecos";
 
 export const Route = createFileRoute("/auth")({
@@ -172,13 +172,14 @@ function AuthPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-linear-to-b from-navy-deep to-navy p-10 text-navy-foreground lg:flex">
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Droplets className="size-6" />
-          </span>
-          <span className="text-lg font-semibold text-navy-foreground">Nexa OS</span>
-        </div>
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-navy-deep p-10 text-navy-foreground lg:flex">
+        <LogoNexa variante="completo" sobre="escuro" className="h-12 self-start" alt="Nexa OS" />
+        <LogoNexa
+          variante="simbolo"
+          sobre="escuro"
+          className="pointer-events-none absolute -right-24 bottom-10 h-[420px] opacity-[0.07]"
+          alt=""
+        />
         <div className="max-w-md space-y-4">
           <h2 className="text-3xl font-semibold leading-tight text-navy-foreground">
             Do fechamento da venda ao lucro líquido, em um único lugar.
@@ -191,7 +192,10 @@ function AuthPage() {
         <p className="text-xs opacity-70">Higienização e impermeabilização de estofados</p>
       </div>
 
-      <div className="flex items-center justify-center p-6">
+      <div className="flex flex-col items-center justify-center gap-6 p-6">
+        <div className="lg:hidden">
+          <LogoNexa variante="completo" className="h-11" alt="Nexa OS" />
+        </div>
         <div className="card-surface w-full max-w-md p-6">
           <h1 className="text-xl font-semibold text-navy">Acessar o sistema</h1>
           <p className="mt-1 text-sm text-muted-foreground">

@@ -762,7 +762,7 @@ export function AliceConfig() {
                   {e.ferramentas?.length ? ` · ${e.ferramentas.map((f) => f.nome).join(", ")}` : ""}
                 </p>
                 {e.erro ? (
-                  <p className="mt-1 text-amber-900">{e.erro}</p>
+                  <p className="mt-1 text-atencao-foreground">{e.erro}</p>
                 ) : (
                   e.mensagens_enviadas.map((m, i) => (
                     <p key={i} className="mt-1 whitespace-pre-wrap break-words">
@@ -783,9 +783,9 @@ function Requisito({ ok, texto }: { ok: boolean; texto: string }) {
   return (
     <li className="flex items-start gap-2">
       {ok ? (
-        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
       ) : (
-        <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-atencao-foreground" />
       )}
       <span className={ok ? "" : "text-muted-foreground"}>{texto}</span>
     </li>

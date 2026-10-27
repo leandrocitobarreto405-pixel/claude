@@ -27,7 +27,7 @@ export function NumeroGrande({
   tamanho?: keyof typeof TAMANHOS;
   /** "abaixo" (blocos) ou "ao-lado" (número grande com texto à direita). */
   disposicao?: "abaixo" | "ao-lado";
-  /** Dentro de um CardEscuro: legenda em verde-claro em vez de cinza. */
+  /** Dentro de um CardEscuro: legenda clara em vez de cinza. */
   sobreEscuro?: boolean;
   className?: string;
 }) {

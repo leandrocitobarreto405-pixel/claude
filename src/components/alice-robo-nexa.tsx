@@ -66,7 +66,9 @@ export function RoboAliceNexa({
             {ocupado ? "Criando…" : "Criar robô da Alice no Chatwoot"}
           </Button>
           {!temTokenApi ? (
-            <p className="text-xs text-amber-900">Cadastre antes o token de acesso da API.</p>
+            <p className="text-xs text-atencao-foreground">
+              Cadastre antes o token de acesso da API.
+            </p>
           ) : null}
         </>
       )}
