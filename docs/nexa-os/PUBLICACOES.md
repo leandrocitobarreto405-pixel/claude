@@ -745,6 +745,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Alice: núcleo do roteiro (Turbine e Modelo) e upsell da Turbine em 20%                     | migração (chat)     | `2cd270d`                |
 | 27/10/2026       | Alice em áudio com a ElevenLabs, teto em créditos e saldo das contas                       | `ac9becb`           | `5130abe`                |
 | 27/10/2026       | Alice: núcleo para áudio (regra 15, explicação, seção 8) e explicações em áudio na Turbine | migração (chat)     | `ab47e07`                |
+| 27/10/2026       | Follow-up com cadência do sistema, trava antes de cada toque e oferta do D2                | `b71f9ad`           | `d79c8db`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1025,6 +1026,20 @@ banco). Cópia do núcleo de antes em `alice_roteiro_copia_20261027_audio`. Expl
 ligadas só na Turbine (ElevenLabs, US$ 0,18 por mil créditos, teto de 3.500 créditos por dia com aviso
 em 80%). Como desfazer: `supabase/manual/20261226120000_alice_nucleo_audio_desfazer.sql` (volta o
 núcleo da cópia e desliga as explicações em áudio).
+
+Follow-up com cadência garantida pelo sistema (27/10, todas as empresas): trilha A (10 min, 40 min,
+D1 10h com dois horários reais, D1 14h, D2 16h com a oferta) e trilha B (10 min, 40 min, D1 10h,
+D2 16h); o sistema agenda o próximo toque depois de cada resposta da Alice e de cada toque, e no fim
+o lead vai para "sem desfecho" com o motivo sugerido. Trava antes de cada toque (equipe assumiu ou
+escreveu, OS/visita/agendamento, lead ganho/perdido/adiado, descadastro, IA desligada, sem pós-venda),
+com o motivo no follow-up. Fora da janela de 24 h: modelo aprovado (Turbine) ou tarefa da equipe.
+Oferta do último follow-up em Configurações › Alice (desligada até ter valor). Migração
+`20261227120000_followup_cadencia` aplicada em 27/10 (ensaio antes; colunas, função e gatilho novos).
+Modelos registrados na Meta em 27/10 (em análise): fu_orcamento_horarios, fu_orcamento_vence,
+fu_orcamento_oferta (Marketing), fu_atendimento_d1, fu_atendimento_d2 e fu_retomada_horarios. A seção
+Follow-up do núcleo (`20261227130000_alice_nucleo_followup`) ficou na branch migracao-nucleo-followup-sql
+para o Claude do chat aplicar. Como desfazer: `git revert b71f9ad` (sem force push) e
+`supabase/manual/20261227120000_followup_cadencia_desfazer.sql`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
