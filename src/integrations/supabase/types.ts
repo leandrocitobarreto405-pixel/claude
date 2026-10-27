@@ -601,6 +601,94 @@ export type Database = {
           },
         ];
       };
+      ads_conversoes_google: {
+        Row: {
+          ads_click_id: string | null;
+          base: string;
+          conversao_horario: string;
+          conversao_nome: string;
+          created_at: string;
+          crm_lead_id: string | null;
+          email_sha256: string | null;
+          empresa_id: string;
+          exportada_em: string | null;
+          gbraid: string | null;
+          gclid: string | null;
+          id: string;
+          motivo_retirada: string | null;
+          retirada_em: string | null;
+          telefone_sha256: string | null;
+          valor: number;
+          wbraid: string | null;
+          work_order_id: string;
+        };
+        Insert: {
+          ads_click_id?: string | null;
+          base: string;
+          conversao_horario: string;
+          conversao_nome: string;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          email_sha256?: string | null;
+          empresa_id: string;
+          exportada_em?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          motivo_retirada?: string | null;
+          retirada_em?: string | null;
+          telefone_sha256?: string | null;
+          valor: number;
+          wbraid?: string | null;
+          work_order_id: string;
+        };
+        Update: {
+          ads_click_id?: string | null;
+          base?: string;
+          conversao_horario?: string;
+          conversao_nome?: string;
+          created_at?: string;
+          crm_lead_id?: string | null;
+          email_sha256?: string | null;
+          empresa_id?: string;
+          exportada_em?: string | null;
+          gbraid?: string | null;
+          gclid?: string | null;
+          id?: string;
+          motivo_retirada?: string | null;
+          retirada_em?: string | null;
+          telefone_sha256?: string | null;
+          valor?: number;
+          wbraid?: string | null;
+          work_order_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ads_conversoes_google_ads_click_id_fkey";
+            columns: ["ads_click_id"];
+            referencedRelation: "ads_clicks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_conversoes_google_crm_lead_id_fkey";
+            columns: ["crm_lead_id"];
+            referencedRelation: "crm_leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_conversoes_google_empresa_id_fkey";
+            columns: ["empresa_id"];
+            referencedRelation: "empresas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ads_conversoes_google_work_order_id_fkey";
+            columns: ["work_order_id"];
+            referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ads_dominios: {
         Row: {
           created_at: string;
@@ -7130,6 +7218,25 @@ export type Database = {
           "Conversion Time": string | null;
           "Conversion Value": number | null;
           "Google Click ID": string | null;
+        };
+        Relationships: [];
+      };
+      vw_conversoes_google_candidatas: {
+        Row: {
+          ads_click_id: string | null;
+          base: string | null;
+          conversao_horario: string | null;
+          conversao_nome: string | null;
+          crm_lead_id: string | null;
+          email: string | null;
+          empresa_id: string | null;
+          gbraid: string | null;
+          gclid: string | null;
+          telefone: string | null;
+          valor: number | null;
+          venda_em: string | null;
+          wbraid: string | null;
+          work_order_id: string | null;
         };
         Relationships: [];
       };

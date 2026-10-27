@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { dadosDoPopup, hostDe, lerCorpo } from "./captacao.server";
 import {
   CABECALHO,
+  CABECALHO_ANTIGO,
   formatoCerto,
-  juntarLinhas,
-  linhasRecentes,
+  lerLinhas,
+  linhaDaConversao,
   valorNumerico,
   valoresComoTexto,
   localidadeCerta,
@@ -46,33 +47,63 @@ test("pop-up: domínio pelo Origin, Referer ou page_url", () => {
   assert.equal(hostDe(req({}), { page_url: "sem url" }), null);
 });
 
-test("planilha: mantém só conversões recentes e não repete", () => {
-  const agora = new Date("2026-10-01T12:00:00-03:00");
-  const valores = [
+test("planilha: lê o formato antigo e o novo pelos nomes das colunas", () => {
+  const antiga = [
     ["Parameters:TimeZone=America/Sao_Paulo"],
-    [
-      "Google Click ID",
-      "Conversion Name",
-      "Conversion Time",
-      "Conversion Value",
-      "Conversion Currency",
-    ],
+    [...CABECALHO_ANTIGO],
     ["G1", "Venda Higienização", "2026-09-20 12:00:00-03:00", 359.9, "BRL"],
-    ["G0", "Venda Higienização", "2026-05-01 12:00:00-03:00", 100, "BRL"],
     ["", "", "", "", ""],
   ];
-  const antigas = linhasRecentes(valores, agora);
-  assert.deepEqual(antigas, [
-    ["G1", "Venda Higienização", "2026-09-20 12:00:00-03:00", 359.9, "BRL"],
+  // linha "Parameters" e vazias saem; nome, horário e valor ficam iguais
+  assert.deepEqual(lerLinhas([[...CABECALHO_ANTIGO], ...antiga.slice(2)]), [
+    { gclid: "G1", nome: "Venda Higienização", horario: "2026-09-20 12:00:00-03:00", valor: 359.9 },
   ]);
-  const juntas = juntarLinhas(antigas, [
-    ["G1", "Venda Higienização", "2026-09-20 12:00:00-03:00", 359.9, "BRL"],
-    ["G2", "Venda Impermeabilização", "2026-09-30 12:00:00-03:00", 649.9, "BRL"],
+  const nova = [
+    [...CABECALHO],
+    [
+      "",
+      "",
+      "",
+      "e".repeat(64),
+      "f".repeat(64),
+      "Venda Higienização",
+      "2026-10-20 10:00:00-03:00",
+      300,
+      "BRL",
+    ],
+  ];
+  assert.deepEqual(lerLinhas(nova), [
+    { gclid: "", nome: "Venda Higienização", horario: "2026-10-20 10:00:00-03:00", valor: 300 },
   ]);
-  assert.deepEqual(
-    juntas.map((l) => l[0]),
-    ["G1", "G2"],
-  );
+});
+
+test("planilha: linha da conversão nas colunas novas (clique, e-mail e telefone com hash)", () => {
+  const linha = linhaDaConversao({
+    work_order_id: "os",
+    crm_lead_id: null,
+    ads_click_id: null,
+    gclid: null,
+    gbraid: "B1",
+    wbraid: null,
+    email_sha256: "a".repeat(64),
+    telefone_sha256: null,
+    conversao_nome: "Venda Impermeabilização",
+    conversao_horario: "2026-10-21 09:00:00-03:00",
+    valor: 649.9,
+    base: "clique",
+  });
+  assert.deepEqual(linha, [
+    "",
+    "B1",
+    "",
+    "a".repeat(64),
+    "",
+    "Venda Impermeabilização",
+    "2026-10-21 09:00:00-03:00",
+    649.9,
+    "BRL",
+  ]);
+  assert.equal(linha.length, CABECALHO.length);
 });
 
 test("planilha: formato da importação (cabeçalho na linha 1)", () => {
@@ -82,29 +113,29 @@ test("planilha: formato da importação (cabeçalho na linha 1)", () => {
   assert.equal(formatoCerto([["Parameters:TimeZone=America/Sao_Paulo"], [...CABECALHO]]), false);
   assert.equal(formatoCerto([[...CABECALHO, "x"]]), false);
   assert.equal(formatoCerto([["Google Click ID", "Conversion Name"]]), false);
+  assert.equal(formatoCerto([[...CABECALHO_ANTIGO]]), false, "formato antigo é regravado");
 });
 
 test("planilha: Conversion Value como número (texto com vírgula é detectado e corrigido)", () => {
-  const agora = new Date("2026-10-14T05:00:00-03:00");
   const texto = [
-    [...CABECALHO],
+    [...CABECALHO_ANTIGO],
     ["G1", "Venda Higienização", "2026-10-13 10:00:00-03:00", "295,8", "BRL"],
     ["G2", "Venda Higienização", "2026-10-13 11:00:00-03:00", 308, "BRL"],
   ];
   assert.equal(valoresComoTexto(texto), 1, "só a célula de texto conta");
-  assert.equal(valoresComoTexto([[...CABECALHO], ["G2", "V", "x", 249.9, "BRL"]]), 0);
-  // Regravada, a linha antiga sai como número (295.8), não como "295,8".
+  assert.equal(
+    valoresComoTexto([[...CABECALHO], ["", "", "", "", "h", "V", "x", "249,9", "BRL"]]),
+    1,
+    "no formato novo, a coluna do valor é achada pelo nome (linha sem gclid também conta)",
+  );
+  // Lida de novo, a linha antiga vira número (295.8), não "295,8".
   assert.deepEqual(
-    linhasRecentes(texto, agora).map((l) => l[3]),
+    lerLinhas(texto).map((l) => l.valor),
     [295.8, 308],
   );
   assert.equal(valorNumerico("295.8"), 295.8);
   assert.equal(valorNumerico(" 1.249,90 "), 1249.9);
   assert.equal(valorNumerico("abc"), 0);
-  // O que vai para a planilha (valueInputOption=RAW) é número no JSON, nunca texto.
-  const corpo = JSON.stringify({ values: linhasRecentes(texto, agora) });
-  assert.match(corpo, /,295\.8,"BRL"/);
-  assert.doesNotMatch(corpo, /"295,8"/);
 });
 
 test("domínio não liberado: registra uma vez por domínio a cada hora", async () => {
