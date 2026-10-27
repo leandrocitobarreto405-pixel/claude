@@ -268,6 +268,7 @@ const Transferir = z.object({
   motivo: z.string().trim().min(1).max(300),
   resumo: z.string().trim().min(1).max(1500),
   problema_pos_venda: z.boolean().optional(),
+  valor_concorrencia: z.string().trim().max(60).optional(),
 });
 
 // ---------------------------------------------------------------- definições
@@ -779,7 +780,7 @@ export function ferramentasDisponiveis(
           motivo: {
             type: "string",
             description:
-              "Ex.: 'desconto', 'encaixe na agenda', 'remarcação', 'combo', 'item fora da tabela', 'áudio validade'.",
+              "Ex.: 'desconto', 'concorrência', 'encaixe na agenda', 'remarcação', 'combo', 'item fora da tabela', 'áudio validade'.",
           },
           resumo: {
             type: "string",
@@ -790,6 +791,11 @@ export function ferramentasDisponiveis(
             type: "boolean",
             description:
               "true quando o cliente reclamou de um serviço já feito (resposta ao pós-venda ou qualquer queixa do serviço): passa com prioridade e marca o cliente como sem pós-venda.",
+          },
+          valor_concorrencia: {
+            type: "string",
+            description:
+              "Motivo 'concorrência': quanto o cliente disse que ficou com a outra empresa (ex.: 'R$ 350'). Vazio se ele não disse.",
           },
         },
         required: ["motivo", "resumo"],
@@ -2047,6 +2053,20 @@ export async function executarFerramenta(
         const p = Transferir.safeParse(entrada);
         if (!p.success) return invalida(p.error);
         if (p.data.problema_pos_venda) await registrarProblemaPosVenda(ctx, p.data.resumo);
+        const { ehMotivoConcorrencia, avisarConcorrencia } = await import("./concorrencia.server");
+        if (ehMotivoConcorrencia(p.data.motivo))
+          await avisarConcorrencia(ctx.admin as never, {
+            empresaId: ctx.empresaId,
+            conversaId: ctx.conversaId,
+            leadId: ctx.leadId,
+            valorConcorrencia: p.data.valor_concorrencia ?? null,
+            frase: p.data.resumo,
+          }).catch((e) =>
+            console.error(
+              "Alice: aviso de concorrência falhou",
+              e instanceof Error ? e.message : e,
+            ),
+          );
         ctx.passagem = {
           motivo: p.data.problema_pos_venda
             ? `⚠️ PRIORIDADE (problema no pós-venda): ${p.data.motivo}`
