@@ -28,6 +28,7 @@ import {
   type TipoPush,
 } from "./notificacoes";
 import { enviarPush, endpointPermitido } from "./webpush.server";
+import { esperaDeVerdade } from "@/lib/conversas-espera";
 
 type Inscrito = { id: string; endpoint: string; p256dh: string; auth: string };
 type Pessoa = { userId: string; papel: Papel; pref: PreferenciasPush; celulares: Inscrito[] };
@@ -160,7 +161,7 @@ async function esperasDaEmpresa(db: Db, empresaId: string, agora: Date): Promise
   if (!lista.length) return [];
   const { data: msgs } = await db
     .from("whatsapp_messages")
-    .select("conversa_id, direction, message_timestamp, created_at")
+    .select("conversa_id, direction, text_content, message_type, message_timestamp, created_at")
     .in(
       "conversa_id",
       lista.map((c) => c.id),
@@ -169,15 +170,13 @@ async function esperasDaEmpresa(db: Db, empresaId: string, agora: Date): Promise
     .gte("created_at", desde)
     .order("created_at", { ascending: false })
     .limit(1000);
-  return lista.map((c) => {
-    const ultima = msgs?.find((m) => m.conversa_id === c.id);
-    return {
-      id: c.id,
-      nome: c.contato?.profile_name || c.contato?.display_phone || "Cliente",
-      desde: c.aguardando_desde,
-      ultimaDoCliente: ultima?.direction === "Recebida",
-    };
-  });
+  return lista.map((c) => ({
+    id: c.id,
+    nome: c.contato?.profile_name || c.contato?.display_phone || "Cliente",
+    desde: c.aguardando_desde,
+    // Última do cliente e pedindo resposta ("ok, obrigado" depois da equipe não conta).
+    ultimaDoCliente: esperaDeVerdade((msgs ?? []).filter((m) => m.conversa_id === c.id)),
+  }));
 }
 
 async function eventosDaEmpresa(

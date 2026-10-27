@@ -1,11 +1,12 @@
 /**
  * Clientes esperando a equipe "de verdade": conversa aberta com a equipe, marcada como aguardando
- * no Chatwoot e com a última mensagem (não privada) vinda do cliente. Usado na contagem do Início,
+ * no Chatwoot, com a última mensagem (não privada) vinda do cliente e pedindo resposta ("ok",
+ * "combinado", "obrigado" ou 👍 depois da resposta da equipe não conta: esperaDeVerdade). Usado na contagem do Início,
  * da aba Conversas, dos Avisos, do resumo do dia e das notificações.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { ultimaDirecaoPorConversa } from "@/lib/conversas";
+import { esperaDeVerdade, type MsgEspera } from "@/lib/conversas-espera";
 
 type Db = SupabaseClient<Database>;
 
@@ -34,7 +35,7 @@ export async function esperasReais(
   const inicio = new Date(Date.parse(lista[0]!.aguardando_desde) - 3600_000).toISOString();
   const { data: msgs } = await db
     .from("whatsapp_messages")
-    .select("conversa_id, direction")
+    .select("conversa_id, direction, text_content, message_type")
     .in(
       "conversa_id",
       lista.map((c) => c.id),
@@ -43,8 +44,13 @@ export async function esperasReais(
     .gte("created_at", inicio)
     .order("created_at", { ascending: false })
     .limit(5000);
-  const ultima = ultimaDirecaoPorConversa(msgs ?? []);
+  const porConversa = new Map<string, MsgEspera[]>();
+  for (const m of msgs ?? []) {
+    const l = porConversa.get(m.conversa_id!) ?? [];
+    l.push(m);
+    porConversa.set(m.conversa_id!, l);
+  }
   return lista
-    .filter((c) => ultima.get(c.id) === "Recebida")
+    .filter((c) => esperaDeVerdade(porConversa.get(c.id) ?? []))
     .map((c) => ({ id: c.id, aguardandoDesde: c.aguardando_desde }));
 }
