@@ -757,6 +757,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Contadora: área própria, fora da equipe e do limite de usuários                              | `0d6c118`                                 | `8f50297`                            |
 | 27/10/2026       | Google Ads: conversões otimizadas para leads (e-mail e telefone em hash) na planilha         | `0e7099a`                                 | `fd68193`                            |
 | 27/10/2026       | Sem desfecho (E): aba em Leads, motivos em um clique, aviso e Perdas por motivo              | `53d1321`                                 | `0e7099a`                            |
+| 27/10/2026       | Cores e logo da Nexa, ícones do app e tema escuro automático na produção                     | `3d887dc`                                 | `5cfc778`                            |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1159,6 +1160,14 @@ aprovados: finais 2729, 6785 e 8313 "Preço alto – desistiu/adiou"; 4956 e 699
 depois dos follow-ups"; 5217 "Agenda cheia" (sem data); 0381 "Não precisa mais"; 4320 segue com o
 follow-up de 07/11. Como desfazer: `git revert -m 1 53d1321` (sem force push) e
 `supabase/manual/20261228150000_sem_desfecho_desfazer.sql` (o arquivo mostra como reabrir um lead).
+
+Cores e logo da Nexa na produção (27/10): merge `3d887dc` do commit `4238175` (era o único
+commit da `redesign` além da produção), conferido antes no `nexaos-teste`. Mudam tokens de cor
+(claro e escuro automático), logo da Nexa no login, menu, topo e páginas legais, favicon e ícones
+do app. Dentro de cada empresa continua o avatar/logo dela; os PDFs (orçamento, OS, recibo) não
+mudaram e seguem com o logo da empresa no cabeçalho; o Painel Nexa mostra só o logo da Nexa. A
+`redesign` voltou a ser igual à produção (`HEAD:redesign` depois de cada envio). Como desfazer:
+`git revert -m 1 3d887dc` (sem force push); banco não muda.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
