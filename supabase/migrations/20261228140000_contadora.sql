@@ -243,7 +243,7 @@ BEGIN
           'fornecedor', e.beneficiary,
           'categoria', e.category,
           'status', e.status,
-          'valor', coalesce(e.actual_amount, e.paid_amount, e.expected_amount),
+          'valor', coalesce(nullif(e.actual_amount, 0), nullif(e.paid_amount, 0), e.expected_amount),
           'data', coalesce(e.competence_date, e.due_date, e.payment_date),
           'pagamento', e.payment_date,
           'comprovante_path', e.comprovante_path,
