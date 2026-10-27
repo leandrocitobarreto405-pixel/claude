@@ -98,6 +98,7 @@ import { Route as ApiPublicHooksMonthlyMileageClosingRouteImport } from './route
 import { Route as ApiPublicHooksPagamentosRouteImport } from './routes/api/public/hooks/pagamentos'
 import { Route as ApiPublicHooksRecurringExpensesRouteImport } from './routes/api/public/hooks/recurring-expenses'
 import { Route as ApiPublicHooksWhatsappRouteImport } from './routes/api/public/hooks/whatsapp'
+import { Route as ApiPublicPushReciboRouteImport } from './routes/api/public/push/recibo'
 import { Route as ApiPublicHooksAliceRoboTokenRouteImport } from './routes/api/public/hooks/alice-robo.$token'
 import { Route as ApiPublicHooksChatwootTokenRouteImport } from './routes/api/public/hooks/chatwoot.$token'
 import { Route as ApiPublicHooksLeadsSourceTypeTokenRouteImport } from './routes/api/public/hooks/leads.$sourceType.$token'
@@ -589,6 +590,11 @@ const ApiPublicHooksWhatsappRoute = ApiPublicHooksWhatsappRouteImport.update({
   path: '/api/public/hooks/whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPushReciboRoute = ApiPublicPushReciboRouteImport.update({
+  id: '/api/public/push/recibo',
+  path: '/api/public/push/recibo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAliceRoboTokenRoute =
   ApiPublicHooksAliceRoboTokenRouteImport.update({
     id: '/api/public/hooks/alice-robo/$token',
@@ -697,6 +703,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/push/recibo': typeof ApiPublicPushReciboRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
@@ -788,6 +795,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/push/recibo': typeof ApiPublicPushReciboRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
@@ -883,6 +891,7 @@ export interface FileRoutesById {
   '/api/public/hooks/pagamentos': typeof ApiPublicHooksPagamentosRoute
   '/api/public/hooks/recurring-expenses': typeof ApiPublicHooksRecurringExpensesRoute
   '/api/public/hooks/whatsapp': typeof ApiPublicHooksWhatsappRoute
+  '/api/public/push/recibo': typeof ApiPublicPushReciboRoute
   '/api/public/hooks/alice-robo/$token': typeof ApiPublicHooksAliceRoboTokenRoute
   '/api/public/hooks/chatwoot/$token': typeof ApiPublicHooksChatwootTokenRoute
   '/api/public/hooks/leads/$sourceType/$token': typeof ApiPublicHooksLeadsSourceTypeTokenRoute
@@ -978,6 +987,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/push/recibo'
     | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
@@ -1069,6 +1079,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/push/recibo'
     | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
@@ -1163,6 +1174,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/pagamentos'
     | '/api/public/hooks/recurring-expenses'
     | '/api/public/hooks/whatsapp'
+    | '/api/public/push/recibo'
     | '/api/public/hooks/alice-robo/$token'
     | '/api/public/hooks/chatwoot/$token'
     | '/api/public/hooks/leads/$sourceType/$token'
@@ -1189,6 +1201,7 @@ export interface RootRouteChildren {
   ApiPublicHooksPagamentosRoute: typeof ApiPublicHooksPagamentosRoute
   ApiPublicHooksRecurringExpensesRoute: typeof ApiPublicHooksRecurringExpensesRoute
   ApiPublicHooksWhatsappRoute: typeof ApiPublicHooksWhatsappRoute
+  ApiPublicPushReciboRoute: typeof ApiPublicPushReciboRoute
   ApiPublicHooksAliceRoboTokenRoute: typeof ApiPublicHooksAliceRoboTokenRoute
   ApiPublicHooksChatwootTokenRoute: typeof ApiPublicHooksChatwootTokenRoute
   ApiPublicHooksLeadsSourceTypeTokenRoute: typeof ApiPublicHooksLeadsSourceTypeTokenRoute
@@ -1819,6 +1832,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksWhatsappRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/push/recibo': {
+      id: '/api/public/push/recibo'
+      path: '/api/public/push/recibo'
+      fullPath: '/api/public/push/recibo'
+      preLoaderRoute: typeof ApiPublicPushReciboRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/alice-robo/$token': {
       id: '/api/public/hooks/alice-robo/$token'
       path: '/api/public/hooks/alice-robo/$token'
@@ -2040,6 +2060,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksPagamentosRoute: ApiPublicHooksPagamentosRoute,
   ApiPublicHooksRecurringExpensesRoute: ApiPublicHooksRecurringExpensesRoute,
   ApiPublicHooksWhatsappRoute: ApiPublicHooksWhatsappRoute,
+  ApiPublicPushReciboRoute: ApiPublicPushReciboRoute,
   ApiPublicHooksAliceRoboTokenRoute: ApiPublicHooksAliceRoboTokenRoute,
   ApiPublicHooksChatwootTokenRoute: ApiPublicHooksChatwootTokenRoute,
   ApiPublicHooksLeadsSourceTypeTokenRoute:
@@ -2048,13 +2069,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

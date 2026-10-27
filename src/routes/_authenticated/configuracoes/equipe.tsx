@@ -3,6 +3,7 @@ import { CabecalhoDeTela } from "@/components/nexa";
 import { Acessos } from "@/components/configuracoes/acessos";
 import { Equipe } from "@/components/configuracoes/equipe";
 import { Contadora } from "@/components/configuracoes/contadora";
+import { NotificacoesEquipe } from "@/components/configuracoes/notificacoes-equipe";
 
 /** Usuários + vendedoras + técnicos num lugar só. */
 export const Route = createFileRoute("/_authenticated/configuracoes/equipe")({
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/configuracoes/equipe")({
       <Acessos />
       <Contadora />
       <Equipe />
+      <NotificacoesEquipe />
     </div>
   ),
 });

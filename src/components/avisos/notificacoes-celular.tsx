@@ -11,7 +11,7 @@ import {
   situacaoPushFn,
   testarPushFn,
 } from "@/lib/push.functions";
-import { MINUTOS_ESPERA, TIPOS_PUSH, type PreferenciasPush } from "@/lib/push/notificacoes";
+import { TIPOS_PUSH, type PreferenciasPush } from "@/lib/push/notificacoes";
 import {
   ativarNesteCelular,
   desativarNesteCelular,
@@ -49,6 +49,14 @@ export function NotificacoesCelular() {
   const [ap, setAp] = useState<Aparelho | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [pref, setPref] = useState<PreferenciasPush | null>(null);
+  const [teste, setTeste] = useState<
+    | { fase: "enviando" }
+    | { fase: "esperando"; status: number | null }
+    | { fase: "chegou" }
+    | { fase: "nao_chegou"; status: number | null }
+    | { fase: "falhou"; status: number | null }
+    | null
+  >(null);
   useEffect(() => setPref(s?.preferencias ?? null), [s?.preferencias]);
 
   const lerAparelho = useCallback(async () => {
@@ -110,14 +118,37 @@ export function NotificacoesCelular() {
     }
   }
 
+  /** Teste só para este aparelho; espera o recibo (o aparelho confirma que recebeu) por 20 s. */
   async function testar() {
+    if (!ap?.endpoint) return;
     setOcupado(true);
+    setTeste({ fase: "enviando" });
+    const inicio = Date.now();
     try {
-      const r = await testarFn();
-      if (r.semCelular) toast.error("Nenhum celular ativado ainda.");
-      else if (r.enviados) toast.success("Notificação de teste enviada. Deve chegar em segundos.");
-      else toast.error("O envio falhou. Desative e ative de novo neste celular.");
+      const r = await testarFn({ data: { endpoint: ap.endpoint } });
+      if (r.semCelular) {
+        setTeste(null);
+        toast.error("Este celular não está ativado. Toque em Ativar.");
+        return;
+      }
+      if (!r.enviados) {
+        setTeste({ fase: "falhou", status: r.status });
+        return;
+      }
+      setTeste({ fase: "esperando", status: r.status });
+      for (let i = 0; i < 10; i++) {
+        await new Promise((ok) => setTimeout(ok, 2000));
+        const atual = await lerFn();
+        const aqui = atual.celulares.find((c) => c.endpoint === ap.endpoint);
+        if (aqui?.confirmadoEm && Date.parse(aqui.confirmadoEm) >= inicio - 5000) {
+          setTeste({ fase: "chegou" });
+          await qc.invalidateQueries({ queryKey: CHAVE });
+          return;
+        }
+      }
+      setTeste({ fase: "nao_chegou", status: r.status });
     } catch (e) {
+      setTeste(null);
       toast.error(e instanceof Error ? e.message : "Não foi possível enviar o teste.");
     } finally {
       setOcupado(false);
@@ -190,6 +221,29 @@ export function NotificacoesCelular() {
           <Botao variante="neutro" onClick={() => void desativar()} disabled={ocupado}>
             Desativar neste celular
           </Botao>
+          {teste ? (
+            <p
+              role="status"
+              className={cn(
+                "w-full rounded-botao px-3 py-2 text-sm",
+                teste.fase === "chegou"
+                  ? "bg-success/12 text-success"
+                  : teste.fase === "nao_chegou" || teste.fase === "falhou"
+                    ? "bg-problema text-problema-foreground"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
+              {teste.fase === "enviando"
+                ? "Enviando o teste…"
+                : teste.fase === "esperando"
+                  ? `Enviado (o serviço de notificações respondeu ${teste.status ?? "?"}). Esperando o celular confirmar…`
+                  : teste.fase === "chegou"
+                    ? "Chegou neste celular ✔"
+                    : teste.fase === "falhou"
+                      ? `O serviço de notificações recusou (status ${teste.status ?? "?"}). Desative e ative de novo neste celular.`
+                      : `O serviço aceitou (status ${teste.status ?? "?"}), mas este celular não confirmou em 20 s. Feche o app, abra de novo pelo ícone e teste outra vez; se continuar, desative e ative de novo.`}
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -230,25 +284,10 @@ export function NotificacoesCelular() {
                 onCheckedChange={(v) => void mudar({ ...pref, [t.tipo]: v })}
               />
               {t.tipo === "cliente_esperando" && pref.cliente_esperando ? (
-                <div className="mb-2 flex flex-wrap items-center gap-2 pl-1">
-                  <span className="text-sm">Depois de</span>
-                  {MINUTOS_ESPERA.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      aria-pressed={pref.espera_minutos === m}
-                      onClick={() => void mudar({ ...pref, espera_minutos: m })}
-                      className={cn(
-                        "min-h-11 min-w-11 rounded-full border px-3 text-sm font-semibold",
-                        pref.espera_minutos === m
-                          ? "border-marca bg-marca text-marca-foreground"
-                          : "border-border bg-card text-foreground",
-                      )}
-                    >
-                      {m < 60 ? `${m} min` : "1 h"}
-                    </button>
-                  ))}
-                </div>
+                <p className="mb-2 pl-1 text-xs text-muted-foreground">
+                  Um aviso só com todos os clientes esperando (os seus e os sem dono): aos 5 min,
+                  com lembrete aos 10 min, no máximo a cada 15 min.
+                </p>
               ) : null}
             </div>
           ))}

@@ -116,22 +116,8 @@ async function receberAviso(request: Request, token: string): Promise<Response> 
     mensagem_id?: string;
     mensagem_inserida?: boolean;
   };
-  // Mensagem do cliente recém-gravada: push para a equipe ("conversa nova" / "respondeu a sua
-  // conversa"), menos para quem está com a conversa aberta. Nunca derruba o webhook.
-  if (
-    resultado.status === "processado" &&
-    resultado.mensagem_inserida &&
-    resultado.empresa_id &&
-    resultado.conversa_id &&
-    resultado.mensagem_id
-  ) {
-    const { avisarEquipeMensagemNova } = await import("@/lib/push/avisos-conversa.server");
-    await avisarEquipeMensagemNova(supabaseAdmin, {
-      empresaId: resultado.empresa_id,
-      conversaId: resultado.conversa_id,
-      mensagemId: resultado.mensagem_id,
-    }).catch((e) => console.error("Push da conversa:", e instanceof Error ? e.message : e));
-  }
+  // Push "conversa nova" / "respondeu a sua conversa" a cada mensagem: desligado em 27/10. A rotina
+  // das notificações agrupa as esperas de verdade (5 min, lembrete aos 10, no máximo a cada 15 min).
   // Técnico respondeu ao modelo da agenda ("Ver agenda" ou qualquer texto): manda a agenda.
   if (resultado.mensagem_inserida && resultado.empresa_id && resultado.conversa_id) {
     const { responderPedidoDaAgenda } = await import("@/lib/agenda-tecnicos.server");

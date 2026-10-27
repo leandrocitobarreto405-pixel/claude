@@ -5562,13 +5562,17 @@ export type Database = {
         Row: {
           aparelho: string | null;
           auth: string;
+          confirmado_em: string | null;
           created_at: string;
           empresa_id: string;
           endpoint: string;
+          envios_sem_recibo: number;
           falhas: number;
+          recibo: string;
           id: string;
           p256dh: string;
           ultimo_envio_em: string | null;
+          ultimo_status: number | null;
           user_id: string;
         };
         Insert: {
@@ -5577,6 +5581,10 @@ export type Database = {
           created_at?: string;
           empresa_id: string;
           endpoint: string;
+          envios_sem_recibo?: number;
+          confirmado_em?: string | null;
+          recibo?: string;
+          ultimo_status?: number | null;
           falhas?: number;
           id?: string;
           p256dh: string;
@@ -5589,6 +5597,10 @@ export type Database = {
           created_at?: string;
           empresa_id?: string;
           endpoint?: string;
+          envios_sem_recibo?: number;
+          confirmado_em?: string | null;
+          recibo?: string;
+          ultimo_status?: number | null;
           falhas?: number;
           id?: string;
           p256dh?: string;
@@ -7502,6 +7514,8 @@ export type Database = {
         Args: { _data?: string; _lead: string; _motivo: string; _obs?: string };
         Returns: Json;
       };
+      push_confirmar_recibo: { Args: { _recibo: string }; Returns: boolean };
+      push_registrar_envio: { Args: { _id: string; _status: number }; Returns: undefined };
       contadora_notas: {
         Args: { _ate?: string; _de?: string; _emp: string; _filtro?: string };
         Returns: Json;

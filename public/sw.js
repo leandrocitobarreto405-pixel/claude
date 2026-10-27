@@ -11,14 +11,26 @@ self.addEventListener("push", (event) => {
     dados = { corpo: event.data ? event.data.text() : "" };
   }
   const url = typeof dados.url === "string" && /^\/(?!\/)/.test(dados.url) ? dados.url : "/inicio";
+  // Recibo: avisa o servidor que esta notificação chegou neste aparelho (só o uuid da inscrição).
+  const recibo =
+    typeof dados.recibo === "string"
+      ? fetch("/api/public/push/recibo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recibo: dados.recibo }),
+        }).catch(() => undefined)
+      : Promise.resolve();
   event.waitUntil(
-    self.registration.showNotification(dados.titulo || "Nexa", {
-      body: dados.corpo || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      tag: dados.tag || undefined,
-      data: { url },
-    }),
+    Promise.all([
+      self.registration.showNotification(dados.titulo || "Nexa", {
+        body: dados.corpo || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: dados.tag || undefined,
+        data: { url },
+      }),
+      recibo,
+    ]),
   );
 });
 
