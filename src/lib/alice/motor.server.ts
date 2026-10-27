@@ -40,7 +40,9 @@ import { aplicarCamposDoRoteiro } from "./campos-roteiro";
 import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
 import { chaveTelefone } from "@/lib/avisos";
 import {
+  AVISO_RESPOSTA_CURTA,
   TEXTO_AUDIO_SEM_TRANSCRICAO,
+  mensagemSemConteudo,
   dentroDaJanela,
   dentroDoHorario,
   proximoHorarioPermitido,
@@ -965,6 +967,42 @@ async function toqueForaDaJanela(
 }
 
 /**
+ * O cliente respondeu ao último toque da Alice (retomada ou follow-up, nas últimas 72 h) com uma
+ * mensagem sem conteúdo (".", "?", emoji, "oi")? Então ela retoma curto em vez de ignorar.
+ */
+async function respostaCurtaAoToque(db: Admin, empresaId: string, conversaId: string) {
+  const { data: recebidas } = await db
+    .from("whatsapp_messages")
+    .select("text_content, message_type, message_timestamp")
+    .eq("empresa_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .eq("direction", "Recebida")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(2);
+  const [ultima, anterior] = recebidas ?? [];
+  if (!ultima || ultima.message_type !== "Texto" || !mensagemSemConteudo(ultima.text_content))
+    return false;
+  const desde = new Date(
+    Math.max(
+      Date.now() - 72 * 3600_000,
+      anterior ? new Date(anterior.message_timestamp).getTime() : 0,
+    ),
+  ).toISOString();
+  const { data: toque } = await db
+    .from("crm_followups")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .eq("responsavel", "alice")
+    .eq("status", "Concluída")
+    .gt("completed_at", desde)
+    .lte("completed_at", ultima.message_timestamp)
+    .limit(1);
+  return Boolean(toque?.length);
+}
+
+/**
  * Toque mandado numa conversa que não está com a Alice (aberta sem dono ou encerrada): a conversa
  * volta para ela, para a resposta do cliente cair com a Alice (como no pós-venda e no lead do
  * site). Antes, a resposta ficava com a equipe e ninguém via (27/10, retomada).
@@ -1151,7 +1189,12 @@ async function conversar(
       cacheDoHistorico(tarefa.empresa_id),
     ),
   ]);
-  const turnos = montarTurnos(hist.mensagens, avisoFollowup ?? undefined);
+  const aviso =
+    avisoFollowup ??
+    ((await respostaCurtaAoToque(db, tarefa.empresa_id, d.conversa.id))
+      ? AVISO_RESPOSTA_CURTA
+      : undefined);
+  const turnos = montarTurnos(hist.mensagens, aviso);
   if (!turnos) return { situacao: "ignorada", detalhe: "nada novo do cliente para responder" };
   empresa.regraNome = REGRA_NOME;
   empresa.regraRespostas = REGRA_RESPOSTAS;

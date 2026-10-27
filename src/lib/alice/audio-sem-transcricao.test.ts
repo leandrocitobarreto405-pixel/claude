@@ -28,3 +28,11 @@ test("áudio do cliente sem transcrição por último: a Alice responde o texto 
   );
   assert.match(TEXTO_AUDIO_SEM_TRANSCRICAO, /por escrito/);
 });
+
+test("mensagem sem conteúdo depois de um toque: ponto, interrogação, emoji ou cumprimento", async () => {
+  const { mensagemSemConteudo } = await import("./regras");
+  for (const t of [".", "?", "👍", "🙏🏽", "oi", "Oiii", "Olá!", "bom dia", "  ...  "])
+    assert.equal(mensagemSemConteudo(t), true, t);
+  for (const t of ["sábado às 9h pode", "quanto fica?", "oi, quero agendar", "não quero", "15 nov"])
+    assert.equal(mensagemSemConteudo(t), false, t);
+});

@@ -87,6 +87,37 @@ export function ultimaEhAudioSemTranscricao(
   return ultima?.tipo === "Áudio" && !ultima.transcricao?.trim();
 }
 
+const CUMPRIMENTOS = new Set([
+  "oi",
+  "oie",
+  "oii",
+  "ola",
+  "opa",
+  "e ai",
+  "eai",
+  "bom dia",
+  "boa tarde",
+  "boa noite",
+]);
+
+/** Mensagem curta sem conteúdo: só pontuação, emoji ou um cumprimento ("." "?" "👍" "oi"). */
+export function mensagemSemConteudo(texto: string | null | undefined): boolean {
+  const t = String(texto ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f|\u20e3/gu, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!t) return true;
+  return CUMPRIMENTOS.has(t.replace(/(.)\1+$/u, "$1")) || CUMPRIMENTOS.has(t);
+}
+
+/** Instrução quando o cliente responde a um toque com uma mensagem sem conteúdo. */
+export const AVISO_RESPOSTA_CURTA =
+  'O cliente respondeu ao seu último toque com uma mensagem curta, sem conteúdo (como ".", "?", emoji ou "oi"). Responda curto, retomando: cumprimente pelo nome, se souber, e pergunte se quer reservar um dos horários que você ofereceu (se não ofereceu horários, pergunte se ficou alguma dúvida sobre o orçamento). Uma pergunta só.';
+
 /** Se ainda dá para mandar texto livre em `quando` (com folga), dada a última mensagem do cliente. */
 export function dentroDaJanela(ultimaDoCliente: Date | null, quando: Date): boolean {
   if (!ultimaDoCliente) return false;

@@ -96,6 +96,34 @@ test("dois horários reais em dias diferentes", () => {
     ]),
     ["quinta (29/10) às 10h", "sexta (30/10) às 9h"],
   );
+  // Dia de semana primeiro: o segundo é o sábado (mesmo havendo outro dia de semana antes).
+  assert.deepEqual(
+    doisHorarios([
+      { data: "2026-10-29", livres: [{ hora: "10:00" }, { hora: "14:30" }] },
+      { data: "2026-10-30", livres: [{ hora: "09:00" }] },
+      { data: "2026-10-31", livres: [{ hora: "09:00" }, { hora: "14:00" }] },
+    ]),
+    ["quinta (29/10) às 10h", "sábado (31/10) às 9h"],
+  );
+  // Sábado primeiro (dias de semana cheios): o segundo é o próximo dia de semana, nunca o mesmo
+  // sábado à tarde.
+  assert.deepEqual(
+    doisHorarios([
+      { data: "2026-10-31", livres: [{ hora: "09:00" }, { hora: "14:00" }] },
+      { data: "2026-11-07", livres: [{ hora: "09:00" }] },
+      { data: "2026-11-03", livres: [{ hora: "10:00" }] },
+    ]),
+    ["sábado (31/10) às 9h", "terça (03/11) às 10h"],
+  );
+  // Sem dia de semana livre: o próximo sábado.
+  assert.deepEqual(
+    doisHorarios([
+      { data: "2026-10-31", livres: [{ hora: "09:00" }] },
+      { data: "2026-11-07", livres: [{ hora: "09:00" }] },
+    ]),
+    ["sábado (31/10) às 9h", "sábado (07/11) às 9h"],
+  );
+  // Só um dia com vaga: dois horários do mesmo dia.
   assert.deepEqual(
     doisHorarios([{ data: "2026-10-29", livres: [{ hora: "10:00" }, { hora: "14:30" }] }]),
     ["quinta (29/10) às 10h", "quinta (29/10) às 14h30"],
