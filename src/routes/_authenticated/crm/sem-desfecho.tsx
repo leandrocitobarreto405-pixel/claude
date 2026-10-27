@@ -217,7 +217,7 @@ function LinhaLead({ lead, motivos }: { lead: LeadSemDesfecho; motivos: Motivo[]
             disabled={salvando}
             aria-pressed={escolhido?.id === m.id}
             className={cn(
-              "h-auto min-h-9 whitespace-normal text-left",
+              "h-auto min-h-9 px-2.5 py-1 text-left text-xs whitespace-normal sm:text-sm",
               m.nao_conta && "opacity-80",
             )}
             onClick={() => clicar(m)}
