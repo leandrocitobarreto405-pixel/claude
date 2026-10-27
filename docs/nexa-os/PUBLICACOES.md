@@ -746,6 +746,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Alice em áudio com a ElevenLabs, teto em créditos e saldo das contas                       | `ac9becb`           | `5130abe`                |
 | 27/10/2026       | Alice: núcleo para áudio (regra 15, explicação, seção 8) e explicações em áudio na Turbine | migração (chat)     | `ab47e07`                |
 | 27/10/2026       | Follow-up com cadência do sistema, trava antes de cada toque e oferta do D2                | `b71f9ad`           | `d79c8db`                |
+| 27/10/2026       | Alice: seção Follow-up do núcleo (cadência do sistema)                                     | migração (chat)     | `366aaa3`                |
+| 27/10/2026       | Retomada dos 22 orçamentos parados e oferta do D2 (10%) na Turbine                         | `8b6c926`           | `366aaa3`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1040,6 +1042,21 @@ fu_orcamento_oferta (Marketing), fu_atendimento_d1, fu_atendimento_d2 e fu_retom
 Follow-up do núcleo (`20261227130000_alice_nucleo_followup`) ficou na branch migracao-nucleo-followup-sql
 para o Claude do chat aplicar. Como desfazer: `git revert b71f9ad` (sem force push) e
 `supabase/manual/20261227120000_followup_cadencia_desfazer.sql`.
+
+Alice, seção Follow-up do núcleo (27/10, aplicada pelo Claude do chat): cadência do sistema nas
+trilhas A e B, sem o "fim da validade: transferir", e a condição do último follow-up nos descontos
+permitidos. Turbine md5 39a75688d9f61120e06bb3e8235f6f33, Modelo 8af39656da72ea738565dcedbdf757a6;
+cópia do núcleo de antes em `alice_roteiro_copia_20261027_followup`. Migração
+`20261227130000_alice_nucleo_followup` (versão corrigida no histórico). Como desfazer:
+`supabase/manual/20261227130000_alice_nucleo_followup_desfazer.sql`.
+
+Retomada e oferta do D2 (27/10): os 6 modelos do follow-up aprovados pela Meta. Oferta do último
+follow-up ligada na Turbine em 10% sobre o orçamento (o Pix de 5% vale em cima). Retomada dos 22
+orçamentos parados aprovada: toque único "R" com o modelo fu_retomada_horarios (dois horários reais
+da agenda), agendado para 27/10 às 10h, com a trava de sempre; as 22 tarefas da equipe de 26/10
+foram encerradas. A fila da Alice também passa a ser entregue pela rotina de cada minuto. Como
+desfazer: `git revert 8b6c926` (sem force push); oferta: desligar em Configurações › Alice ›
+Follow-up; retomada ainda não enviada: cancelar as tarefas pendentes com etapa "R".
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
