@@ -773,39 +773,14 @@ async function bloquearPorContexto(
       .eq("empresa_id", tarefa.empresa_id)
       .is("loss_reason_id", null);
   }
-  if (ehConcorrencia(lido.classe) && leadId) {
-    const referencia = `concorrente:${leadId}`;
-    const { data: ja } = await db
-      .from("mkt_avisos")
-      .select("id")
-      .eq("empresa_id", tarefa.empresa_id)
-      .eq("referencia", referencia)
-      .limit(1);
-    if (!ja?.length) {
-      const [{ data: lead }, { data: orc }] = await Promise.all([
-        db.from("crm_leads").select("lead_name").eq("id", leadId).maybeSingle(),
-        db
-          .from("quotes")
-          .select("total")
-          .eq("crm_lead_id", leadId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
-      const valor =
-        orc?.total != null
-          ? Number(orc.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-          : "sem orçamento";
-      await db.from("mkt_avisos").insert({
-        empresa_id: tarefa.empresa_id,
-        tipo: "concorrente",
-        titulo: `URGENTE: ${lead?.lead_name ?? "cliente"} foi para a concorrência`,
-        mensagem: `O cliente disse: "${lido.trecho || ROTULO_CONTEXTO[lido.classe]}". Nosso orçamento: ${valor}. Pergunte quanto ficou com a outra empresa e veja com o gestor uma condição melhor.`,
-        conversa_id: d.conversa.id,
-        so_no_app: true,
-        referencia,
-      });
-    }
+  if (ehConcorrencia(lido.classe)) {
+    const { avisarConcorrencia } = await import("./concorrencia.server");
+    await avisarConcorrencia(db as never, {
+      empresaId: tarefa.empresa_id,
+      conversaId: d.conversa.id,
+      leadId,
+      frase: lido.trecho || ROTULO_CONTEXTO[lido.classe],
+    });
   }
   return { situacao: "ignorada", detalhe: `toque cancelado: ${motivo}` };
 }
