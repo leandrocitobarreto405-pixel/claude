@@ -402,6 +402,21 @@ export function OrcamentoRegrasConfig() {
       )}
 
       <Bloco
+        titulo="Pagamento"
+        descricao="Desconto no Pix da empresa: vale para o orçamento manual e o da Alice, o PDF, a vitrine e a promoção da agenda."
+        desabilitado={bloqueado}
+      >
+        <div>
+          <Label className="text-xs">Desconto no Pix (%)</Label>
+          <DecimalInput
+            value={f.pix_pct}
+            onValueChange={(v) => set("pix_pct", v)}
+            disabled={bloqueado}
+          />
+        </div>
+      </Bloco>
+
+      <Bloco
         titulo="Vitrine com boas-vindas"
         descricao="A tabela guarda o valor no Pix (o mínimo). A mensagem mostra o valor dos estofados, o cartão com boas-vindas para cliente novo e o Pix, sem preço por item."
         ligado={f.vitrine_ligada}
@@ -413,14 +428,6 @@ export function OrcamentoRegrasConfig() {
           <DecimalInput
             value={f.boas_vindas_pct}
             onValueChange={(v) => set("boas_vindas_pct", v)}
-            disabled={bloqueado}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Desconto no Pix (%)</Label>
-          <DecimalInput
-            value={f.pix_pct}
-            onValueChange={(v) => set("pix_pct", v)}
             disabled={bloqueado}
           />
         </div>

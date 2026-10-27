@@ -856,7 +856,7 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
       .maybeSingle(),
     db
       .from("orcamento_configuracoes")
-      .select("validade_dias")
+      .select("validade_dias, pix_pct")
       .eq("empresa_id", empresaId)
       .maybeSingle(),
   ]);
@@ -872,7 +872,9 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
       7,
   );
   const pixPct = Number(
-    (ia as { desconto_pix_percentual?: number | null } | null)?.desconto_pix_percentual ?? 0,
+    (orc as { pix_pct?: number | null } | null)?.pix_pct ??
+      (ia as { desconto_pix_percentual?: number | null } | null)?.desconto_pix_percentual ??
+      0,
   );
   const total = Number(o.total ?? 0);
   const parcelas = Math.max(Number(o.parcelas ?? 1), 1);

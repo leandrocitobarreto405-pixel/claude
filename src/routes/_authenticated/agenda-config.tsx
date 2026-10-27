@@ -546,7 +546,15 @@ function Regras({
           <div className="grid grid-cols-2 gap-3">
             {campoNumero("diasAFrente", "Olhar a agenda de", "dia(s) à frente")}
             {campoNumero("descontoPct", "Desconto da promoção", "%", 0.5)}
-            {campoNumero("pixPct", "Desconto a mais no Pix", "%", 0.5)}
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Desconto a mais no Pix</p>
+              <p className="min-h-11 rounded-botao border border-border px-3 py-2 text-sm">
+                {String(c.pixPct).replace(".", ",")}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Vem de Regras de orçamento › Pagamento.
+              </p>
+            </div>
           </div>
           {total > 25 ? (
             <p className="rounded-botao bg-problema px-3 py-2 text-sm text-problema-foreground">

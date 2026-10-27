@@ -34,7 +34,7 @@ export function useTextosEmpresa(): TextosEmpresa | null {
         // Regras de orçamento da empresa: parcelas e validade próprias têm prioridade.
         supabase
           .from("orcamento_configuracoes")
-          .select("parcelas_max, validade_dias")
+          .select("parcelas_max, validade_dias, pix_pct")
           .eq("empresa_id", empresaId!)
           .maybeSingle(),
       ]);
@@ -42,7 +42,8 @@ export function useTextosEmpresa(): TextosEmpresa | null {
         textos: Object.fromEntries((textos ?? []).map((t) => [t.chave, t.texto])),
         parcelasMax: orc?.parcelas_max ?? ia?.parcelas_max ?? 5,
         validadeDias: orc?.validade_dias ?? ia?.validade_orcamento_dias ?? 7,
-        pixPct: Number(ia?.desconto_pix_percentual ?? 0),
+        // Pix: fonte única nas Regras de orçamento (a cópia da Alice só vale sem regras).
+        pixPct: Number(orc?.pix_pct ?? ia?.desconto_pix_percentual ?? 0),
       };
     },
   });
