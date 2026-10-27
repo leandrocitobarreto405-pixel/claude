@@ -62,7 +62,13 @@ export const GRUPOS_MENU: GrupoMenu[] = [
         to: "/crm/funil",
         rotulo: "Leads e funil",
         icone: Filter,
-        ativoEm: ["/crm/leads", "/crm/leads-site", "/crm/lead", "/indicadores"],
+        ativoEm: [
+          "/crm/leads",
+          "/crm/leads-site",
+          "/crm/lead",
+          "/crm/sem-desfecho",
+          "/indicadores",
+        ],
       },
       { to: "/crm/retornos", rotulo: "Retornos", icone: Undo2 },
       { to: "/marketing", rotulo: "Marketing WhatsApp", icone: Send, ativoEm: ["/listas"] },
@@ -185,6 +191,7 @@ export const ABAS_DE_TELA = {
     { to: "/crm/funil", rotulo: "Quadro" },
     { to: "/crm/leads", rotulo: "Lista" },
     { to: "/crm/leads-site", rotulo: "Do site" },
+    { to: "/crm/sem-desfecho", rotulo: "Sem desfecho" },
     { to: "/indicadores", rotulo: "Indicadores" },
   ],
   financeiro: [
