@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ContadoraRouteRouteImport } from './routes/contadora/route'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
@@ -45,6 +46,11 @@ import { Route as AuthenticatedPromocaoRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as ContadoraIndexRouteImport } from './routes/contadora/index'
+import { Route as ContadoraDespesasRouteImport } from './routes/contadora/despesas'
+import { Route as ContadoraExportarRouteImport } from './routes/contadora/exportar'
+import { Route as ContadoraNotasRouteImport } from './routes/contadora/notas'
+import { Route as ContadoraOsRouteImport } from './routes/contadora/os'
 import { Route as AuthenticatedConfiguracoesIndexRouteImport } from './routes/_authenticated/configuracoes/index'
 import { Route as AuthenticatedConfiguracoesAgendaRouteImport } from './routes/_authenticated/configuracoes/agenda'
 import { Route as AuthenticatedConfiguracoesAliceLeadsRouteImport } from './routes/_authenticated/configuracoes/alice-leads'
@@ -107,6 +113,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContadoraRouteRoute = ContadoraRouteRouteImport.update({
+  id: '/contadora',
+  path: '/contadora',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -279,6 +290,31 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ContadoraIndexRoute = ContadoraIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ContadoraRouteRoute,
+} as any)
+const ContadoraDespesasRoute = ContadoraDespesasRouteImport.update({
+  id: '/despesas',
+  path: '/despesas',
+  getParentRoute: () => ContadoraRouteRoute,
+} as any)
+const ContadoraExportarRoute = ContadoraExportarRouteImport.update({
+  id: '/exportar',
+  path: '/exportar',
+  getParentRoute: () => ContadoraRouteRoute,
+} as any)
+const ContadoraNotasRoute = ContadoraNotasRouteImport.update({
+  id: '/notas',
+  path: '/notas',
+  getParentRoute: () => ContadoraRouteRoute,
+} as any)
+const ContadoraOsRoute = ContadoraOsRouteImport.update({
+  id: '/os',
+  path: '/os',
+  getParentRoute: () => ContadoraRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesIndexRoute =
   AuthenticatedConfiguracoesIndexRouteImport.update({
@@ -567,6 +603,7 @@ const ApiPublicHooksLeadsSourceTypeTokenRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/contadora': typeof ContadoraRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
@@ -601,6 +638,11 @@ export interface FileRoutesByFullPath {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contadora/despesas': typeof ContadoraDespesasRoute
+  '/contadora/exportar': typeof ContadoraExportarRoute
+  '/contadora/notas': typeof ContadoraNotasRoute
+  '/contadora/os': typeof ContadoraOsRoute
+  '/contadora/': typeof ContadoraIndexRoute
   '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
   '/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
@@ -686,6 +728,11 @@ export interface FileRoutesByTo {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contadora/despesas': typeof ContadoraDespesasRoute
+  '/contadora/exportar': typeof ContadoraExportarRoute
+  '/contadora/notas': typeof ContadoraNotasRoute
+  '/contadora/os': typeof ContadoraOsRoute
+  '/contadora': typeof ContadoraIndexRoute
   '/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
   '/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
@@ -740,6 +787,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/contadora': typeof ContadoraRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
@@ -774,6 +822,11 @@ export interface FileRoutesById {
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contadora/despesas': typeof ContadoraDespesasRoute
+  '/contadora/exportar': typeof ContadoraExportarRoute
+  '/contadora/notas': typeof ContadoraNotasRoute
+  '/contadora/os': typeof ContadoraOsRoute
+  '/contadora/': typeof ContadoraIndexRoute
   '/_authenticated/configuracoes/agenda': typeof AuthenticatedConfiguracoesAgendaRoute
   '/_authenticated/configuracoes/alice-leads': typeof AuthenticatedConfiguracoesAliceLeadsRoute
   '/_authenticated/configuracoes/documentos': typeof AuthenticatedConfiguracoesDocumentosRoute
@@ -828,6 +881,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/contadora'
     | '/auth'
     | '/privacidade'
     | '/redefinir-senha'
@@ -862,6 +916,11 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/contadora/despesas'
+    | '/contadora/exportar'
+    | '/contadora/notas'
+    | '/contadora/os'
+    | '/contadora/'
     | '/configuracoes/agenda'
     | '/configuracoes/alice-leads'
     | '/configuracoes/documentos'
@@ -947,6 +1006,11 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/contadora/despesas'
+    | '/contadora/exportar'
+    | '/contadora/notas'
+    | '/contadora/os'
+    | '/contadora'
     | '/configuracoes/agenda'
     | '/configuracoes/alice-leads'
     | '/configuracoes/documentos'
@@ -1000,6 +1064,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/contadora'
     | '/auth'
     | '/privacidade'
     | '/redefinir-senha'
@@ -1034,6 +1099,11 @@ export interface FileRouteTypes {
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
+    | '/contadora/despesas'
+    | '/contadora/exportar'
+    | '/contadora/notas'
+    | '/contadora/os'
+    | '/contadora/'
     | '/_authenticated/configuracoes/agenda'
     | '/_authenticated/configuracoes/alice-leads'
     | '/_authenticated/configuracoes/documentos'
@@ -1088,6 +1158,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  ContadoraRouteRoute: typeof ContadoraRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
@@ -1131,6 +1202,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contadora': {
+      id: '/contadora'
+      path: '/contadora'
+      fullPath: '/contadora'
+      preLoaderRoute: typeof ContadoraRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -1363,6 +1441,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/contadora/': {
+      id: '/contadora/'
+      path: '/'
+      fullPath: '/contadora/'
+      preLoaderRoute: typeof ContadoraIndexRouteImport
+      parentRoute: typeof ContadoraRouteRoute
+    }
+    '/contadora/despesas': {
+      id: '/contadora/despesas'
+      path: '/despesas'
+      fullPath: '/contadora/despesas'
+      preLoaderRoute: typeof ContadoraDespesasRouteImport
+      parentRoute: typeof ContadoraRouteRoute
+    }
+    '/contadora/exportar': {
+      id: '/contadora/exportar'
+      path: '/exportar'
+      fullPath: '/contadora/exportar'
+      preLoaderRoute: typeof ContadoraExportarRouteImport
+      parentRoute: typeof ContadoraRouteRoute
+    }
+    '/contadora/notas': {
+      id: '/contadora/notas'
+      path: '/notas'
+      fullPath: '/contadora/notas'
+      preLoaderRoute: typeof ContadoraNotasRouteImport
+      parentRoute: typeof ContadoraRouteRoute
+    }
+    '/contadora/os': {
+      id: '/contadora/os'
+      path: '/os'
+      fullPath: '/contadora/os'
+      preLoaderRoute: typeof ContadoraOsRouteImport
+      parentRoute: typeof ContadoraRouteRoute
     }
     '/_authenticated/configuracoes/': {
       id: '/_authenticated/configuracoes/'
@@ -1862,9 +1975,30 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ContadoraRouteRouteChildren {
+  ContadoraDespesasRoute: typeof ContadoraDespesasRoute
+  ContadoraExportarRoute: typeof ContadoraExportarRoute
+  ContadoraNotasRoute: typeof ContadoraNotasRoute
+  ContadoraOsRoute: typeof ContadoraOsRoute
+  ContadoraIndexRoute: typeof ContadoraIndexRoute
+}
+
+const ContadoraRouteRouteChildren: ContadoraRouteRouteChildren = {
+  ContadoraDespesasRoute: ContadoraDespesasRoute,
+  ContadoraExportarRoute: ContadoraExportarRoute,
+  ContadoraNotasRoute: ContadoraNotasRoute,
+  ContadoraOsRoute: ContadoraOsRoute,
+  ContadoraIndexRoute: ContadoraIndexRoute,
+}
+
+const ContadoraRouteRouteWithChildren = ContadoraRouteRoute._addFileChildren(
+  ContadoraRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  ContadoraRouteRoute: ContadoraRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,

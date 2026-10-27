@@ -57,6 +57,7 @@ export type TarefaNota = {
       full_name: string | null;
       document_number: string | null;
       email: string | null;
+      full_address?: string | null;
     } | null;
     payments: PagamentoNota[] | null;
     /** Visitas com os itens (descrição dos serviços da nota). */
@@ -68,7 +69,7 @@ export const TAREFA_NOTA_SELECT = `
   id, empresa_id, status, invoice_amount, invoice_number, issue_date, service_date, document_number,
   solicitada_em, arquivo_path, arquivo_nome, notes,
   work_order:work_order_id ( id, os_number, total_gross_value, negotiated_payment_method, negotiated_installments,
-    customer:customer_id ( full_name, document_number, email ),
+    customer:customer_id ( full_name, document_number, email, full_address ),
     payments ( payment_type, payment_channel, installments, payment_status, is_active ),
     visits!visits_work_order_id_fkey ( status, completion_date, scheduled_date, visit_value, final_value,
       discount_amount, item_quantity, upholstery_description, service_type:service_type_id ( name ),
@@ -98,6 +99,8 @@ export type DadosNota = {
   forma_pagamento: string | null;
   valor: string | null;
   numero_os: string | null;
+  /** Opcional no modelo ({{endereco}}); não entra no aviso de dados faltando. */
+  endereco: string | null;
 };
 
 export const ROTULOS_NOTA: Record<keyof DadosNota, string> = {
@@ -108,6 +111,7 @@ export const ROTULOS_NOTA: Record<keyof DadosNota, string> = {
   forma_pagamento: "forma de pagamento",
   valor: "valor",
   numero_os: "número da OS",
+  endereco: "endereço",
 };
 
 export function dadosDaNota(t: TarefaNota): DadosNota {
@@ -121,6 +125,7 @@ export function dadosDaNota(t: TarefaNota): DadosNota {
     forma_pagamento: formaPagamento(t),
     valor: valor !== null ? brl(Number(valor)) : null,
     numero_os: t.work_order?.os_number ?? null,
+    endereco: cliente?.full_address?.trim() || null,
   };
 }
 
