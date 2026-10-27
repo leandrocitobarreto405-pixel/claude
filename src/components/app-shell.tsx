@@ -4,7 +4,7 @@ import { AceiteTermos } from "@/components/termos/aceite-termos";
 import { useSituacaoAssinatura } from "@/lib/assinatura-situacao";
 import { PainelEnvios } from "@/components/os/painel-envios";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ChevronLeft, Droplets, Inbox, Lock, LogOut, X } from "lucide-react";
+import { ChevronLeft, Inbox, Lock, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/install-prompt";
-import { AvatarEmpresa, BarraDeNavegacaoInferior } from "@/components/nexa";
+import { AvatarEmpresa, BarraDeNavegacaoInferior, LogoNexa } from "@/components/nexa";
 import { useRespostaEmFoco } from "@/lib/resposta-em-foco";
 import { ABA_MAIS, abasDoPapel } from "@/lib/navegacao";
 import { itemAtivo, menuDoPapel } from "@/lib/menu";
@@ -69,7 +69,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col gap-5 p-3 pb-8">
       {grupos.map((group) => (
         <div key={group.id} className="flex flex-col gap-1">
-          <p className="px-3 pb-1 text-[0.7rem] font-semibold uppercase tracking-widest text-navy-foreground/45">
+          <p className="px-3 pb-1 text-[0.7rem] font-semibold uppercase tracking-widest text-navy-foreground/55">
             {group.rotulo}
           </p>
           {group.itens.map((item) => {
@@ -125,13 +125,11 @@ function Brand({ fechar = false }: { fechar?: boolean }) {
           tamanho={40}
         />
       ) : (
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-destaque text-marca">
-          <Droplets className="size-5" />
-        </span>
+        <LogoNexa variante="simbolo" sobre="escuro" className="h-10" alt="" />
       )}
       <div className="min-w-0 leading-tight">
-        <p className="truncate text-sm font-semibold text-navy-foreground">Nexa OS</p>
-        <p className="truncate text-xs text-navy-foreground/60">
+        <LogoNexa sobre="escuro" className="h-4" alt="Nexa OS" />
+        <p className="mt-1 truncate text-xs text-navy-foreground/60">
           {ctx?.painelNexa ? "Nexa (painel)" : (ctx?.ativa?.empresa.nome ?? "Nexa Performance")}
         </p>
       </div>
@@ -229,8 +227,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <div className="flex min-h-16 items-center gap-3 px-4 py-2.5">
             {painelNexa ? (
-              <span className="grid size-[38px] shrink-0 place-items-center rounded-xl bg-destaque text-marca lg:hidden">
-                <Droplets className="size-5" aria-hidden />
+              <span className="shrink-0 lg:hidden">
+                <LogoNexa variante="simbolo" className="h-[38px]" alt="" />
               </span>
             ) : (
               <AvatarEmpresa
@@ -405,9 +403,7 @@ function SeletorEmpresa() {
             <SelectGroup>
               <SelectItem value={OPCAO_PAINEL}>
                 <span className="flex items-center gap-2">
-                  <span className="grid size-[22px] place-items-center rounded-md bg-destaque text-marca">
-                    <Droplets className="size-3.5" aria-hidden />
-                  </span>
+                  <LogoNexa variante="simbolo" className="h-[22px]" alt="" />
                   Nexa (painel)
                 </span>
               </SelectItem>

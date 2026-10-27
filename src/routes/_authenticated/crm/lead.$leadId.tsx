@@ -461,7 +461,7 @@ function LeadDetalhe() {
                   options={(campanhas ?? []).map((c) => ({ value: c.id, label: c.campaign_name }))}
                 />
                 {lead.ad_id && !lead.campaign_id ? (
-                  <p className="text-xs text-amber-700">
+                  <p className="text-xs text-atencao-foreground">
                     Anúncio {lead.ad_id} sem campanha cadastrada. Cadastre em Campanhas para medir
                     custo e retorno.
                   </p>

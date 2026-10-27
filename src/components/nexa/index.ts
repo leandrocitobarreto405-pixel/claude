@@ -9,3 +9,4 @@ export { BarraDeNavegacaoInferior, type ItemDeNavegacao } from "./barra-de-naveg
 export { Recolhido } from "./recolhido";
 export { AbasDeRota, type AbaDeRota } from "./abas-de-rota";
 export { AvatarEmpresa } from "./avatar-empresa";
+export { LogoNexa } from "./logo-nexa";

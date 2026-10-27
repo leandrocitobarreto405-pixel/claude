@@ -249,7 +249,7 @@ export function AliceAudio() {
           <p className="text-sm text-muted-foreground">Carregando vozes…</p>
         ) : null}
         {vozes.data?.erro ? (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p className="rounded-md bg-atencao px-3 py-2 text-xs text-atencao-foreground">
             {vozes.data.erro} Mostrando a lista conhecida.
           </p>
         ) : null}
