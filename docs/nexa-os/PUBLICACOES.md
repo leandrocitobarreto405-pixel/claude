@@ -741,6 +741,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 26/10/2026       | Alice: regra nº 1 (preço só depois do valor) e colchão dupla face     | `ee6e322`           | `d6be9bd`                |
 | 26/10/2026       | Alice, custo ideia 2: cache do histórico ligado na Turbine            | `5ca133a`           | `aec7972`                |
 | 27/10/2026       | Alice: roteiro por serviço (código e módulos; núcleo ainda não)       | `2cd270d`           | `89d4855`                |
+| 27/10/2026       | Alarme de crédito da IA: Alice parada avisa a Nexa e a empresa        | `1d5c917`           | `5fc36bb`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -984,6 +985,16 @@ Modelo e upsell da Turbine em 20%) cancelado na confirmação do Supabase; o arq
 `migracao-roteiro-nucleo-sql`, ainda não aplicado. Como desfazer: `git revert 2cd270d` (sem force
 push) e `supabase/manual/20261222120000_alice_roteiro_modulos_desfazer.sql` (volta o roteiro da
 cópia, esvazia os módulos e desliga o upsell).
+
+Alarme de crédito da IA (27/10, todas as empresas): erro de crédito/saldo ou chave recusada na
+IA (ou na voz) abre um período em `ia_paradas` por empresa, com as conversas que foram para a
+equipe. Push para nexa_admin no primeiro erro ("Alice parada: sem crédito na conta da IA desde
+HH:MM") e de 2 em 2 horas enquanto durar (testa a conta com 1 token antes de repetir); sininho da
+empresa "A Alice está pausada; as conversas estão indo para a equipe"; aviso vermelho no Painel
+Nexa e paradas do mês no Consumo. A primeira resposta que der certo fecha o período. Migração
+`20261224120000_ia_paradas_credito` aplicada em 27/10 (ensaio antes; só tabela e funções novas).
+Como desfazer: `git revert 1d5c917` (sem force push) e
+`supabase/manual/20261224120000_ia_paradas_credito_desfazer.sql`.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
