@@ -743,6 +743,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 27/10/2026       | Alice: roteiro por serviço (código e módulos; núcleo ainda não)        | `2cd270d`           | `89d4855`                |
 | 27/10/2026       | Alarme de crédito da IA: Alice parada avisa a Nexa e a empresa         | `1d5c917`           | `5fc36bb`                |
 | 27/10/2026       | Alice: núcleo do roteiro (Turbine e Modelo) e upsell da Turbine em 20% | migração (chat)     | `2cd270d`                |
+| 27/10/2026       | Alice em áudio com a ElevenLabs, teto em créditos e saldo das contas   | `ac9becb`           | `5130abe`                |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1004,6 +1005,17 @@ pela migração `20261223130000_alice_roteiro_nucleo` (conferida no banco em 27/
 por conversa a partir daqui (base US$ 0,229). Como desfazer:
 `supabase/manual/20261222120000_alice_roteiro_modulos_desfazer.sql` (volta o roteiro da cópia,
 esvazia os módulos e desliga o upsell).
+
+Alice em áudio com a ElevenLabs (27/10): Turbine trocada para a ElevenLabs (Flash v2.5, voz
+Vanessa), com o Google como reserva automática (erro ou sem crédito: aquele áudio sai pelo Google,
+o motivo fica registrado e o alarme dispara). Teto provisório de 2.000 créditos por dia (aviso no
+sininho em 80%). Texto falado com valores, horários, porcentagens, parcelas e m² por extenso.
+Explicações em áudio (falar_em_audio) prontas, mas desligadas até o texto novo da seção 8 do
+núcleo ser aprovado. Painel Nexa › Consumo: saldo estimado da conta da IA (a Nexa anota a carga)
+e créditos da ElevenLabs, com aviso em 30% e 10%. Migração `20261225120000_alice_audio_eleven_saldo`
+aplicada em 27/10 (ensaio antes; só colunas e funções novas). Como desfazer: `git revert ac9becb` (sem
+force push) e `supabase/manual/20261225120000_alice_audio_eleven_saldo_desfazer.sql` (volta a
+Turbine para o Google).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
