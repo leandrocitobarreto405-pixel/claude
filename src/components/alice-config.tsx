@@ -269,10 +269,13 @@ export function AliceConfig() {
             <Label htmlFor="alice-pix">Desconto no Pix (%)</Label>
             <Input
               id="alice-pix"
-              inputMode="decimal"
-              value={String(form.desconto_pix_percentual)}
-              onChange={(e) => campo("desconto_pix_percentual", numero(e.target.value) || 0)}
+              value={String(form.desconto_pix_percentual).replace(".", ",")}
+              readOnly
+              disabled
             />
+            <p className="text-xs text-muted-foreground">
+              Muda em Configurações › Regras de orçamento › Pagamento (vale para tudo).
+            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="alice-parcelas">Cartão: até quantas vezes sem juros</Label>
