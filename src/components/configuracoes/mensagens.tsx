@@ -68,7 +68,8 @@ export function MensagemNota() {
       <p className="mb-3 text-sm text-muted-foreground">
         Usada no botão “Copiar mensagem” da OS e da tela Notas fiscais. Variáveis:{" "}
         {"{{nome_cliente}}"}, {"{{cpf_cnpj}}"}, {"{{email}}"}, {"{{data_servico}}"},{" "}
-        {"{{forma_pagamento}}"}, {"{{valor}}"} e {"{{numero_os}}"}.
+        {"{{forma_pagamento}}"}, {"{{valor}}"}, {"{{numero_os}}"} e, se quiser, {"{{endereco}}"}
+        (endereço do cliente).
       </p>
       <Textarea
         value={texto}

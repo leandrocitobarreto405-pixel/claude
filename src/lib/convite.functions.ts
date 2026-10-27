@@ -190,3 +190,46 @@ export const convidarPorEmailFn = createServerFn({ method: "POST" })
       return { envio: "aviso_enviado", detalhe: null, tecnicoId };
     return { envio: "ja_tem_conta", detalhe: null, tecnicoId };
   });
+
+/**
+ * Convite de contadora: não entra na equipe nem conta no limite de usuários; vê só Notas fiscais,
+ * OS realizadas, Despesas e Exportar mês (ver supabase/migrations/20261228140000_contadora.sql).
+ */
+export const convidarContadoraFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((i: { email: string; reenviar?: boolean }) => {
+    const email = String(i.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200)
+      throw new Error("Informe um e-mail válido.");
+    return { email, reenviar: Boolean(i.reenviar) };
+  })
+  .handler(async ({ data, context }): Promise<ResultadoConvite> => {
+    if (!data.reenviar) {
+      const { error } = await context.supabase
+        .from("convites_contadora" as never)
+        .upsert({ empresa_id: context.empresaId, email: data.email, aceito_em: null } as never, {
+          onConflict: "empresa_id,email",
+        });
+      if (error) throw new Error("Não foi possível registrar o convite.");
+    }
+    const { data: emp } = await context.supabase
+      .from("empresas")
+      .select("nome")
+      .eq("id", context.empresaId)
+      .maybeSingle();
+    const empresa = emp?.nome ?? "sua empresa";
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+      data: { empresa, papel: "Contadora" },
+      redirectTo: `${enderecoDoApp()}/redefinir-senha`,
+    });
+    if (!error) return { envio: "convite_enviado", detalhe: null };
+    if (!jaTemConta(error as never))
+      return { envio: "falhou", detalhe: "O servidor de e-mail não aceitou o convite agora." };
+    // Já tem conta: o acesso é ligado no próximo login dela (ou agora, se já existe o usuário).
+    if (await avisoPorResend(data.email, empresa, "Contadora"))
+      return { envio: "aviso_enviado", detalhe: null };
+    return { envio: "ja_tem_conta", detalhe: null };
+  });
