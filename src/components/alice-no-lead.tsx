@@ -24,7 +24,7 @@ export function AliceNoLead({ leadId }: { leadId: string }) {
     setOcupado(true);
     try {
       await acao();
-      toast.success(ok);
+      if (ok) toast.success(ok);
       await qc.invalidateQueries({ queryKey: chave });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
@@ -105,10 +105,14 @@ export function AliceNoLead({ leadId }: { leadId: string }) {
               size="sm"
               disabled={ocupado}
               onClick={() =>
-                void executar(
-                  () => devolverFn({ data: { conversaId: conversa.id } }),
-                  "Conversa devolvida para a Alice.",
-                )
+                void executar(async () => {
+                  const r = await devolverFn({ data: { conversaId: conversa.id } });
+                  toast.success(
+                    r.respondeAgora
+                      ? "Devolvida: o cliente estava esperando, a Alice vai responder agora."
+                      : "Devolvida: a Alice responde a próxima mensagem do cliente.",
+                  );
+                }, "")
               }
             >
               Devolver para a Alice

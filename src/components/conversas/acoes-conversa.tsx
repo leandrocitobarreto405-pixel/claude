@@ -18,7 +18,7 @@ export function useAcoesConversa(c: ConversaCompleta | undefined, onMudou: () =>
     setOcupado(true);
     try {
       await acao();
-      toast.success(ok);
+      if (ok) toast.success(ok);
       onMudou();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
@@ -52,10 +52,14 @@ export function useAcoesConversa(c: ConversaCompleta | undefined, onMudou: () =>
       toast.info("A Alice está desligada para este cliente; religue no menu para poder devolver.");
       return;
     }
-    void executar(
-      () => devolverFn({ data: { conversaId: c.id } }),
-      "Devolvida: a Alice responde a próxima mensagem do cliente.",
-    );
+    void executar(async () => {
+      const r = await devolverFn({ data: { conversaId: c.id } });
+      toast.success(
+        r.respondeAgora
+          ? "Devolvida: o cliente estava esperando, a Alice vai responder agora."
+          : "Devolvida: a Alice responde a próxima mensagem do cliente.",
+      );
+    }, "");
   }
 
   return { ocupado, podeAssumir, podeDevolver, assumir, devolver };

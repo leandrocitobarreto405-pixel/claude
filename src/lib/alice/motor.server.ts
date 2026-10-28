@@ -67,6 +67,8 @@ import {
 } from "@/lib/descadastro";
 
 type Admin = SupabaseClient<Database>;
+import { instrucaoDemora, notaDevolucao } from "./devolucao";
+
 type Tarefa = Database["public"]["Tables"]["ia_tarefas"]["Row"];
 
 const MAX_RODADAS = 8;
@@ -285,35 +287,11 @@ async function devolverParaAlice(db: Admin, tarefa: Tarefa): Promise<ResultadoTa
   }
   await mudarSituacao(d.conta, token, conversa, "pending");
   await db.from("conversas").update({ status: "pending" }).eq("id", d.conversa.id);
-  const { data: ultima } = await db
-    .from("whatsapp_messages")
-    .select("direction")
-    .eq("conversa_id", d.conversa.id)
-    .eq("privada", false)
-    .order("message_timestamp", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const esperando = ultima?.direction === "Recebida";
-  await enviarMensagem(
-    d.conta,
-    token,
-    conversa,
-    esperando
-      ? `🤖 Ok! A ${cfg.nome} voltou para esta conversa e já vai responder o cliente.`
-      : `🤖 Ok! A ${cfg.nome} voltou para esta conversa e responde a próxima mensagem do cliente.`,
-    true,
-  );
-  if (esperando) {
-    // Já existir uma resposta pendente (índice único) está ok: ela responde.
-    const { error } = await db.from("ia_tarefas").insert({
-      empresa_id: tarefa.empresa_id,
-      conversa_id: d.conversa.id,
-      tipo: "responder",
-    });
-    if (error && error.code !== "23505") throw error;
-    const { enfileirarPendentes } = await import("./fila.server");
-    await enfileirarPendentes(db);
-  }
+  const { clienteEsperandoNaConversa, responderAgora } = await import("./devolucao.server");
+  const esperando = await clienteEsperandoNaConversa(db as never, d.conversa.id);
+  await enviarMensagem(d.conta, token, conversa, notaDevolucao(cfg.nome, esperando), true);
+  // Cliente esperando: ela responde agora (já existir uma resposta pendente está ok).
+  if (esperando) await responderAgora(db as never, tarefa.empresa_id, d.conversa.id);
   return { situacao: "concluida", detalhe: "conversa devolvida para a Alice" };
 }
 
@@ -718,7 +696,18 @@ async function responder(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
     }
     return conversar(db, tarefa, cfg, d, null, INSTRUCAO_DESCADASTRO);
   }
-  return conversar(db, tarefa, cfg, d, null);
+  // Cliente esperou (devolvida pela equipe, pausa da IA): desculpa natural pela demora.
+  const { data: ultimaDoCliente } = await db
+    .from("whatsapp_messages")
+    .select("message_timestamp")
+    .eq("conversa_id", d.conversa.id)
+    .eq("direction", "Recebida")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const demora = instrucaoDemora(ultimaDoCliente?.message_timestamp ?? null, new Date());
+  return demora ? conversar(db, tarefa, cfg, d, null, demora) : conversar(db, tarefa, cfg, d, null);
 }
 
 /** A repescagem do follow-up vai para a equipe (com o motivo). */
