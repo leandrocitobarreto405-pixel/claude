@@ -8,6 +8,7 @@ import {
   temAvisoImportante,
   textoEspera,
   textoResumoDoDia,
+  linhaToquesD1,
   type FontesDeAvisos,
 } from "./avisos";
 
@@ -152,5 +153,13 @@ test("textoResumoDoDia", () => {
   assert.equal(
     textoResumoDoDia({ servicosHoje: 4, atrasados: 1, semTecnico: 0, esperando: 2 }),
     "4 serviços hoje · 1 atrasado · 0 serviços sem técnico · 2 clientes esperando a equipe",
+  );
+});
+
+test("linha do toque do dia seguinte no resumo das 9h", () => {
+  assert.equal(linhaToquesD1({ audio: 0, audioResponderam: 0, texto: 0, textoResponderam: 0 }), "");
+  assert.equal(
+    linhaToquesD1({ audio: 3, audioResponderam: 2, texto: 4, textoResponderam: 1 }),
+    "Toque do dia seguinte ontem: 3 em áudio (2 responderam) · 4 em texto (1 responderam).",
   );
 });

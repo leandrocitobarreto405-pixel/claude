@@ -57,6 +57,8 @@ export type ConfigAlice = {
   cadencia_followup: boolean;
   /** Fora da janela de 24 h, manda o modelo aprovado da Meta (senão vira tarefa da equipe). */
   followup_modelos: boolean;
+  /** Toque do dia seguinte (10h) em áudio, dentro da janela de 24 h. */
+  toque_d1_audio: boolean;
   /** Oferta do último follow-up (D2 16h): % ou R$ sobre o valor do orçamento. */
   oferta_followup_ligada: boolean;
   oferta_followup_tipo: "pct" | "reais";
@@ -111,6 +113,7 @@ const PADRAO: ConfigAlice = {
   teto_excedente_reais: null,
   cadencia_followup: true,
   followup_modelos: false,
+  toque_d1_audio: false,
   oferta_followup_ligada: false,
   oferta_followup_tipo: "pct",
   oferta_followup_valor: null,
@@ -235,6 +238,7 @@ export const situacaoAlice = createServerFn({ method: "GET" })
             modulos: modulosDaConfig(cfg.modulos),
             cadencia_followup: cfg.cadencia_followup,
             followup_modelos: cfg.followup_modelos,
+            toque_d1_audio: cfg.toque_d1_audio,
             oferta_followup_ligada: cfg.oferta_followup_ligada,
             oferta_followup_tipo: cfg.oferta_followup_tipo === "reais" ? "reais" : "pct",
             oferta_followup_valor:
@@ -316,6 +320,7 @@ export const salvarAlice = createServerFn({ method: "POST" })
         continuar_apos_franquia: Boolean(data.continuar_apos_franquia),
         cadencia_followup: data.cadencia_followup !== false,
         followup_modelos: Boolean(data.followup_modelos),
+        toque_d1_audio: Boolean(data.toque_d1_audio),
         teto_excedente_reais:
           data.teto_excedente_reais === null || !(Number(data.teto_excedente_reais) >= 0)
             ? null

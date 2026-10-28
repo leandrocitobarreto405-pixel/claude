@@ -7,6 +7,7 @@ import {
   passoDaEtapa,
   ancoraDoOrcamento,
   planejarToque,
+  toqueEmAudio,
   proximoPasso,
   travaDoLead,
   trilhaDoLead,
@@ -268,4 +269,15 @@ test("trilha B: B1 uma vez; cliente respondeu hoje depois do B1 → próximo ama
   })!;
   assert.equal(p.passo.etapa, "B3");
   assert.equal(p.quando.toISOString(), SP("2026-10-28T10:00:00").toISOString());
+});
+
+test("toque do dia seguinte em áudio: só D1, ligado, com voz, sem 'só texto' e sem áudio sem resposta", () => {
+  const base = { ligado: true, audioAtivo: true, soTexto: false, audioSemResposta: false };
+  assert.equal(toqueEmAudio({ ...base, etapa: "A3" }), true);
+  assert.equal(toqueEmAudio({ ...base, etapa: "B3" }), true);
+  assert.equal(toqueEmAudio({ ...base, etapa: "A4" }), false);
+  assert.equal(toqueEmAudio({ ...base, etapa: "A3", ligado: false }), false);
+  assert.equal(toqueEmAudio({ ...base, etapa: "A3", audioAtivo: false }), false);
+  assert.equal(toqueEmAudio({ ...base, etapa: "A3", soTexto: true }), false);
+  assert.equal(toqueEmAudio({ ...base, etapa: "A3", audioSemResposta: true }), false);
 });

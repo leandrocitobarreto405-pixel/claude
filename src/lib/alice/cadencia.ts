@@ -292,6 +292,29 @@ export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } |
   return { passo, quando };
 }
 
+/** Toques do dia seguinte às 10h (D1): os que podem sair em áudio. */
+export const ETAPAS_D1 = new Set(["A3", "B3"]);
+
+/**
+ * Toque do dia seguinte em áudio (28/10, item 5): só o D1, dentro da janela de 24 h (quem chama já
+ * está nela), com a opção ligada e a voz configurada na empresa, conversa que não está "só texto" e
+ * nunca dois áudios seguidos sem resposta do cliente.
+ */
+export function toqueEmAudio(o: {
+  etapa: string;
+  ligado: boolean;
+  audioAtivo: boolean;
+  soTexto: boolean;
+  /** A última mensagem da Alice foi um áudio e o cliente não respondeu depois. */
+  audioSemResposta: boolean;
+}): boolean {
+  return ETAPAS_D1.has(o.etapa) && o.ligado && o.audioAtivo && !o.soTexto && !o.audioSemResposta;
+}
+
+/** Instrução do toque D1 em áudio (o guia do passo diz o "algo novo"). */
+export const GUIA_TOQUE_AUDIO =
+  "Faça este toque em ÁUDIO, com falar_em_audio: até 350 caracteres (uns 25 segundos), escrito para ser falado. Comece pelo nome do cliente; lembre a dor ou o motivo que ele contou e traga o algo novo do guia; sem pressão e sem falar de validade; não repita pergunta já feita; termine com UMA pergunta. Vale a regra de empatia (se ele contou algo da vida dele, comece por isso). Horários, valores e datas não vão no áudio: se precisar, mande depois, em texto, sem outra pergunta.";
+
 /** Modelo da retomada de orçamentos parados (nome, dia1, dia2). */
 export const MODELO_RETOMADA = "fu_retomada_horarios";
 

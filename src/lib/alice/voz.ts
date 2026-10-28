@@ -255,6 +255,8 @@ export type ConfigAudio = {
 
 /** Explicação em áudio (enviar_audio): até ~60 s. */
 export const MAX_CARACTERES_EXPLICACAO = 700;
+/** Toque do dia seguinte em áudio: ~25 s. */
+export const MAX_CARACTERES_TOQUE_AUDIO = 350;
 export const MAX_SEGUNDOS_EXPLICACAO = 60;
 /** Aviso no sininho quando o dia passa desta fração do teto em créditos. */
 export const AVISO_TETO_CREDITOS = 0.8;
@@ -295,6 +297,8 @@ export function decidirAudio(e: {
   ultimaDoClienteEhAudio: boolean;
   soTexto: boolean;
   ehFollowup: boolean;
+  /** Toque do dia seguinte em áudio (D1 10h): o único follow-up que sai falado, até ~25 s. */
+  toqueAudio?: boolean;
   gastoHojeReais: number;
   creditosHoje?: number;
   resposta: string;
@@ -304,7 +308,7 @@ export function decidirAudio(e: {
   const eleven = cfg.audio_provedor === "elevenlabs" && vozElevenValida(cfg.audio_eleven_voz);
   if (!cfg.audio_ativo || (!eleven && !vozValida(cfg.audio_voz)))
     return { modo: "texto", motivo: "áudio desligado" };
-  if (e.ehFollowup) return { modo: "texto", motivo: "follow-up" };
+  if (e.ehFollowup && !e.toqueAudio) return { modo: "texto", motivo: "follow-up" };
   const explicacao = e.explicacao !== undefined;
   if (!explicacao && !e.ultimaDoClienteEhAudio)
     return { modo: "texto", motivo: "cliente escreveu" };
@@ -314,7 +318,11 @@ export function decidirAudio(e: {
     : separarResposta(e.resposta);
   const fala = paraFala(bruto);
   if (!fala) return { modo: "texto", motivo: "resposta só com dados" };
-  const maxCar = explicacao ? MAX_CARACTERES_EXPLICACAO : cfg.audio_max_caracteres;
+  const maxCar = e.toqueAudio
+    ? MAX_CARACTERES_TOQUE_AUDIO
+    : explicacao
+      ? MAX_CARACTERES_EXPLICACAO
+      : cfg.audio_max_caracteres;
   const maxSeg = explicacao ? MAX_SEGUNDOS_EXPLICACAO : cfg.audio_max_segundos;
   if (fala.length > maxCar) return { modo: "texto", motivo: "resposta longa (caracteres)" };
   if (segundosEstimados(fala.length) > maxSeg)

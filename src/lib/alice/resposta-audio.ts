@@ -63,6 +63,8 @@ export async function responderComAudio(
     ultimaDoClienteEhAudio: boolean;
     soTexto: boolean;
     ehFollowup: boolean;
+    /** Toque do dia seguinte em áudio (o único follow-up falado). */
+    toqueAudio?: boolean;
     resposta: string;
     /** Texto escrito para falar (enviar_audio): vai em áudio mesmo com o cliente escrevendo. */
     explicacao?: string | undefined;

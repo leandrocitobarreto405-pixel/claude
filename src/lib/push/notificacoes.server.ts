@@ -4,7 +4,7 @@
  * campanha esperando aprovação, agendamento da promoção, resumo das 9h), respeita o papel e as
  * preferências, e não repete a mesma notificação (push_envios). Não usa WhatsApp.
  */
-import { textoResumoDoDia } from "@/lib/avisos";
+import { linhaToquesD1, textoResumoDoDia } from "@/lib/avisos";
 import { chaveTelefone } from "@/lib/avisos";
 import { dbServico, log, type Db } from "@/lib/mkt/contexto.server";
 import type { Papel } from "@/lib/tenant";
@@ -407,18 +407,25 @@ async function eventosDaEmpresa(
   );
   if (quer("resumo_dia") && horaDoResumo(horaSP)) {
     const hoje = agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    const { contagensDoDia } = await import("@/lib/mkt/avisos-equipe.server");
+    const { contagensDoDia, toquesD1DeOntem } = await import("@/lib/mkt/avisos-equipe.server");
     const { textosDaEmpresa } = await import("@/lib/mkt/textos.server");
-    const [n, textos] = await Promise.all([
+    const [n, textos, d1] = await Promise.all([
       contagensDoDia(db, empresaId, hoje),
       textosDaEmpresa(db, empresaId),
+      toquesD1DeOntem(db, empresaId, hoje),
     ]);
     const textoEquipe = textoResumoDoDia(n, textos["aviso_resumo"]);
+    // Admin: também o toque do dia seguinte de ontem (áudio × texto e quantos responderam).
+    const linhaD1 = linhaToquesD1(d1);
     for (const papel of ["admin", "atendente"] as Papel[])
       eventos.push({
         tipo: "resumo_dia",
         ref: hoje,
-        n: notificacaoResumo(papel, n, textoEquipe),
+        n: notificacaoResumo(
+          papel,
+          n,
+          papel === "admin" && linhaD1 ? `${textoEquipe}\n${linhaD1}` : textoEquipe,
+        ),
         para: (x) => x.papel === papel,
       });
     // Técnico: só os serviços dele (vinculado pelo e-mail ou nome do cadastro de técnicos).

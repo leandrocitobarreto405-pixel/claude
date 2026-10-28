@@ -29,7 +29,7 @@ import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
-import { MAX_CARACTERES_EXPLICACAO } from "./voz";
+import { MAX_CARACTERES_EXPLICACAO, MAX_CARACTERES_TOQUE_AUDIO } from "./voz";
 import {
   blocoDosModulos,
   chavesValidas,
@@ -69,6 +69,8 @@ export type Saida =
     };
 
 export type ContextoFerramenta = {
+  /** Toque do dia seguinte em áudio (D1 10h): falar_em_audio liberado, até ~25 s. */
+  toqueAudio?: boolean;
   /** Já mandou um áudio (falar_em_audio) nesta resposta: nunca dois seguidos. */
   falouEmAudio?: boolean;
   /** A Alice agendou um toque nesta resposta (trilha C ou curto): a cadência espera por ele. */
@@ -1964,15 +1966,16 @@ export async function executarFerramenta(
         return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
       }
       case "falar_em_audio": {
-        if (!ctx.cfg.audio_ativo || !ctx.cfg.audio_explicacoes)
+        if (!ctx.cfg.audio_ativo || !(ctx.cfg.audio_explicacoes || ctx.toqueAudio))
           return { conteudo: "Áudio não liberado: mande em texto.", erro: true };
         const p = EnviarMensagem.safeParse(entrada);
         if (!p.success) return invalida(p.error);
         if (ctx.precoTravado && temPreco(p.data.texto))
           return { conteudo: RECUSA_PRECO_TRAVADO, erro: true };
-        if (p.data.texto.length > MAX_CARACTERES_EXPLICACAO)
+        const maxAudio = ctx.toqueAudio ? MAX_CARACTERES_TOQUE_AUDIO : MAX_CARACTERES_EXPLICACAO;
+        if (p.data.texto.length > maxAudio)
           return {
-            conteudo: `O áudio passou de ${MAX_CARACTERES_EXPLICACAO} caracteres (${p.data.texto.length}): encurte e chame de novo.`,
+            conteudo: `O áudio passou de ${maxAudio} caracteres (${p.data.texto.length}): encurte e chame de novo.`,
             erro: true,
           };
         if (ctx.saida.some((s) => s.tipo === "fala") || ctx.falouEmAudio)

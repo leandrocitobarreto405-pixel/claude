@@ -2856,6 +2856,7 @@ export type Database = {
           oferta_followup_tipo: string;
           oferta_followup_valor: number | null;
           audio_explicacoes: boolean;
+          toque_d1_audio: boolean;
           audio_limite_diario_creditos: number | null;
           modulos: Json;
           audio_eleven_modelo: string;
@@ -2916,6 +2917,7 @@ export type Database = {
           oferta_followup_tipo?: string;
           oferta_followup_valor?: number | null;
           audio_explicacoes?: boolean;
+          toque_d1_audio?: boolean;
           audio_limite_diario_creditos?: number | null;
           modulos?: Json;
           audio_eleven_modelo?: string;
@@ -2976,6 +2978,7 @@ export type Database = {
           oferta_followup_tipo?: string;
           oferta_followup_valor?: number | null;
           audio_explicacoes?: boolean;
+          toque_d1_audio?: boolean;
           audio_limite_diario_creditos?: number | null;
           modulos?: Json;
           audio_eleven_modelo?: string;

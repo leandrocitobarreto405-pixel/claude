@@ -268,3 +268,16 @@ export function textoResumoDoDia(
     esperando: plural(n.esperando, "cliente esperando", "clientes esperando"),
   });
 }
+
+export type ToquesD1 = {
+  audio: number;
+  audioResponderam: number;
+  texto: number;
+  textoResponderam: number;
+};
+
+/** Linha do resumo das 9h sobre o toque do dia seguinte de ontem (áudio × texto). Vazia sem toque. */
+export function linhaToquesD1(n: ToquesD1): string {
+  if (!n.audio && !n.texto) return "";
+  return `Toque do dia seguinte ontem: ${n.audio} em áudio (${n.audioResponderam} responderam) · ${n.texto} em texto (${n.textoResponderam} responderam).`;
+}
