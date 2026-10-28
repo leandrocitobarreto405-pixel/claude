@@ -83,8 +83,8 @@ function PainelFollowup() {
           <Card>
             <h2 className="text-base font-bold">Funil Alice × equipe</h2>
             <p className="text-sm text-muted-foreground">
-              {data.funil.leadsNovos} leads novos desde {dateBR(de)}; {data.funil.semOrcamento}{" "}
-              ainda sem orçamento. Separado por quem fez o orçamento.
+              {data.funil.leadsNovos} leads que chamaram desde {dateBR(de)};{" "}
+              {data.funil.semOrcamento} ainda sem orçamento. Separado por quem fez o orçamento.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <ColunaFunil titulo="Alice" e={data.funil.alice} />

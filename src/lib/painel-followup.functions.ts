@@ -60,6 +60,8 @@ export const painelFollowupFn = createServerFn({ method: "GET" })
           "id, primeira_mensagem_em, created_at, orcamento_enviado_em, os_criada_em, realizado_em",
         )
         .eq("empresa_id", emp)
+        // Só quem chamou (como nos Indicadores); os leads dos disparos ficam de fora.
+        .eq("entrada", "receptivo")
         .gte("created_at", de)
         .lt("created_at", fim)
         .limit(5000),
