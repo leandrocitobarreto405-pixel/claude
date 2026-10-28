@@ -59,6 +59,14 @@ test("textos dos avisos", () => {
     corpoParadaNexa("ia", 2, 5),
     "5 conversas foram para a equipe (2 empresas). Confira o saldo e a chave da conta da IA.",
   );
+  assert.equal(
+    tituloParadaNexa("ia", "autenticacao", desde, agora),
+    "Alice parada: chave da Anthropic recusada ou vencida desde 14:05",
+  );
+  assert.equal(
+    corpoParadaNexa("ia", 1, 2, "autenticacao"),
+    "2 conversas foram para a equipe (1 empresa). Chave da Anthropic recusada ou vencida – trocar em console.anthropic.com.",
+  );
   assert.match(notaParadaConversa("credito"), /pausada.*equipe/);
   assert.equal(duracaoDaParada(desde, agora), "55 min");
   assert.equal(duracaoDaParada(new Date("2026-10-27T15:45:00Z"), agora), "2 h 15 min");

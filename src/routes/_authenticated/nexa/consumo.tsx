@@ -27,7 +27,7 @@ import {
   type ConsumoEmpresa,
   type FranquiaEmpresa,
 } from "@/lib/consumo";
-import { duracaoDaParada } from "@/lib/alice/parada-ia";
+import { ACAO_CHAVE_ANTHROPIC, duracaoDaParada } from "@/lib/alice/parada-ia";
 import { paradasDoMesFn, type ParadaIa } from "@/lib/paradas-ia.functions";
 import { SaldoContas } from "@/components/plano/saldo-contas";
 
@@ -215,8 +215,12 @@ function ConsumoNexa() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {p.provedor === "ia" ? "IA" : "Voz"} ·{" "}
-                  {p.causa === "credito" ? "sem crédito" : "chave recusada"} · desde{" "}
-                  {dateTimeBR(p.inicio)}
+                  {p.causa === "credito"
+                    ? "sem crédito"
+                    : p.provedor === "ia"
+                      ? ACAO_CHAVE_ANTHROPIC.toLowerCase()
+                      : "chave recusada"}{" "}
+                  · desde {dateTimeBR(p.inicio)}
                   {p.fim ? ` até ${dateTimeBR(p.fim)}` : ""} ·{" "}
                   {duracaoDaParada(new Date(p.inicio), p.fim ? new Date(p.fim) : new Date())} ·{" "}
                   {int(p.conversas)} conversa(s) para a equipe
