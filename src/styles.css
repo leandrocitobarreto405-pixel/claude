@@ -224,6 +224,15 @@
     max-width: 100%;
     overflow-x: clip;
   }
+
+  /* Seletor de empresa, menus e janelas travam a rolagem pondo "overflow: hidden" no body. Com o
+     "clip" acima no html, esse hidden não passava para a janela: o body virava uma caixa de
+     rolagem própria, a barra lateral e o topo (sticky) grudavam nela e sumiam da tela quando a
+     página estava rolada, a lista abria fora da vista e a rodinha parava (28/10). Durante a
+     trava, o html volta ao normal e o hidden vale para a janela, sem mudar a posição. */
+  html:has(> body[data-scroll-locked]) {
+    overflow-x: visible;
+  }
 }
 
 @utility card-surface {
