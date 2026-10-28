@@ -518,11 +518,13 @@ function Regras({
       </Recolhido>
 
       <Card className="text-sm">
-        A promoção de dia vago agora fica em{" "}
-        <Link to="/configuracoes/vendas" className="font-semibold text-marca underline">
-          Configurações › Vendas › Descontos e promoções
-        </Link>
-        , junto com o Pix, as boas-vindas, os cupons e a oferta do último follow-up.
+        <p>
+          A promoção de dia vago agora fica em{" "}
+          <Link to="/configuracoes/vendas" className="font-semibold text-marca underline">
+            Configurações › Vendas › Descontos e promoções
+          </Link>
+          , junto com o Pix, as boas-vindas, os cupons e a oferta do último follow-up.
+        </p>
       </Card>
     </>
   );
