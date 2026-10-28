@@ -55,14 +55,19 @@ INSERT INTO public.configuracoes_plataforma (chave, valor)
 VALUES ('empresa_modelo_id', '"11111111-1111-1111-1111-111111111111"')
 ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor;
 INSERT INTO public.payment_rates (empresa_id, channel, payment_type, installments, rate_percent, active)
-VALUES ('11111111-1111-1111-1111-111111111111', 'Maquininha', 'Crédito', 1, 3.5, true);
+VALUES ('11111111-1111-1111-1111-111111111111', 'Maquininha', 'Crédito', 1, 3.5, true)
+ON CONFLICT (empresa_id, channel, payment_type, installments) DO UPDATE SET rate_percent = 3.5;
 INSERT INTO public.app_settings (empresa_id, key, value) VALUES
   ('11111111-1111-1111-1111-111111111111', 'tax_percent', '6'),
   ('11111111-1111-1111-1111-111111111111', 'message_template', '"Olá"')
 ON CONFLICT (empresa_id, key) DO UPDATE SET value = EXCLUDED.value;
 SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000f9","role":"authenticated"}', true);
 SELECT private.provisionar_empresa('Empresa Teste Config', NULL, NULL, 4) AS nova \gset
-SELECT pg_temp.ok((SELECT count(*) FROM public.payment_rates WHERE empresa_id = :'nova') = 0, 'sem taxas copiadas');
+-- Taxas não são copiadas do modelo: a empresa nova ganha a tabela da InfinitePay (29/10).
+SELECT pg_temp.ok((SELECT count(*) FROM public.payment_rates WHERE empresa_id = :'nova') = 31, 'tabela InfinitePay');
+SELECT pg_temp.ok((SELECT rate_percent FROM public.payment_rates WHERE empresa_id = :'nova'
+                    AND channel = 'Maquininha' AND payment_type = 'Crédito' AND installments = 1) = 4.91,
+  'sem taxas copiadas do modelo');
 SELECT pg_temp.ok((SELECT count(*) FROM public.app_settings WHERE empresa_id = :'nova' AND key = 'tax_percent') = 0,
   'sem imposto copiado');
 SELECT pg_temp.ok((SELECT count(*) FROM public.app_settings WHERE empresa_id = :'nova' AND key = 'message_template') = 1,

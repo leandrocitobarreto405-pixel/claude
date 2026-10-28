@@ -25,8 +25,9 @@ SET LOCAL ROLE authenticated;
 INSERT INTO public.orcamento_configuracoes (empresa_id, desconto_adicional_ligado, vitrine_ligada, minimo_cadeiras)
 VALUES ('11111111-1111-1111-1111-111111111111', true, true, 90);
 RESET ROLE;
-SELECT pg_temp.ok((SELECT desconto_adicional_pct = 40 AND pix_pct = 10 AND boas_vindas_pct = 20
-                     AND NOT sujidade_ligado AND NOT distancia_ligado AND arredondamento = 'dezena_5'
+-- Padrões de 29/10: Pix 5% e sem arredondamento (as empresas que já tinham regras não mudam).
+SELECT pg_temp.ok((SELECT desconto_adicional_pct = 40 AND pix_pct = 5 AND boas_vindas_pct = 20
+                     AND NOT sujidade_ligado AND NOT distancia_ligado AND arredondamento = 'nenhum'
                      FROM public.orcamento_configuracoes WHERE empresa_id = '11111111-1111-1111-1111-111111111111'),
   'padrões das regras');
 
@@ -36,7 +37,7 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok((SELECT count(*) FROM public.orcamento_configuracoes) = 1, 'atendente lê as regras');
 UPDATE public.orcamento_configuracoes SET pix_pct = 25;
 RESET ROLE;
-SELECT pg_temp.ok((SELECT pix_pct FROM public.orcamento_configuracoes) = 10, 'atendente não altera as regras');
+SELECT pg_temp.ok((SELECT pix_pct FROM public.orcamento_configuracoes) = 5, 'atendente não altera as regras');
 
 -- Faixas de distância coerentes.
 DO $$

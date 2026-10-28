@@ -82,6 +82,8 @@ export type Etapa = {
   marcada: Marcacao | null;
   /** Lembrete fixo da etapa (combinado com a empresa). */
   lembrete?: string;
+  /** Enquanto não estiver pronta, isto impede os envios (texto do porquê). */
+  bloqueiaEnvio?: string;
 };
 
 export const ROTULO_RESPONSAVEL: Record<Responsavel, string> = { nexa: "Nexa", empresa: "Empresa" };
@@ -129,15 +131,21 @@ const DEFS: Def[] = [
     resolver: { rotulo: "Convidar", para: "/configuracoes/equipe" },
     podeRevisar: false,
     podeNaoSeAplica: false,
-    avaliar: ({ usuarios: u }) => {
+    avaliar: ({ usuarios: u, tecnicosAtivos }) => {
+      // Técnico cadastrado em Equipe conta mesmo sem login (o técnico não precisa entrar no app).
+      const temTecnico = u.tecnico > 0 || tecnicosAtivos > 0;
       const sem = [
         !u.admin && "o dono (administrador)",
         !u.atendente && "1 atendente",
-        !u.tecnico && "1 técnico",
+        !temTecnico && "1 técnico",
       ].filter((x): x is string => Boolean(x));
       if (!sem.length)
         return pronta(
-          `${plural(u.admin + u.atendente + u.tecnico, "pessoa", "pessoas")} com acesso.`,
+          `${plural(u.admin + u.atendente + u.tecnico, "pessoa", "pessoas")} com acesso${
+            !u.tecnico && tecnicosAtivos
+              ? ` e ${plural(tecnicosAtivos, "técnico", "técnicos")} em Equipe (sem login)`
+              : ""
+          }.`,
         );
       const convites = u.convitesPendentes
         ? ` ${plural(u.convitesPendentes, "convite ainda não aceito", "convites ainda não aceitos")}.`
@@ -209,6 +217,8 @@ const DEFS: Def[] = [
   },
   {
     chave: "whatsapp",
+    bloqueiaEnvio:
+      "Sem a caixa do WhatsApp conectada, nada sai: Alice, follow-ups, lead do site, confirmações e marketing.",
     titulo: "WhatsApp conectado",
     lembrete:
       "A empresa cadastra o próprio cartão na conta do WhatsApp dela na Meta; a Nexa não paga mensagens de clientes.",
@@ -224,6 +234,8 @@ const DEFS: Def[] = [
   },
   {
     chave: "modelos",
+    bloqueiaEnvio:
+      "Fora da janela de 24 h só sai modelo aprovado pela Meta: sem eles, não saem follow-ups, retomadas, lead do site, confirmações nem marketing.",
     titulo: "Modelos de mensagem aprovados",
     responsavel: "nexa",
     obrigatoria: true,
@@ -272,6 +284,8 @@ const DEFS: Def[] = [
   // ------------------------------------------------------------------ opcionais
   {
     chave: "token_meta",
+    bloqueiaEnvio:
+      "O envio passa pelo Chatwoot, mas sem o token o Nexa não cria nem corrige os modelos na Meta: cada modelo novo ou recusado precisa ser feito à mão no WhatsApp Manager, e até lá o envio que depende dele não sai.",
     titulo: "Token da Meta",
     responsavel: "nexa",
     obrigatoria: false,
@@ -407,11 +421,13 @@ export type Resumo = {
 };
 
 export function resumoEtapas(etapas: Etapa[]): Resumo {
+  // O que não se aplica vira opcional e sai da conta (não soma nem no total nem nas prontas).
   const conta = (obrigatoria: boolean) => {
-    const lista = etapas.filter((e) => e.obrigatoria === obrigatoria);
+    const lista = etapas.filter(
+      (e) => e.obrigatoria === obrigatoria && e.situacao !== "nao_se_aplica",
+    );
     return {
-      prontas: lista.filter((e) => e.situacao === "pronta" || e.situacao === "nao_se_aplica")
-        .length,
+      prontas: lista.filter((e) => e.situacao === "pronta").length,
       total: lista.length,
     };
   };
