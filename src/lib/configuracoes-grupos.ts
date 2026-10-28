@@ -30,16 +30,22 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "vendas",
     rotulo: "Vendas",
-    descricao: "Tabela de preços · Regras de orçamento · Taxas · Produtos",
+    descricao: "Tabela de preços · Regras de orçamento · Descontos e promoções · Taxas · Produtos",
     icone: ShoppingBag,
-    itens: ["Tabela de preços", "Regras de orçamento", "Taxas de pagamento", "Produtos"],
+    itens: [
+      "Tabela de preços",
+      "Regras de orçamento",
+      "Descontos e promoções",
+      "Taxas de pagamento",
+      "Produtos",
+    ],
   },
   {
     id: "agenda",
     rotulo: "Agenda",
-    descricao: "Agenda e promoção · Agenda dos técnicos no WhatsApp · Google Agenda",
+    descricao: "Agenda e técnicos · Agenda dos técnicos no WhatsApp · Google Agenda",
     icone: CalendarCog,
-    itens: ["Agenda e promoção", "Agenda dos técnicos no WhatsApp", "Google Agenda"],
+    itens: ["Agenda e técnicos", "Agenda dos técnicos no WhatsApp", "Google Agenda"],
   },
   {
     id: "mensagens",

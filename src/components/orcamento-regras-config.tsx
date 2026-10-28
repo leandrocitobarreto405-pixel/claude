@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DecimalInput, IntegerInput, MoneyInput } from "@/components/ui/numeric-input";
-import { brl } from "@/lib/format";
 import { CATEGORIA_LABEL } from "@/lib/precos";
 import { categoriaDeLimpeza } from "@/lib/unidade";
 import { usePapel } from "@/lib/tenant";
@@ -17,15 +16,7 @@ import {
   useSalvarConfigOrcamento,
   type LinhaConfigOrcamento,
 } from "@/lib/orcamento-config";
-import {
-  calcularVitrine,
-  regrasDaLinha,
-  type Categoria,
-  type FaixaValor,
-} from "@/lib/orcamento-regras";
-
-const CLASSE_SELECT =
-  "flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring";
+import type { Categoria, FaixaValor } from "@/lib/orcamento-regras";
 
 function Bloco({
   titulo,
@@ -92,14 +83,6 @@ export function OrcamentoRegrasConfig() {
     );
   const nulo = (v: number) => (v > 0 ? v : null);
 
-  const exemplo = useMemo(() => {
-    const r = regrasDaLinha(f as unknown as Record<string, unknown>);
-    return {
-      novo: calcularVitrine(352, r.vitrine, true),
-      antigo: calcularVitrine(352, r.vitrine, false),
-    };
-  }, [f]);
-
   async function gravar() {
     if (!empresaId) return;
     if (
@@ -112,7 +95,16 @@ export function OrcamentoRegrasConfig() {
     }
     setSalvando(true);
     try {
-      await salvar(empresaId, f);
+      // Pix e boas-vindas ficam em Descontos e promoções: aqui eles seguem como estão gravados.
+      const base = { ...CONFIG_PADRAO, ...linha };
+      await salvar(empresaId, {
+        ...base,
+        ...f,
+        pix_pct: base.pix_pct,
+        vitrine_ligada: base.vitrine_ligada,
+        boas_vindas_pct: base.boas_vindas_pct,
+        arredondamento: base.arredondamento,
+      });
       toast.success("Regras do orçamento salvas.");
     } catch (e) {
       toast.error(
@@ -131,8 +123,9 @@ export function OrcamentoRegrasConfig() {
       <div>
         <h2 className="text-lg font-semibold">Regras do orçamento</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tudo desligado deixa o orçamento como sempre foi. A atendente pode alterar o preço de
-          qualquer item; a mudança fica marcada como "editado", com o valor da tabela ao lado.
+          Só o cálculo do preço. Tudo desligado deixa o orçamento como sempre foi. A atendente pode
+          alterar o preço de qualquer item; a mudança fica marcada como "editado", com o valor da
+          tabela ao lado. Pix, boas-vindas e outras promoções ficam em Descontos e promoções.
           {bloqueado ? " Só o administrador pode mudar estas regras." : ""}
         </p>
       </div>
@@ -400,58 +393,6 @@ export function OrcamentoRegrasConfig() {
       ) : (
         <RecursoBloqueado recurso="deslocamento_rotas" compacto />
       )}
-
-      <Bloco
-        titulo="Pagamento"
-        descricao="Desconto no Pix da empresa: vale para o orçamento manual e o da Alice, o PDF, a vitrine e a promoção da agenda."
-        desabilitado={bloqueado}
-      >
-        <div>
-          <Label className="text-xs">Desconto no Pix (%)</Label>
-          <DecimalInput
-            value={f.pix_pct}
-            onValueChange={(v) => set("pix_pct", v)}
-            disabled={bloqueado}
-          />
-        </div>
-      </Bloco>
-
-      <Bloco
-        titulo="Vitrine com boas-vindas"
-        descricao="A tabela guarda o valor no Pix (o mínimo). A mensagem mostra o valor dos estofados, o cartão com boas-vindas para cliente novo e o Pix, sem preço por item."
-        ligado={f.vitrine_ligada}
-        onLigar={(v) => set("vitrine_ligada", v)}
-        desabilitado={bloqueado}
-      >
-        <div>
-          <Label className="text-xs">Boas-vindas (%)</Label>
-          <DecimalInput
-            value={f.boas_vindas_pct}
-            onValueChange={(v) => set("boas_vindas_pct", v)}
-            disabled={bloqueado}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Arredondamento</Label>
-          <select
-            value={f.arredondamento}
-            disabled={bloqueado}
-            onChange={(e) =>
-              set("arredondamento", e.target.value as LinhaConfigOrcamento["arredondamento"])
-            }
-            className={CLASSE_SELECT}
-          >
-            <option value="dezena_5">Dezena e múltiplo de 5</option>
-            <option value="noventa">Final ,90</option>
-            <option value="nenhum">Sem arredondamento</option>
-          </select>
-        </div>
-        <p className="text-sm text-muted-foreground sm:col-span-3">
-          Exemplo com tabela {brl(352)}: cliente novo {brl(exemplo.novo.vitrine)} →{" "}
-          {brl(exemplo.novo.cartao)} no cartão · {brl(exemplo.novo.pix)} no Pix. Cliente antigo{" "}
-          {brl(exemplo.antigo.cartao)} no cartão · {brl(exemplo.antigo.pix)} no Pix.
-        </p>
-      </Bloco>
 
       <Bloco
         titulo="Parcelas e validade"

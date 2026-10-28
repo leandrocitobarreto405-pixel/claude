@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Alerta (não bloqueia) ao marcar ou reagendar no dia do rodízio do veículo do técnico. As regras
- * (horários, duração e volta) vêm de "Agenda e promoção".
+ * (horários, duração e volta) vêm de "Agenda e técnicos".
  */
 export function AlertaRodizio({
   data,

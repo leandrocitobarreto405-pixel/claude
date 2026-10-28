@@ -204,7 +204,7 @@ export function AgendaTecnicos() {
         </p>
         {d.contatosInternos.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Marque um contato interno em Agenda e promoção › Contatos internos.
+            Marque um contato interno em Agenda e técnicos › Contatos internos.
           </p>
         ) : (
           <>
