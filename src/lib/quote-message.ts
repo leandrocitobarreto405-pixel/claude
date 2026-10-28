@@ -1,4 +1,5 @@
 /** Monta a mensagem de WhatsApp do orçamento. Nunca inclui custos, km ou margem. */
+import { comGarantia } from "@/lib/orcamento-garantia";
 import { brl } from "@/lib/format";
 import { preencherTexto } from "@/lib/modelos-mensagem";
 import { linhasPagamento } from "@/lib/texto-pagamento";
@@ -74,6 +75,7 @@ type QuoteMensagem = Pick<
       | "desconto_pct"
       | "cupom"
       | "numero"
+      | "valido_ate"
     >
   >;
 
@@ -164,7 +166,9 @@ export function quoteWhatsappMessage(
         pix: brl(vitrine.pix),
       }),
       "",
-      preencherTexto(t.texto("orcamento_validade"), { validade: String(t.validadeDias) }),
+      preencherTexto(comGarantia(t.texto("orcamento_validade"), quote.valido_ate), {
+        validade: String(t.validadeDias),
+      }),
     );
     return partes.join("\n");
   }
@@ -182,7 +186,7 @@ export function quoteWhatsappMessage(
   }
   partes.push(
     "",
-    preencherTexto(t.texto("orcamento_fechamento"), {
+    preencherTexto(comGarantia(t.texto("orcamento_fechamento"), quote.valido_ate), {
       pagamento: linhasPagamento({ total, parcelas, pix: aVista, pixPct: t.pixPct ?? 0 }),
       total: brl(total),
       parcelas: String(parcelas),

@@ -35,6 +35,8 @@ export type DadosOrcamentoPdf = {
   data: string;
   validoAte: string;
   validadeDias: number;
+  /** "15/12/2026": valor garantido até a data (serviço para data futura). */
+  garantidoAte?: string | null;
   desconto: { subtotal: string; rotulo: string; valor: string } | null;
   /** Como na mensagem do orçamento: total/parcelas no cartão e valor no Pix. */
   pagamento: string[];
@@ -146,9 +148,11 @@ export async function pdfDaOs(
   doc.campo("Forma de pagamento:", d.formaPagamento);
   doc.campo(
     "Observação:",
-    orc
-      ? `Este orçamento é válido por ${orc.validadeDias} dia${orc.validadeDias === 1 ? "" : "s"}, até ${orc.validoAte}.`
-      : substituir(c.validade, vars),
+    orc?.garantidoAte
+      ? `Valor garantido até ${orc.garantidoAte}.`
+      : orc
+        ? `Este orçamento é válido por ${orc.validadeDias} dia${orc.validadeDias === 1 ? "" : "s"}, até ${orc.validoAte}.`
+        : substituir(c.validade, vars),
   );
 
   if (d.temImp) {

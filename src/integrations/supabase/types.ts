@@ -5802,6 +5802,7 @@ export type Database = {
           sales_origin_id: string | null;
           proposta_documento_id: string | null;
           proposta_gerada_em: string | null;
+          valido_ate: string | null;
           proposta_url: string | null;
           acrescimo_distancia: number;
           acrescimo_sujidade: number;
@@ -5871,6 +5872,7 @@ export type Database = {
           sales_origin_id?: string | null;
           proposta_documento_id?: string | null;
           proposta_gerada_em?: string | null;
+          valido_ate?: string | null;
           proposta_url?: string | null;
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;
@@ -5940,6 +5942,7 @@ export type Database = {
           sales_origin_id?: string | null;
           proposta_documento_id?: string | null;
           proposta_gerada_em?: string | null;
+          valido_ate?: string | null;
           proposta_url?: string | null;
           acrescimo_distancia?: number;
           acrescimo_sujidade?: number;

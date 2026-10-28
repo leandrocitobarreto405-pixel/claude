@@ -2,6 +2,7 @@
  * Ferramentas da Alice. Toda leitura/gravação é filtrada pela empresa da tarefa (o processador
  * usa a chave de serviço, então o filtro por empresa é obrigatório em cada consulta).
  */
+import { dataDaGarantia, textoGarantia } from "@/lib/orcamento-garantia";
 import { SUGESTOES_DA_ALICE, sugestaoDaAlice } from "@/lib/sem-desfecho";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import { rotuloServico, textoQuantidade, unidadeDaCategoria } from "@/lib/unidade";
@@ -253,6 +254,9 @@ const AgendarFollowup = z
   .refine((v) => (v.em_minutos === undefined) !== (v.data_hora === undefined), {
     message: "informe em_minutos OU data_hora",
   });
+const GarantirValor = z.object({
+  data: z.string().trim().max(10),
+});
 const RegistrarPerda = z.object({
   motivo: z.enum(MOTIVOS_PERDA),
   sugestao: z.string().trim().max(80).optional(),
@@ -692,6 +696,19 @@ export function ferramentasDisponiveis(
           },
         },
         required: ["trilha", "motivo", "mensagem_sugerida"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "garantir_valor_ate",
+      description:
+        'Serviço para data futura (o cliente só pode ou precisa fazer daqui a mais de 2 semanas: item chegando, mudança): garante o valor do orçamento atual deste cliente até a data (AAAA-MM-DD, até 90 dias). A mensagem e o PDF do orçamento passam a mostrar "Valor garantido até dd/mm". Use quando o cliente aceitar guardar o valor (com ou sem reservar o horário).',
+      input_schema: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Até quando o valor fica garantido (AAAA-MM-DD)." },
+        },
+        required: ["data"],
         additionalProperties: false,
       },
     },
@@ -1610,6 +1627,35 @@ async function ofertaDoFollowup(
   return { pct, rotulo: "Condição especial (vaga nesta semana)" };
 }
 
+/** Valor garantido até a data (serviço para data futura): vale no orçamento atual do cliente. */
+async function garantirValorAte(ctx: ContextoFerramenta, data: string) {
+  if (!ctx.leadId) return { erro: true, texto: "Sem lead nesta conversa." };
+  const hoje = ctx.agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const ok = dataDaGarantia(data, hoje);
+  if ("erro" in ok) return { erro: true, texto: ok.erro };
+  const { data: q } = await ctx.admin
+    .from("quotes")
+    .select("id")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("crm_lead_id", ctx.leadId)
+    .in("status", ["rascunho", "enviado", "aprovado"])
+    .is("generated_work_order_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!q) return { erro: true, texto: "Este cliente não tem orçamento em aberto para garantir." };
+  const { error } = await ctx.admin
+    .from("quotes")
+    .update({ valido_ate: ok.data })
+    .eq("id", q.id)
+    .eq("empresa_id", ctx.empresaId);
+  if (error) return { erro: true, texto: `Não foi possível garantir o valor: ${error.message}` };
+  return {
+    erro: false,
+    texto: `${textoGarantia(ok.data)}: o orçamento, a mensagem e o PDF já mostram isso. Diga ao cliente com essas palavras.`,
+  };
+}
+
 async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof AgendarFollowup>) {
   if (!ctx.leadId) return { erro: true, texto: "Sem lead nesta conversa; não dá para agendar." };
   // Cadência do sistema (C/D): os toques das trilhas A e B são agendados sozinhos depois de cada
@@ -1635,7 +1681,9 @@ async function agendarFollowup(ctx: ContextoFerramenta, input: z.infer<typeof Ag
     return { erro: true, texto: "O follow-up precisa ser pelo menos 5 minutos no futuro." };
   }
   quando = proximoHorarioPermitido(quando, ctx.cfg.hora_inicio, ctx.cfg.hora_fim);
-  const daAlice = dentroDaJanela(ctx.ultimaDoCliente, quando);
+  // Retorno combinado (trilha C) fica com a Alice mesmo fora da janela de 24 h: na hora, vai o
+  // modelo fu_retorno_combinado (sem o modelo aprovado, vira tarefa da equipe).
+  const daAlice = dentroDaJanela(ctx.ultimaDoCliente, quando) || input.trilha === "C";
 
   await cancelarFollowupPendente(
     ctx.admin,
@@ -2022,6 +2070,10 @@ export async function executarFerramenta(
         return p.success
           ? { conteudo: await consultarAgenda(ctx, p.data), erro: false }
           : invalida(p.error);
+      }
+      case "garantir_valor_ate": {
+        const p = GarantirValor.safeParse(entrada);
+        return p.success ? r(await garantirValorAte(ctx, p.data.data)) : invalida(p.error);
       }
       case "agendar_followup": {
         const p = AgendarFollowup.safeParse(entrada);

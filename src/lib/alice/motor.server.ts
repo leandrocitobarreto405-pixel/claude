@@ -48,7 +48,13 @@ import {
   ultimaEhAudioSemTranscricao,
 } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
-import { GUIA_TOQUE_AUDIO, passoDaEtapa, toqueEmAudio, type Passo } from "./cadencia";
+import {
+  GUIA_TOQUE_AUDIO,
+  PASSO_RETORNO_COMBINADO,
+  passoDaEtapa,
+  toqueEmAudio,
+  type Passo,
+} from "./cadencia";
 import {
   MOTIVO_DO_CONTEXTO,
   ROTULO_CONTEXTO,
@@ -864,7 +870,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
 
   if (!dentroDoHorario(agora, cfg.hora_inicio, cfg.hora_fim)) {
     const depois = proximoHorarioPermitido(agora, cfg.hora_inicio, cfg.hora_fim);
-    if (dentroDaJanela(ultimaDoCliente, depois) || passo) {
+    if (dentroDaJanela(ultimaDoCliente, depois) || passo || dados.trilha === "C") {
       await db
         .from("ia_tarefas")
         .update({ situacao: "pendente", executar_apos: depois.toISOString(), enfileirada: false })
@@ -886,6 +892,9 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   }
   if (!dentroDaJanela(ultimaDoCliente, agora)) {
     if (passo) return toqueForaDaJanela(db, tarefa, cfg, d, passo, dados);
+    // Retorno combinado fora da janela: o modelo fu_retorno_combinado (ou a equipe, sem ele).
+    if (dados.trilha === "C")
+      return toqueForaDaJanela(db, tarefa, cfg, d, PASSO_RETORNO_COMBINADO, dados);
     await followupParaEquipe(
       db,
       tarefa,
