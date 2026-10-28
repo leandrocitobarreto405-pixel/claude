@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { createFileRoute } from "@tanstack/react-router";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +10,12 @@ import { DeteccaoDaOrigem } from "@/components/origem/deteccao-origem";
 import { AbasDeRota, CabecalhoDeTela, Card, Recolhido } from "@/components/nexa";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
 import { FunilMini, GraficoVendasPorOrigem } from "@/components/painel/graficos";
-import { VendasPorEquipe } from "@/components/painel/vendas-por-equipe";
+import { QuemVendeu } from "@/components/painel/quem-vendeu";
 import { ABAS_DE_TELA } from "@/lib/menu";
-import { brl, currentMonth, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
+import { brl, currentMonth, dateBR, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
 import { duracaoMin, taxa, useIndicadores, type Indicadores } from "@/lib/funil";
 import { useMinhaEmpresa } from "@/lib/tenant";
+import { vendidoDoPeriodoFn, type VendidoDoPeriodo } from "@/lib/vendido.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/indicadores")({
@@ -49,6 +52,12 @@ function IndicadoresPage() {
   const { data: empresa } = useMinhaEmpresa();
   // Só os leads que chamaram (entrada receptiva): é aí que se mede a captação.
   const { data, isLoading, error } = useIndicadores(de, ate, empresa?.empresa.id, "receptivo");
+  // Vendido pela data do serviço (a mesma conta do Início): serviços com data no período.
+  const buscarVendido = useServerFn(vendidoDoPeriodoFn);
+  const vendido = useQuery({
+    queryKey: ["vendido-do-periodo", de, ate],
+    queryFn: () => buscarVendido({ data: { de, ate } }),
+  });
 
   const presets = [
     { rotulo: "Este mês", de: monthStart(mes), ate: monthEnd(mes) },
@@ -120,22 +129,25 @@ function IndicadoresPage() {
       ) : isLoading || !data ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : (
-        <Conteudo d={data} />
+        <Conteudo d={data} vendido={vendido.data ?? null} />
       )}
-      <VendasPorEquipe de={de} ate={ate} />
+      {vendido.data ? (
+        <QuemVendeu
+          linhas={vendido.data.quemVendeu}
+          rotuloPeriodo={`${dateBR(de)} a ${dateBR(ate)}`}
+          proximosMeses={vendido.data.proximosMeses}
+        />
+      ) : null}
       <DeteccaoDaOrigem de={de} ate={ate} />
       <VisaoGeralCrm />
     </div>
   );
 }
 
-function Conteudo({ d }: { d: Indicadores }) {
+function Conteudo({ d, vendido }: { d: Indicadores; vendido: VendidoDoPeriodo | null }) {
   const f = d.funil;
   const g = d.periodo_geral;
-  const porOrigem = d.origens
-    .filter((o) => o.vendas > 0)
-    .map((o) => ({ origem: o.origem, valor: o.vendido, quantidade: o.vendas }))
-    .sort((a, b) => b.valor - a.valor);
+  const porOrigem = vendido?.porOrigem ?? [];
   return (
     <>
       <div className="grid grid-cols-2 gap-2.5">
@@ -160,9 +172,9 @@ function Conteudo({ d }: { d: Indicadores }) {
           }
         />
         <CartaoNumero
-          titulo="Vendido (pela data da venda)"
-          valor={brl(d.valores.vendido)}
-          detalhe={`orçado ${brl(d.valores.orcado)} · recebido ${brl(d.valores.recebido)}`}
+          titulo="Vendido (serviços no período)"
+          valor={vendido ? brl(vendido.valor) : "…"}
+          detalhe={vendido ? `${vendido.quantidade} OS · mesma conta do Início` : "carregando"}
         />
       </div>
       <p className="text-xs text-muted-foreground">
@@ -176,7 +188,7 @@ function Conteudo({ d }: { d: Indicadores }) {
       </Card>
 
       <Card>
-        <h2 className="text-sm font-bold">Vendas por origem (pela data da venda)</h2>
+        <h2 className="text-sm font-bold">Vendas por origem (serviços no período)</h2>
         <GraficoVendasPorOrigem dados={porOrigem} />
       </Card>
 
@@ -214,7 +226,7 @@ function Conteudo({ d }: { d: Indicadores }) {
         </div>
       </Recolhido>
 
-      <Recolhido titulo="Vendas no período, pela data da venda (com ou sem lead)">
+      <Recolhido titulo="Fechado no período, pela data da venda (com ou sem lead)">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-sm">
           <Numero rotulo="Orçamentos criados" valor={String(g.orcamentos)} />
           <Numero

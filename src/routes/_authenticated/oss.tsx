@@ -49,13 +49,6 @@ import {
   type OsDaLista,
 } from "@/lib/oss-lista";
 import { cn } from "@/lib/utils";
-import {
-  OPCOES_QUEM_VENDEU,
-  filtrarQuemVendeu,
-  temVendaDaNexa,
-  vendidaPelaNexa,
-  type QuemVendeu,
-} from "@/lib/vendido-por";
 
 export const Route = createFileRoute("/_authenticated/oss")({
   validateSearch: (s: Record<string, unknown>): BuscaOss => {
@@ -119,8 +112,6 @@ function OssCriadas() {
   const [ate, setAte] = useState(monthEnd(mes));
   const [vendedora, setVendedora] = useState("");
   const [tecnico, setTecnico] = useState("");
-  // Decisão E: Vendas da Nexa x da empresa (só aparece quando há venda da Nexa).
-  const [quemVendeu, setQuemVendeu] = useState<QuemVendeu>("todas");
   const [filtros, setFiltros] = useState(false);
   const { data: vendedoras } = useSalespeople(false);
   const { data: tecnicos } = useTechnicians(false);
@@ -163,9 +154,12 @@ function OssCriadas() {
         (!vendedora || r.salesperson_id === vendedora) &&
         (!tecnico || r.visits.some((v) => v.technician_id === tecnico)),
     );
-    return buscarOs(filtrarQuemVendeu(base, quemVendeu), busca);
-  }, [fonte.data, chip, vendedora, tecnico, busca, quemVendeu]);
-  const separaVendas = temVendaDaNexa(fonte.data ?? []);
+    return buscarOs(base, busca);
+  }, [fonte.data, chip, vendedora, tecnico, busca]);
+  // "Quem vendeu" (28/10): uma opção por vendedora que aparece nas OS da lista (Maria, Carol, Alice…).
+  const pessoas = (vendedoras ?? []).filter((v) =>
+    (fonte.data ?? []).some((r) => r.salesperson_id === v.id),
+  );
 
   const total = totalDaLista(lista);
   const rotuloPeriodo = semPeriodo
@@ -175,7 +169,6 @@ function OssCriadas() {
       : `de ${dateBR(de)} a ${dateBR(ate)}`;
   const filtrosAtivos =
     (vendedora ? 1 : 0) +
-    (quemVendeu !== "todas" ? 1 : 0) +
     (tecnico ? 1 : 0) +
     (!semPeriodo && (de !== monthStart(mes) || ate !== monthEnd(mes)) ? 1 : 0);
 
@@ -232,24 +225,24 @@ function OssCriadas() {
         })}
       </div>
 
-      {separaVendas || quemVendeu !== "todas" ? (
+      {pessoas.length > 1 || vendedora ? (
         <div
-          className="flex rounded-full border border-border bg-card p-1"
+          className="flex gap-1 overflow-x-auto rounded-full border border-border bg-card p-1"
           role="group"
           aria-label="Quem vendeu"
         >
-          {OPCOES_QUEM_VENDEU.map((o) => (
+          {[{ id: "", name: "Todas" }, ...pessoas].map((o) => (
             <button
-              key={o.id}
+              key={o.id || "todas"}
               type="button"
-              aria-pressed={quemVendeu === o.id}
-              onClick={() => setQuemVendeu(o.id)}
+              aria-pressed={vendedora === o.id}
+              onClick={() => setVendedora(o.id)}
               className={cn(
-                "min-h-11 flex-1 rounded-full px-3 text-sm font-semibold transition-colors",
-                quemVendeu === o.id ? "bg-marca text-marca-foreground" : "text-muted-foreground",
+                "min-h-11 shrink-0 flex-1 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition-colors",
+                vendedora === o.id ? "bg-marca text-marca-foreground" : "text-muted-foreground",
               )}
             >
-              {o.rotulo}
+              {o.name}
             </button>
           ))}
         </div>
@@ -289,7 +282,6 @@ function OssCriadas() {
                           />
                         ) : null}
                         {r.eh_teste ? <Chip tom="neutro">Teste</Chip> : null}
-                        {separaVendas && vendidaPelaNexa(r) ? <Chip tom="neutro">Nexa</Chip> : null}
                       </span>
                       <Chip tom={sit.tom}>{sit.rotulo}</Chip>
                     </span>
@@ -422,7 +414,6 @@ function OssCriadas() {
                   setAte(monthEnd(mes));
                   setVendedora("");
                   setTecnico("");
-                  setQuemVendeu("todas");
                 }}
               >
                 Limpar

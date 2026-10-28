@@ -249,5 +249,9 @@ export type ResumoPainel = {
   lucro: number | null;
   vendidoPorSemana: (Semana & { valor: number; quantidade: number })[];
   vendidoPorOrigem: { origem: string; valor: number; quantidade: number }[];
+  /** Quem vendeu no período, pela data do serviço (mesma base do Vendido). */
+  quemVendeu: { vendedora: string; valor: number; quantidade: number }[];
+  /** Fechado neste mês com serviço nos meses seguintes (projeção, fora do Vendido). */
+  proximosMeses: { valor: number; quantidade: number };
   chips: { hoje: number; amanha: number; paraConcluir: number };
 };

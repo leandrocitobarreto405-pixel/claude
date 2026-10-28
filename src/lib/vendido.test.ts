@@ -4,7 +4,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   vendidoNoPeriodo,
+  vendidoParaProximosMeses,
   vendidoPorOrigemServico,
+  vendidoPorVendedora,
   visitasComValor,
   type OsVendido,
   type VisitaVendido,
@@ -136,4 +138,45 @@ test("por origem: valor e OS distintas", () => {
     { origem: "Google", valor: 300, quantidade: 1 },
     { origem: "Sem origem", valor: 200, quantidade: 1 },
   ]);
+});
+
+test("quem vendeu: por vendedora, pela data do serviço, e a soma bate com o Vendido do mês", () => {
+  const oss = [
+    os(300, [visita("a", "2026-10-10", 300)], { vendedora: "Vendedora A" }),
+    os(400, [visita("b1", "2026-10-25", 200), visita("b2", "2026-11-05", 200)], {
+      vendedora: "Vendedora B",
+    }),
+    os(150, [visita("c", "2026-10-12", 150)], { vendedora: null }),
+  ];
+  const v = vendidoNoPeriodo(oss, OUT, HOJE);
+  const q = vendidoPorVendedora(v);
+  assert.deepEqual(
+    q.map((l) => [l.vendedora, l.valor, l.quantidade]),
+    [
+      ["Vendedora A", 300, 1],
+      ["Vendedora B", 200, 1],
+      ["Sem vendedora", 150, 1],
+    ],
+  );
+  assert.equal(
+    q.reduce((s, l) => s + l.valor, 0),
+    v.valor,
+  );
+});
+
+test("já vendido para os próximos meses: fechado no mês, serviço depois do mês, fora do Vendido", () => {
+  const fechadas = [
+    // Fechada em outubro: metade em outubro (Vendido) e metade em novembro (projeção).
+    os(400, [visita("x1", "2026-10-25", 200), visita("x2", "2026-11-05", 200)], {
+      sale_date: "2026-10-20",
+    }),
+    // Fechada em outubro, tudo em dezembro.
+    os(250, [visita("y", "2026-12-02", 250)], { sale_date: "2026-10-21" }),
+    // Fechada em setembro: não entra na projeção de outubro.
+    os(500, [visita("z", "2026-11-10", 500)], { sale_date: "2026-09-30" }),
+    // Cancelada: não entra.
+    os(90, [visita("w", "2026-11-03", 90)], { sale_date: "2026-10-05", status: "Cancelada" }),
+  ];
+  assert.deepEqual(vendidoParaProximosMeses(fechadas, OUT, HOJE), { valor: 450, quantidade: 2 });
+  assert.equal(vendidoNoPeriodo(fechadas, OUT, HOJE).valor, 200);
 });

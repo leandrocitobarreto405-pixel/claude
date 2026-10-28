@@ -20,11 +20,13 @@ import { fetchReceivables } from "@/lib/receivables";
 import { fetchMonthSummary } from "@/lib/reports";
 import {
   vendidoNoPeriodo,
+  vendidoParaProximosMeses,
   vendidoPorOrigemServico,
   vendidoPorSemanaServico,
+  vendidoPorVendedora,
   type Vendido,
 } from "@/lib/vendido";
-import { buscarOsDoPeriodo } from "@/lib/vendido-dados";
+import { buscarOsDoPeriodo, buscarOsVendidasNoPeriodo } from "@/lib/vendido-dados";
 
 // Painel financeiro do Início. Roda no servidor com o cliente da própria pessoa (RLS da empresa
 // ativa), devolve só totais e corta despesas/lucro para quem não é admin. OS marcadas como
@@ -84,35 +86,38 @@ export const resumoPainel = createServerFn({ method: "GET" })
     ]);
     for (const r of [recebidosRes, funil, funilAnterior]) if (r.error) throw r.error;
 
-    const [metaRes, qtdHoje, qtdAmanha, paraConcluir, resumoMes] = await Promise.all([
-      db.from("monthly_goals").select("goal_amount").eq("month", `${mes}-01`).maybeSingle(),
-      contar(
-        db
-          .from("visits")
-          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
-          .eq("work_order.eh_teste", false)
-          .eq("scheduled_date", hoje)
-          .neq("status", "Cancelado"),
-      ),
-      contar(
-        db
-          .from("visits")
-          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
-          .eq("work_order.eh_teste", false)
-          .eq("scheduled_date", amanha)
-          .neq("status", "Cancelado"),
-      ),
-      contar(
-        db
-          .from("visits")
-          .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
-          .eq("work_order.eh_teste", false)
-          .lte("scheduled_date", hoje)
-          .neq("status", "Concluído")
-          .neq("status", "Cancelado"),
-      ),
-      admin ? fetchMonthSummary(noMes.de, noMes.ate, db) : Promise.resolve(null),
-    ]);
+    const [metaRes, qtdHoje, qtdAmanha, paraConcluir, resumoMes, vendidasNoMes] = await Promise.all(
+      [
+        db.from("monthly_goals").select("goal_amount").eq("month", `${mes}-01`).maybeSingle(),
+        contar(
+          db
+            .from("visits")
+            .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+            .eq("work_order.eh_teste", false)
+            .eq("scheduled_date", hoje)
+            .neq("status", "Cancelado"),
+        ),
+        contar(
+          db
+            .from("visits")
+            .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+            .eq("work_order.eh_teste", false)
+            .eq("scheduled_date", amanha)
+            .neq("status", "Cancelado"),
+        ),
+        contar(
+          db
+            .from("visits")
+            .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
+            .eq("work_order.eh_teste", false)
+            .lte("scheduled_date", hoje)
+            .neq("status", "Concluído")
+            .neq("status", "Cancelado"),
+        ),
+        admin ? fetchMonthSummary(noMes.de, noMes.ate, db) : Promise.resolve(null),
+        buscarOsVendidasNoPeriodo(db, noMes.de, noMes.ate),
+      ],
+    );
     if (metaRes.error) throw metaRes.error;
 
     // Vendido pela data do serviço (sem OS de teste, cancelada ou excluída; visita cancelada fora).
@@ -196,6 +201,8 @@ export const resumoPainel = createServerFn({ method: "GET" })
       lucro: resumoMes ? round2(resumoMes.netProfit) : null,
       vendidoPorSemana: vendidoPorSemanaServico(oss, semanas, hoje),
       vendidoPorOrigem: vendidoPorOrigemServico(vAtual),
+      quemVendeu: vendidoPorVendedora(vAtual),
+      proximosMeses: vendidoParaProximosMeses(vendidasNoMes, noMes, hoje),
       chips: { hoje: qtdHoje, amanha: qtdAmanha, paraConcluir },
     };
   });
