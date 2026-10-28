@@ -838,7 +838,7 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
     db
       .from("quotes")
       .select(
-        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom, numero, acrescimo_distancia",
+        "id, cliente_nome, cliente_telefone, total, valor_a_vista, valor_pix, forma_pagamento, parcelas, status, updated_at, proposta_documento_id, created_at, subtotal, desconto, desconto_tipo, desconto_pct, cupom, numero, acrescimo_distancia, valido_ate",
       )
       .eq("id", quoteId)
       .maybeSingle(),
@@ -881,6 +881,8 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
   const aVista = Number(o.valor_a_vista ?? 0) > 0 ? Number(o.valor_a_vista) : total;
   const desconto = Number(o.desconto ?? 0);
   const { data, validoAte } = datasDoOrcamento(o.created_at, dias);
+  // Serviço para data futura: o valor fica garantido até a data combinada.
+  const garantia = (o as { valido_ate?: string | null }).valido_ate ?? null;
 
   return {
     ...dadosPdfDaWo(wo),
@@ -891,6 +893,11 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
       data,
       validoAte,
       validadeDias: dias,
+      ...(garantia
+        ? {
+            garantidoAte: `${garantia.slice(8, 10)}/${garantia.slice(5, 7)}/${garantia.slice(0, 4)}`,
+          }
+        : {}),
       desconto:
         desconto > 0
           ? {

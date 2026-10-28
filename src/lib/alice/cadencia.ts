@@ -31,7 +31,8 @@ export type Etapa =
   | "AE_FIM"
   | "BE"
   | "BE_FIM"
-  | "R";
+  | "R"
+  | "RC";
 
 export type Passo = {
   etapa: Etapa;
@@ -314,6 +315,21 @@ export function toqueEmAudio(o: {
 /** Instrução do toque D1 em áudio (o guia do passo diz o "algo novo"). */
 export const GUIA_TOQUE_AUDIO =
   "Faça este toque em ÁUDIO, com falar_em_audio: até 350 caracteres (uns 25 segundos), escrito para ser falado. Comece pelo nome do cliente; lembre a dor ou o motivo que ele contou e traga o algo novo do guia; sem pressão e sem falar de validade; não repita pergunta já feita; termine com UMA pergunta. Vale a regra de empatia (se ele contou algo da vida dele, comece por isso). Horários, valores e datas não vão no áudio: se precisar, mande depois, em texto, sem outra pergunta.";
+
+/** Modelo do retorno combinado (trilha C) fora da janela de 24 h (só o nome). */
+export const MODELO_RETORNO_COMBINADO = "fu_retorno_combinado";
+
+/**
+ * Retorno combinado fora da janela (28/10): o modelo pergunta se pode continuar; quando o cliente
+ * responde, a Alice segue com a empatia antes do interesse.
+ */
+export const PASSO_RETORNO_COMBINADO: Passo = {
+  etapa: "RC",
+  trilha: "A",
+  quando: { minutos: 0 },
+  guia: "Retorno combinado: pergunte como estão as coisas e se pode continuar o atendimento.",
+  modelo: MODELO_RETORNO_COMBINADO,
+};
 
 /** Modelo da retomada de orçamentos parados (nome, dia1, dia2). */
 export const MODELO_RETOMADA = "fu_retomada_horarios";
