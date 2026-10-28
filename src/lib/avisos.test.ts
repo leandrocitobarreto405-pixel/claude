@@ -99,7 +99,7 @@ test("orçamentos sem desfecho: aviso para o escritório, não para o técnico",
   const a = montarAvisos(com, "atendente").find((x) => x.id === "sem-desfecho")!;
   assert.equal(a.titulo, "3 orçamentos esperando o motivo");
   assert.equal(a.tom, "atencao");
-  assert.deepEqual(a.link, { to: "/crm/sem-desfecho" });
+  assert.deepEqual(a.link, { to: "/crm/follow-ups", search: { aba: "sem-desfecho" } });
   assert.equal(
     montarAvisos({ ...fontes, semDesfecho: 1 }, "admin").find((x) => x.id === "sem-desfecho")!
       .titulo,

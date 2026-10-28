@@ -27,6 +27,7 @@ import {
   type Vendido,
 } from "@/lib/vendido";
 import { buscarOsDoPeriodo, buscarOsVendidasNoPeriodo } from "@/lib/vendido-dados";
+import { aplicarQuemVendeu } from "@/lib/quem-vendeu.server";
 
 // Painel financeiro do Início. Roda no servidor com o cliente da própria pessoa (RLS da empresa
 // ativa), devolve só totais e corta despesas/lucro para quem não é admin. OS marcadas como
@@ -124,6 +125,16 @@ export const resumoPainel = createServerFn({ method: "GET" })
     const vAtual = vendidoNoPeriodo(oss, atual, hoje);
     const vAnterior = vendidoNoPeriodo(oss, anterior, hoje);
     const vMes = vendidoNoPeriodo(oss, noMes, hoje);
+    // Quem vendeu pela regra de 29/10 (só na leitura): autor do orçamento, salvo negociação da equipe.
+    const idsAtual = new Set(vAtual.visitas.map((v) => v.osId));
+    const vQuem = vendidoNoPeriodo(
+      await aplicarQuemVendeu(
+        context.empresaId,
+        oss.filter((o) => idsAtual.has(o.id)),
+      ),
+      atual,
+      hoje,
+    );
 
     // Recebido = o que entrou no caixa (data do pagamento).
     const recebidos = (
@@ -201,7 +212,7 @@ export const resumoPainel = createServerFn({ method: "GET" })
       lucro: resumoMes ? round2(resumoMes.netProfit) : null,
       vendidoPorSemana: vendidoPorSemanaServico(oss, semanas, hoje),
       vendidoPorOrigem: vendidoPorOrigemServico(vAtual),
-      quemVendeu: vendidoPorVendedora(vAtual),
+      quemVendeu: vendidoPorVendedora(vQuem),
       proximosMeses: vendidoParaProximosMeses(vendidasNoMes, noMes, hoje),
       chips: { hoje: qtdHoje, amanha: qtdAmanha, paraConcluir },
     };

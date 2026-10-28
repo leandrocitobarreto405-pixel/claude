@@ -9,7 +9,7 @@ const rotas = (g: ReturnType<typeof menuDoPapel>) =>
 test("admin: Dia a dia, Vendas, Financeiro e Empresa (sem Nexa)", () => {
   assert.deepEqual(rotas(menuDoPapel("admin")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
-    Vendas: ["/crm/funil", "/crm/retornos", "/marketing"],
+    Vendas: ["/crm/dashboard", "/crm/follow-ups", "/crm/leads", "/marketing"],
     Financeiro: ["/financeiro", "/notas", "/exportacoes"],
     Empresa: ["/configuracoes"],
   });
@@ -35,7 +35,7 @@ test("Primeiros passos só enquanto faltar etapa, com o progresso no rótulo", (
 test("atendente: no Financeiro só A receber, sem Empresa; técnico: só Agenda e Serviços", () => {
   assert.deepEqual(rotas(menuDoPapel("atendente")), {
     "Dia a dia": ["/inicio", "/conversas", "/agenda", "/oss", "/mensagens"],
-    Vendas: ["/crm/funil", "/crm/retornos", "/marketing"],
+    Vendas: ["/crm/dashboard", "/crm/follow-ups", "/crm/leads", "/marketing"],
     Financeiro: ["/a-receber"],
   });
   assert.deepEqual(rotas(menuDoPapel("tecnico")), { "Dia a dia": ["/agenda", "/servicos"] });
@@ -84,8 +84,21 @@ test("o item fica marcado nas abas da mesma tela", () => {
 
 test("endereços antigos têm destino", () => {
   assert.deepEqual(REDIRECIONAMENTOS["/avisos"], { to: "/inicio", search: { avisos: "1" } });
-  assert.equal(REDIRECIONAMENTOS["/crm/repescagens"]?.to, "/crm/retornos");
-  assert.equal(REDIRECIONAMENTOS["/crm/visao-geral"]?.to, "/indicadores");
+  assert.equal(REDIRECIONAMENTOS["/crm/repescagens"]?.to, "/crm/follow-ups");
+  assert.equal(REDIRECIONAMENTOS["/crm/retornos"]?.to, "/crm/follow-ups");
+  assert.deepEqual(REDIRECIONAMENTOS["/crm/sem-desfecho"], {
+    to: "/crm/follow-ups",
+    search: { aba: "sem-desfecho" },
+  });
+  assert.deepEqual(REDIRECIONAMENTOS["/crm/leads-site"], {
+    to: "/crm/follow-ups",
+    search: { aba: "site" },
+  });
+  for (const antigo of ["/crm/visao-geral", "/indicadores", "/crm/follow-up"])
+    assert.equal(REDIRECIONAMENTOS[antigo]?.to, "/crm/dashboard", antigo);
+  // O Quadro continua abrindo (só saiu do menu): fica como aba da lista de Leads.
+  assert.equal(REDIRECIONAMENTOS["/crm/funil"], undefined);
+  assert.ok(ABAS_DE_TELA.leads.some((a) => a.to === "/crm/funil"));
   assert.equal(REDIRECIONAMENTOS["/usuarios"]?.to, "/configuracoes/equipe");
   for (const r of Object.values(REDIRECIONAMENTOS)) assert.ok(podeAcessar("admin", r.to), r.to);
 });

@@ -85,7 +85,7 @@ function Leads() {
   return (
     <>
       <PageHeader
-        title="Leads e funil"
+        title="Leads"
         description={`${resumo.total} lead(s) · ${resumo.quentes} quente(s) · ${resumo.convertidos} convertido(s) em OS`}
         actions={
           <Button className="gap-2" onClick={() => setNovoAberto(true)}>
@@ -93,7 +93,7 @@ function Leads() {
           </Button>
         }
       />
-      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads e funil" className="mb-4" />
+      <AbasDeRota abas={ABAS_DE_TELA.leads} rotulo="Leads" className="mb-4" />
 
       <div className="card-surface mb-4 p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

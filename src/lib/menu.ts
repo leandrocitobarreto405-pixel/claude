@@ -2,8 +2,10 @@
 // Sem acesso a banco, para poder testar. Quem monta a barra de baixo está em navegacao.ts.
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Bot,
   Building2,
+  CalendarClock,
   CalendarDays,
   ClipboardList,
   Coins,
@@ -20,7 +22,6 @@ import {
   Receipt,
   Send,
   Settings,
-  Undo2,
   UserPlus,
 } from "lucide-react";
 import { podeAcessar, type Papel } from "@/lib/tenant";
@@ -58,20 +59,14 @@ export const GRUPOS_MENU: GrupoMenu[] = [
     id: "vendas",
     rotulo: "Vendas",
     itens: [
+      { to: "/crm/dashboard", rotulo: "Dashboard", icone: BarChart3 },
+      { to: "/crm/follow-ups", rotulo: "Follow-ups", icone: CalendarClock },
       {
-        to: "/crm/funil",
-        rotulo: "Leads e funil",
+        to: "/crm/leads",
+        rotulo: "Leads",
         icone: Filter,
-        ativoEm: [
-          "/crm/leads",
-          "/crm/leads-site",
-          "/crm/lead",
-          "/crm/sem-desfecho",
-          "/crm/follow-up",
-          "/indicadores",
-        ],
+        ativoEm: ["/crm/funil", "/crm/lead", "/crm/importar"],
       },
-      { to: "/crm/retornos", rotulo: "Retornos", icone: Undo2 },
       { to: "/marketing", rotulo: "Marketing WhatsApp", icone: Send, ativoEm: ["/listas"] },
     ],
   },
@@ -173,8 +168,15 @@ export function itemAtivo(item: Pick<ItemMenu, "to" | "ativoEm">, pathname: stri
 /** Endereços antigos → novos (links salvos e notificações continuam abrindo). */
 export const REDIRECIONAMENTOS: Record<string, { to: string; search?: Record<string, string> }> = {
   "/avisos": { to: "/inicio", search: { avisos: "1" } },
-  "/crm/repescagens": { to: "/crm/retornos" },
-  "/crm/visao-geral": { to: "/indicadores" },
+  // Vendas (29/10): Retornos, Sem desfecho e Do site viraram abas dos Follow-ups; Indicadores,
+  // a visão geral e o painel de follow-up foram para o Dashboard.
+  "/crm/repescagens": { to: "/crm/follow-ups" },
+  "/crm/retornos": { to: "/crm/follow-ups" },
+  "/crm/sem-desfecho": { to: "/crm/follow-ups", search: { aba: "sem-desfecho" } },
+  "/crm/leads-site": { to: "/crm/follow-ups", search: { aba: "site" } },
+  "/crm/visao-geral": { to: "/crm/dashboard" },
+  "/indicadores": { to: "/crm/dashboard" },
+  "/crm/follow-up": { to: "/crm/dashboard" },
   "/usuarios": { to: "/configuracoes/equipe" },
 };
 
@@ -189,12 +191,8 @@ export const ABAS_DE_TELA = {
     { to: "/orcamentos", rotulo: "Orçamentos" },
   ],
   leads: [
-    { to: "/crm/funil", rotulo: "Quadro" },
     { to: "/crm/leads", rotulo: "Lista" },
-    { to: "/crm/leads-site", rotulo: "Do site" },
-    { to: "/crm/sem-desfecho", rotulo: "Sem desfecho" },
-    { to: "/crm/follow-up", rotulo: "Follow-up" },
-    { to: "/indicadores", rotulo: "Indicadores" },
+    { to: "/crm/funil", rotulo: "Quadro" },
   ],
   financeiro: [
     { to: "/financeiro", rotulo: "Resumo" },

@@ -24,7 +24,8 @@ export const RECURSOS: Array<{ chave: Recurso; rotulo: string; rotas: string[]; 
     chave: "crm",
     rotulo: "CRM e funil de leads",
     rotas: ["/crm", "/indicadores"],
-    telas: "Leads e funil (Quadro, Lista, Do site, Indicadores), Retornos, Leads do site",
+    telas:
+      "Vendas: Dashboard, Follow-ups (retornos, sem desfecho, do site), Leads (lista e quadro)",
   },
   {
     chave: "deslocamento_rotas",

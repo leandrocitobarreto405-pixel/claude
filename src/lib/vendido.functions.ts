@@ -8,6 +8,7 @@ import {
   vendidoPorVendedora,
 } from "@/lib/vendido";
 import { buscarOsDoPeriodo, buscarOsVendidasNoPeriodo } from "@/lib/vendido-dados";
+import { aplicarQuemVendeu } from "@/lib/quem-vendeu.server";
 
 // Vendido de um período qualquer (telas com filtro de datas), pela data do serviço: a mesma regra
 // do Início. Roda com o cliente da pessoa (RLS da empresa ativa).
@@ -41,7 +42,9 @@ export const vendidoDoPeriodoFn = createServerFn({ method: "GET" })
       valor: v.valor,
       quantidade: v.quantidade,
       porOrigem: vendidoPorOrigemServico(v),
-      quemVendeu: vendidoPorVendedora(v),
+      quemVendeu: vendidoPorVendedora(
+        vendidoNoPeriodo(await aplicarQuemVendeu(context.empresaId, oss), periodo, hoje),
+      ),
       proximosMeses: vendidoParaProximosMeses(vendidas, periodo, hoje),
     };
   });
