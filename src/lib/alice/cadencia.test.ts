@@ -5,6 +5,8 @@ import {
   horarioDoPasso,
   instanteSP,
   passoDaEtapa,
+  primeiraConversa,
+  primeiroPasso,
   proximoPasso,
   travaDoLead,
   trilhaDoLead,
@@ -136,4 +138,37 @@ test("retomada: um toque só, com modelo e horários", () => {
   const r = passoDaEtapa("R")!;
   assert.equal(r.modelo, "fu_retomada_horarios");
   assert.equal(r.horarios, true);
+});
+
+test("trilha espaçada (0909): depois do retorno combinado, um toque 2 dias depois às 10h e o fim 2 dias depois", () => {
+  const p = primeiroPasso("A", { oferta: true, espacada: true })!;
+  assert.equal(p.etapa, "AE");
+  const ancora = new Date("2026-10-28T13:00:24Z"); // retorno combinado às 10:00 de 28/10
+  assert.equal(
+    horarioDoPasso(p, ancora, ancora).toISOString(),
+    "2026-10-30T13:00:00.000Z", // 30/10 10h, nunca 10:10 nem 10:40
+  );
+  const fim = proximoPasso("A", "AE", { oferta: true })!;
+  assert.equal(fim.etapa, "AE_FIM");
+  assert.ok(fim.fim);
+  assert.equal(horarioDoPasso(fim, ancora, ancora).toISOString(), "2026-11-01T13:00:00.000Z");
+  assert.equal(proximoPasso("A", "AE_FIM", { oferta: true }), null);
+  assert.equal(primeiroPasso("B", { oferta: false, espacada: true })!.etapa, "BE");
+  assert.equal(passoDaEtapa("BE_FIM")!.fim, true);
+  // Sem espaçar: a trilha normal começa no +10 min.
+  assert.equal(primeiroPasso("A", { oferta: true, espacada: false })!.etapa, "A1");
+});
+
+test("+10 e +40 min só na primeira conversa (até 24 h do orçamento ou do primeiro contato)", () => {
+  const agora = new Date("2026-10-28T13:00:00Z");
+  assert.equal(
+    primeiraConversa("A", { orcamento_enviado_em: "2026-10-28T11:00:00Z" }, agora),
+    true,
+  );
+  assert.equal(
+    primeiraConversa("A", { orcamento_enviado_em: "2026-10-27T11:00:00Z" }, agora),
+    false,
+  );
+  assert.equal(primeiraConversa("B", { created_at: "2026-10-20T11:00:00Z" }, agora), false);
+  assert.equal(primeiraConversa("B", { created_at: null }, agora), true);
 });
