@@ -10,6 +10,8 @@ import {
   doisHorarios,
   horarioDoPasso,
   passoDaEtapa,
+  primeiraConversa,
+  primeiroPasso,
   proximoPasso,
   travaDoLead,
   trilhaDoLead,
@@ -33,7 +35,27 @@ export type DadosCadencia = {
 };
 
 const SELECT_LEAD =
-  "id, lead_name, is_open, perdido_em, os_criada_em, linked_work_order_id, agendado_em, closed_at, orcamento_enviado_em, customer_id";
+  "id, lead_name, is_open, perdido_em, os_criada_em, linked_work_order_id, agendado_em, closed_at, orcamento_enviado_em, customer_id, created_at";
+
+/** Já houve retorno combinado (trilha C) ou retomada feito nesta conversa depois do último orçamento? */
+async function houveRetorno(
+  db: Db,
+  empresaId: string,
+  conversaId: string,
+  desde: string | null,
+): Promise<boolean> {
+  let q = db
+    .from("crm_followups")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("conversa_id", conversaId)
+    .eq("status", "Concluída")
+    .eq("responsavel", "alice")
+    .or("trilha.eq.C,etapa.eq.R");
+  if (desde) q = q.gt("completed_at", desde);
+  const { data } = await q.limit(1);
+  return Boolean(data?.length);
+}
 
 async function lerLead(db: Db, empresaId: string, leadId: string) {
   const { data } = await db
@@ -70,9 +92,17 @@ export async function seguirCadencia(
   const continua = Boolean(o.atual?.cadencia && o.atual.etapa);
   const trilha: Trilha = continua ? (o.atual!.trilha === "B" ? "B" : "A") : trilhaDoLead(lead);
   const ancora = continua && o.atual!.ancora ? new Date(o.atual!.ancora) : agora;
-  const passo = proximoPasso(trilha, continua ? o.atual!.etapa! : null, {
-    oferta: Boolean(o.cfg.oferta_followup_ligada && o.cfg.oferta_followup_valor),
-  });
+  const oferta = Boolean(o.cfg.oferta_followup_ligada && o.cfg.oferta_followup_valor);
+  // Trilha nova: +10 e +40 min só na primeira conversa. Depois de um retorno combinado (trilha C),
+  // de uma retomada ou numa conversa que já não é a primeira, vai a trilha espaçada (2 dias).
+  const espacada =
+    !continua &&
+    (o.atual?.trilha === "C" ||
+      !primeiraConversa(trilha, lead, agora) ||
+      (await houveRetorno(db, o.empresaId, o.conversaId, lead?.orcamento_enviado_em ?? null)));
+  const passo = continua
+    ? proximoPasso(trilha, o.atual!.etapa!, { oferta })
+    : primeiroPasso(trilha, { oferta, espacada });
   if (!passo) return false;
   const quando = passo.fim
     ? horarioDoPasso(passo, ancora, agora)

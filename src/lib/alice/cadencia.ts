@@ -9,12 +9,29 @@
  * Trilha B (sumiu antes do orçamento): D0 +10 min (foto), D0 +40 min (tipo/tamanho + CEP), D1 10h,
  * D2 16h e, no D3 10h, "sem desfecho" (motivo sugerido "Sumiu antes do orçamento").
  * Trilha C (esperando um evento) continua com a data que a Alice combinar.
+ * Os +10 e +40 min só valem na primeira conversa. Depois de um retorno combinado, de uma retomada ou
+ * fora da primeira conversa, vale a trilha espaçada (ESPACADA): um toque 2 dias depois e o fim.
  * Dentro da janela de 24 h a Alice escreve o toque (com o guia); fora dela vai o modelo aprovado da
  * Meta (A3, A4, A5, B3, B4) ou o toque vira tarefa da equipe.
  */
 export type Trilha = "A" | "B";
 export type Etapa =
-  "A1" | "A2" | "A3" | "A4" | "A5" | "A_FIM" | "B1" | "B2" | "B3" | "B4" | "B_FIM" | "R";
+  | "A1"
+  | "A2"
+  | "A3"
+  | "A4"
+  | "A5"
+  | "A_FIM"
+  | "B1"
+  | "B2"
+  | "B3"
+  | "B4"
+  | "B_FIM"
+  | "AE"
+  | "AE_FIM"
+  | "BE"
+  | "BE_FIM"
+  | "R";
 
 export type Passo = {
   etapa: Etapa;
@@ -125,6 +142,75 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
   ],
 };
 
+/**
+ * Trilha espaçada (28/10, conversa 0909): depois de um retorno combinado (trilha C), de uma retomada
+ * ou fora da primeira conversa, nada de +10 e +40 min. Um toque com algo novo 2 dias depois, às 10h,
+ * e, sem resposta, "sem desfecho" mais 2 dias depois.
+ */
+export const ESPACADA: Record<Trilha, Passo[]> = {
+  A: [
+    {
+      etapa: "AE",
+      trilha: "A",
+      quando: { dia: 2, hora: 10 },
+      guia: "Traga algo novo e útil, sem repetir a última pergunta nem cobrar de outro jeito: ofereça dois horários reais da agenda (consulte com consultar_agenda) em dias diferentes e a reserva do horário, ou um cuidado concreto com o estofado. Uma pergunta só.",
+      modelo: "fu_orcamento_horarios",
+      horarios: true,
+    },
+    {
+      etapa: "AE_FIM",
+      trilha: "A",
+      quando: { dia: 4, hora: 10 },
+      guia: MOTIVO_FIM.A,
+      modelo: null,
+      fim: true,
+    },
+  ],
+  B: [
+    {
+      etapa: "BE",
+      trilha: "B",
+      quando: { dia: 2, hora: 10 },
+      guia: "Traga algo novo e útil, sem repetir o pedido anterior: deixe o atendimento separado e diga que, quando quiser, com a foto e o CEP você passa o orçamento no mesmo dia.",
+      modelo: "fu_atendimento_d2",
+    },
+    {
+      etapa: "BE_FIM",
+      trilha: "B",
+      quando: { dia: 4, hora: 10 },
+      guia: MOTIVO_FIM.B,
+      modelo: null,
+      fim: true,
+    },
+  ],
+};
+
+/** Até quanto tempo depois do orçamento (trilha A) ou do primeiro contato (B) é "primeira conversa". */
+export const PRIMEIRA_CONVERSA_HORAS = 24;
+
+/**
+ * Os toques de +10 e +40 min só valem na primeira conversa: orçamento mandado (A) ou lead criado (B)
+ * há até 24 h. Sem a data, conta como primeira conversa.
+ */
+export function primeiraConversa(
+  trilha: Trilha,
+  lead: { orcamento_enviado_em?: string | null; created_at?: string | null } | null,
+  agora: Date,
+): boolean {
+  const desde = trilha === "A" ? lead?.orcamento_enviado_em : lead?.created_at;
+  if (!desde) return true;
+  return agora.getTime() - Date.parse(desde) <= PRIMEIRA_CONVERSA_HORAS * 3_600_000;
+}
+
+/** Primeiro passo de uma trilha nova: a espaçada ou a normal (sem a oferta, o A5 é pulado). */
+export function primeiroPasso(
+  trilha: Trilha,
+  o: { oferta: boolean; espacada: boolean },
+): Passo | null {
+  if (o.espacada) return ESPACADA[trilha][0] ?? null;
+  return proximoPasso(trilha, null, o);
+}
+
 /** Modelo da retomada de orçamentos parados (nome, dia1, dia2). */
 export const MODELO_RETOMADA = "fu_retomada_horarios";
 
@@ -145,7 +231,8 @@ export function passoDaEtapa(etapa: string | null | undefined): Passo | null {
   if (!etapa) return null;
   if (etapa === "R") return PASSO_RETOMADA;
   for (const t of ["A", "B"] as const) {
-    const p = CADENCIA[t].find((x) => x.etapa === etapa);
+    const p =
+      CADENCIA[t].find((x) => x.etapa === etapa) ?? ESPACADA[t].find((x) => x.etapa === etapa);
     if (p) return p;
   }
   return null;
@@ -157,6 +244,9 @@ export function proximoPasso(
   etapaAtual: string | null,
   o: { oferta: boolean },
 ): Passo | null {
+  const espacada = ESPACADA[trilha];
+  const j = etapaAtual ? espacada.findIndex((p) => p.etapa === etapaAtual) : -1;
+  if (j !== -1) return espacada[j + 1] ?? null;
   const lista = CADENCIA[trilha].filter((p) => !p.oferta || o.oferta);
   if (!etapaAtual) return lista[0] ?? null;
   const i = lista.findIndex((p) => p.etapa === etapaAtual);
