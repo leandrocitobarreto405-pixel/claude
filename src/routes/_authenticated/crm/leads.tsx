@@ -35,6 +35,7 @@ import {
 } from "@/lib/crm";
 import { etapaInfo } from "@/lib/funil";
 import { dateBR, dateTimeBR, todayISO } from "@/lib/format";
+import { ehTemperatura } from "@/lib/temperatura";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/crm/leads")({
@@ -147,6 +148,7 @@ function Leads() {
               onChange={(v) => set({ temperature: v })}
               options={[
                 { value: "QUENTE", label: "Quente" },
+                { value: "MORNO", label: "Morno" },
                 { value: "FRIO", label: "Frio" },
               ]}
             />
@@ -278,6 +280,8 @@ function Leads() {
                       <TemperatureBadge
                         temperature={l.temperature}
                         suggested={!l.temperature_confirmed}
+                        motivo={l.temperatura_motivo}
+                        retornoEm={l.retorno_combinado_em}
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -326,6 +330,8 @@ function Leads() {
                   <TemperatureBadge
                     temperature={l.temperature}
                     suggested={!l.temperature_confirmed}
+                    motivo={l.temperatura_motivo}
+                    retornoEm={l.retorno_combinado_em}
                   />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -474,7 +480,7 @@ function NovoLeadDialog({
         phone: telefone.trim(),
         upholstery: estofado.trim().slice(0, 500) || undefined,
         serviceInterest: servico || undefined,
-        temperature: temperatura === "QUENTE" ? "QUENTE" : "FRIO",
+        temperature: ehTemperatura(temperatura) ? temperatura : "FRIO",
         statusId: statusId || (statuses?.[0]?.id ?? null),
         summary: resumo.trim().slice(0, 2000) || undefined,
         salespersonId: vendedoraId || null,
@@ -560,6 +566,7 @@ function NovoLeadDialog({
                 onChange={setTemperatura}
                 options={[
                   { value: "FRIO", label: "Frio" },
+                  { value: "MORNO", label: "Morno" },
                   { value: "QUENTE", label: "Quente" },
                 ]}
               />

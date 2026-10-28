@@ -22,7 +22,7 @@ export function VisaoGeralCrm() {
       const { data, error } = await supabase
         .from("crm_leads")
         .select(
-          `id, lead_name, phone, temperature, temperature_confirmed, status_id, is_open, first_contact_date,
+          `id, lead_name, phone, temperature, temperature_confirmed, temperatura_motivo, retorno_combinado_em, status_id, is_open, first_contact_date,
            last_interaction_at, next_follow_up_at, linked_work_order_id, campaign_id, entrada,
            campaign:campaign_id ( id, campaign_name, platform )`,
         )
@@ -282,6 +282,8 @@ export function VisaoGeralCrm() {
                 <TemperatureBadge
                   temperature={l.temperature}
                   suggested={!l.temperature_confirmed}
+                  motivo={l.temperatura_motivo}
+                  retornoEm={l.retorno_combinado_em}
                 />
               </div>
             ))}

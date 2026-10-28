@@ -57,6 +57,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("CRM: falha no vínculo de OS", e instanceof Error ? e.message : e);
             return null;
           });
+          // Temperatura por eventos (Quente/Morno/Frio e retorno combinado), depois do vínculo de OS.
+          const { rodarTemperaturas } = await import("@/lib/temperatura.server");
+          const temperaturas = await rodarTemperaturas().catch((e) => {
+            console.error("CRM: falha na temperatura", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Serviço de data passada ainda "Agendado" depois de 1 dia: aviso só no app, por visita.
           const { avisarServicosNaoConcluidos } = await import("@/lib/avisos.server");
           const servicosNaoConcluidos = await avisarServicosNaoConcluidos().catch((e) => {
@@ -94,6 +100,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             posAtendimento,
             leadsSite,
             vinculoOs,
+            temperaturas,
             retornosExpirados,
             servicosNaoConcluidos,
             precisaResumo,

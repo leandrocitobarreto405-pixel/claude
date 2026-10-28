@@ -1820,6 +1820,12 @@ export type Database = {
           desfecho_obs: string | null;
           desfecho_por: string | null;
           sem_desfecho_sugerido: string | null;
+          temperatura_ia: string | null;
+          temperatura_motivo: string | null;
+          retorno_combinado_em: string | null;
+          contexto_classe: string | null;
+          contexto_lido_em: string | null;
+          orcamento_origem: string | null;
           ad_id: string | null;
           agendado_em: string | null;
           campaign_id: string | null;
@@ -1883,6 +1889,12 @@ export type Database = {
           desfecho_obs?: string | null;
           desfecho_por?: string | null;
           sem_desfecho_sugerido?: string | null;
+          temperatura_ia?: string | null;
+          temperatura_motivo?: string | null;
+          retorno_combinado_em?: string | null;
+          contexto_classe?: string | null;
+          contexto_lido_em?: string | null;
+          orcamento_origem?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;
@@ -1945,6 +1957,12 @@ export type Database = {
           desfecho_obs?: string | null;
           desfecho_por?: string | null;
           sem_desfecho_sugerido?: string | null;
+          temperatura_ia?: string | null;
+          temperatura_motivo?: string | null;
+          retorno_combinado_em?: string | null;
+          contexto_classe?: string | null;
+          contexto_lido_em?: string | null;
+          orcamento_origem?: string | null;
           ad_id?: string | null;
           agendado_em?: string | null;
           campaign_id?: string | null;

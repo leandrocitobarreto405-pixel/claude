@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { onlyDigits, todayISO } from "@/lib/format";
+import { rotuloTemperatura } from "@/lib/temperatura";
 
 /* ============================ Telefone ============================ */
 
@@ -30,7 +31,7 @@ export function samePhone(a: string | null | undefined, b: string | null | undef
 
 /* ============================ Tipos ============================ */
 
-export type CrmTemperature = "FRIO" | "QUENTE";
+export type CrmTemperature = "FRIO" | "MORNO" | "QUENTE";
 
 export type CrmStatus = {
   id: string;
@@ -53,6 +54,8 @@ export type CrmLead = {
   temperature: string;
   temperature_score: number | null;
   temperature_confirmed: boolean;
+  temperatura_motivo?: string | null;
+  retorno_combinado_em?: string | null;
   status_id: string | null;
   summary: string | null;
   summary_source: string;
@@ -491,6 +494,8 @@ export async function createLead(input: {
       upholstery_description: input.upholstery ?? null,
       service_interest: input.serviceInterest ?? null,
       temperature: input.temperature ?? "FRIO",
+      // Palpite de quem cadastrou: desempata até a regra por eventos decidir.
+      temperatura_ia: input.temperature ?? "FRIO",
       status_id: input.statusId ?? null,
       summary: input.summary ?? null,
       salesperson_id: input.salespersonId ?? null,
@@ -552,7 +557,7 @@ export function suggestFollowupAt(hours: number): string {
 }
 
 export function leadTemperatureLabel(temperature: string): string {
-  return temperature === "QUENTE" ? "Quente" : "Frio";
+  return rotuloTemperatura(temperature);
 }
 
 /** Vincula um lead do CRM à OS criada e encerra o lead como convertido. */
