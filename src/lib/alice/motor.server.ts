@@ -986,13 +986,35 @@ async function toqueForaDaJanela(
 ): Promise<ResultadoTarefa> {
   const { enviarToqueModelo, seguirCadencia } = await import("./cadencia.server");
   let resultado: ResultadoTarefa;
+  const nomeCliente = await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id);
+  // Retorno combinado: {{2}} é uma frase curta escrita na hora (fica gravada na tarefa).
+  let retorno: { modelo: string; valores: string[]; frase: string } | null = null;
+  if (passo.etapa === "RC" && cfg.followup_modelos) {
+    const { fraseDoRetorno } = await import("./retorno-combinado.server");
+    const { modeloDoRetorno } = await import("./retorno-combinado");
+    const frase = await fraseDoRetorno(db as never, {
+      empresaId: tarefa.empresa_id,
+      contatoId: d.conversa.whatsapp_contact_id,
+      conversaId: d.conversa.id,
+      motivo: dados.motivo ?? tarefa.motivo,
+      sugestao: dados.mensagem_sugerida ?? null,
+    });
+    retorno = { ...modeloDoRetorno(nomeCliente, frase), frase };
+    await db
+      .from("ia_tarefas")
+      .update({
+        dados: { ...dados, frase_retorno: frase, modelo_retorno: retorno.modelo } as never,
+      })
+      .eq("id", tarefa.id);
+  }
   const envio =
     cfg.followup_modelos && passo.modelo
       ? await enviarToqueModelo(db, {
           empresaId: tarefa.empresa_id,
           chatwootConversa: d.conversa.chatwoot_conversation_id,
-          nomeCliente: await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id),
+          nomeCliente,
           passo,
+          ...(retorno ? { modelo: retorno.modelo, valores: retorno.valores } : {}),
         }).catch((e) => ({
           ok: false as const,
           motivo: `falha ao mandar o modelo: ${e instanceof Error ? e.message : String(e)}`,

@@ -32,6 +32,9 @@ export type DadosCadencia = {
   ancora?: string;
   motivo?: string;
   mensagem_sugerida?: string;
+  /** Retorno combinado fora da janela: a frase {{2}} usada e o modelo. */
+  frase_retorno?: string;
+  modelo_retorno?: string;
 };
 
 const SELECT_LEAD =
@@ -301,9 +304,13 @@ export async function enviarToqueModelo(
     chatwootConversa: number;
     nomeCliente: string | null;
     passo: Passo;
+    /** Modelo e variáveis já prontos (retorno combinado); sem eles, o modelo e o nome do passo. */
+    modelo?: string;
+    valores?: string[];
   },
 ): Promise<{ ok: true; texto: string; modelo: string } | { ok: false; motivo: string }> {
-  if (!o.passo.modelo) return { ok: false, motivo: "este toque não tem modelo" };
+  const nomeModelo = o.modelo ?? o.passo.modelo;
+  if (!nomeModelo) return { ok: false, motivo: "este toque não tem modelo" };
   const { contextoEmpresa } = await import("@/lib/mkt/contexto.server");
   const ctx = await contextoEmpresa(db, o.empresaId);
   if (!ctx.tokenRobo) return { ok: false, motivo: "token do robô do Chatwoot não configurado" };
@@ -311,15 +318,15 @@ export async function enviarToqueModelo(
   const { situacaoModelo, templateParams, variaveis } = await import("@/lib/mkt/modelos");
   const { modelos } = await modelosAtualizados(db, o.empresaId, {
     ctx,
-    precisa: [o.passo.modelo],
+    precisa: [nomeModelo],
     idioma: ctx.cfg.template_idioma,
   });
-  const sit = situacaoModelo(modelos, o.passo.modelo, ctx.cfg.template_idioma);
-  if (!sit.ok) return { ok: false, motivo: `modelo ${o.passo.modelo}: ${sit.erro}` };
+  const sit = situacaoModelo(modelos, nomeModelo, ctx.cfg.template_idioma);
+  if (!sit.ok) return { ok: false, motivo: `modelo ${nomeModelo}: ${sit.erro}` };
   const corpo = sit.modelo.components?.find((x) => x.type?.toUpperCase() === "BODY")?.text ?? "";
   const vars = variaveis(corpo);
-  const valores: string[] = [o.nomeCliente || "tudo bem"];
-  if (o.passo.horarios) {
+  const valores: string[] = o.valores ?? [o.nomeCliente || "tudo bem"];
+  if (!o.valores && o.passo.horarios) {
     const h = await horariosParaModelo(db, o.empresaId);
     if (!h) return { ok: false, motivo: "sem dois horários livres na agenda para o modelo" };
     valores.push(...h);
@@ -327,7 +334,7 @@ export async function enviarToqueModelo(
   if (vars.length > valores.length)
     return {
       ok: false,
-      motivo: `o modelo ${o.passo.modelo} pede ${vars.length} variáveis (tem ${valores.length})`,
+      motivo: `o modelo ${nomeModelo} pede ${vars.length} variáveis (tem ${valores.length})`,
     };
   const parametros: Record<string, string> = Object.fromEntries(
     vars.map((v, i) => [v, valores[i]!]),
@@ -342,7 +349,7 @@ export async function enviarToqueModelo(
     texto,
     templateParams(sit.modelo, parametros),
   );
-  return { ok: true, texto, modelo: o.passo.modelo };
+  return { ok: true, texto, modelo: nomeModelo };
 }
 
 /** Fim da trilha: o lead vai para "Orçamentos sem desfecho" com o motivo sugerido. */
