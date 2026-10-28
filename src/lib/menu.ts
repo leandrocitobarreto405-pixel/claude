@@ -67,6 +67,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
           "/crm/leads-site",
           "/crm/lead",
           "/crm/sem-desfecho",
+          "/crm/follow-up",
           "/indicadores",
         ],
       },
@@ -192,6 +193,7 @@ export const ABAS_DE_TELA = {
     { to: "/crm/leads", rotulo: "Lista" },
     { to: "/crm/leads-site", rotulo: "Do site" },
     { to: "/crm/sem-desfecho", rotulo: "Sem desfecho" },
+    { to: "/crm/follow-up", rotulo: "Follow-up" },
     { to: "/indicadores", rotulo: "Indicadores" },
   ],
   financeiro: [
