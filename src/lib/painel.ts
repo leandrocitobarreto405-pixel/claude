@@ -4,6 +4,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  CalendarClock,
   CalendarDays,
   ClipboardList,
   Coins,
@@ -15,7 +16,6 @@ import {
   Receipt,
   Send,
   Settings,
-  Undo2,
 } from "lucide-react";
 import { addDaysISO, monthEnd, monthStart, shiftMonth, weekEnd, weekStart } from "@/lib/format";
 import { podeAcessar, type Papel } from "@/lib/tenant";
@@ -143,6 +143,34 @@ export function percentualDaMeta(vendidoMes: number, meta: number | null): numbe
   return Math.max(0, (vendidoMes / meta) * 100);
 }
 
+/**
+ * Ritmo da meta (Dashboard, 29/10): quanto falta por dia até o fim do mês (contando hoje) e a
+ * projeção do mês pelo ritmo do realizado até hoje (nunca menos que o Vendido já marcado).
+ */
+export function ritmoDaMeta(o: {
+  meta: number | null;
+  vendido: number;
+  realizado: number;
+  hoje: string;
+  mes: string;
+}): { porDia: number | null; projecao: number; diasRestantes: number } {
+  const [y, m] = o.mes.split("-").map(Number);
+  const diasDoMes = new Date(Date.UTC(y!, m!, 0)).getUTCDate();
+  const mesmoMes = o.hoje.slice(0, 7) === o.mes.slice(0, 7);
+  const passado = o.hoje.slice(0, 7) > o.mes.slice(0, 7);
+  const diaAtual = mesmoMes ? Number(o.hoje.slice(8, 10)) : passado ? diasDoMes : 0;
+  const diasRestantes = mesmoMes ? diasDoMes - diaAtual + 1 : passado ? 0 : diasDoMes;
+  const projecao = round2(
+    diaAtual > 0 ? Math.max(o.vendido, (o.realizado / diaAtual) * diasDoMes) : o.vendido,
+  );
+  const faltam = o.meta ? Math.max(0, o.meta - o.vendido) : 0;
+  return {
+    porDia: o.meta && diasRestantes > 0 ? round2(faltam / diasRestantes) : null,
+    projecao,
+    diasRestantes,
+  };
+}
+
 // ------------------------------------------------------------------ atalhos
 
 export type Atalho = {
@@ -168,8 +196,10 @@ export const ATALHOS: Atalho[] = [
   { id: "conversas", rotulo: "Conversas", to: "/conversas", icone: MessageCircle },
   { id: "marketing", rotulo: "Marketing", to: "/marketing", icone: Send },
   { id: "google", rotulo: "Google", to: "/google", icone: Globe },
-  { id: "funil", rotulo: "Funil", to: "/crm/funil", icone: Filter },
-  { id: "retornos", rotulo: "Retornos", to: "/crm/retornos", icone: Undo2 },
+  // Ids antigos mantidos (atalhos já escolhidos continuam): "funil" = Leads, "retornos" = Follow-ups.
+  { id: "funil", rotulo: "Leads", to: "/crm/leads", icone: Filter },
+  { id: "retornos", rotulo: "Follow-ups", to: "/crm/follow-ups", icone: CalendarClock },
+  { id: "dashboard", rotulo: "Dashboard", to: "/crm/dashboard", icone: BarChart3 },
   { id: "operacao", rotulo: "Operação", to: "/operacao", icone: Coins, papeis: ["admin"] },
   { id: "notas", rotulo: "Notas", to: "/notas", icone: Receipt, papeis: ["admin"] },
   {

@@ -166,7 +166,8 @@ function Google() {
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-bold">Leads do site em {monthLabelPT(mes)}</h2>
           <Link
-            to="/crm/leads-site"
+            to="/crm/follow-ups"
+            search={{ aba: "site" }}
             className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-success hover:text-marca"
           >
             Ver lista <ChevronRight className="size-4" aria-hidden />

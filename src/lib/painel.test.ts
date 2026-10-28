@@ -96,6 +96,7 @@ test("atalhos: admin vê todos; atendente sem Financeiro, Operação, Notas, Exp
       "google",
       "funil",
       "retornos",
+      "dashboard",
       "operacao",
       "notas",
       "exportacoes",
@@ -104,11 +105,44 @@ test("atalhos: admin vê todos; atendente sem Financeiro, Operação, Notas, Exp
   );
   assert.deepEqual(
     atalhosDoPapel("atendente").map((a) => a.id),
-    ["os", "agenda", "conversas", "marketing", "google", "funil", "retornos"],
+    ["os", "agenda", "conversas", "marketing", "google", "funil", "retornos", "dashboard"],
   );
   // O técnico abre na Agenda, mas se chegasse aqui só veria o que pode abrir.
   assert.deepEqual(
     atalhosDoPapel("tecnico").map((a) => a.id),
     ["agenda"],
+  );
+});
+
+test("ritmo da meta: falta por dia (contando hoje) e projeção pelo realizado", async () => {
+  const { ritmoDaMeta } = await import("./painel");
+  // 28/10: 28 dias corridos, faltam 4 (28 a 31).
+  const r = ritmoDaMeta({
+    meta: 40000,
+    vendido: 30000,
+    realizado: 21000,
+    hoje: "2026-10-28",
+    mes: "2026-10",
+  });
+  assert.equal(r.diasRestantes, 4);
+  assert.equal(r.porDia, 2500);
+  assert.equal(r.projecao, 30000); // 21.000/28×31 = 23.250 < vendido já marcado
+  const r2 = ritmoDaMeta({
+    meta: 40000,
+    vendido: 20000,
+    realizado: 20000,
+    hoje: "2026-10-10",
+    mes: "2026-10",
+  });
+  assert.equal(r2.projecao, 62000);
+  assert.equal(
+    ritmoDaMeta({ meta: null, vendido: 1, realizado: 1, hoje: "2026-10-10", mes: "2026-10" })
+      .porDia,
+    null,
+  );
+  assert.equal(
+    ritmoDaMeta({ meta: 10, vendido: 1, realizado: 1, hoje: "2026-11-02", mes: "2026-10" })
+      .diasRestantes,
+    0,
   );
 });

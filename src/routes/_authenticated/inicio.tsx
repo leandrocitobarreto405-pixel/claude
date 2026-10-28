@@ -10,26 +10,18 @@ import { PrecisaDeVoce } from "@/components/inicio/precisa-de-voce";
 import { ResumoFranquiaAlice } from "@/components/alice/franquia-medidor";
 import { Atalhos } from "@/components/painel/atalhos";
 import { CartaoNumero } from "@/components/painel/cartao-numero";
-import {
-  FunilMini,
-  GraficoVendasPorOrigem,
-  GraficoVendidoPorSemana,
-} from "@/components/painel/graficos";
 import { MetaDoMes } from "@/components/painel/meta-do-mes";
 import { SeletorPeriodo } from "@/components/painel/seletor-periodo";
 import {
   brl,
   currentMonth,
   monthEnd,
-  monthLabelPT,
   monthStart,
   pct,
   todayISO,
   tomorrowISO,
   weekdayPT,
 } from "@/lib/format";
-import { QuemVendeu } from "@/components/painel/quem-vendeu";
-import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
 import { temRecurso } from "@/lib/recursos";
 import { dataPorExtenso, horaEmSaoPaulo, primeiroNome, saudacao } from "@/lib/inicio";
@@ -213,6 +205,10 @@ function Inicio() {
         <ResumoFranquiaAlice />
       ) : null}
 
+      {aba === "vendas" ? (
+        <MetaDoMes r={r} carregando={carregando} podeDefinir={pode("/configuracoes")} />
+      ) : null}
+
       <section className="flex flex-col gap-3" aria-labelledby="painel-titulo">
         <h2 id="painel-titulo" className="sr-only">
           Painel financeiro
@@ -305,7 +301,18 @@ function Inicio() {
                       }`
                     : undefined
                 }
-                {...(pode("/crm/funil") ? { to: "/indicadores" } : {})}
+                {...(pode("/crm/dashboard") ? { to: "/crm/dashboard" } : {})}
+                carregando={carregando}
+              />
+              <CartaoNumero
+                titulo="Orçamentos"
+                valor={r ? String(r.conversao.orcamentos) : "…"}
+                detalhe={
+                  r
+                    ? `de ${n(r.conversao.leads, "lead que chamou", "leads que chamaram")} no período`
+                    : undefined
+                }
+                {...(pode("/crm/follow-ups") ? { to: "/crm/follow-ups" } : {})}
                 carregando={carregando}
               />
             </>
@@ -370,62 +377,13 @@ function Inicio() {
       </section>
 
       {aba === "vendas" ? (
-        <>
-          <MetaDoMes r={r} carregando={carregando} podeDefinir={pode("/configuracoes")} />
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card aria-label="Vendido por semana">
-              <h3 className="text-sm font-bold">Vendido por semana</h3>
-              {r ? (
-                <GraficoVendidoPorSemana dados={r.vendidoPorSemana} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Carregando…</p>
-              )}
-            </Card>
-            <Card aria-label="Vendas por origem">
-              <h3 className="text-sm font-bold">Vendas por origem</h3>
-              {temRecurso(planoEmpresa, "vendas_origem") ? (
-                <>
-                  {r ? (
-                    <GraficoVendasPorOrigem dados={r.vendidoPorOrigem} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Carregando…</p>
-                  )}
-                </>
-              ) : (
-                <RecursoBloqueado recurso="vendas_origem" compacto />
-              )}
-            </Card>
-            <Card aria-label="Funil de leads">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">Leads → orçamento → OS</h3>
-                {pode("/crm/funil") ? (
-                  <Link
-                    to="/crm/funil"
-                    className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-success hover:text-marca"
-                  >
-                    Funil <ChevronRight className="size-4" aria-hidden />
-                  </Link>
-                ) : null}
-              </div>
-              {r ? (
-                <FunilMini c={r.conversao} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Carregando…</p>
-              )}
-            </Card>
-          </div>
-
-          {r ? (
-            <QuemVendeu
-              linhas={r.quemVendeu}
-              rotuloPeriodo={
-                periodo === "mes" ? monthLabelPT(r.mes) : periodo === "semana" ? "semana" : "hoje"
-              }
-              proximosMeses={periodo === "mes" ? r.proximosMeses : null}
-            />
-          ) : null}
-        </>
+        pode("/crm/dashboard") ? (
+          <Botao asChild variante="contorno" larguraTotal>
+            <Link to="/crm/dashboard">
+              Ver dashboard completo <ChevronRight className="size-4" aria-hidden />
+            </Link>
+          </Botao>
+        ) : null
       ) : (
         <>
           {/* Hoje · Amanhã · Para concluir: cada chip abre a lista. */}

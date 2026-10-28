@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Botao, Card, Chip, NumeroGrande } from "@/components/nexa";
 import { brl, monthLabelPT, remainingDaysInMonth } from "@/lib/format";
-import type { ResumoPainel } from "@/lib/painel";
+import { ritmoDaMeta, type ResumoPainel } from "@/lib/painel";
 
 /** Meta do mês contra o Vendido do mês (pela data do serviço): realizado + agendado + atrasado. */
 export function MetaDoMes({
@@ -27,6 +27,7 @@ export function MetaDoMes({
     ? Math.min(100 - pctRealizado - pctAtrasado, (agendado / meta) * 100)
     : 0;
   const faltam = meta ? Math.max(0, meta - vendido) : 0;
+  const ritmo = ritmoDaMeta({ meta, vendido, realizado, hoje: r?.hoje ?? `${mes}-01`, mes });
   const partes = `Realizado ${brl(realizado)} · agendado ${brl(agendado)}${atrasado > 0 ? ` · atrasado ${brl(atrasado)}` : ""}.`;
 
   return (
@@ -61,6 +62,17 @@ export function MetaDoMes({
               ? `Faltam ${brl(faltam)} em ${remainingDaysInMonth(mes)} dia(s).`
               : "Meta batida!"}
           </p>
+          {r ? (
+            <p className="text-sm">
+              {ritmo.porDia !== null && faltam > 0 ? (
+                <>
+                  Ritmo para bater: <strong>{brl(ritmo.porDia)}/dia</strong> ·{" "}
+                </>
+              ) : null}
+              Projeção do mês: <strong>{brl(ritmo.projecao)}</strong>
+              {meta ? ` (${Math.floor((ritmo.projecao / meta) * 100)}% da meta)` : ""}
+            </p>
+          ) : null}
         </>
       ) : (
         <>

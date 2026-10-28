@@ -104,7 +104,7 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
             : m.tipo === "nota_emitida"
               ? { to: "/notas" }
               : m.tipo.startsWith("lead_site")
-                ? { to: "/crm/leads-site" }
+                ? { to: "/crm/follow-ups", search: { aba: "site" } }
                 : { to: "/marketing" },
       escritorio: true,
     });
@@ -177,10 +177,10 @@ export function montarAvisos(f: FontesDeAvisos, papel: Papel | null): Aviso[] {
         semDesfecho === 1
           ? "1 orçamento esperando o motivo"
           : `${semDesfecho} orçamentos esperando o motivo`,
-      texto: "Marque em um clique por que não fechou (Leads › Sem desfecho).",
+      texto: "Marque em um clique por que não fechou (Follow-ups › Sem desfecho).",
       quando: null,
       novo: true,
-      link: { to: "/crm/sem-desfecho" },
+      link: { to: "/crm/follow-ups", search: { aba: "sem-desfecho" } },
       escritorio: true,
     });
   }
