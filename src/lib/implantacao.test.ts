@@ -67,7 +67,7 @@ const etapa = (f: Fatos, chave: string) => avaliarEtapas(f).find((e) => e.chave 
 
 test("empresa nova: nada pronto, WhatsApp aguardando conexão", () => {
   const r = resumoEtapas(avaliarEtapas(vazia));
-  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 1 de 7 opcionais");
+  assert.equal(textoProgresso(r), "0 de 9 obrigatórias · 0 de 6 opcionais");
   assert.equal(r.podeLiberar, false);
   assert.equal(etapa(vazia, "whatsapp").situacao, "aguardando");
   assert.equal(etapa(vazia, "whatsapp").detalhe, "Aguardando conexão.");
@@ -108,15 +108,17 @@ test("modelos: lista o que falta e o que não foi aprovado", () => {
   );
 });
 
-test("'Não se aplica' só nas opcionais e conta como pronta", () => {
+test("'Não se aplica' só nas opcionais e sai da conta (nem pronta, nem total)", () => {
   const f = {
     ...vazia,
     marcadas: { google: "nao_se_aplica" as const, precos: "nao_se_aplica" as const },
   };
   assert.equal(etapa(f, "google").situacao, "nao_se_aplica");
   assert.equal(etapa(f, "precos").situacao, "falta");
-  // google marcado + rodízio (não se aplica sozinho)
-  assert.equal(resumoEtapas(avaliarEtapas(f)).opcionais.prontas, 2);
+  // google marcado + rodízio (não se aplica sozinho): saem do total das opcionais
+  const r = resumoEtapas(avaliarEtapas(f));
+  assert.equal(r.opcionais.prontas, 0);
+  assert.equal(r.opcionais.total, 5);
   assert.equal(marcacaoPermitida("google", "nao_se_aplica"), true);
   assert.equal(marcacaoPermitida("precos", "nao_se_aplica"), false);
   assert.equal(marcacaoPermitida("taxas", "revisado"), true);
@@ -180,4 +182,22 @@ test("rotas e quilometragem: endereço de saída de cada técnico e custo por km
   assert.match(semBase.detalhe, /1 técnico sem endereço de saída/);
   assert.match(semBase.detalhe, /custo por km/);
   assert.equal(etapa(vazia).obrigatoria, false);
+});
+
+test("técnico cadastrado em Equipe conta mesmo sem login", () => {
+  const f = {
+    ...vazia,
+    usuarios: { admin: 1, atendente: 1, tecnico: 0, convitesPendentes: 0 },
+    tecnicosAtivos: 1,
+  };
+  assert.equal(etapa(f, "usuarios").situacao, "pronta");
+  assert.match(etapa(f, "usuarios").detalhe, /1 técnico em Equipe \(sem login\)/);
+  assert.match(etapa({ ...f, tecnicosAtivos: 0 }, "usuarios").detalhe, /1 técnico/);
+});
+
+test("o que bloqueia envio fica marcado", () => {
+  const bloqueiam = avaliarEtapas(vazia)
+    .filter((e) => e.bloqueiaEnvio)
+    .map((e) => e.chave);
+  assert.deepEqual(bloqueiam, ["whatsapp", "modelos", "token_meta"]);
 });

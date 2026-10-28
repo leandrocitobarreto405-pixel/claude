@@ -443,6 +443,7 @@ export function OrcamentoRegrasConfig() {
           >
             <option value="dezena_5">Dezena e múltiplo de 5</option>
             <option value="noventa">Final ,90</option>
+            <option value="nenhum">Sem arredondamento</option>
           </select>
         </div>
         <p className="text-sm text-muted-foreground sm:col-span-3">

@@ -211,6 +211,13 @@ function CartaoEtapa({ etapa, editavel }: { etapa: Etapa; editavel: boolean }) {
               <h3 className="font-bold leading-tight">{etapa.titulo}</h3>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{etapa.detalhe}</p>
+            {etapa.bloqueiaEnvio &&
+            etapa.situacao !== "pronta" &&
+            etapa.situacao !== "nao_se_aplica" ? (
+              <p className="mt-1 rounded-md bg-problema px-3 py-2 text-sm text-problema-foreground">
+                <strong>Bloqueia envios.</strong> {etapa.bloqueiaEnvio}
+              </p>
+            ) : null}
             {etapa.lembrete ? (
               <p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">{etapa.lembrete}</p>
             ) : null}
@@ -275,12 +282,17 @@ export function ListaEtapas({ etapas, editavel }: { etapas: Etapa[]; editavel: b
     {
       titulo: "Obrigatórias",
       descricao: "Sem elas a Alice e os envios ficam desligados.",
-      lista: etapas.filter((e) => e.obrigatoria),
+      lista: etapas.filter((e) => e.obrigatoria && e.situacao !== "nao_se_aplica"),
     },
     {
       titulo: "Opcionais",
-      descricao: "Ajudam no dia a dia, mas não travam nada.",
-      lista: etapas.filter((e) => !e.obrigatoria),
+      descricao:
+        "Ajudam no dia a dia, mas não travam nada. O que não se aplica fica no fim e não conta no total.",
+      // O que não se aplica vira opcional e vai para o fim da lista.
+      lista: [
+        ...etapas.filter((e) => !e.obrigatoria && e.situacao !== "nao_se_aplica"),
+        ...etapas.filter((e) => e.situacao === "nao_se_aplica"),
+      ],
     },
   ];
   return (

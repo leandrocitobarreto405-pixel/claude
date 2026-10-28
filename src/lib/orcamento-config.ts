@@ -26,7 +26,7 @@ export type LinhaConfigOrcamento = {
   vitrine_ligada: boolean;
   boas_vindas_pct: number;
   pix_pct: number;
-  arredondamento: "dezena_5" | "noventa";
+  arredondamento: "dezena_5" | "noventa" | "nenhum";
   parcelas_max: number | null;
   validade_dias: number | null;
   classe_ligada: boolean;

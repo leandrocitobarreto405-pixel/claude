@@ -242,3 +242,13 @@ test("taxa de deslocamento por faixa de valor", () => {
   assert.equal(comDesconto.desconto, 70);
   assert.equal(comDesconto.base, 700);
 });
+
+test("sem arredondamento: vitrine e Pix só nos centavos, Pix nunca abaixo da tabela", () => {
+  const regras = { ligada: true, boasVindasPct: 20, pixPct: 5, arredondamento: "nenhum" as const };
+  const v = calcularVitrine(220, regras, true);
+  // 220 / (0,8 × 0,95) = 289,47… → 289,48 (para cima, centavos)
+  assert.equal(v.vitrine, 289.48);
+  assert.equal(v.cartao, 231.58);
+  assert.ok(v.pix >= 220);
+  assert.equal(calcularVitrine(220, regras, false).cartao, 289.48);
+});

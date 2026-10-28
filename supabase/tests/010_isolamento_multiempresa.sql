@@ -58,10 +58,11 @@ RESET ROLE;
 SELECT pg_temp.ok(
   (SELECT count(*) FROM public.config_options WHERE empresa_id = current_setting('teste.b')::uuid) > 0,
   'catálogos copiados da empresa-modelo');
--- Taxas da maquininha são do negócio de cada empresa: não vêm da empresa-modelo (02/10/2026).
+-- Taxas não vêm da empresa-modelo: a empresa nova ganha a tabela da InfinitePay (29/10/2026) e
+-- revisa no checklist.
 SELECT pg_temp.ok(
-  (SELECT count(*) FROM public.payment_rates WHERE empresa_id = current_setting('teste.b')::uuid) = 0,
-  'taxas não copiadas da empresa-modelo');
+  (SELECT count(*) FROM public.payment_rates WHERE empresa_id = current_setting('teste.b')::uuid) = 31,
+  'taxas da InfinitePay, não as da empresa-modelo');
 
 INSERT INTO public.usuarios_empresa (user_id, empresa_id, papel)
 SELECT id, current_setting('teste.b')::uuid, 'admin' FROM auth.users WHERE email = 'admin@b.test';

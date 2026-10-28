@@ -11,7 +11,7 @@ import { categoriaDeLimpeza } from "./unidade";
 export type Categoria = "sofa" | "colchao" | "cadeira" | "outro" | "tapete" | "persiana";
 /** Classe do estofado: A tem acréscimo; B (padrão) e C ficam no preço da tabela. */
 export type Classe = "A" | "B" | "C";
-export type Arredondamento = "dezena_5" | "noventa";
+export type Arredondamento = "dezena_5" | "noventa" | "nenhum";
 /** Faixa da taxa de deslocamento: até `ate` reais (null = sem teto), `pct` sobre os itens. */
 export type FaixaValor = { ate: number | null; pct: number };
 
@@ -87,7 +87,10 @@ export function regrasDaLinha(l: Record<string, unknown> | null | undefined): Re
       ligada: Boolean(l["vitrine_ligada"]),
       boasVindasPct: n(l["boas_vindas_pct"], 20),
       pixPct: n(l["pix_pct"], 10),
-      arredondamento: l["arredondamento"] === "noventa" ? "noventa" : "dezena_5",
+      arredondamento:
+        l["arredondamento"] === "noventa" || l["arredondamento"] === "nenhum"
+          ? l["arredondamento"]
+          : "dezena_5",
     },
     parcelasMax: nn(l["parcelas_max"]),
     validadeDias: nn(l["validade_dias"]),
@@ -279,8 +282,10 @@ export function sugerirPrecos(
 const acima = (v: number, passo: number) => Math.ceil(r2(v) / passo - 1e-9) * passo;
 const perto = (v: number, passo: number) => Math.round(r2(v) / passo) * passo;
 
-/** Valor "redondo" pela regra da empresa: dezena (vitrine) e múltiplo de 5, ou final ,90. */
+/** Valor "redondo" pela regra da empresa: dezena (vitrine) e múltiplo de 5, final ,90 ou sem. */
 function redondo(v: number, passo: number, modo: Arredondamento, jeito: "acima" | "perto") {
+  // Sem arredondamento: só os centavos (para cima quando a regra pede "acima").
+  if (modo === "nenhum") return jeito === "acima" ? Math.ceil(v * 100 - 1e-6) / 100 : r2(v);
   const f = jeito === "acima" ? acima : perto;
   if (modo === "noventa") return r2(f(v + 0.1, passo) - 0.1);
   return f(v, passo);
