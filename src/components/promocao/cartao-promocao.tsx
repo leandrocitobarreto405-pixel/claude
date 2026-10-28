@@ -83,7 +83,7 @@ export function CartaoPromocao({ faixa = false }: { faixa?: boolean }) {
             <p className="text-sm">{livres.map((l) => `${l.hora} · ${l.tecnico}`).join(", ")}</p>
           ) : !r.horarios.configurado ? (
             <p className="text-sm text-muted-foreground">
-              Cadastre os horários base dos técnicos em Agenda e promoção para saber o que está
+              Cadastre os horários base dos técnicos em Agenda e técnicos para saber o que está
               vago.
             </p>
           ) : null}

@@ -274,7 +274,7 @@ export function AliceConfig() {
               disabled
             />
             <p className="text-xs text-muted-foreground">
-              Muda em Configurações › Regras de orçamento › Pagamento (vale para tudo).
+              Muda em Configurações › Vendas › Descontos e promoções (vale para tudo).
             </p>
           </div>
           <div className="space-y-1">
@@ -463,50 +463,17 @@ export function AliceConfig() {
               toque vira tarefa da equipe)
             </span>
           </label>
-          <label className="flex min-h-11 items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={form.oferta_followup_ligada}
-              onChange={(e) => campo("oferta_followup_ligada", e.target.checked)}
-            />
-            <span>Oferta do último follow-up (D2 16h, só depois do orçamento)</span>
-          </label>
-          {form.oferta_followup_ligada ? (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="alice-oferta-tipo">Desconto em</Label>
-                <select
-                  id="alice-oferta-tipo"
-                  className={SELECT_CLASS}
-                  value={form.oferta_followup_tipo}
-                  onChange={(e) =>
-                    campo("oferta_followup_tipo", e.target.value === "reais" ? "reais" : "pct")
-                  }
-                >
-                  <option value="pct">% sobre o orçamento</option>
-                  <option value="reais">R$ sobre o orçamento</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="alice-oferta-valor">
-                  {form.oferta_followup_tipo === "reais" ? "Valor (R$)" : "Percentual (%)"}
-                </Label>
-                <Input
-                  id="alice-oferta-valor"
-                  inputMode="decimal"
-                  value={
-                    form.oferta_followup_valor === null ? "" : String(form.oferta_followup_valor)
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value.replace(",", ".").trim();
-                    campo("oferta_followup_valor", v === "" ? null : Number(v) || 0);
-                  }}
-                  placeholder={form.oferta_followup_tipo === "reais" ? "Ex.: 30" : "Ex.: 10"}
-                />
-              </div>
-            </div>
-          ) : null}
+          <p className="text-sm">
+            Oferta do último follow-up (D2 16h):{" "}
+            <span className="font-semibold">
+              {form.oferta_followup_ligada && form.oferta_followup_valor
+                ? form.oferta_followup_tipo === "reais"
+                  ? `R$ ${String(form.oferta_followup_valor).replace(".", ",")}`
+                  : `${String(form.oferta_followup_valor).replace(".", ",")}%`
+                : "desligada"}
+            </span>
+            . Muda em Configurações › Vendas › Descontos e promoções.
+          </p>
           <p className="text-xs text-muted-foreground">
             Qualquer mensagem do cliente cancela os toques e a sequência recomeça da última resposta
             da {form.nome || "Alice"}. Nenhum toque sai se a equipe assumiu ou escreveu, se já tem

@@ -11,8 +11,8 @@ export const Route = createFileRoute("/_authenticated/configuracoes/agenda")({
     <PaginaGrupo grupo="agenda">
       <LinkDeConfig
         to="/agenda-config"
-        titulo="Agenda e promoção"
-        descricao="Horários dos técnicos, veículos e promoção de dia vago"
+        titulo="Agenda e técnicos"
+        descricao="Horários dos técnicos, veículos, rodízio e contatos internos"
         icone={CalendarCog}
       />
       <SecaoConfig titulo="Agenda dos técnicos no WhatsApp">

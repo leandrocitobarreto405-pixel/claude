@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CalendarClock, Car, Percent, Phone, Plus, Trash2, Users, X } from "lucide-react";
+import { CalendarClock, Car, Phone, Plus, Trash2, Users, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Botao, CabecalhoDeTela, Card, Chip, LinhaSwitch, Recolhido } from "@/components/nexa";
@@ -23,13 +23,12 @@ import {
   type DadosAgendaConfig,
   type VeiculoAgenda,
 } from "@/lib/agenda-config.functions";
-import { descreverFiltros } from "@/lib/listas";
 import { cn } from "@/lib/utils";
 
 const CHAVE_INTERNOS = ["contatos-internos"] as const;
 
 export const Route = createFileRoute("/_authenticated/agenda-config")({
-  head: () => ({ meta: [{ title: "Agenda e promoção — Nexa OS" }] }),
+  head: () => ({ meta: [{ title: "Agenda e técnicos — Nexa OS" }] }),
   component: AgendaConfig,
 });
 
@@ -51,8 +50,8 @@ function AgendaConfig() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
         voltarPara="/configuracoes/agenda"
-        titulo="Agenda e promoção"
-        descricao="Técnicos, veículos, horários base, rodízio, promoção para agenda vazia e contatos internos da equipe."
+        titulo="Agenda e técnicos"
+        descricao="Técnicos, veículos, horários base, rodízio e contatos internos da equipe."
       />
       {q.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -406,7 +405,7 @@ function ordenar(a: { diaSemana: number; hora: string }, b: { diaSemana: number;
   );
 }
 
-// ---------------------------------------------------------------- rodízio e promoção
+// ---------------------------------------------------------------- rodízio
 function Regras({
   config,
   rodizioSeAplica,
@@ -483,8 +482,6 @@ function Regras({
       </div>
     </div>
   );
-  const total = Number(c.descontoPct) + Number(c.pixPct);
-
   return (
     <>
       <Recolhido
@@ -520,90 +517,15 @@ function Regras({
         </div>
       </Recolhido>
 
-      <Recolhido
-        titulo="Promoção de dia vago"
-        icone={<Percent className="size-5 text-marca" aria-hidden />}
-      >
-        <div className="flex flex-col gap-4 p-4">
-          <p className="text-sm text-muted-foreground">
-            Nada é enviado sozinho: a chave só libera a promoção. Cada envio sai quando o admin toca
-            em "Ativar", depois de conferir a lista, e com o "Envio ligado" do Marketing.
-          </p>
-          <LinhaSwitch
-            id="cfg-promo-ligada"
-            titulo="Promoção liberada"
-            descricao="Desligada, ninguém consegue ativar a promoção."
-            checked={c.promoLigada}
-            onCheckedChange={(v) => muda("promoLigada", v)}
-          />
-          <p className="rounded-botao bg-background p-3 text-sm">
-            <span className="block font-semibold">Quem recebe</span>
-            {descreverFiltros(c.promoListas)}
-            <span className="block text-xs text-muted-foreground">
-              Para mudar as listas, toque em “Mudar” no cartão da promoção (Marketing ou Início).
-            </span>
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {campoNumero("diasAFrente", "Olhar a agenda de", "dia(s) à frente")}
-            {campoNumero("descontoPct", "Desconto da promoção", "%", 0.5)}
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Desconto a mais no Pix</p>
-              <p className="min-h-11 rounded-botao border border-border px-3 py-2 text-sm">
-                {String(c.pixPct).replace(".", ",")}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Vem de Regras de orçamento › Pagamento.
-              </p>
-            </div>
-          </div>
-          {total > 25 ? (
-            <p className="rounded-botao bg-problema px-3 py-2 text-sm text-problema-foreground">
-              Promoção + Pix = {String(total).replace(".", ",")}%. O máximo é 25%.
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Total com Pix: {String(total).replace(".", ",")}% (máximo 25%).
-            </p>
-          )}
-          <div className="flex flex-col gap-1">
-            <h3 className="text-[15px] font-bold">Margem e distância</h3>
-            <p className="text-sm text-muted-foreground">
-              Quem fica abaixo da margem mínima ou passa da distância máxima aparece desmarcado na
-              lista, com o motivo (dá para marcar de novo). Em branco = sem limite.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {campoOpcional("margemMin", "Margem mínima", "R$")}
-            {campoOpcional("kmMax", "Distância máxima (só a ida)", "km")}
-          </div>
-          <div className="flex flex-col gap-1">
-            <h3 className="text-[15px] font-bold">Custo médio de produto por serviço</h3>
-            <p className="text-sm text-muted-foreground">
-              Entra na margem estimada junto com o imposto e o deslocamento da ida (sem mão de
-              obra).
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {campoNumero("produtoHigienizacao", "Higienização", "R$", 0.5)}
-            {campoNumero("produtoImpermeabilizacao", "Impermeabilização", "R$", 0.5)}
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="cfg-template">Modelo aprovado na Meta</Label>
-            <Input
-              id="cfg-template"
-              value={c.template}
-              onChange={(e) => muda("template", e.target.value)}
-            />
-          </div>
-          <Botao
-            onClick={() => void salvar()}
-            disabled={salvando || total > 25}
-            className="self-start"
-          >
-            {salvando ? "Salvando…" : "Salvar"}
-          </Botao>
-        </div>
-      </Recolhido>
+      <Card className="text-sm">
+        <p>
+          A promoção de dia vago agora fica em{" "}
+          <Link to="/configuracoes/vendas" className="font-semibold text-marca underline">
+            Configurações › Vendas › Descontos e promoções
+          </Link>
+          , junto com o Pix, as boas-vindas, os cupons e a oferta do último follow-up.
+        </p>
+      </Card>
     </>
   );
 }

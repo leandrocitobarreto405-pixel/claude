@@ -189,7 +189,7 @@ function Promocao() {
             </h2>
             {!s.horarios.configurado ? (
               <p className="text-sm text-muted-foreground">
-                Cadastre os horários base dos técnicos em Agenda e promoção.
+                Cadastre os horários base dos técnicos em Agenda e técnicos.
               </p>
             ) : s.horarios.livres.length === 0 ? (
               <p className="text-sm text-muted-foreground">Agenda cheia. Nenhum horário vago.</p>

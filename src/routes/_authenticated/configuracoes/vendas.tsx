@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ComRecurso } from "@/components/plano/recurso-bloqueado";
 import { PaginaGrupo, SecaoConfig } from "@/components/configuracoes/pagina-grupo";
 import { Taxas } from "@/components/configuracoes/taxas";
-import { CuponsConfig } from "@/components/configuracoes/cupons";
+import { DescontosPromocoes } from "@/components/configuracoes/descontos-promocoes";
 import { RegraNotaFiscal } from "@/components/configuracoes/nota-fiscal";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
 import { OrcamentoRegrasConfig } from "@/components/orcamento-regras-config";
@@ -24,10 +23,8 @@ function Vendas() {
       <SecaoConfig titulo="Regras de orçamento">
         <OrcamentoRegrasConfig />
       </SecaoConfig>
-      <SecaoConfig titulo="Cupons">
-        <ComRecurso recurso="cupons">
-          <CuponsConfig />
-        </ComRecurso>
+      <SecaoConfig titulo="Descontos e promoções">
+        <DescontosPromocoes />
       </SecaoConfig>
       <SecaoConfig titulo="Nota fiscal">
         <RegraNotaFiscal />

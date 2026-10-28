@@ -316,16 +316,6 @@ export const salvarAlice = createServerFn({ method: "POST" })
         continuar_apos_franquia: Boolean(data.continuar_apos_franquia),
         cadencia_followup: data.cadencia_followup !== false,
         followup_modelos: Boolean(data.followup_modelos),
-        oferta_followup_tipo: data.oferta_followup_tipo === "reais" ? "reais" : "pct",
-        oferta_followup_valor:
-          data.oferta_followup_valor === null || !(Number(data.oferta_followup_valor) > 0)
-            ? null
-            : Math.min(
-                Math.round(Number(data.oferta_followup_valor) * 100) / 100,
-                data.oferta_followup_tipo === "reais" ? 10000 : 50,
-              ),
-        oferta_followup_ligada:
-          Boolean(data.oferta_followup_ligada) && Number(data.oferta_followup_valor) > 0,
         teto_excedente_reais:
           data.teto_excedente_reais === null || !(Number(data.teto_excedente_reais) >= 0)
             ? null
@@ -340,6 +330,36 @@ export const salvarAlice = createServerFn({ method: "POST" })
       { onConflict: "empresa_id" },
     );
     if (error) throw new Error("Não foi possível salvar a configuração da Alice.");
+    return { ok: true };
+  });
+
+/**
+ * Oferta do último follow-up (D2 16h). Fica em Configurações › Vendas › Descontos e promoções e
+ * grava só estes três campos (a tela da Alice não mexe neles).
+ */
+export const salvarOfertaFollowup = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa, comRecurso])
+  .inputValidator((input: { ligada: boolean; tipo: "pct" | "reais"; valor: number | null }) => {
+    const tipo = input.tipo === "reais" ? "reais" : "pct";
+    const valor =
+      input.valor === null || !(Number(input.valor) > 0)
+        ? null
+        : Math.min(Math.round(Number(input.valor) * 100) / 100, tipo === "reais" ? 10000 : 50);
+    if (input.ligada && valor === null) throw new Error("Preencha o valor da oferta para ligar.");
+    return { ligada: Boolean(input.ligada) && valor !== null, tipo, valor };
+  })
+  .handler(async ({ data, context }) => {
+    const { data: linhas, error } = await context.supabase
+      .from("ia_configuracoes")
+      .update({
+        oferta_followup_ligada: data.ligada,
+        oferta_followup_tipo: data.tipo,
+        oferta_followup_valor: data.valor,
+      })
+      .eq("empresa_id", context.empresaId)
+      .select("empresa_id");
+    if (error) throw new Error("Não foi possível salvar a oferta.");
+    if (!linhas?.length) throw new Error("Configure a Alice antes (Configurações › Alice).");
     return { ok: true };
   });
 
