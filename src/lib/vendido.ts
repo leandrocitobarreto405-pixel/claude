@@ -32,6 +32,8 @@ export type OsVendido = {
   deleted_at: string | null;
   sale_date?: string | null;
   origem?: string | null;
+  /** Quem vendeu (vendedora da OS: Maria, Carol, Alice…). */
+  vendedora?: string | null;
   visitas: VisitaVendido[];
 };
 
@@ -50,6 +52,7 @@ export type VisitaComValor = {
   repasse: number;
   dispensado: number;
   origem: string | null;
+  vendedora: string | null;
 };
 
 const centavos = (n: number) => Math.round(Number(n || 0) * 100);
@@ -108,6 +111,7 @@ export function visitasComValor(os: OsVendido, hoje: string): VisitaComValor[] {
       repasse: Math.max(0, Number(v.repasse_parceiro ?? 0)),
       dispensado: Math.max(0, Number(v.discount_amount ?? 0)),
       origem: os.origem ?? null,
+      vendedora: os.vendedora ?? null,
     };
   });
 }
@@ -184,4 +188,41 @@ export function vendidoPorOrigemServico(
   return [...mapa.entries()]
     .map(([origem, a]) => ({ origem, valor: a.valor, quantidade: a.os.size }))
     .sort((a, b) => b.valor - a.valor || a.origem.localeCompare(b.origem));
+}
+
+/** "Quem vendeu" no período, pela data do serviço (mesmo critério do Vendido), da maior para a menor. */
+export function vendidoPorVendedora(
+  vendido: Vendido,
+): { vendedora: string; valor: number; quantidade: number }[] {
+  const mapa = new Map<string, { valor: number; os: Set<string> }>();
+  for (const v of vendido.visitas) {
+    const chave = v.vendedora?.trim() || "Sem vendedora";
+    const acc = mapa.get(chave) ?? { valor: 0, os: new Set<string>() };
+    acc.valor = r2(acc.valor + liquidoDaVisita(v));
+    acc.os.add(v.osId);
+    mapa.set(chave, acc);
+  }
+  return [...mapa.entries()]
+    .map(([vendedora, a]) => ({ vendedora, valor: a.valor, quantidade: a.os.size }))
+    .sort((a, b) => b.valor - a.valor || a.vendedora.localeCompare(b.vendedora));
+}
+
+/**
+ * Projeção: OS fechadas no período (data da venda) com serviço DEPOIS do fim do período. Fica
+ * num número separado ("Já vendido para os próximos meses"), nunca somada ao Vendido do mês.
+ */
+export function vendidoParaProximosMeses(
+  vendidasNoPeriodo: OsVendido[],
+  periodo: Intervalo,
+  hoje: string,
+): { valor: number; quantidade: number } {
+  const visitas = vendidasNoPeriodo
+    .filter(osConta)
+    .filter((os) => (os.sale_date ?? "") >= periodo.de && (os.sale_date ?? "") <= periodo.ate)
+    .flatMap((os) => visitasComValor(os, hoje))
+    .filter((v) => v.data !== null && v.data > periodo.ate);
+  return {
+    valor: reais(visitas.reduce((s, v) => s + centavos(liquidoDaVisita(v)), 0)),
+    quantidade: new Set(visitas.map((v) => v.osId)).size,
+  };
 }

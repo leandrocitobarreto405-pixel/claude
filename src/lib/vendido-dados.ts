@@ -7,8 +7,9 @@ import type { Banco } from "@/lib/banco";
 import { SELECT_OS_VENDIDO } from "@/lib/consultas";
 import type { OsVendido } from "@/lib/vendido";
 
-type OsBruta = Omit<OsVendido, "visitas" | "origem"> & {
+type OsBruta = Omit<OsVendido, "visitas" | "origem" | "vendedora"> & {
   sales_origin: { name: string } | null;
+  vendedora: { name: string } | null;
   visits: OsVendido["visitas"] | null;
 };
 
@@ -22,6 +23,7 @@ export function paraOsVendido(o: OsBruta): OsVendido {
     deleted_at: o.deleted_at,
     sale_date: o.sale_date ?? null,
     origem: o.sales_origin?.name ?? null,
+    vendedora: o.vendedora?.name ?? null,
     visitas: o.visits ?? [],
   };
 }
@@ -53,4 +55,20 @@ export async function buscarOsDoPeriodo(db: Banco, de: string, ate: string): Pro
   if (error) throw error;
   const ids = (data ?? []).map((v) => v.work_order_id as string).filter(Boolean);
   return ids.length ? buscarOsPorId(db, ids) : [];
+}
+
+/** OS fechadas (data da venda) entre `de` e `ate`, com todas as visitas (projeção dos próximos meses). */
+export async function buscarOsVendidasNoPeriodo(
+  db: Banco,
+  de: string,
+  ate: string,
+): Promise<OsVendido[]> {
+  const { data, error } = await db
+    .from("work_orders")
+    .select(SELECT_OS_VENDIDO)
+    .gte("sale_date", de)
+    .lte("sale_date", ate)
+    .limit(5000);
+  if (error) throw error;
+  return ((data ?? []) as unknown as OsBruta[]).map(paraOsVendido);
 }

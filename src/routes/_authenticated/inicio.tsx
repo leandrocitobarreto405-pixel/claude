@@ -21,13 +21,14 @@ import {
   brl,
   currentMonth,
   monthEnd,
+  monthLabelPT,
   monthStart,
   pct,
   todayISO,
   tomorrowISO,
   weekdayPT,
 } from "@/lib/format";
-import { VendasPorEquipe } from "@/components/painel/vendas-por-equipe";
+import { QuemVendeu } from "@/components/painel/quem-vendeu";
 import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { usePlanoDaEmpresa } from "@/lib/plano-empresa";
 import { temRecurso } from "@/lib/recursos";
@@ -415,7 +416,15 @@ function Inicio() {
             </Card>
           </div>
 
-          <VendasPorEquipe de={monthStart(currentMonth())} ate={monthEnd(currentMonth())} />
+          {r ? (
+            <QuemVendeu
+              linhas={r.quemVendeu}
+              rotuloPeriodo={
+                periodo === "mes" ? monthLabelPT(r.mes) : periodo === "semana" ? "semana" : "hoje"
+              }
+              proximosMeses={periodo === "mes" ? r.proximosMeses : null}
+            />
+          ) : null}
         </>
       ) : (
         <>
