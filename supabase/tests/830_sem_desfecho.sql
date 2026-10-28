@@ -44,7 +44,7 @@ UPDATE public.crm_leads SET orcamento_enviado_em = now() - interval '20 days' WH
 
 SELECT pg_temp.como('vendedora@p830.test', :'E');
 SET ROLE authenticated;
-SELECT pg_temp.ok(jsonb_array_length(public.motivos_sem_desfecho()) = 11, '11 motivos');
+SELECT pg_temp.ok(jsonb_array_length(public.motivos_sem_desfecho()) = 13, '13 motivos (11 + não é cliente e cliente antigo)');
 SELECT pg_temp.ok(jsonb_array_length(public.leads_sem_desfecho()) = 3, 'entram L1 (cadência), L2 (validade) e L5 (sugestão da Alice)');
 SELECT pg_temp.ok(public.contar_sem_desfecho() = 3, 'contador');
 SELECT pg_temp.ok((SELECT x->>'entrou' = 'alice' AND x->>'sugerido' = 'Preço alto – desistiu/adiou'
