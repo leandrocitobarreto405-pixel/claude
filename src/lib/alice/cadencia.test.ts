@@ -5,8 +5,8 @@ import {
   horarioDoPasso,
   instanteSP,
   passoDaEtapa,
-  primeiraConversa,
-  primeiroPasso,
+  ancoraDoOrcamento,
+  planejarToque,
   proximoPasso,
   travaDoLead,
   trilhaDoLead,
@@ -140,35 +140,132 @@ test("retomada: um toque só, com modelo e horários", () => {
   assert.equal(r.horarios, true);
 });
 
-test("trilha espaçada (0909): depois do retorno combinado, um toque 2 dias depois às 10h e o fim 2 dias depois", () => {
-  const p = primeiroPasso("A", { oferta: true, espacada: true })!;
-  assert.equal(p.etapa, "AE");
-  const ancora = new Date("2026-10-28T13:00:24Z"); // retorno combinado às 10:00 de 28/10
-  assert.equal(
-    horarioDoPasso(p, ancora, ancora).toISOString(),
-    "2026-10-30T13:00:00.000Z", // 30/10 10h, nunca 10:10 nem 10:40
-  );
-  const fim = proximoPasso("A", "AE", { oferta: true })!;
-  assert.equal(fim.etapa, "AE_FIM");
-  assert.ok(fim.fim);
-  assert.equal(horarioDoPasso(fim, ancora, ancora).toISOString(), "2026-11-01T13:00:00.000Z");
-  assert.equal(proximoPasso("A", "AE_FIM", { oferta: true }), null);
-  assert.equal(primeiroPasso("B", { oferta: false, espacada: true })!.etapa, "BE");
-  assert.equal(passoDaEtapa("BE_FIM")!.fim, true);
-  // Sem espaçar: a trilha normal começa no +10 min.
-  assert.equal(primeiroPasso("A", { oferta: true, espacada: false })!.etapa, "A1");
+const SP = (d: string) => new Date(`${d}-03:00`);
+const base = {
+  oferta: false,
+  ultimaDoCliente: null as Date | null,
+  retorno: null as Date | null,
+};
+
+test("6066: cliente respondeu depois do orçamento → nada de A1 de novo; o próximo é o D1 10h", () => {
+  const p = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-10-27T19:06:43"),
+    ancoraOrcamento: SP("2026-10-27T18:50:38"),
+    feitos: [{ etapa: "A1", em: SP("2026-10-27T19:00:53").toISOString() }],
+    ultimaDoCliente: SP("2026-10-27T19:06:30"),
+  })!;
+  assert.equal(p.passo.etapa, "A3");
+  assert.equal(p.quando.toISOString(), SP("2026-10-28T10:00:00").toISOString());
 });
 
-test("+10 e +40 min só na primeira conversa (até 24 h do orçamento ou do primeiro contato)", () => {
-  const agora = new Date("2026-10-28T13:00:00Z");
+test("trilha começa uma vez: sem resposta depois do orçamento, A1 +10 e A2 +40 do orçamento", () => {
+  const ancora = SP("2026-10-27T18:50:38");
+  const a1 = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: ancora,
+    ancoraOrcamento: ancora,
+    feitos: [],
+  })!;
+  assert.equal(a1.passo.etapa, "A1");
+  assert.equal(a1.quando.toISOString(), SP("2026-10-27T19:00:38").toISOString());
+  const a2 = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-10-27T19:00:53"),
+    ancoraOrcamento: ancora,
+    feitos: [{ etapa: "A1", em: SP("2026-10-27T19:00:53").toISOString() }],
+  })!;
+  assert.equal(a2.passo.etapa, "A2");
+  assert.equal(a2.quando.toISOString(), SP("2026-10-27T19:30:38").toISOString());
+});
+
+test("etapa feita não se repete e, depois do primeiro dia, 4 h entre toques; vence amanhã atrasado não sai", () => {
+  const p = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-10-29T15:00:00"),
+    ancoraOrcamento: SP("2026-10-27T18:50:38"),
+    feitos: [
+      { etapa: "A1", em: SP("2026-10-27T19:00:53").toISOString() },
+      { etapa: "A2", em: SP("2026-10-27T19:30:53").toISOString() },
+      { etapa: "A3", em: SP("2026-10-29T13:00:00").toISOString() },
+    ],
+    ultimaDoCliente: SP("2026-10-28T09:00:00"),
+  })!;
+  // A4 ("vence amanhã") era 28/10 14h: atrasado, não sai. Sem oferta, vai o fim (D3 10h).
+  assert.equal(p.passo.etapa, "A_FIM");
+  assert.equal(p.quando.toISOString(), SP("2026-10-30T10:00:00").toISOString());
+});
+
+test("0909: retorno combinado sem resposta → próximo só 2 dias depois, às 10h", () => {
+  const p = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-10-28T10:00:24"),
+    ancoraOrcamento: SP("2026-10-27T14:48:56"),
+    feitos: [],
+    ultimaDoCliente: SP("2026-10-27T14:54:43"),
+    retorno: SP("2026-10-28T10:00:24"),
+  })!;
+  assert.equal(p.passo.etapa, "A3");
+  assert.equal(p.quando.toISOString(), SP("2026-10-30T10:00:00").toISOString());
+});
+
+test("depois do retorno, sem toque sobrando na trilha: toque espaçado e o fim 2 dias depois", () => {
+  const feitos = ["A1", "A2", "A3", "A4"].map((etapa, i) => ({
+    etapa,
+    em: SP(`2026-10-2${i}T10:00:00`).toISOString(),
+  }));
+  const ae = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-11-02T10:00:00"),
+    ancoraOrcamento: SP("2026-10-20T09:00:00"),
+    feitos,
+    retorno: SP("2026-11-02T10:00:00"),
+  })!;
+  assert.equal(ae.passo.etapa, "AE");
+  assert.equal(ae.quando.toISOString(), SP("2026-11-04T10:00:00").toISOString());
+  const fim = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-11-04T10:00:30"),
+    ancoraOrcamento: SP("2026-10-20T09:00:00"),
+    feitos: [...feitos, { etapa: "AE", em: SP("2026-11-04T10:00:30").toISOString() }],
+  })!;
+  assert.equal(fim.passo.etapa, "AE_FIM");
+  assert.equal(fim.quando.toISOString(), SP("2026-11-06T10:00:00").toISOString());
+});
+
+test("novo orçamento (outro valor) recomeça a trilha; o mesmo valor refeito, não", () => {
   assert.equal(
-    primeiraConversa("A", { orcamento_enviado_em: "2026-10-28T11:00:00Z" }, agora),
-    true,
+    ancoraDoOrcamento([
+      { created_at: "2026-10-27T10:00:00Z", total: 300 },
+      { created_at: "2026-10-27T11:00:00Z", total: 300 },
+    ])!.toISOString(),
+    "2026-10-27T10:00:00.000Z",
   );
   assert.equal(
-    primeiraConversa("A", { orcamento_enviado_em: "2026-10-27T11:00:00Z" }, agora),
-    false,
+    ancoraDoOrcamento([
+      { created_at: "2026-10-27T10:00:00Z", total: 300 },
+      { created_at: "2026-10-28T11:00:00Z", total: 450 },
+    ])!.toISOString(),
+    "2026-10-28T11:00:00.000Z",
   );
-  assert.equal(primeiraConversa("B", { created_at: "2026-10-20T11:00:00Z" }, agora), false);
-  assert.equal(primeiraConversa("B", { created_at: null }, agora), true);
+});
+
+test("trilha B: B1 uma vez; cliente respondeu hoje depois do B1 → próximo amanhã às 10h", () => {
+  const p = planejarToque({
+    ...base,
+    trilha: "B",
+    agora: SP("2026-10-27T17:56:40"),
+    ancoraOrcamento: null,
+    feitos: [{ etapa: "B1", em: SP("2026-10-27T17:48:33").toISOString() }],
+    ultimaDoCliente: SP("2026-10-27T17:56:17"),
+  })!;
+  assert.equal(p.passo.etapa, "B3");
+  assert.equal(p.quando.toISOString(), SP("2026-10-28T10:00:00").toISOString());
 });

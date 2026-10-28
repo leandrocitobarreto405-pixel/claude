@@ -9,8 +9,8 @@
  * Trilha B (sumiu antes do orçamento): D0 +10 min (foto), D0 +40 min (tipo/tamanho + CEP), D1 10h,
  * D2 16h e, no D3 10h, "sem desfecho" (motivo sugerido "Sumiu antes do orçamento").
  * Trilha C (esperando um evento) continua com a data que a Alice combinar.
- * Os +10 e +40 min só valem na primeira conversa. Depois de um retorno combinado, de uma retomada ou
- * fora da primeira conversa, vale a trilha espaçada (ESPACADA): um toque 2 dias depois e o fim.
+ * A trilha começa uma vez e segue a etapa seguinte (planejarToque): a resposta do cliente só cancela o
+ * toque pendente. Depois de um retorno combinado sem resposta, 2 dias depois (ESPACADA, se faltar).
  * Dentro da janela de 24 h a Alice escreve o toque (com o guia); fora dela vai o modelo aprovado da
  * Meta (A3, A4, A5, B3, B4) ou o toque vira tarefa da equipe.
  */
@@ -143,9 +143,9 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
 };
 
 /**
- * Trilha espaçada (28/10, conversa 0909): depois de um retorno combinado (trilha C), de uma retomada
- * ou fora da primeira conversa, nada de +10 e +40 min. Um toque com algo novo 2 dias depois, às 10h,
- * e, sem resposta, "sem desfecho" mais 2 dias depois.
+ * Toque espaçado (28/10, conversa 0909): depois de um retorno combinado sem resposta, quando a trilha
+ * não tem mais toque, um toque com algo novo 2 dias depois, às 10h, e, sem resposta, "sem desfecho"
+ * mais 2 dias depois.
  */
 export const ESPACADA: Record<Trilha, Passo[]> = {
   A: [
@@ -185,30 +185,111 @@ export const ESPACADA: Record<Trilha, Passo[]> = {
   ],
 };
 
-/** Até quanto tempo depois do orçamento (trilha A) ou do primeiro contato (B) é "primeira conversa". */
-export const PRIMEIRA_CONVERSA_HORAS = 24;
+/** Toque da cadência já feito nesta conversa (mandado pela Alice, pelo modelo ou passado à equipe). */
+export type ToqueFeito = { etapa: string; em: string };
 
-/**
- * Os toques de +10 e +40 min só valem na primeira conversa: orçamento mandado (A) ou lead criado (B)
- * há até 24 h. Sem a data, conta como primeira conversa.
- */
-export function primeiraConversa(
-  trilha: Trilha,
-  lead: { orcamento_enviado_em?: string | null; created_at?: string | null } | null,
-  agora: Date,
-): boolean {
-  const desde = trilha === "A" ? lead?.orcamento_enviado_em : lead?.created_at;
-  if (!desde) return true;
-  return agora.getTime() - Date.parse(desde) <= PRIMEIRA_CONVERSA_HORAS * 3_600_000;
+export type EntradaPlano = {
+  trilha: Trilha;
+  oferta: boolean;
+  agora: Date;
+  /** Trilha A: envio do orçamento atual (o último que mudou de valor). */
+  ancoraOrcamento: Date | null;
+  /** Toques da cadência já feitos desde a âncora (trilha A) ou desde o início (B), em ordem. */
+  feitos: ToqueFeito[];
+  ultimaDoCliente: Date | null;
+  /** Retorno combinado (trilha C) feito depois do último toque da cadência e ainda sem resposta. */
+  retorno: Date | null;
+};
+
+const HORA = 3_600_000;
+const ehMinutos = (p: Passo) => "minutos" in p.quando;
+const maior = (a: Date, b: Date) => (a.getTime() >= b.getTime() ? a : b);
+
+/** Envio do orçamento atual: o primeiro orçamento ou o último que mudou de valor (novo orçamento). */
+export function ancoraDoOrcamento(
+  orcamentos: Array<{ created_at: string; total: number | string | null }>,
+): Date | null {
+  const lista = [...orcamentos].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  let ancora: string | null = null;
+  let valor: number | null = null;
+  for (const q of lista) {
+    const v = Number(q.total ?? 0);
+    if (valor === null || Math.abs(v - valor) > 0.009) ancora = q.created_at;
+    valor = v;
+  }
+  return ancora ? new Date(ancora) : null;
 }
 
-/** Primeiro passo de uma trilha nova: a espaçada ou a normal (sem a oferta, o A5 é pulado). */
-export function primeiroPasso(
-  trilha: Trilha,
-  o: { oferta: boolean; espacada: boolean },
-): Passo | null {
-  if (o.espacada) return ESPACADA[trilha][0] ?? null;
-  return proximoPasso(trilha, null, o);
+/**
+ * Próximo toque da cadência (28/10, conversas 6066 e 0909). A trilha começa UMA vez (A: no envio do
+ * orçamento) e nunca volta para o começo: a resposta do cliente só cancela o toque pendente e, quando
+ * a conversa para de novo, segue a etapa seguinte. Regras:
+ * - etapa já feita não se repete;
+ * - cliente conversou depois do início da trilha: sem toques de +10/+40 min; se foi hoje, o próximo
+ *   só amanhã, a partir das 10h;
+ * - depois de um retorno combinado sem resposta: só 2 dias depois, às 10h, com algo novo (se não
+ *   sobrar toque na trilha, vai o toque espaçado e, sem resposta, o fim 2 dias depois);
+ * - depois do primeiro dia, nunca dois toques com menos de 4 h;
+ * - "vence amanhã" atrasado não sai (validade dita é validade cumprida).
+ */
+export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } | null {
+  const { trilha, agora } = e;
+  const feitas = new Set(e.feitos.map((f) => f.etapa));
+  const emDe = (etapa: string) => {
+    const f = e.feitos.find((x) => x.etapa === etapa);
+    return f ? new Date(f.em) : null;
+  };
+  const primeiroB = e.feitos[0] ? new Date(e.feitos[0].em) : null;
+  // Início da trilha: o orçamento (A) ou o primeiro toque feito (B; sem toque, agora).
+  const inicio =
+    trilha === "A"
+      ? (e.ancoraOrcamento ?? agora)
+      : primeiroB
+        ? new Date(primeiroB.getTime() - 10 * 60_000)
+        : agora;
+  const marco = trilha === "A" ? e.ancoraOrcamento : primeiroB;
+  const falouDepois = Boolean(
+    e.ultimaDoCliente && marco && e.ultimaDoCliente.getTime() > marco.getTime(),
+  );
+  const ultimoToque = [...e.feitos.map((f) => new Date(f.em)), ...(e.retorno ? [e.retorno] : [])]
+    .sort((a, b) => a.getTime() - b.getTime())
+    .at(-1);
+  const alvo = (p: Passo) =>
+    "minutos" in p.quando
+      ? new Date(inicio.getTime() + p.quando.minutos * 60_000)
+      : instanteSP(diaSP(inicio), p.quando.dia, p.quando.hora);
+
+  let candidatos: Passo[];
+  const espacada = ESPACADA[trilha];
+  const ultimoEspacado = espacada.filter((p) => feitas.has(p.etapa)).at(-1);
+  if (ultimoEspacado) {
+    candidatos = espacada.slice(espacada.indexOf(ultimoEspacado) + 1);
+  } else {
+    const lista = CADENCIA[trilha].filter((p) => !p.oferta || e.oferta);
+    const idx = Math.max(-1, ...lista.map((p, i) => (feitas.has(p.etapa) ? i : -1)));
+    candidatos = lista.slice(idx + 1).filter((p) => !feitas.has(p.etapa));
+    if (falouDepois || e.retorno) candidatos = candidatos.filter((p) => !ehMinutos(p));
+    candidatos = candidatos.filter(
+      (p) => !(p.etapa === "A4" && alvo(p).getTime() + 4 * HORA < agora.getTime()),
+    );
+    if (e.retorno && !candidatos.some((p) => !p.fim))
+      candidatos = espacada.filter((p) => !feitas.has(p.etapa));
+  }
+  const passo = candidatos[0];
+  if (!passo) return null;
+
+  let quando = alvo(passo);
+  if (passo.etapa === "B2" && emDe("B1")) quando = new Date(emDe("B1")!.getTime() + 30 * 60_000);
+  quando = maior(quando, new Date(agora.getTime() + 5 * 60_000));
+  if (falouDepois && e.ultimaDoCliente && diaSP(e.ultimaDoCliente) === diaSP(agora))
+    quando = maior(quando, instanteSP(diaSP(agora), 1, 10));
+  if (e.retorno) quando = maior(quando, instanteSP(diaSP(e.retorno), 2, 10));
+  if (ultimoEspacado) quando = maior(quando, instanteSP(diaSP(emDe(ultimoEspacado.etapa)!), 2, 10));
+  if (ultimoToque && !ehMinutos(passo)) {
+    const intervalo = passo.fim ? 18 * HORA : 4 * HORA;
+    quando = maior(quando, new Date(ultimoToque.getTime() + intervalo));
+  }
+  return { passo, quando };
 }
 
 /** Modelo da retomada de orçamentos parados (nome, dia1, dia2). */

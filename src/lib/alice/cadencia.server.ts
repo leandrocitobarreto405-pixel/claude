@@ -8,11 +8,11 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   MOTIVO_FIM,
   doisHorarios,
-  horarioDoPasso,
+  ESPACADA,
+  CADENCIA,
+  ancoraDoOrcamento,
   passoDaEtapa,
-  primeiraConversa,
-  primeiroPasso,
-  proximoPasso,
+  planejarToque,
   travaDoLead,
   trilhaDoLead,
   type Passo,
@@ -37,26 +37,6 @@ export type DadosCadencia = {
 const SELECT_LEAD =
   "id, lead_name, is_open, perdido_em, os_criada_em, linked_work_order_id, agendado_em, closed_at, orcamento_enviado_em, customer_id, created_at";
 
-/** Já houve retorno combinado (trilha C) ou retomada feito nesta conversa depois do último orçamento? */
-async function houveRetorno(
-  db: Db,
-  empresaId: string,
-  conversaId: string,
-  desde: string | null,
-): Promise<boolean> {
-  let q = db
-    .from("crm_followups")
-    .select("id")
-    .eq("empresa_id", empresaId)
-    .eq("conversa_id", conversaId)
-    .eq("status", "Concluída")
-    .eq("responsavel", "alice")
-    .or("trilha.eq.C,etapa.eq.R");
-  if (desde) q = q.gt("completed_at", desde);
-  const { data } = await q.limit(1);
-  return Boolean(data?.length);
-}
-
 async function lerLead(db: Db, empresaId: string, leadId: string) {
   const { data } = await db
     .from("crm_leads")
@@ -68,9 +48,9 @@ async function lerLead(db: Db, empresaId: string, leadId: string) {
 }
 
 /**
- * Agenda o próximo toque. Sem `atual` (resposta normal da Alice ou toque que não era da cadência):
- * começa a trilha pelo estado do lead, contando de agora. Com `atual` (toque da cadência feito):
- * agenda o passo seguinte da mesma trilha, contando da mesma âncora. Devolve se agendou.
+ * Agenda o próximo toque depois de cada resposta da Alice ou de cada toque feito. A trilha começa uma
+ * vez (A: no envio do orçamento atual) e segue a etapa seguinte pelo histórico da conversa
+ * (planejarToque): resposta do cliente nunca volta a trilha para o começo. Devolve se agendou.
  */
 export async function seguirCadencia(
   db: Db,
@@ -89,28 +69,85 @@ export async function seguirCadencia(
   const lead = await lerLead(db, o.empresaId, o.leadId);
   if (travaDoLead(lead)) return false;
   const agora = o.agora ?? new Date();
-  const continua = Boolean(o.atual?.cadencia && o.atual.etapa);
-  const trilha: Trilha = continua ? (o.atual!.trilha === "B" ? "B" : "A") : trilhaDoLead(lead);
-  const ancora = continua && o.atual!.ancora ? new Date(o.atual!.ancora) : agora;
+  const trilha: Trilha = trilhaDoLead(lead);
   const oferta = Boolean(o.cfg.oferta_followup_ligada && o.cfg.oferta_followup_valor);
-  // Trilha nova: +10 e +40 min só na primeira conversa. Depois de um retorno combinado (trilha C),
-  // de uma retomada ou numa conversa que já não é a primeira, vai a trilha espaçada (2 dias).
-  const espacada =
-    !continua &&
-    (o.atual?.trilha === "C" ||
-      !primeiraConversa(trilha, lead, agora) ||
-      (await houveRetorno(db, o.empresaId, o.conversaId, lead?.orcamento_enviado_em ?? null)));
-  const passo = continua
-    ? proximoPasso(trilha, o.atual!.etapa!, { oferta })
-    : primeiroPasso(trilha, { oferta, espacada });
-  if (!passo) return false;
+
+  // Âncora da trilha A: o orçamento atual (novo orçamento, com outro valor, recomeça a trilha).
+  const { data: orcamentos } = await db
+    .from("quotes")
+    .select("created_at, total")
+    .eq("empresa_id", o.empresaId)
+    .eq("crm_lead_id", o.leadId);
+  const ancoraOrcamento =
+    trilha === "A"
+      ? (ancoraDoOrcamento(orcamentos ?? []) ??
+        (lead?.orcamento_enviado_em ? new Date(lead.orcamento_enviado_em) : null))
+      : null;
+  // Toques já feitos nesta conversa (mandados ou passados à equipe; cancelado não conta).
+  const { data: toques } = await db
+    .from("crm_followups")
+    .select("etapa, trilha, status, canal, completed_at, scheduled_at")
+    .eq("empresa_id", o.empresaId)
+    .eq("conversa_id", o.conversaId)
+    .neq("status", "Cancelada");
+  const daTrilha = new Set(
+    [...CADENCIA[trilha], ...ESPACADA[trilha]].map((p) => p.etapa as string),
+  );
+  const feitoEm = (t: { completed_at: string | null; scheduled_at: string }) =>
+    t.completed_at ?? t.scheduled_at;
+  const valeu = (t: { status: string | null; canal: string | null }) =>
+    t.status === "Concluída" || t.canal === "equipe";
+  const feitos = (toques ?? [])
+    .filter((t) => t.etapa && daTrilha.has(t.etapa) && valeu(t))
+    // A: desde o orçamento atual; B: desde que o lead chegou.
+    .filter((t) => {
+      const desde = ancoraOrcamento ?? (lead?.created_at ? new Date(lead.created_at) : null);
+      return !desde || Date.parse(feitoEm(t)) >= desde.getTime();
+    })
+    .map((t) => ({ etapa: t.etapa!, em: feitoEm(t) }))
+    .sort((a, b) => a.em.localeCompare(b.em));
+  const { data: ultima } = await db
+    .from("whatsapp_messages")
+    .select("message_timestamp")
+    .eq("empresa_id", o.empresaId)
+    .eq("conversa_id", o.conversaId)
+    .eq("direction", "Recebida")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ultimaDoCliente = ultima ? new Date(ultima.message_timestamp) : null;
+  // Retorno combinado (trilha C) feito depois do último toque da cadência e sem resposta depois.
+  const ultimoRetorno = (toques ?? [])
+    .filter((t) => t.trilha === "C" && t.status === "Concluída" && t.completed_at)
+    .map((t) => new Date(t.completed_at!))
+    .sort((a, b) => a.getTime() - b.getTime())
+    .at(-1);
+  const ultimoFeito = feitos.at(-1);
+  const retorno =
+    o.atual?.trilha === "C"
+      ? agora
+      : ultimoRetorno &&
+          (!ultimoFeito || ultimoRetorno.getTime() > Date.parse(ultimoFeito.em)) &&
+          (!ultimaDoCliente || ultimaDoCliente.getTime() < ultimoRetorno.getTime())
+        ? ultimoRetorno
+        : null;
+
+  const plano = planejarToque({
+    trilha,
+    oferta,
+    agora,
+    ancoraOrcamento,
+    feitos,
+    ultimaDoCliente,
+    retorno,
+  });
+  if (!plano) return false;
+  const { passo } = plano;
+  const ancora = ancoraOrcamento ?? (feitos[0] ? new Date(feitos[0].em) : agora);
   const quando = passo.fim
-    ? horarioDoPasso(passo, ancora, agora)
-    : proximoHorarioPermitido(
-        horarioDoPasso(passo, ancora, agora),
-        o.cfg.hora_inicio,
-        o.cfg.hora_fim,
-      );
+    ? plano.quando
+    : proximoHorarioPermitido(plano.quando, o.cfg.hora_inicio, o.cfg.hora_fim);
 
   const { cancelarFollowupPendente } = await import("./ferramentas.server");
   await cancelarFollowupPendente(db, o.empresaId, o.conversaId, "substituído pela cadência");
