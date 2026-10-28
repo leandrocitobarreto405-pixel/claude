@@ -62,22 +62,29 @@ export function tituloParadaNexa(
   if (provedor === "ia")
     return causa === "credito"
       ? `Alice parada: sem crédito na conta da IA desde ${h}`
-      : `Alice parada: chave da IA recusada desde ${h}`;
+      : `Alice parada: chave da Anthropic recusada ou vencida desde ${h}`;
   return causa === "credito"
     ? `Áudio da Alice parado: sem crédito na conta de voz desde ${h}`
     : `Áudio da Alice parado: chave de voz recusada desde ${h}`;
 }
+
+/** O que fazer quando a Anthropic recusa a chave (aviso à Nexa e Painel Nexa). */
+export const ACAO_CHAVE_ANTHROPIC =
+  "Chave da Anthropic recusada ou vencida – trocar em console.anthropic.com";
 
 /** Corpo do aviso à Nexa: o que acontece e o que fazer. */
 export function corpoParadaNexa(
   provedor: ProvedorParada,
   empresas: number,
   conversas: number,
+  causa?: CausaParada,
 ): string {
   if (provedor === "voz")
     return "A Alice segue respondendo em texto. Confira o saldo e a chave da conta de voz.";
   const emp = empresas === 1 ? "1 empresa" : `${empresas} empresas`;
   const conv = conversas === 1 ? "1 conversa foi" : `${conversas} conversas foram`;
+  // Chave recusada (401): quase sempre vencida (a de 28/09 venceu em 28/10, validade de 30 dias).
+  if (causa === "autenticacao") return `${conv} para a equipe (${emp}). ${ACAO_CHAVE_ANTHROPIC}.`;
   return `${conv} para a equipe (${emp}). Confira o saldo e a chave da conta da IA.`;
 }
 

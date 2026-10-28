@@ -20,6 +20,7 @@ export function resumoDasParadas(paradas: ParadaIa[]) {
           provedor,
           lista.length,
           lista.reduce((s, p) => s + p.conversas, 0),
+          lista[0]!.causa,
         ),
       };
     })
