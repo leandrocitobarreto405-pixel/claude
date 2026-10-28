@@ -320,8 +320,9 @@ export const GUIA_TOQUE_AUDIO =
 export const MODELO_RETORNO_COMBINADO = "fu_retorno_combinado";
 
 /**
- * Retorno combinado fora da janela (28/10): o modelo pergunta se pode continuar; quando o cliente
- * responde, a Alice segue com a empatia antes do interesse.
+ * Retorno combinado fora da janela (28/10): o modelo traz uma frase curta com empatia (escrita na
+ * hora, retorno-combinado.ts) e pergunta se pode continuar; quando o cliente responde, a Alice segue
+ * com a empatia antes do interesse. Sem nome confiável, a variante _sn.
  */
 export const PASSO_RETORNO_COMBINADO: Passo = {
   etapa: "RC",
