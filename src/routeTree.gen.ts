@@ -63,6 +63,7 @@ import { Route as AuthenticatedConfiguracoesVendasRouteImport } from './routes/_
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasConversaIdRouteImport } from './routes/_authenticated/conversas.$conversaId'
 import { Route as AuthenticatedCrmCampanhasRouteImport } from './routes/_authenticated/crm/campanhas'
+import { Route as AuthenticatedCrmFollowUpRouteImport } from './routes/_authenticated/crm/follow-up'
 import { Route as AuthenticatedCrmFunilRouteImport } from './routes/_authenticated/crm/funil'
 import { Route as AuthenticatedCrmImportarRouteImport } from './routes/_authenticated/crm/importar'
 import { Route as AuthenticatedCrmIntegracoesRouteImport } from './routes/_authenticated/crm/integracoes'
@@ -390,6 +391,12 @@ const AuthenticatedCrmCampanhasRoute =
     path: '/crm/campanhas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCrmFollowUpRoute =
+  AuthenticatedCrmFollowUpRouteImport.update({
+    id: '/crm/follow-up',
+    path: '/crm/follow-up',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCrmFunilRoute = AuthenticatedCrmFunilRouteImport.update({
   id: '/crm/funil',
   path: '/crm/funil',
@@ -666,6 +673,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
+  '/crm/follow-up': typeof AuthenticatedCrmFollowUpRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
@@ -758,6 +766,7 @@ export interface FileRoutesByTo {
   '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
+  '/crm/follow-up': typeof AuthenticatedCrmFollowUpRoute
   '/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
@@ -854,6 +863,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
   '/_authenticated/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/_authenticated/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
+  '/_authenticated/crm/follow-up': typeof AuthenticatedCrmFollowUpRoute
   '/_authenticated/crm/funil': typeof AuthenticatedCrmFunilRoute
   '/_authenticated/crm/importar': typeof AuthenticatedCrmImportarRoute
   '/_authenticated/crm/integracoes': typeof AuthenticatedCrmIntegracoesRoute
@@ -950,6 +960,7 @@ export interface FileRouteTypes {
     | '/configuracoes/vendas'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
+    | '/crm/follow-up'
     | '/crm/funil'
     | '/crm/importar'
     | '/crm/integracoes'
@@ -1042,6 +1053,7 @@ export interface FileRouteTypes {
     | '/configuracoes/vendas'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
+    | '/crm/follow-up'
     | '/crm/funil'
     | '/crm/importar'
     | '/crm/integracoes'
@@ -1137,6 +1149,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes/vendas'
     | '/_authenticated/conversas/$conversaId'
     | '/_authenticated/crm/campanhas'
+    | '/_authenticated/crm/follow-up'
     | '/_authenticated/crm/funil'
     | '/_authenticated/crm/importar'
     | '/_authenticated/crm/integracoes'
@@ -1587,6 +1600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCrmCampanhasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/crm/follow-up': {
+      id: '/_authenticated/crm/follow-up'
+      path: '/crm/follow-up'
+      fullPath: '/crm/follow-up'
+      preLoaderRoute: typeof AuthenticatedCrmFollowUpRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/crm/funil': {
       id: '/_authenticated/crm/funil'
       path: '/crm/funil'
@@ -1920,6 +1940,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesOutrosRoute: typeof AuthenticatedConfiguracoesOutrosRoute
   AuthenticatedConfiguracoesVendasRoute: typeof AuthenticatedConfiguracoesVendasRoute
   AuthenticatedCrmCampanhasRoute: typeof AuthenticatedCrmCampanhasRoute
+  AuthenticatedCrmFollowUpRoute: typeof AuthenticatedCrmFollowUpRoute
   AuthenticatedCrmFunilRoute: typeof AuthenticatedCrmFunilRoute
   AuthenticatedCrmImportarRoute: typeof AuthenticatedCrmImportarRoute
   AuthenticatedCrmIntegracoesRoute: typeof AuthenticatedCrmIntegracoesRoute
@@ -1989,6 +2010,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesOutrosRoute: AuthenticatedConfiguracoesOutrosRoute,
   AuthenticatedConfiguracoesVendasRoute: AuthenticatedConfiguracoesVendasRoute,
   AuthenticatedCrmCampanhasRoute: AuthenticatedCrmCampanhasRoute,
+  AuthenticatedCrmFollowUpRoute: AuthenticatedCrmFollowUpRoute,
   AuthenticatedCrmFunilRoute: AuthenticatedCrmFunilRoute,
   AuthenticatedCrmImportarRoute: AuthenticatedCrmImportarRoute,
   AuthenticatedCrmIntegracoesRoute: AuthenticatedCrmIntegracoesRoute,
@@ -2069,3 +2091,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
