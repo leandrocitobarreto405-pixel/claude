@@ -85,7 +85,7 @@ export async function registrarParada(
     const { empresas, conversas } = await resumoAberto(db, provedor);
     await avisarNexa(db, {
       titulo: tituloParadaNexa(provedor, causa, new Date(r.desde ?? Date.now())),
-      corpo: corpoParadaNexa(provedor, empresas, conversas),
+      corpo: corpoParadaNexa(provedor, empresas, conversas, causa),
       url: "/nexa/consumo",
       tag: `parada-${provedor}`,
     });
@@ -242,7 +242,12 @@ export async function rotinaAlarmeIa(db: Db, agora = new Date()): Promise<{ avis
     }
     avisos += await avisarNexa(db, {
       titulo: tituloParadaNexa(provedor, teste === "outro" ? r.causa : teste, new Date(r.desde)),
-      corpo: corpoParadaNexa(provedor, r.empresas, r.conversas),
+      corpo: corpoParadaNexa(
+        provedor,
+        r.empresas,
+        r.conversas,
+        teste === "outro" ? r.causa : teste,
+      ),
       url: "/nexa/consumo",
       tag: `parada-${provedor}`,
     });
