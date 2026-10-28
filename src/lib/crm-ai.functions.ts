@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireRecurso } from "@/lib/recurso.middleware";
+import { ehTemperatura, type Temperatura } from "@/lib/temperatura";
 
 /** crm: recurso do plano (Essencial não tem). */
 const comRecurso = requireRecurso("crm");
@@ -10,9 +11,9 @@ Responda SEMPRE em português do Brasil e SOMENTE com JSON válido, sem texto ex
 Regras obrigatórias:
 - Use apenas informações presentes na conversa. Nunca invente preço, valor, data, quantidade, endereço ou decisão de compra.
 - Se um campo não estiver claro na conversa, devolva null.
-- "temperature" é "QUENTE" apenas quando o cliente demonstra intenção clara (pede preço para fechar, pergunta agenda, confirma interesse); caso contrário "FRIO".
+- "temperature" é "QUENTE" apenas quando o cliente demonstra intenção clara (pede preço para fechar, pergunta agenda, confirma interesse); "MORNO" quando tem interesse mas sem pressa ou com dúvida; caso contrário "FRIO".
 Formato:
-{"summary":string,"upholstery":string|null,"service_interest":"Higienização"|"Impermeabilização"|"Higienização e impermeabilização"|null,"city":string|null,"intent":string|null,"objections":string|null,"next_action":string|null,"temperature":"QUENTE"|"FRIO"}`;
+{"summary":string,"upholstery":string|null,"service_interest":"Higienização"|"Impermeabilização"|"Higienização e impermeabilização"|null,"city":string|null,"intent":string|null,"objections":string|null,"next_action":string|null,"temperature":"QUENTE"|"MORNO"|"FRIO"}`;
 
 export const sugerirResumoDoLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, comRecurso])
@@ -84,7 +85,9 @@ export const sugerirResumoDoLead = createServerFn({ method: "POST" })
       const value = parsed[key];
       return typeof value === "string" && value.trim() ? value.trim().slice(0, 2000) : null;
     };
-    const temperature = parsed["temperature"] === "QUENTE" ? "QUENTE" : "FRIO";
+    const temperature = ehTemperatura(String(parsed["temperature"] ?? ""))
+      ? (parsed["temperature"] as Temperatura)
+      : "FRIO";
 
     const patch: Record<string, unknown> = {
       summary: str("summary"),
@@ -95,10 +98,8 @@ export const sugerirResumoDoLead = createServerFn({ method: "POST" })
       patch["upholstery_description"] = str("upholstery");
     if (!lead.service_interest && str("service_interest"))
       patch["service_interest"] = str("service_interest");
-    if (!lead.temperature_confirmed) {
-      patch["temperature"] = temperature;
-      patch["temperature_confirmed"] = false;
-    }
+    // A sugestão da IA só desempata: a regra por eventos (varredura) decide a temperatura.
+    if (!lead.temperature_confirmed) patch["temperatura_ia"] = temperature;
 
     const { error: updateError } = await context.supabase
       .from("crm_leads")

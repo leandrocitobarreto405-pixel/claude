@@ -47,7 +47,7 @@ const CAMPOS = [
   { key: "upholstery_description", label: "Estofado / descrição", required: false },
   { key: "service_interest", label: "Serviço de interesse", required: false },
   { key: "status", label: "Status", required: false },
-  { key: "temperature", label: "Temperatura (Frio/Quente)", required: false },
+  { key: "temperature", label: "Temperatura (Frio/Morno/Quente)", required: false },
   { key: "summary", label: "Resumo da conversa", required: false },
   { key: "notes", label: "Observações", required: false },
 ] as const;
@@ -155,7 +155,11 @@ function ImportarCrm() {
           (s) => s.name.toLowerCase() === statusNome.toLowerCase(),
         );
         const temperaturaTexto = get("temperature").toUpperCase();
-        const temperatura = temperaturaTexto.startsWith("Q") ? "QUENTE" : "FRIO";
+        const temperatura = temperaturaTexto.startsWith("Q")
+          ? "QUENTE"
+          : temperaturaTexto.startsWith("M")
+            ? "MORNO"
+            : "FRIO";
         const dataContato =
           (mapa["first_contact_date"] ? excelDate(row[mapa["first_contact_date"]!]) : null) ??
           todayISO();

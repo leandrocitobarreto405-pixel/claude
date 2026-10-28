@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { statusMeta } from "@/lib/crm";
+import { rotuloTemperatura, seloRetorno, veioDaIa } from "@/lib/temperatura";
 
 /** Select nativo — evita as travas de menus flutuantes já observadas no app. */
 export function NativeSelect({
@@ -76,21 +77,47 @@ export function StatusPill({
 export function TemperatureBadge({
   temperature,
   suggested,
+  motivo,
+  retornoEm,
 }: {
   temperature: string;
   suggested?: boolean;
+  /** Por que o lead está com essa temperatura (regra por eventos). */
+  motivo?: string | null | undefined;
+  /** Retorno combinado pendente: o selo "Retorno combinado (dd/mm)" vai no lugar. */
+  retornoEm?: string | null | undefined;
 }) {
-  const hot = temperature === "QUENTE";
+  const selo = seloRetorno(retornoEm);
+  if (selo) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+          selo.vencido ? COLOR_CLASSES["danger"] : COLOR_CLASSES["navy"],
+        )}
+        title={`${rotuloTemperatura(temperature)}${motivo ? ` — ${motivo}` : ""}`}
+      >
+        {selo.rotulo}
+      </span>
+    );
+  }
+  const cor =
+    temperature === "QUENTE"
+      ? COLOR_CLASSES["danger"]
+      : temperature === "MORNO"
+        ? COLOR_CLASSES["warning"]
+        : COLOR_CLASSES["teal"];
+  const ia = Boolean(suggested) && veioDaIa(motivo);
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        hot ? COLOR_CLASSES["danger"] : COLOR_CLASSES["teal"],
+        cor,
       )}
-      title={suggested ? "Classificação sugerida pela IA — confirme para fixar" : undefined}
+      title={ia ? "Sugestão da IA (nenhuma regra decidiu ainda)" : (motivo ?? undefined)}
     >
-      {hot ? "Quente" : "Frio"}
-      {suggested ? <span className="opacity-70">(IA)</span> : null}
+      {rotuloTemperatura(temperature)}
+      {ia ? <span className="opacity-70">(IA)</span> : null}
     </span>
   );
 }

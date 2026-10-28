@@ -342,6 +342,8 @@ function LeadDetalhe() {
               <TemperatureBadge
                 temperature={lead.temperature}
                 suggested={!lead.temperature_confirmed}
+                motivo={lead.temperatura_motivo}
+                retornoEm={lead.retorno_combinado_em}
               />
               {lead.work_order ? (
                 <span className="text-xs text-muted-foreground">

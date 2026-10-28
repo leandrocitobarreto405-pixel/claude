@@ -150,7 +150,7 @@ const AtualizarLead = z.object({
   descricao_estofados: z.string().trim().min(1).max(1000).optional(),
   endereco: z.string().trim().min(1).max(300).optional(),
   resumo: z.string().trim().min(1).max(1500).optional(),
-  temperatura: z.enum(["QUENTE", "FRIO"]).optional(),
+  temperatura: z.enum(["QUENTE", "MORNO", "FRIO"]).optional(),
   origem: z
     .enum(["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "outro"])
     .optional(),
@@ -345,8 +345,9 @@ export function ferramentasDisponiveis(
           },
           temperatura: {
             type: "string",
-            enum: ["QUENTE", "FRIO"],
-            description: "QUENTE se o cliente demonstra intenção clara de fechar.",
+            enum: ["QUENTE", "MORNO", "FRIO"],
+            description:
+              "QUENTE se o cliente demonstra intenção clara de fechar; MORNO se tem interesse sem pressa.",
           },
           origem: {
             type: "string",
@@ -868,7 +869,8 @@ async function atualizarLead(ctx: ContextoFerramenta, input: z.infer<typeof Atua
     mudancas.summary = input.resumo;
     mudancas.summary_source = "Alice";
   }
-  if (input.temperatura) mudancas.temperature = input.temperatura;
+  // Sugestão: só desempata (a regra por eventos decide a temperatura na varredura).
+  if (input.temperatura) mudancas.temperatura_ia = input.temperatura;
   let avisoOrigem = "";
   if (input.origem) {
     if (lead.sales_origin_id) avisoOrigem = " A origem já era conhecida e não mudou.";

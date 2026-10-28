@@ -125,6 +125,8 @@ function Funil() {
                       <TemperatureBadge
                         temperature={lead.temperature}
                         suggested={!lead.temperature_confirmed}
+                        motivo={lead.temperatura_motivo}
+                        retornoEm={lead.retorno_combinado_em}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">{formatPhoneBR(lead.phone)}</p>
