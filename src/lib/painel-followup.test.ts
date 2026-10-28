@@ -6,6 +6,7 @@ import {
   nomeDoToque,
   porSemana,
   porToque,
+  respostaNaJanela,
   semanaDe,
   type ToqueBruto,
 } from "./painel-followup";
@@ -124,4 +125,16 @@ test("funil Alice × equipe por quem orçou", () => {
   assert.equal(f.semOrcamento, 1);
   assert.deepEqual(f.alice, { orcamentos: 2, agendaram: 1, realizados: 1, valorAgendado: 300 });
   assert.deepEqual(f.equipe, { orcamentos: 1, agendaram: 1, realizados: 0, valorAgendado: 500 });
+});
+
+test("respondeu = qualquer mensagem do cliente até 48 h depois do toque", () => {
+  const toque = "2026-10-27T13:00:00Z";
+  assert.equal(respostaNaJanela(toque, []), null);
+  assert.equal(respostaNaJanela(toque, ["2026-10-27T12:59:00Z"]), null); // antes do toque
+  assert.equal(
+    respostaNaJanela(toque, ["2026-10-29T12:00:00Z", "2026-10-27T15:00:00Z"]),
+    "2026-10-27T15:00:00.000Z",
+  );
+  assert.equal(respostaNaJanela(toque, ["2026-10-29T13:00:00Z"]), "2026-10-29T13:00:00.000Z"); // 48 h
+  assert.equal(respostaNaJanela(toque, ["2026-10-29T13:01:00Z"]), null); // depois de 48 h
 });

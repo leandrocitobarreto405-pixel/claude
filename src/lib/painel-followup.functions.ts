@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireEmpresa } from "@/lib/empresa.middleware";
 import {
+  JANELA_RESPOSTA_HORAS,
   funilAliceEquipe,
   porSemana,
   porToque,
+  respostaNaJanela,
   type FunilAliceEquipe,
   type LeadBruto,
   type LinhaSemana,
@@ -48,7 +50,9 @@ export const painelFollowupFn = createServerFn({ method: "GET" })
     const [{ data: toques }, { data: leads }] = await Promise.all([
       db
         .from("crm_followups")
-        .select("trilha, etapa, status, canal, result, scheduled_at, respondido_em, crm_lead_id")
+        .select(
+          "trilha, etapa, status, canal, result, scheduled_at, completed_at, respondido_em, crm_lead_id, conversa_id",
+        )
         .eq("empresa_id", emp)
         .not("trilha", "is", null)
         .gte("scheduled_at", de)
@@ -67,7 +71,67 @@ export const painelFollowupFn = createServerFn({ method: "GET" })
         .limit(5000),
     ]);
 
-    const listaToques = (toques ?? []) as ToqueBruto[];
+    const listaToques = (toques ?? []) as Array<
+      ToqueBruto & { completed_at: string | null; conversa_id: string | null }
+    >;
+    // "Respondeu" = qualquer mensagem do cliente até 48 h depois do toque (inclusive áudio e ".").
+    const enviados = listaToques.filter((t) => t.status === "Concluída" && t.canal);
+    if (enviados.length) {
+      const enviadoEm = (t: (typeof enviados)[number]) => t.completed_at ?? t.scheduled_at;
+      const inicio = enviados.map(enviadoEm).sort()[0]!;
+      const limite = new Date(
+        Date.parse(enviados.map(enviadoEm).sort().at(-1)!) + JANELA_RESPOSTA_HORAS * 3600_000,
+      ).toISOString();
+      // Pelo contato do cliente: a resposta pode cair numa conversa nova (a antiga estava
+      // encerrada), como na retomada de 27/10.
+      const idsLeads = [...new Set(enviados.map((t) => t.crm_lead_id).filter(Boolean))] as string[];
+      const idsConversas = [
+        ...new Set(enviados.map((t) => t.conversa_id).filter(Boolean)),
+      ] as string[];
+      type Contato = { id: string; whatsapp_contact_id: string | null };
+      const [{ data: contatosLead }, { data: contatosConversa }] = await Promise.all([
+        idsLeads.length
+          ? db.from("crm_leads").select("id, whatsapp_contact_id").in("id", idsLeads)
+          : Promise.resolve({ data: [] as Contato[] }),
+        idsConversas.length
+          ? db.from("conversas").select("id, whatsapp_contact_id").in("id", idsConversas)
+          : Promise.resolve({ data: [] as Contato[] }),
+      ]);
+      const contatoDoLead = new Map((contatosLead ?? []).map((l) => [l.id, l.whatsapp_contact_id]));
+      const contatoDaConversa = new Map(
+        (contatosConversa ?? []).map((c) => [c.id, c.whatsapp_contact_id]),
+      );
+      const contatoDe = (t: (typeof enviados)[number]) =>
+        (t.crm_lead_id && contatoDoLead.get(t.crm_lead_id)) ||
+        (t.conversa_id && contatoDaConversa.get(t.conversa_id)) ||
+        null;
+      const contatos = [...new Set(enviados.map(contatoDe).filter(Boolean))] as string[];
+      const { data: msgs } = contatos.length
+        ? await db
+            .from("whatsapp_messages")
+            .select("whatsapp_contact_id, message_timestamp")
+            .eq("empresa_id", emp)
+            .eq("direction", "Recebida")
+            .eq("privada", false)
+            .in("whatsapp_contact_id", contatos)
+            .gt("message_timestamp", inicio)
+            .lte("message_timestamp", limite)
+            .limit(10000)
+        : { data: [] as Array<{ whatsapp_contact_id: string | null; message_timestamp: string }> };
+      const recebidas = new Map<string, string[]>();
+      for (const m of msgs ?? [])
+        if (m.whatsapp_contact_id)
+          recebidas.set(m.whatsapp_contact_id, [
+            ...(recebidas.get(m.whatsapp_contact_id) ?? []),
+            m.message_timestamp,
+          ]);
+      for (const t of enviados) {
+        const contato = contatoDe(t);
+        t.respondido_em = contato
+          ? respostaNaJanela(enviadoEm(t), recebidas.get(contato) ?? [])
+          : null;
+      }
+    }
     const idsDosToques = [
       ...new Set(listaToques.map((t) => t.crm_lead_id).filter((x): x is string => Boolean(x))),
     ];

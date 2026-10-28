@@ -7,7 +7,12 @@ import { AbasDeRota, Card } from "@/components/nexa";
 import { brl, dateBR, pct, todayISO } from "@/lib/format";
 import { mensagemDeErro } from "@/lib/erros";
 import { ABAS_DE_TELA } from "@/lib/menu";
-import { ROTULO_CANCELADO, type EtapaFunil, type MotivoCancelado } from "@/lib/painel-followup";
+import {
+  JANELA_RESPOSTA_HORAS,
+  ROTULO_CANCELADO,
+  type EtapaFunil,
+  type MotivoCancelado,
+} from "@/lib/painel-followup";
 import { painelFollowupFn } from "@/lib/painel-followup.functions";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +99,10 @@ function PainelFollowup() {
 
           <Card>
             <h2 className="text-base font-bold">Por toque</h2>
+            <p className="text-sm text-muted-foreground">
+              Respondeu = qualquer mensagem do cliente (texto, áudio, foto, até um “.”) em até{" "}
+              {JANELA_RESPOSTA_HORAS} h depois do toque. Virou OS = OS criada depois do toque.
+            </p>
             {!data.toques.length ? (
               <EmptyState
                 title="Nenhum toque no período"

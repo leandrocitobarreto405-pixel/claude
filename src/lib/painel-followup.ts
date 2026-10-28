@@ -25,6 +25,21 @@ export type LeadBruto = {
   valor: number | null;
 };
 
+/** "Respondeu": qualquer mensagem do cliente (texto, áudio, foto, até um ".") em até 48 h. */
+export const JANELA_RESPOSTA_HORAS = 48;
+
+/** Primeira mensagem do cliente depois do toque, dentro da janela; null se não respondeu. */
+export function respostaNaJanela(enviadoEm: string, recebidasEm: string[]): string | null {
+  const ini = Date.parse(enviadoEm);
+  const fim = ini + JANELA_RESPOSTA_HORAS * 3600_000;
+  let primeira: number | null = null;
+  for (const r of recebidasEm) {
+    const t = Date.parse(r);
+    if (t > ini && t <= fim && (primeira === null || t < primeira)) primeira = t;
+  }
+  return primeira === null ? null : new Date(primeira).toISOString();
+}
+
 export type MotivoCancelado = "respondeu" | "equipe" | "contexto" | "remarcado" | "outros";
 
 export const ROTULO_CANCELADO: Record<MotivoCancelado, string> = {
