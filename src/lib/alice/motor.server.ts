@@ -48,7 +48,7 @@ import {
   ultimaEhAudioSemTranscricao,
 } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
-import { passoDaEtapa, type Passo } from "./cadencia";
+import { GUIA_TOQUE_AUDIO, passoDaEtapa, toqueEmAudio, type Passo } from "./cadencia";
 import {
   MOTIVO_DO_CONTEXTO,
   ROTULO_CONTEXTO,
@@ -894,8 +894,33 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     return { situacao: "ignorada", detalhe: "fora da janela de 24 h do WhatsApp" };
   }
 
+  // Toque do dia seguinte em áudio (D1 10h): nunca dois áudios seguidos sem resposta.
+  let toqueAudio = false;
+  if (passo && cfg.toque_d1_audio) {
+    const { data: ultimaAlice } = await db
+      .from("whatsapp_messages")
+      .select("message_type, message_timestamp")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("conversa_id", d.conversa.id)
+      .eq("direction", "Enviada")
+      .eq("remetente_tipo", "agent_bot")
+      .eq("privada", false)
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    toqueAudio = toqueEmAudio({
+      etapa: passo.etapa,
+      ligado: cfg.toque_d1_audio,
+      audioAtivo: cfg.audio_ativo,
+      soTexto: Boolean(d.conversa.alice_so_texto_em),
+      audioSemResposta: Boolean(
+        ultimaAlice?.message_type === "Áudio" &&
+        (!ultimaDoCliente || ultimaDoCliente.getTime() < Date.parse(ultimaAlice.message_timestamp)),
+      ),
+    });
+  }
   const aviso = passo
-    ? avisoDoToque(passo, cfg)
+    ? avisoDoToque(passo, cfg, toqueAudio)
     : [
         `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
         dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
@@ -909,11 +934,15 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
         .join(" ");
   // A trava já passou (ninguém assumiu nem escreveu): a resposta do cliente vem para a Alice.
   if (passo) await voltarParaAliceNoToque(db, d);
-  return conversar(db, tarefa, cfg, d, aviso);
+  return conversar(db, tarefa, cfg, d, aviso, undefined, { toqueAudio });
 }
 
 /** Instrução do toque da cadência dentro da janela de 24 h (a Alice escreve, adaptando o guia). */
-function avisoDoToque(passo: Passo, cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>) {
+function avisoDoToque(
+  passo: Passo,
+  cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
+  toqueAudio = false,
+) {
   const valor = Number(cfg.oferta_followup_valor ?? 0);
   const condicao =
     cfg.oferta_followup_tipo === "reais"
@@ -925,6 +954,7 @@ function avisoDoToque(passo: Passo, cfg: NonNullable<Awaited<ReturnType<typeof l
     passo.oferta
       ? `A condição é ${condicao} de desconto sobre o valor do orçamento, válida até amanhã. Não diga o valor da condição nesta mensagem; se o cliente quiser ver, refaça o orçamento com criar_orcamento e desconto "oferta_followup".`
       : null,
+    toqueAudio ? GUIA_TOQUE_AUDIO : null,
     'Uma pergunta só, nunca "está aí?" nem só o nome com interrogação.',
     `Se não fizer sentido mandar (atendimento encerrado, cliente já decidiu), responda exatamente ${NADA}.`,
     "Não agende o próximo toque: o sistema agenda sozinho.",
@@ -1042,6 +1072,8 @@ async function concluirRepescagem(
   tarefa: Tarefa,
   resultado: string,
   cancelada: boolean,
+  /** Canal do toque feito pela Alice (padrão: texto). */
+  canal?: "audio",
 ) {
   const { data: f } = await db
     .from("crm_followups")
@@ -1051,7 +1083,7 @@ async function concluirRepescagem(
       result: resultado,
       ...(cancelada || resultado.startsWith("Modelo") || resultado.startsWith("sem desfecho")
         ? {}
-        : { canal: "texto" }),
+        : { canal: canal ?? "texto" }),
     })
     .eq("empresa_id", tarefa.empresa_id)
     .eq("ia_tarefa_id", tarefa.id)
@@ -1133,6 +1165,7 @@ async function conversar(
   avisoFollowup: string | null,
   /** Instrução só desta resposta (ex.: confirmar o descadastro de marketing). */
   instrucaoExtra?: string,
+  opcoes: { toqueAudio?: boolean } = {},
 ): Promise<ResultadoTarefa> {
   const inicio = Date.now();
   if (!d.tokenRobo) throw new Error("robô da Alice não configurado no Chatwoot");
@@ -1218,6 +1251,7 @@ async function conversar(
     : (lead?.nome ?? null);
 
   const ctx: ContextoFerramenta = {
+    toqueAudio: Boolean(opcoes.toqueAudio),
     admin: db,
     empresaId: tarefa.empresa_id,
     cfg,
@@ -1538,7 +1572,16 @@ async function conversar(
   // Resposta em áudio (Configurações › Alice): o começo conversado pode sair falado.
   const audio = ctx.passagem
     ? null
-    : await comAudio(db, tarefa.empresa_id, d, cfg, hist.mensagens, ehFollowup, agoraItens);
+    : await comAudio(
+        db,
+        tarefa.empresa_id,
+        d,
+        cfg,
+        hist.mensagens,
+        ehFollowup,
+        agoraItens,
+        Boolean(opcoes.toqueAudio),
+      );
   const enviadas = [
     ...(audio?.enviadas ?? []),
     ...(await enviarItens(db, tarefa.empresa_id, d, audio?.itens ?? agoraItens)),
@@ -1582,7 +1625,14 @@ async function conversar(
       .eq("id", d.conversa.crm_lead_id)
       .eq("empresa_id", tarefa.empresa_id);
   }
-  if (ehFollowup) await concluirRepescagem(db, tarefa, `Enviado pela ${cfg.nome}`, false);
+  if (ehFollowup)
+    await concluirRepescagem(
+      db,
+      tarefa,
+      `Enviado pela ${cfg.nome}`,
+      false,
+      enviadas.some((e) => e.startsWith("[áudio]")) ? "audio" : undefined,
+    );
 
   // A Alice passa a constar como vendedora do lead (quem fechar pode trocar na OS).
   if (d.conversa.crm_lead_id && !salesperson) {
@@ -1678,8 +1728,10 @@ async function comAudio(
   mensagens: MensagemHistorico[],
   ehFollowup: boolean,
   itens: Saida[],
+  /** Toque do dia seguinte em áudio: o único follow-up que pode sair falado. */
+  toqueAudio = false,
 ): Promise<{ itens: Saida[]; enviadas: string[] } | null> {
-  if (!cfg.audio_ativo || ehFollowup || !d.tokenRobo) return null;
+  if (!cfg.audio_ativo || (ehFollowup && !toqueAudio) || !d.tokenRobo) return null;
   const ultima = mensagens.filter((m) => m.direcao === "Recebida").at(-1);
   let soTexto = Boolean(d.conversa.alice_so_texto_em);
   const { pediuPorEscrito, diaBrasilia, inicioDoDiaBrasilia } = await import("./voz");
@@ -1749,6 +1801,7 @@ async function comAudio(
       ultimaDoClienteEhAudio: ultima?.tipo === "Áudio",
       soTexto,
       ehFollowup,
+      toqueAudio,
       resposta,
       explicacao,
     },

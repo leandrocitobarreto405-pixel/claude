@@ -390,3 +390,26 @@ test("teto diário em créditos: aviso ao passar de 80% e texto ao bater o teto"
   const t = decidirAudio({ ...base, creditosHoje: 1000 - c + 1 });
   assert.ok(t.modo === "texto" && t.limite);
 });
+
+test("toque do dia seguinte em áudio: follow-up falado só com toqueAudio e até 350 caracteres", () => {
+  const base = {
+    cfg: CFG,
+    ultimaDoClienteEhAudio: false,
+    soTexto: false,
+    gastoHojeReais: 0,
+    ehFollowup: true,
+    resposta: "",
+  };
+  const fala =
+    "Oi, Ana! Lembrei de você porque falou dos pelos do gato no sofá. Quer que eu veja um horário?";
+  assert.equal(decidirAudio({ ...base, explicacao: fala }).modo, "texto");
+  assert.equal(decidirAudio({ ...base, toqueAudio: true, explicacao: fala }).modo, "audio");
+  assert.equal(
+    decidirAudio({ ...base, toqueAudio: true, explicacao: fala.repeat(5) }).modo,
+    "texto",
+  );
+  assert.equal(
+    decidirAudio({ ...base, toqueAudio: true, soTexto: true, explicacao: fala }).modo,
+    "texto",
+  );
+});

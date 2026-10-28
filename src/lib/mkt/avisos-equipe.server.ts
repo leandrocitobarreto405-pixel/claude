@@ -207,3 +207,39 @@ export async function avisoResumoDoDia(db: Db, empresaId: string, hoje = hojeSP(
   await avisar(db, empresaId, "resumo_diario", "Resumo do dia", texto, null, true);
   return texto;
 }
+
+/** Toques do dia seguinte (D1 10h) feitos ontem, por canal, e quantos clientes responderam em 24 h. */
+export async function toquesD1DeOntem(db: Db, empresaId: string, hoje = hojeSP()) {
+  const fim = new Date(`${hoje}T00:00:00-03:00`);
+  const inicio = new Date(fim.getTime() - 86_400_000);
+  const { data: toques } = await db
+    .from("crm_followups")
+    .select("conversa_id, canal, completed_at")
+    .eq("empresa_id", empresaId)
+    .in("etapa", ["A3", "B3"])
+    .eq("status", "Concluída")
+    .gte("completed_at", inicio.toISOString())
+    .lt("completed_at", fim.toISOString());
+  const n = { audio: 0, audioResponderam: 0, texto: 0, textoResponderam: 0 };
+  for (const t of toques ?? []) {
+    if (!t.conversa_id || !t.completed_at) continue;
+    const audio = t.canal === "audio";
+    const { count } = await db
+      .from("whatsapp_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("empresa_id", empresaId)
+      .eq("conversa_id", t.conversa_id)
+      .eq("direction", "Recebida")
+      .eq("privada", false)
+      .gt("message_timestamp", t.completed_at)
+      .lt("message_timestamp", new Date(Date.parse(t.completed_at) + 86_400_000).toISOString());
+    if (audio) {
+      n.audio++;
+      if (count) n.audioResponderam++;
+    } else {
+      n.texto++;
+      if (count) n.textoResponderam++;
+    }
+  }
+  return n;
+}

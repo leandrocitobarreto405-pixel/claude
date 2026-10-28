@@ -463,6 +463,19 @@ export function AliceConfig() {
               toque vira tarefa da equipe)
             </span>
           </label>
+          <label className="flex min-h-11 items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.toque_d1_audio}
+              onChange={(e) => campo("toque_d1_audio", e.target.checked)}
+            />
+            <span>
+              Toque do dia seguinte (10h) em áudio, quando a conversa ainda está na janela de 24 h
+              (precisa do "Responder em áudio" ligado; fora da janela vai o modelo em texto). Nunca
+              dois áudios seguidos sem resposta; quem pediu só texto recebe texto.
+            </span>
+          </label>
           <p className="text-sm">
             Oferta do último follow-up (D2 16h):{" "}
             <span className="font-semibold">
