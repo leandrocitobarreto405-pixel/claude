@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { desempenhoPorPessoa, mediana, primeirasRespostas } from "./desempenho-vendas";
+import {
+  desempenhoPorPessoa,
+  mediana,
+  primeirasRespostas,
+  respostasPeloNexaPorSemana,
+  segundaDaSemanaSP,
+} from "./desempenho-vendas";
 
 test("mediana", () => {
   assert.equal(mediana([]), null);
@@ -37,4 +43,26 @@ test("taxa de fechamento pelo autor do orçamento", () => {
   assert.equal(Math.round(d[0]!.taxa!), 33);
   assert.equal(d[0]!.primeiraRespostaMin, null);
   assert.deepEqual({ taxa: d[1]!.taxa, min: d[1]!.primeiraRespostaMin }, { taxa: 100, min: 2 });
+});
+
+test("respostas pelo Nexa por semana (segunda a domingo, SP)", () => {
+  assert.equal(segundaDaSemanaSP("2026-10-28T14:00:00Z"), "2026-10-26");
+  // Domingo 23h em SP (segunda 02h UTC) ainda é a semana anterior.
+  assert.equal(segundaDaSemanaSP("2026-10-26T02:00:00Z"), "2026-10-19");
+  const r = respostasPeloNexaPorSemana(
+    [
+      { quando: "2026-10-27T13:00:00Z", peloNexa: true },
+      { quando: "2026-10-27T14:00:00Z", peloNexa: false },
+      { quando: "2026-10-28T14:00:00Z", peloNexa: false },
+      { quando: "2026-10-20T14:00:00Z", peloNexa: false },
+      { quando: "2026-01-01T14:00:00Z", peloNexa: true },
+    ],
+    new Date("2026-10-28T15:00:00Z"),
+    3,
+  );
+  assert.deepEqual(r, [
+    { semana: "2026-10-12", total: 0, peloNexa: 0, pct: null },
+    { semana: "2026-10-19", total: 1, peloNexa: 0, pct: 0 },
+    { semana: "2026-10-26", total: 3, peloNexa: 1, pct: 33.3 },
+  ]);
 });
