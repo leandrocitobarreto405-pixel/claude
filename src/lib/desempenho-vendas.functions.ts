@@ -4,8 +4,10 @@ import {
   EQUIPE_SEM_NOME,
   desempenhoPorPessoa,
   primeirasRespostas,
+  respostasPeloNexaPorSemana,
   type DesempenhoPessoa,
   type MensagemConversa,
+  type SemanaRespostas,
 } from "@/lib/desempenho-vendas";
 
 // Desempenho por pessoa do Dashboard (taxa de fechamento e 1ª resposta). Só leitura, com o
@@ -78,5 +80,40 @@ export const desempenhoVendasFn = createServerFn({ method: "GET" })
         virouOs: Boolean(q.generated_work_order_id),
       })),
       primeirasRespostas(msgs),
+    );
+  });
+
+// % das respostas da equipe feitas pelo Nexa, nas últimas 8 semanas (para acompanhar a troca do
+// celular e do Chatwoot pelas Conversas do Nexa). Mensagens de campanha do Marketing não contam.
+export const respostasPeloNexaFn = createServerFn({ method: "GET" })
+  .middleware([requireEmpresa])
+  .handler(async ({ context }): Promise<SemanaRespostas[]> => {
+    const db = context.supabase;
+    const agora = new Date();
+    const desde = new Date(agora.getTime() - 8 * 7 * 86_400_000).toISOString();
+    const [{ data: msgs }, { data: campanhas }] = await Promise.all([
+      db
+        .from("whatsapp_messages")
+        .select("message_timestamp, origem, chatwoot_message_id")
+        .eq("direction", "Enviada")
+        .eq("remetente_tipo", "user")
+        .eq("privada", false)
+        .gte("message_timestamp", desde)
+        .limit(20000),
+      db
+        .from("mkt_envios")
+        .select("chatwoot_message_id")
+        .gte("created_at", desde)
+        .not("chatwoot_message_id", "is", null)
+        .limit(20000),
+    ]);
+    const deCampanha = new Set((campanhas ?? []).map((e) => String(e.chatwoot_message_id)));
+    return respostasPeloNexaPorSemana(
+      (msgs ?? [])
+        .filter(
+          (m) => m.chatwoot_message_id == null || !deCampanha.has(String(m.chatwoot_message_id)),
+        )
+        .map((m) => ({ quando: m.message_timestamp, peloNexa: m.origem === "nexa" })),
+      agora,
     );
   });

@@ -17,7 +17,8 @@ import {
 } from "@/components/painel/graficos";
 import { MetaDoMes } from "@/components/painel/meta-do-mes";
 import { QuemVendeu } from "@/components/painel/quem-vendeu";
-import { desempenhoVendasFn } from "@/lib/desempenho-vendas.functions";
+import { desempenhoVendasFn, respostasPeloNexaFn } from "@/lib/desempenho-vendas.functions";
+import type { SemanaRespostas } from "@/lib/desempenho-vendas";
 import { brl, currentMonth, dateBR, monthEnd, monthStart, pct, todayISO } from "@/lib/format";
 import { duracaoMin, taxa, useIndicadores, type Indicadores } from "@/lib/funil";
 import { resumoPainel } from "@/lib/painel.functions";
@@ -86,6 +87,11 @@ function Dashboard() {
   const desempenho = useQuery({
     queryKey: ["desempenho-vendas", de, ate],
     queryFn: () => buscarDesempenho({ data: { de, ate } }),
+  });
+  const buscarPeloNexa = useServerFn(respostasPeloNexaFn);
+  const peloNexa = useQuery({
+    queryKey: ["respostas-pelo-nexa"],
+    queryFn: () => buscarPeloNexa(),
   });
   const buscarFollowup = useServerFn(painelFollowupFn);
   const followup = useQuery({
@@ -219,6 +225,21 @@ function Dashboard() {
       </Card>
 
       <Card>
+        <h2 className="text-sm font-bold">
+          Respostas da equipe feitas pelo Nexa (últimas 8 semanas)
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Mensagens da equipe ao cliente enviadas pelas Conversas do Nexa, em relação ao total
+          (Nexa, Chatwoot e celular). Campanhas do Marketing não contam.
+        </p>
+        {peloNexa.data ? (
+          <RespostasPeloNexa semanas={peloNexa.data} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        )}
+      </Card>
+
+      <Card>
         <h2 className="text-sm font-bold">Vendido por semana (serviços, últimas 8 semanas)</h2>
         {resumo.data ? (
           <GraficoVendidoPorSemana dados={resumo.data.vendidoPorSemana} />
@@ -262,6 +283,30 @@ function Dashboard() {
 
       <DeteccaoDaOrigem de={de} ate={ate} />
     </div>
+  );
+}
+
+function RespostasPeloNexa({ semanas }: { semanas: SemanaRespostas[] }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {semanas.map((s) => (
+        <li key={s.semana} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 text-sm">
+          <span className="text-muted-foreground">{dateBR(s.semana).slice(0, 5)}</span>
+          <span className="h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <span
+              className="block h-full rounded-full bg-marca"
+              style={{ width: `${s.pct ?? 0}%` }}
+            />
+          </span>
+          <span className="tabular-nums">
+            {s.pct === null ? "—" : `${String(s.pct).replace(".", ",")}%`}{" "}
+            <span className="text-xs text-muted-foreground">
+              ({s.peloNexa} de {s.total})
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

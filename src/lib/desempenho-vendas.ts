@@ -81,3 +81,53 @@ export function desempenhoPorPessoa(
     }))
     .sort((a, b) => b.orcamentos - a.orcamentos || b.conversas - a.conversas);
 }
+
+/**
+ * Respostas da equipe pelo Nexa (28/10): a equipe passou a responder pelas Conversas do Nexa, que
+ * grava quem enviou. Por semana (segunda a domingo, horário de SP), quantas mensagens da equipe ao
+ * cliente saíram pelo Nexa e quantas pelo Chatwoot ou pelo celular.
+ */
+export type RespostaEquipe = { quando: string; peloNexa: boolean };
+export type SemanaRespostas = {
+  /** Segunda-feira da semana (AAAA-MM-DD). */
+  semana: string;
+  total: number;
+  peloNexa: number;
+  /** % pelo Nexa; null sem mensagem na semana. */
+  pct: number | null;
+};
+
+/** Segunda-feira (AAAA-MM-DD) da semana do instante, no horário de São Paulo. */
+export function segundaDaSemanaSP(iso: string): string {
+  const d = new Date(Date.parse(iso) - 3 * 3_600_000);
+  const dia = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+  return new Date(d.getTime() - (dia - 1) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** As `semanas` últimas semanas até `agora` (as sem mensagem aparecem com zero). */
+export function respostasPeloNexaPorSemana(
+  msgs: RespostaEquipe[],
+  agora: Date,
+  semanas = 8,
+): SemanaRespostas[] {
+  const atual = segundaDaSemanaSP(agora.toISOString());
+  const base = Date.parse(`${atual}T12:00:00Z`);
+  const lista = Array.from({ length: semanas }, (_, i) =>
+    new Date(base - (semanas - 1 - i) * 7 * 86_400_000).toISOString().slice(0, 10),
+  );
+  const conta = new Map(lista.map((s) => [s, { total: 0, peloNexa: 0 }]));
+  for (const m of msgs) {
+    const c = conta.get(segundaDaSemanaSP(m.quando));
+    if (!c) continue;
+    c.total++;
+    if (m.peloNexa) c.peloNexa++;
+  }
+  return lista.map((semana) => {
+    const c = conta.get(semana)!;
+    return {
+      semana,
+      ...c,
+      pct: c.total ? Math.round((c.peloNexa / c.total) * 1000) / 10 : null,
+    };
+  });
+}
