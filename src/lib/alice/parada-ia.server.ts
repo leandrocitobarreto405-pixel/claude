@@ -110,10 +110,24 @@ async function resumoAberto(db: Db, provedor: ProvedorParada) {
 /** Resposta (ou teste da conta) que deu certo: fecha os períodos do provedor e avisa a Nexa. */
 export async function encerrarParadas(db: Db, provedor: ProvedorParada): Promise<void> {
   try {
+    // As conversas que foram para a equipe durante a pausa (para a Alice retomar as sem resposta).
+    const { data: abertas } =
+      provedor === "ia"
+        ? await db
+            .from("ia_paradas")
+            .select("empresa_id, conversas")
+            .eq("provedor", "ia")
+            .is("fim", null)
+        : { data: [] as Array<{ empresa_id: string; conversas: string[] | null }> };
     const { data, error } = await db.rpc("ia_encerrar_paradas", { _provedor: provedor });
     if (error) throw new Error(error.message);
     const linhas = (data ?? []) as Array<{ inicio: string; fim: string; conversas: number }>;
     if (!linhas.length) return;
+    let retomadas = 0;
+    if (provedor === "ia" && abertas?.length) {
+      const { retomarConversasDaPausa } = await import("./devolucao.server");
+      retomadas = await retomarConversasDaPausa(db, abertas);
+    }
     const inicio = new Date(Math.min(...linhas.map((l) => Date.parse(l.inicio))));
     const fim = new Date(Math.max(...linhas.map((l) => Date.parse(l.fim))));
     const conversas = linhas.reduce((s, l) => s + Number(l.conversas || 0), 0);
@@ -122,7 +136,7 @@ export async function encerrarParadas(db: Db, provedor: ProvedorParada): Promise
       titulo: `${quem} (parada de ${duracaoDaParada(inicio, fim)})`,
       corpo:
         provedor === "ia"
-          ? `${conversas === 1 ? "1 conversa foi" : `${conversas} conversas foram`} para a equipe durante a parada.`
+          ? `${conversas === 1 ? "1 conversa foi" : `${conversas} conversas foram`} para a equipe durante a parada; ${retomadas === 1 ? "1 sem resposta foi retomada" : `${retomadas} sem resposta foram retomadas`} pela Alice.`
           : "A conta de voz voltou a responder.",
       url: "/nexa/consumo",
       tag: `parada-${provedor}`,

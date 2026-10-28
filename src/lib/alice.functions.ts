@@ -677,13 +677,20 @@ export const devolverParaAlice = createServerFn({ method: "POST" })
       if (contato?.ia_desligada)
         throw new Error("A IA está desligada para este cliente. Religue antes de devolver.");
     }
+    // Cliente esperando (a última mensagem é dele): a Alice responde agora, lendo a conversa toda.
+    const { clienteEsperandoNaConversa, responderAgora } =
+      await import("@/lib/alice/devolucao.server");
+    const { notaDevolucao } = await import("@/lib/alice/devolucao");
+    const db = await admin();
+    const esperando = await clienteEsperandoNaConversa(db as never, conv.id);
     await mudarConversaNoChatwoot(
       context.empresaId,
       conv.id,
       "pending",
-      `🤖 Conversa devolvida para a ${cfg.nome} pelo Nexa OS. Ela responde a próxima mensagem do cliente.`,
+      notaDevolucao(cfg.nome, esperando, "pelo Nexa OS"),
     );
-    return { ok: true };
+    if (esperando) await responderAgora(db as never, context.empresaId, conv.id);
+    return { ok: true, respondeAgora: esperando };
   });
 
 export type ConversaComAlice = {
