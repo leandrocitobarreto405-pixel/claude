@@ -51,9 +51,9 @@ SELECT pg_temp.ok((SELECT x->>'entrou' = 'alice' AND x->>'sugerido' = 'Preço al
                      FROM jsonb_array_elements(public.leads_sem_desfecho()) x WHERE x->>'id' = :'L5'), 'L5 com a sugestão da Alice');
 SELECT pg_temp.ok((public.leads_sem_desfecho()->0->>'valor')::numeric IN (450, 300), 'valor do orçamento');
 
--- L1: "Agenda cheia" com a data que o cliente queria → encerrado, conta como perda
-SELECT public.registrar_desfecho(:'L1', (SELECT id FROM public.config_options WHERE empresa_id = :'E' AND name = 'Agenda cheia'),
-                                 'queria sábado', current_date + 3);
+-- L1: "Agenda cheia / sem manhã livre" com a data que o cliente queria → encerrado, conta como perda
+SELECT public.registrar_desfecho(:'L1', (SELECT id FROM public.config_options WHERE empresa_id = :'E' AND name = 'Agenda cheia / sem manhã livre'),
+                                 'queria sábado', (now() AT TIME ZONE 'America/Sao_Paulo')::date + 3);
 -- L2: "Adiou" para daqui 10 dias → volta para o follow-up
 SELECT public.registrar_desfecho(:'L2', (SELECT id FROM public.config_options WHERE empresa_id = :'E' AND name = 'Adiou'),
                                  null, current_date + 10);
@@ -62,7 +62,7 @@ SELECT pg_temp.ok(jsonb_array_length(public.leads_sem_desfecho()) = 0, 'lista va
 SELECT pg_temp.ok((public.perdas_por_motivo(current_date - 1, current_date + 1)->'total'->>'quantidade')::int = 2, 'duas perdas no relatório');
 SELECT pg_temp.ok((public.perdas_por_motivo(current_date - 1, current_date + 1)->'agenda_cheia'->0->>'dias_frente_media')::int = 3, 'dias à frente');
 RESET ROLE;
-SELECT pg_temp.ok((SELECT perdido_em IS NOT NULL AND NOT is_open AND data_desejada = current_date + 3 FROM public.crm_leads WHERE id = :'L1'), 'L1 encerrado com a data desejada');
+SELECT pg_temp.ok((SELECT perdido_em IS NOT NULL AND NOT is_open AND data_desejada = (now() AT TIME ZONE 'America/Sao_Paulo')::date + 3 FROM public.crm_leads WHERE id = :'L1'), 'L1 encerrado com a data desejada');
 SELECT pg_temp.ok((SELECT perdido_em IS NULL AND next_follow_up_at IS NOT NULL FROM public.crm_leads WHERE id = :'L2'), 'L2 voltou para o follow-up');
 SELECT pg_temp.ok(EXISTS (SELECT 1 FROM public.crm_followups WHERE crm_lead_id = :'L2' AND responsavel = 'equipe'), 'follow-up da equipe criado');
 ROLLBACK;

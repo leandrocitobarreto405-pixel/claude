@@ -27,6 +27,7 @@ import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDreRouteImport } from './routes/_authenticated/dre'
 import { Route as AuthenticatedExportacoesRouteImport } from './routes/_authenticated/exportacoes'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
+import { Route as AuthenticatedGerenteComercialRouteImport } from './routes/_authenticated/gerente-comercial'
 import { Route as AuthenticatedGoogleRouteImport } from './routes/_authenticated/google'
 import { Route as AuthenticatedImplantacaoRouteImport } from './routes/_authenticated/implantacao'
 import { Route as AuthenticatedIndicadoresRouteImport } from './routes/_authenticated/indicadores'
@@ -198,6 +199,12 @@ const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
   path: '/financeiro',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGerenteComercialRoute =
+  AuthenticatedGerenteComercialRouteImport.update({
+    id: '/gerente-comercial',
+    path: '/gerente-comercial',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGoogleRoute = AuthenticatedGoogleRouteImport.update({
   id: '/google',
   path: '/google',
@@ -659,6 +666,7 @@ export interface FileRoutesByFullPath {
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/gerente-comercial': typeof AuthenticatedGerenteComercialRoute
   '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
@@ -755,6 +763,7 @@ export interface FileRoutesByTo {
   '/dre': typeof AuthenticatedDreRoute
   '/exportacoes': typeof AuthenticatedExportacoesRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/gerente-comercial': typeof AuthenticatedGerenteComercialRoute
   '/google': typeof AuthenticatedGoogleRoute
   '/implantacao': typeof AuthenticatedImplantacaoRoute
   '/indicadores': typeof AuthenticatedIndicadoresRoute
@@ -855,6 +864,7 @@ export interface FileRoutesById {
   '/_authenticated/dre': typeof AuthenticatedDreRoute
   '/_authenticated/exportacoes': typeof AuthenticatedExportacoesRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/_authenticated/gerente-comercial': typeof AuthenticatedGerenteComercialRoute
   '/_authenticated/google': typeof AuthenticatedGoogleRoute
   '/_authenticated/implantacao': typeof AuthenticatedImplantacaoRoute
   '/_authenticated/indicadores': typeof AuthenticatedIndicadoresRoute
@@ -955,6 +965,7 @@ export interface FileRouteTypes {
     | '/dre'
     | '/exportacoes'
     | '/financeiro'
+    | '/gerente-comercial'
     | '/google'
     | '/implantacao'
     | '/indicadores'
@@ -1051,6 +1062,7 @@ export interface FileRouteTypes {
     | '/dre'
     | '/exportacoes'
     | '/financeiro'
+    | '/gerente-comercial'
     | '/google'
     | '/implantacao'
     | '/indicadores'
@@ -1150,6 +1162,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dre'
     | '/_authenticated/exportacoes'
     | '/_authenticated/financeiro'
+    | '/_authenticated/gerente-comercial'
     | '/_authenticated/google'
     | '/_authenticated/implantacao'
     | '/_authenticated/indicadores'
@@ -1385,6 +1398,13 @@ declare module '@tanstack/react-router' {
       path: '/financeiro'
       fullPath: '/financeiro'
       preLoaderRoute: typeof AuthenticatedFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gerente-comercial': {
+      id: '/_authenticated/gerente-comercial'
+      path: '/gerente-comercial'
+      fullPath: '/gerente-comercial'
+      preLoaderRoute: typeof AuthenticatedGerenteComercialRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/google': {
@@ -1972,6 +1992,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDreRoute: typeof AuthenticatedDreRoute
   AuthenticatedExportacoesRoute: typeof AuthenticatedExportacoesRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
+  AuthenticatedGerenteComercialRoute: typeof AuthenticatedGerenteComercialRoute
   AuthenticatedGoogleRoute: typeof AuthenticatedGoogleRoute
   AuthenticatedImplantacaoRoute: typeof AuthenticatedImplantacaoRoute
   AuthenticatedIndicadoresRoute: typeof AuthenticatedIndicadoresRoute
@@ -2040,6 +2061,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDreRoute: AuthenticatedDreRoute,
   AuthenticatedExportacoesRoute: AuthenticatedExportacoesRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
+  AuthenticatedGerenteComercialRoute: AuthenticatedGerenteComercialRoute,
   AuthenticatedGoogleRoute: AuthenticatedGoogleRoute,
   AuthenticatedImplantacaoRoute: AuthenticatedImplantacaoRoute,
   AuthenticatedIndicadoresRoute: AuthenticatedIndicadoresRoute,
