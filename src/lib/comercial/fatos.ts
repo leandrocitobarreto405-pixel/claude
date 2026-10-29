@@ -7,7 +7,10 @@
 
 export type MensagemLead = {
   direcao: "entrada" | "saida";
-  /** contact (cliente), agent_bot (Alice), user (equipe) ou null (enviada pelo celular). */
+  /**
+   * contact (cliente), agent_bot (Alice), user (equipe), campanha (envio do Marketing, que sai
+   * pelo robô mas não é a Alice) ou null (enviada pelo celular).
+   */
   remetente: string | null;
   tipo: string | null;
   texto: string | null;
@@ -71,7 +74,7 @@ export type Fatos = {
   valorOrcado: number | null;
   valorVendido: number | null;
   valorPago: number | null;
-  mensagens: { cliente: number; alice: number; equipe: number };
+  mensagens: { cliente: number; alice: number; equipe: number; campanha?: number };
   audios: { cliente: number; alice: number; equipe: number; semTranscricao: number };
   followups: {
     total: number;
@@ -88,8 +91,9 @@ const minutos = (de: string, ate: string) => Math.max(0, Math.round((ms(ate) - m
 
 export function quemMandou(
   m: Pick<MensagemLead, "direcao" | "remetente">,
-): "cliente" | "alice" | "equipe" {
+): "cliente" | "alice" | "equipe" | "campanha" {
   if (m.direcao === "entrada" || m.remetente === "contact") return "cliente";
+  if (m.remetente === "campanha") return "campanha";
   return m.remetente === "agent_bot" ? "alice" : "equipe";
 }
 
@@ -97,19 +101,22 @@ const ehAudio = (tipo: string | null) => /udio/i.test(tipo ?? "");
 
 export function calcularFatos(e: EntradaFatos): Fatos {
   const msgs = [...e.mensagens].sort((a, b) => ms(a.em) - ms(b.em));
-  const cont = { cliente: 0, alice: 0, equipe: 0 };
+  const cont = { cliente: 0, alice: 0, equipe: 0, campanha: 0 };
   const aud = { cliente: 0, alice: 0, equipe: 0, semTranscricao: 0 };
   for (const m of msgs) {
     const q = quemMandou(m);
     cont[q]++;
-    if (ehAudio(m.tipo)) {
+    if (q !== "campanha" && ehAudio(m.tipo)) {
       aud[q]++;
       if (!m.transcricao && !(q === "alice" && m.texto)) aud.semTranscricao++;
     }
   }
   const primeiraCliente = msgs.find((m) => quemMandou(m) === "cliente") ?? null;
   const resposta = primeiraCliente
-    ? (msgs.find((m) => quemMandou(m) !== "cliente" && ms(m.em) >= ms(primeiraCliente.em)) ?? null)
+    ? (msgs.find(
+        (m) =>
+          !["cliente", "campanha"].includes(quemMandou(m)) && ms(m.em) >= ms(primeiraCliente.em),
+      ) ?? null)
     : null;
   const quemAtendeu: QuemAtendeu =
     cont.alice && cont.equipe
@@ -206,7 +213,12 @@ export function conversaEmTexto(mensagens: MensagemLead[]): string {
     .sort((a, b) => ms(a.em) - ms(b.em))
     .map((m) => {
       const q = quemMandou(m);
-      const nome = q === "cliente" ? "Cliente" : q === "alice" ? "Alice" : "Equipe";
+      const nome = {
+        cliente: "Cliente",
+        alice: "Alice",
+        equipe: "Equipe",
+        campanha: "Campanha (envio em massa do Marketing)",
+      }[q];
       let corpo = (m.texto ?? "").trim();
       if (ehAudio(m.tipo)) {
         const t = (m.transcricao ?? (q === "alice" ? m.texto : null) ?? "").trim();

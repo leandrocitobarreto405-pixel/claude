@@ -80,6 +80,7 @@ type LinhaMensagem = {
   transcricao_erro: string | null;
   raw_event_reference: string | null;
   message_timestamp: string;
+  chatwoot_message_id: number | string | null;
 };
 
 async function mensagensDoLead(
@@ -96,7 +97,7 @@ async function mensagensDoLead(
   let q = db
     .from("whatsapp_messages")
     .select(
-      "id, direction, remetente_tipo, message_type, text_content, transcricao, transcricao_erro, raw_event_reference, message_timestamp",
+      "id, direction, remetente_tipo, message_type, text_content, transcricao, transcricao_erro, raw_event_reference, message_timestamp, chatwoot_message_id",
     )
     .eq("empresa_id", empresaId)
     .eq("privada", false)
@@ -135,6 +136,37 @@ async function transcreverEquipe(
     if (t) m.transcricao = t;
   }
   return textos.size;
+}
+
+/**
+ * Mensagens que são envios de campanha do Marketing (saem pelo robô, mas não são a Alice): casadas
+ * pelo id da mensagem no Chatwoot gravado no envio.
+ */
+async function idsDeCampanha(
+  db: Db,
+  empresaId: string,
+  msgs: LinhaMensagem[],
+): Promise<Set<string>> {
+  const ids = [
+    ...new Set(
+      msgs
+        .filter((m) => m.direction !== "Recebida" && m.remetente_tipo !== "contact")
+        .map((m) => m.chatwoot_message_id)
+        .filter((x): x is number | string => x !== null && x !== undefined)
+        .map(String),
+    ),
+  ];
+  if (!ids.length) return new Set();
+  const { data } = await db
+    .from("mkt_envios")
+    .select("chatwoot_message_id")
+    .eq("empresa_id", empresaId)
+    .in("chatwoot_message_id", ids);
+  return new Set(
+    ((data ?? []) as Array<{ chatwoot_message_id: number | string | null }>).map((e) =>
+      String(e.chatwoot_message_id),
+    ),
+  );
 }
 
 /** Junta tudo o que o cálculo dos fatos precisa. */
@@ -176,7 +208,10 @@ export async function entradaDoLead(
       .select("id, name")
       .in("id", [lead("sales_origin_id"), lead("loss_reason_id")].filter(Boolean) as string[]),
   ]);
-  const transcritos = await transcreverEquipe(db, empresaId, msgs);
+  const [transcritos, campanha] = await Promise.all([
+    transcreverEquipe(db, empresaId, msgs),
+    idsDeCampanha(db, empresaId, msgs),
+  ]);
 
   type LinhaQuote = {
     id: string;
@@ -268,7 +303,10 @@ export async function entradaDoLead(
     osCanceladaOuTeste: osIds.length > 0 && validas.length === 0 && !lead("realizado_em"),
     mensagens: msgs.map((m): MensagemLead => ({
       direcao: m.direction === "Recebida" || m.remetente_tipo === "contact" ? "entrada" : "saida",
-      remetente: m.remetente_tipo,
+      remetente:
+        m.chatwoot_message_id !== null && campanha.has(String(m.chatwoot_message_id))
+          ? "campanha"
+          : m.remetente_tipo,
       tipo: m.message_type,
       texto: m.text_content,
       transcricao: m.transcricao,

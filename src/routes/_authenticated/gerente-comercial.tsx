@@ -17,15 +17,8 @@ import {
   type GerenteComercial,
 } from "@/lib/comercial.functions";
 import { NOME_REGRA } from "@/lib/comercial/ficha";
-import {
-  conversaoPor,
-  custos,
-  funil,
-  mediaNota,
-  perdasPorMotivo,
-  regrasQuebradas,
-  servicoPrincipal,
-} from "@/lib/comercial/resumo";
+import { ResumoGerente } from "@/components/comercial/resumo-gerente";
+import { custos, servicoPrincipal } from "@/lib/comercial/resumo";
 import { brl, dateBR } from "@/lib/format";
 import { usePapel } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
@@ -101,7 +94,7 @@ function GerenteComercialTela() {
       ) : null}
       {d && d.ligado ? (
         <>
-          <Custos d={d} />
+          <LoteEmAndamento d={d} />
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:px-0">
             {ABAS.map((a) => (
               <button
@@ -118,7 +111,19 @@ function GerenteComercialTela() {
               </button>
             ))}
           </div>
-          {aba === "resumo" ? <Resumo d={d} /> : null}
+          {aba === "resumo" ? (
+            <ResumoGerente
+              d={d}
+              fichas={d.analises}
+              afazeres={{
+                confirmar: paraConfirmar(d).length,
+                recuperar: paraRecuperar(d).length,
+                encaixe: naFila(d).length,
+              }}
+              irPara={setAba}
+              custoCartao={<Custos d={d} />}
+            />
+          ) : null}
           {aba === "confirmar" ? <ConfirmarPerdas d={d} /> : null}
           {aba === "perdidos" ? <Perdidos d={d} /> : null}
           {aba === "recuperar" ? <Recuperar d={d} /> : null}
@@ -164,6 +169,26 @@ function Contagem({ aba, d }: { aba: Aba; d: GerenteComercial }) {
   return n ? <span className="ml-1.5 tabular-nums opacity-80">{n}</span> : null;
 }
 
+/** Aviso de lote rodando ou parado no teto (o custo completo fica em "Ver detalhes"). */
+function LoteEmAndamento({ d }: { d: GerenteComercial }) {
+  const rodando = d.lotes.find((l) => l.status === "rodando" || l.status === "pendente");
+  const parado = d.lotes.some((l) => l.status === "parado_teto");
+  if (!rodando && !parado) return null;
+  return (
+    <Card className="gap-1 text-sm">
+      {rodando ? (
+        <p>
+          Lote “{rodando.descricao || "análise"}”: {rodando.processados} de {rodando.total} (
+          {rodando.status === "pendente" ? "na fila" : "rodando"}; avança a cada 5–10 min).
+        </p>
+      ) : null}
+      {parado ? (
+        <p className="text-atencao-foreground">Um lote parou perto do teto de gasto.</p>
+      ) : null}
+    </Card>
+  );
+}
+
 function Custos({ d }: { d: GerenteComercial }) {
   const c = custos(d.analises, LEADS_PREVISTOS);
   const rodando = d.lotes.find((l) => l.status === "rodando" || l.status === "pendente");
@@ -196,213 +221,6 @@ function Custos({ d }: { d: GerenteComercial }) {
         Rotina diária: {d.rotinaDiaria ? "ligada" : "desligada"}.
       </p>
     </Card>
-  );
-}
-
-function Tabela({
-  cabecalho,
-  linhas,
-}: {
-  cabecalho: string[];
-  linhas: Array<Array<React.ReactNode>>;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[480px] text-sm">
-        <thead>
-          <tr className="text-left text-xs text-muted-foreground">
-            {cabecalho.map((c, i) => (
-              <th key={c} className={cn("py-1.5 font-semibold", i > 0 && "text-right")}>
-                {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {linhas.map((l, i) => (
-            <tr key={i} className="border-t border-border">
-              {l.map((c, j) => (
-                <td key={j} className={cn("py-1.5", j > 0 && "text-right tabular-nums")}>
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Resumo({ d }: { d: GerenteComercial }) {
-  const ok = d.analises.filter((a) => a.status === "ok");
-  if (!ok.length)
-    return <Card className="text-sm">Nenhuma ficha pronta ainda. O lote avança sozinho.</Card>;
-  const grupos = (["google", "outras"] as const).map((g) => {
-    const fs = ok.filter((a) => a.grupo === g);
-    const vendas = fs.filter((a) => a.resultado === "vendeu").length;
-    return [
-      g === "google" ? "Google" : "Outras origens",
-      fs.length,
-      fs.filter((a) => a.resultado !== "sem_orcamento").length,
-      vendas,
-      fs.length ? pct(vendas / fs.length) : "—",
-      mediaNota(fs)?.toFixed(1).replace(".", ",") ?? "—",
-    ];
-  });
-  const porServico = conversaoPor(ok, (a) => servicoPrincipal(a.servico));
-  const porOrigem = conversaoPor(ok, (a) => a.origem ?? "Sem origem");
-  const motivos = perdasPorMotivo(ok).slice(0, 5);
-  const regras = regrasQuebradas(ok);
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Google × outras origens</h2>
-        <Tabela
-          cabecalho={["Grupo", "Leads", "Com orçamento", "Vendas", "Conversão", "Nota média"]}
-          linhas={grupos}
-        />
-      </Card>
-      <Card className="flex flex-col gap-2">
-        <h2 className="font-bold">Onde os leads somem</h2>
-        <Tabela cabecalho={["Etapa", "Leads"]} linhas={funil(ok).map((f) => [f.etapa, f.n])} />
-      </Card>
-      <Card className="flex flex-col gap-2">
-        <h2 className="font-bold">Top 5 motivos de perda (R$ orçado)</h2>
-        <Tabela
-          cabecalho={["Motivo", "Leads", "Valor"]}
-          linhas={motivos.map((m) => [m.motivo, m.n, brl(m.valor)])}
-        />
-      </Card>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Conversão por serviço</h2>
-        <Tabela
-          cabecalho={["Serviço", "Leads", "Vendas", "Conversão", "Vendido"]}
-          linhas={porServico.map((l) => [
-            l.chave,
-            l.leads,
-            l.vendas,
-            pct(l.conversao),
-            brl(l.vendido),
-          ])}
-        />
-      </Card>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Conversão por origem</h2>
-        <Tabela
-          cabecalho={["Origem", "Leads", "Vendas", "Conversão", "Vendido"]}
-          linhas={porOrigem.map((l) => [
-            l.chave,
-            l.leads,
-            l.vendas,
-            pct(l.conversao),
-            brl(l.vendido),
-          ])}
-        />
-      </Card>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Regras quebradas (Alice × equipe)</h2>
-        <Tabela
-          cabecalho={["Regra", "Avaliadas", "Alice quebrou", "Equipe quebrou"]}
-          linhas={regras.map((r) => [r.nome, r.avaliadas, r.alice, r.equipe])}
-        />
-      </Card>
-      {d.relatorio ? (
-        <Relatorio r={d.relatorio} />
-      ) : (
-        <Card className="text-xs text-muted-foreground lg:col-span-2">
-          O relatório completo (padrões das vendas, perfil de quem mais fecha, erros com exemplos e
-          sugestões) sai quando todas as fichas estiverem prontas.
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function Relatorio({ r }: { r: NonNullable<GerenteComercial["relatorio"]> }) {
-  const l = r.leitura;
-  const lista = (itens: string[]) => (
-    <ul className="ml-4 list-disc space-y-1 text-sm">
-      {itens.map((t, i) => (
-        <li key={i}>{t}</li>
-      ))}
-    </ul>
-  );
-  return (
-    <>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Defeitos da Alice para corrigir</h2>
-        <p className="text-xs text-muted-foreground">
-          Leads que começaram antes de 28/10: {r.numeros.leadsAntesDepois.antes} · depois:{" "}
-          {r.numeros.leadsAntesDepois.depois}.
-        </p>
-        <Tabela
-          cabecalho={["Defeito", "Antes de 28/10", "Depois", "Total"]}
-          linhas={r.numeros.defeitosAlice.map((x) => [x.nome, x.antes, x.depois, x.total])}
-        />
-      </Card>
-      <Card className="flex flex-col gap-2">
-        <h2 className="font-bold">Padrões das vendas</h2>
-        {lista(l.padroes_vendas.map((p) => `${p.padrao} (${p.casos} casos)`))}
-        <h3 className="mt-2 font-bold">Perfil de quem mais fecha</h3>
-        <p className="text-sm">{l.perfil_que_mais_fecha}</p>
-        <h3 className="mt-2 font-bold">Onde os leads somem</h3>
-        <p className="text-sm">{l.onde_somem}</p>
-      </Card>
-      <Card className="flex flex-col gap-2">
-        <h2 className="font-bold">Vendeu × não vendeu</h2>
-        {lista(l.vendeu_x_nao_vendeu.map((v) => `${v.servico}: ${v.diferenca}`))}
-      </Card>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Erros recorrentes</h2>
-        {(["alice", "equipe"] as const).map((q) => (
-          <div key={q}>
-            <h3 className="font-semibold">{q === "alice" ? "Alice" : "Equipe"}</h3>
-            {lista(
-              l.erros_recorrentes
-                .filter((e) => e.quem === q)
-                .map((e) => `${e.erro} (${e.casos} casos). Ex.: ${e.exemplos.join(" · ")}`),
-            )}
-          </div>
-        ))}
-      </Card>
-      <Card className="flex flex-col gap-2 lg:col-span-2">
-        <h2 className="font-bold">Sugestões</h2>
-        <ul className="flex flex-col gap-1.5 text-sm">
-          {l.sugestoes.map((s, i) => (
-            <li key={i}>
-              <Chip tom={s.forca === "forte" ? "sucesso" : "neutro"}>
-                {s.forca === "forte" ? "Forte" : "Hipótese"}
-              </Chip>{" "}
-              {s.sugestao} <span className="text-muted-foreground">({s.casos} casos)</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Card className="flex flex-col gap-3 lg:col-span-2">
-        <h2 className="font-bold">Mudanças sugeridas na Alice (não aplicadas)</h2>
-        {l.mudancas_alice.map((m, i) => (
-          <div key={i} className="flex flex-col gap-1 text-sm">
-            <p className="font-semibold">
-              {m.tema} <span className="font-normal text-muted-foreground">({m.casos} casos)</span>
-            </p>
-            <p className="whitespace-pre-wrap rounded-botao bg-background p-2">
-              <span className="font-semibold">Antes: </span>
-              {m.antes}
-            </p>
-            <p className="whitespace-pre-wrap rounded-botao bg-marca-claro p-2">
-              <span className="font-semibold">Depois: </span>
-              {m.depois}
-            </p>
-          </div>
-        ))}
-      </Card>
-      <Card className="text-xs text-muted-foreground lg:col-span-2">
-        {r.periodo} · relatório de {dateBR(r.criadoEm.slice(0, 10))} · custo do relatório{" "}
-        {usd(r.custoUsd)} · rotina diária estimada:{" "}
-        {r.estimativaMensal.map((e) => `${e.empresa} ${usd(e.usdMes)}/mês`).join(" · ")}
-      </Card>
-    </>
   );
 }
 
