@@ -16,6 +16,26 @@ import {
   type FichaResumo,
 } from "./resumo";
 
+/** Os erros da equipe que o dono quer trabalhar com ela (seção "Para a equipe"). */
+export const TEMAS_EQUIPE = [
+  "repetiu_pergunta",
+  "alguma_duvida",
+  "demora_ate_preco",
+  "preco_sem_pix",
+  "sem_resumo_para_quem_decide",
+  "prometeu_sem_olhar_agenda",
+] as const;
+export type TemaEquipe = (typeof TEMAS_EQUIPE)[number];
+
+export const NOME_TEMA_EQUIPE: Record<TemaEquipe, string> = {
+  repetiu_pergunta: "Pedir de novo foto, CEP ou nome que o cliente já mandou",
+  alguma_duvida: "Fechar com “ficou alguma dúvida?”",
+  demora_ate_preco: "Demora até mandar o preço",
+  preco_sem_pix: "Preço sem o desconto do Pix junto",
+  sem_resumo_para_quem_decide: "Sem resumo para quem vai decidir com o marido/esposa",
+  prometeu_sem_olhar_agenda: "Prometer horário antes de olhar a agenda",
+};
+
 /** Data da mudança da Alice (núcleo de 28/10) usada para separar os defeitos em antes e depois. */
 export const CORTE_ALICE = "2026-10-28T03:00:00Z";
 
@@ -154,6 +174,7 @@ export const ESQUEMA_RELATORIO = {
     "erros_recorrentes",
     "sugestoes",
     "mudancas_alice",
+    "para_a_equipe",
   ],
   properties: {
     padroes_vendas: {
@@ -218,6 +239,20 @@ export const ESQUEMA_RELATORIO = {
         },
       },
     },
+    para_a_equipe: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["tema", "casos", "exemplo", "o_certo"],
+        properties: {
+          tema: { type: "string", enum: [...TEMAS_EQUIPE] },
+          casos: { type: "integer" },
+          exemplo: { type: "string" },
+          o_certo: { type: "string" },
+        },
+      },
+    },
   },
 } as const;
 
@@ -240,6 +275,8 @@ export type LeituraRelatorio = {
     antes: string;
     depois: string;
   }>;
+  /** Relatórios anteriores a 29/10 não têm. */
+  para_a_equipe?: Array<{ tema: TemaEquipe; casos: number; exemplo: string; o_certo: string }>;
 };
 
 export function instrucoesRelatorio(empresa: string): string {
@@ -249,6 +286,7 @@ export function instrucoesRelatorio(empresa: string): string {
     "Regras:",
     "- Conte os casos de verdade nas linhas (campo casos). Não invente números; use os do sistema para conversão e valores.",
     "- Sem nomes de clientes nem de pessoas da equipe; use [nome] e [atendente] se precisar.",
+    "- Envios de campanha do Marketing (promoções em massa) não são da Alice nem da equipe: não conte como erro de ninguém.",
     "- padroes_vendas: os 5 padrões mais comuns nas vendas, com o número de casos.",
     "- perfil_que_mais_fecha: 2 a 3 frases.",
     "- vendeu_x_nao_vendeu: para os serviços com vendas e perdas, o que muda entre quem comprou e quem não comprou.",
@@ -256,5 +294,6 @@ export function instrucoesRelatorio(empresa: string): string {
     "- erros_recorrentes: os erros que mais se repetem, Alice e equipe separadas, com 2 a 3 exemplos curtos cada (trechos das linhas, sem nomes).",
     '- sugestoes: até 10, cada uma marcada "forte" (muitos casos e padrão claro) ou "hipotese" (poucos casos ou causa incerta), com o número de casos.',
     '- mudancas_alice: mudanças no texto da Alice para os defeitos dela que mais aparecem. Em "antes", copie o trecho atual das instruções que trata do assunto (ou "(não há regra sobre isso)"); em "depois", o texto novo proposto, pronto para colar. Uma por tema, no máximo 8. É só sugestão: nada será aplicado sem o dono aprovar.',
+    `- para_a_equipe: uma linha para cada um destes 6 erros da EQUIPE (não da Alice), nesta ordem: ${TEMAS_EQUIPE.map((t) => `${t} (${NOME_TEMA_EQUIPE[t]})`).join("; ")}. casos = quantos atendimentos têm o erro feito pela equipe; exemplo = 1 caso real, curto (o que aconteceu e o trecho, como está nas linhas), sem nome de cliente nem de atendente (use [nome] e [atendente]), vazio se não houve caso; o_certo = em 1 frase, o que fazer no lugar. Material para o dono conversar com a equipe.`,
   ].join("\n");
 }

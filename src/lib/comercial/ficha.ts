@@ -179,7 +179,7 @@ export const ESQUEMA_FICHA = {
 export function instrucoesFicha(o: { empresa: string; pixPct: number | null }): string {
   const pix = o.pixPct ? `${String(o.pixPct).replace(".", ",")}%` : "o da empresa";
   return [
-    `Você é o gerente comercial da ${o.empresa}, empresa de limpeza e higienização de estofados (sofás, colchões, cadeiras, tapetes) que atende pelo WhatsApp. A atendente virtual se chama Alice; a equipe são pessoas da empresa.`,
+    `Você é o gerente comercial da ${o.empresa}, empresa de limpeza e higienização de estofados (sofás, colchões, cadeiras, tapetes) que atende pelo WhatsApp. A atendente virtual se chama Alice; a equipe são pessoas da empresa. As linhas "Campanha" são envios em massa do Marketing (promoções, retomadas): não são a Alice nem a equipe; não conte o texto delas como erro, regra quebrada ou defeito da Alice, só como o contexto que fez o cliente voltar a falar.`,
     "Você vai ler UM atendimento já encerrado ou parado (fatos calculados pelo sistema + a conversa) e preencher uma ficha fixa. Você só analisa: nada do que escrever será enviado ao cliente automaticamente.",
     "",
     "Regras de leitura:",

@@ -96,6 +96,49 @@ test("conversa em texto: áudio transcrito, sem transcrição e horário de SP",
   assert.match(t, /Equipe: \(áudio sem transcrição\)/);
 });
 
+test("campanha do Marketing não conta como Alice nem como 1ª resposta", () => {
+  const mensagens = [
+    {
+      direcao: "saida" as const,
+      remetente: "campanha",
+      tipo: "Texto",
+      texto: "Promoção da semana",
+      transcricao: null,
+      em: "2026-10-10T11:00:00Z",
+    },
+    {
+      direcao: "entrada" as const,
+      remetente: "contact",
+      tipo: "Texto",
+      texto: "Quero",
+      transcricao: null,
+      em: "2026-10-10T11:30:00Z",
+    },
+    {
+      direcao: "saida" as const,
+      remetente: "campanha",
+      tipo: "Texto",
+      texto: "Promoção (lembrete)",
+      transcricao: null,
+      em: "2026-10-10T11:31:00Z",
+    },
+    {
+      direcao: "saida" as const,
+      remetente: "agent_bot",
+      tipo: "Texto",
+      texto: "Me manda a foto?",
+      transcricao: null,
+      em: "2026-10-10T11:35:00Z",
+    },
+  ];
+  const f = calcularFatos({ ...base, mensagens });
+  assert.deepEqual(f.mensagens, { cliente: 1, alice: 1, equipe: 0, campanha: 2 });
+  assert.equal(f.quemAtendeu, "alice");
+  assert.equal(f.primeiraRespostaMin, 5);
+  assert.equal(f.primeiraRespostaDe, "alice");
+  assert.match(conversaEmTexto(mensagens), /Campanha \(envio em massa do Marketing\): Promoção/);
+});
+
 test("custo do Sonnet com cache", () => {
   assert.equal(
     custoUsd({

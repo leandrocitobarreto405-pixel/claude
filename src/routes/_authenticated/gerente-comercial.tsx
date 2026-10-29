@@ -17,6 +17,7 @@ import {
   type GerenteComercial,
 } from "@/lib/comercial.functions";
 import { NOME_REGRA } from "@/lib/comercial/ficha";
+import { NOME_TEMA_EQUIPE } from "@/lib/comercial/relatorio";
 import {
   conversaoPor,
   custos,
@@ -366,6 +367,7 @@ function Relatorio({ r }: { r: NonNullable<GerenteComercial["relatorio"]> }) {
           </div>
         ))}
       </Card>
+      <ParaAEquipe itens={l.para_a_equipe} />
       <Card className="flex flex-col gap-2 lg:col-span-2">
         <h2 className="font-bold">Sugestões</h2>
         <ul className="flex flex-col gap-1.5 text-sm">
@@ -403,6 +405,69 @@ function Relatorio({ r }: { r: NonNullable<GerenteComercial["relatorio"]> }) {
         {r.estimativaMensal.map((e) => `${e.empresa} ${usd(e.usdMes)}/mês`).join(" · ")}
       </Card>
     </>
+  );
+}
+
+/** Erros da equipe para o dono conversar com ela: 1 exemplo real de cada, sem nome do cliente. */
+function ParaAEquipe({
+  itens,
+}: {
+  itens: NonNullable<GerenteComercial["relatorio"]>["leitura"]["para_a_equipe"];
+}) {
+  const texto = (itens ?? [])
+    .map(
+      (e, i) =>
+        `${i + 1}. ${NOME_TEMA_EQUIPE[e.tema]} (${e.casos} casos)` +
+        (e.exemplo ? `\nExemplo: ${e.exemplo}` : "") +
+        `\nO certo: ${e.o_certo}`,
+    )
+    .join("\n\n");
+  return (
+    <Card className="flex flex-col gap-3 lg:col-span-2">
+      <h2 className="font-bold">Para a equipe</h2>
+      {itens?.length ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Os erros que mais se repetem no atendimento da equipe, com um caso real de cada (sem o
+            nome do cliente), para conversar com quem atende.
+          </p>
+          <ol className="flex flex-col gap-3 text-sm">
+            {itens.map((e) => (
+              <li key={e.tema} className="flex flex-col gap-1">
+                <p className="font-semibold">
+                  {NOME_TEMA_EQUIPE[e.tema]}{" "}
+                  <span className="font-normal text-muted-foreground">({e.casos} casos)</span>
+                </p>
+                {e.exemplo ? (
+                  <p className="whitespace-pre-wrap rounded-botao bg-background p-2">
+                    <span className="font-semibold">Exemplo: </span>
+                    {e.exemplo}
+                  </p>
+                ) : null}
+                <p className="whitespace-pre-wrap rounded-botao bg-marca-claro p-2">
+                  <span className="font-semibold">O certo: </span>
+                  {e.o_certo}
+                </p>
+              </li>
+            ))}
+          </ol>
+          <Botao
+            variante="contorno"
+            className="self-start"
+            onClick={() =>
+              void navigator.clipboard
+                .writeText(texto)
+                .then(() => toast.success("Lista copiada."))
+                .catch(() => toast.error("Não foi possível copiar."))
+            }
+          >
+            <Copy aria-hidden /> Copiar
+          </Botao>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">Sai no próximo relatório do período.</p>
+      )}
+    </Card>
   );
 }
 
