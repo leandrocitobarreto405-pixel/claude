@@ -9,7 +9,19 @@ import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
 import type { LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
 
+/** Decisão do dono sobre uma sugestão do relatório (só marca; não aplica nada na Alice). */
+export type DecisaoSugestao = {
+  decisao: "aprovada" | "recusada";
+  motivo: string | null;
+  texto: string;
+  por: string;
+  em: string;
+};
+
 export type RelatorioTela = {
+  id: string;
+  /** Por índice da sugestão em leitura.sugestoes. */
+  decisoes: Record<string, DecisaoSugestao>;
   periodo: string;
   criadoEm: string;
   custoUsd: number;
@@ -103,7 +115,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
           .limit(1000),
         db
           .from("comercial_relatorios")
-          .select("custo_usd, periodo, criado_em, dados")
+          .select("id, custo_usd, periodo, criado_em, dados")
           .order("criado_em", { ascending: false }),
       ]);
     type LinhaAnalise = {
@@ -175,15 +187,18 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
 
     const ultimo = (
       (rel ?? []) as Array<{
+        id: string;
         custo_usd: number | string;
         periodo: string;
         criado_em: string;
-        dados: Omit<RelatorioTela, "periodo" | "criadoEm" | "custoUsd">;
+        dados: Omit<RelatorioTela, "id" | "periodo" | "criadoEm" | "custoUsd">;
       }>
     )[0];
     return {
       relatorio: ultimo
         ? {
+            id: ultimo.id,
+            decisoes: ultimo.dados.decisoes ?? {},
             periodo: ultimo.periodo,
             criadoEm: ultimo.criado_em,
             custoUsd: Number(ultimo.custo_usd),
@@ -312,4 +327,69 @@ export const marcarEncaixeFn = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Aprovar ou recusar uma sugestão do relatório: só guarda a decisão (quem, quando, motivo) dentro
+ * do próprio relatório, para alimentar o manual depois. Não aplica nada na Alice.
+ */
+export const decidirSugestaoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator(
+    (d: { relatorioId: string; indice: number; decisao: string; motivo?: string | null }) => {
+      const indice = Number(d.indice);
+      if (!Number.isInteger(indice) || indice < 0 || indice > 50)
+        throw new Error("Sugestão inválida.");
+      if (d.decisao !== "aprovada" && d.decisao !== "recusada" && d.decisao !== "desfazer")
+        throw new Error("Decisão inválida.");
+      return {
+        relatorioId: uuid(d.relatorioId, "Relatório"),
+        indice,
+        decisao: d.decisao as "aprovada" | "recusada" | "desfazer",
+        motivo:
+          String(d.motivo ?? "")
+            .trim()
+            .slice(0, 300) || null,
+      };
+    },
+  )
+  .handler(async ({ context, data }) => {
+    const db = context.supabase as unknown as Db;
+    const empresaId = context.empresaId as string;
+    // Empresa só para consulta (assinatura em atraso) não grava, como no resto do app.
+    const { data: sit } = await db.rpc("situacao_assinatura", { _emp: empresaId });
+    const situacao = (sit as { situacao?: string } | null)?.situacao;
+    if (situacao === "somente_leitura" || situacao === "bloqueada")
+      throw new Error("Empresa em modo somente leitura: a decisão não foi gravada.");
+    // Lê pelo login do admin (RLS); grava pelo servidor (a tabela não tem escrita pela tela).
+    const { data: rel } = await db
+      .from("comercial_relatorios")
+      .select("id, dados")
+      .eq("id", data.relatorioId)
+      .maybeSingle();
+    if (!rel) throw new Error("Relatório não encontrado.");
+    const dados = (rel as { dados: Record<string, unknown> }).dados ?? {};
+    const sugestoes = ((dados["leitura"] as { sugestoes?: Array<{ sugestao: string }> })
+      ?.sugestoes ?? []) as Array<{ sugestao: string }>;
+    const sugestao = sugestoes[data.indice];
+    if (!sugestao) throw new Error("Sugestão não encontrada.");
+    const decisoes = { ...((dados["decisoes"] as Record<string, DecisaoSugestao>) ?? {}) };
+    if (data.decisao === "desfazer") delete decisoes[String(data.indice)];
+    else
+      decisoes[String(data.indice)] = {
+        decisao: data.decisao,
+        motivo: data.decisao === "recusada" ? data.motivo : null,
+        texto: sugestao.sugestao,
+        por: context.userId as string,
+        em: new Date().toISOString(),
+      };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Tabela ainda fora dos tipos gerados: cliente sem tipos, como no resto deste arquivo.
+    const { error } = await (supabaseAdmin as unknown as Db)
+      .from("comercial_relatorios")
+      .update({ dados: { ...dados, decisoes } as never })
+      .eq("id", data.relatorioId)
+      .eq("empresa_id", empresaId);
+    if (error) throw new Error(error.message);
+    return { ok: true, decisoes };
   });

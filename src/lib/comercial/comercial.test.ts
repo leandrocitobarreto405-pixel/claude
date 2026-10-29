@@ -256,3 +256,59 @@ test("relatório: defeitos da Alice antes e depois de 28/10", async () => {
   assert.deepEqual([cep.antes, cep.depois], [1, 1]);
   assert.deepEqual([duvida.antes, duvida.depois, duvida.total], [2, 0, 2]);
 });
+
+test("painel: funil com queda, como estamos, tendência e erros da equipe por ficha", async () => {
+  const { funilComQueda, comoEstamos, tendencia, temaDaEquipe, noPeriodo } =
+    await import("./painel");
+  const f = (
+    resultado: "vendeu" | "perdeu" | "sem_desfecho" | "sem_orcamento",
+    cliente: number,
+  ) => ({
+    grupo: "google" as const,
+    status: "ok" as const,
+    servico: null,
+    origem: null,
+    resultado,
+    valorOrcado: resultado === "sem_orcamento" ? null : 100,
+    valorVendido: resultado === "vendeu" ? 100 : null,
+    nota: null,
+    motivoSugerido: null,
+    motivoRegistrado: null,
+    quemAtendeu: "alice",
+    custoUsd: 0,
+    ficha: null,
+    fatos: { mensagens: { cliente, alice: 1, equipe: 0 } } as never,
+  });
+  const fichas = [f("vendeu", 3), f("perdeu", 2), f("sem_desfecho", 2), f("sem_orcamento", 1)];
+  const funil = funilComQueda(fichas);
+  assert.deepEqual(
+    funil.map((e) => [e.n, e.queda]),
+    [
+      [4, null],
+      [3, 0.25],
+      [3, 0],
+      [1, 2 / 3],
+    ],
+  );
+  const c = comoEstamos(fichas);
+  assert.equal(c.pctOrcamento, 0.75);
+  assert.equal(c.conversao, 0.25);
+  assert.equal(c.orcado, 300);
+  assert.equal(c.perdido, 200);
+  assert.equal(tendencia({ casos: 4, leads: 10 }, { casos: 1, leads: 10 }).tendencia, "caiu");
+  assert.equal(tendencia({ casos: 4, leads: 10 }, { casos: 1, leads: 3 }).tendencia, "sem_base");
+  const ficha = {
+    regras: [{ regra: "pix", situacao: "quebrou", quem: "equipe", evidencia: "sem Pix" }],
+    erros: [
+      { quem: "equipe", erro: "Demorou cerca de 4 horas para enviar o orçamento." },
+      { quem: "equipe", erro: "Prometeu retomar no dia seguinte, sem resumo para o marido." },
+    ],
+  } as never;
+  assert.equal(temaDaEquipe(ficha, "preco_sem_pix"), "sem Pix");
+  assert.match(temaDaEquipe(ficha, "demora_ate_preco") ?? "", /4 horas/);
+  assert.match(temaDaEquipe(ficha, "sem_resumo_para_quem_decide") ?? "", /marido/);
+  assert.equal(temaDaEquipe(ficha, "prometeu_sem_olhar_agenda"), null);
+  assert.equal(temaDaEquipe(ficha, "alguma_duvida"), null);
+  const lead = { ...f("vendeu", 2), criadoEm: "2026-10-31T23:30:00Z" };
+  assert.equal(noPeriodo(lead, "outubro"), true, "31/10 20h30 em SP ainda é outubro");
+});
