@@ -46,6 +46,7 @@ import { Route as AuthenticatedPromocaoRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as ApiAnexoTempoRouteImport } from './routes/api/anexo-tempo'
 import { Route as ContadoraIndexRouteImport } from './routes/contadora/index'
 import { Route as ContadoraDespesasRouteImport } from './routes/contadora/despesas'
 import { Route as ContadoraExportarRouteImport } from './routes/contadora/exportar'
@@ -295,6 +296,11 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiAnexoTempoRoute = ApiAnexoTempoRouteImport.update({
+  id: '/api/anexo-tempo',
+  path: '/api/anexo-tempo',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ContadoraIndexRoute = ContadoraIndexRouteImport.update({
   id: '/',
@@ -672,6 +678,7 @@ export interface FileRoutesByFullPath {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
   '/contadora/notas': typeof ContadoraNotasRoute
@@ -767,6 +774,7 @@ export interface FileRoutesByTo {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
   '/contadora/notas': typeof ContadoraNotasRoute
@@ -866,6 +874,7 @@ export interface FileRoutesById {
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
   '/contadora/notas': typeof ContadoraNotasRoute
@@ -965,6 +974,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
     | '/contadora/notas'
@@ -1060,6 +1070,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
     | '/contadora/notas'
@@ -1158,6 +1169,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
+    | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
     | '/contadora/notas'
@@ -1227,6 +1239,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  ApiAnexoTempoRoute: typeof ApiAnexoTempoRoute
   ApiAnexoMensagemIdRoute: typeof ApiAnexoMensagemIdRoute
   ApiPublicAdsLeadRoute: typeof ApiPublicAdsLeadRoute
   ApiPublicGoogleRetornoRoute: typeof ApiPublicGoogleRetornoRoute
@@ -1506,6 +1519,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/anexo-tempo': {
+      id: '/api/anexo-tempo'
+      path: '/api/anexo-tempo'
+      fullPath: '/api/anexo-tempo'
+      preLoaderRoute: typeof ApiAnexoTempoRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/contadora/': {
       id: '/contadora/'
@@ -2111,6 +2131,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  ApiAnexoTempoRoute: ApiAnexoTempoRoute,
   ApiAnexoMensagemIdRoute: ApiAnexoMensagemIdRoute,
   ApiPublicAdsLeadRoute: ApiPublicAdsLeadRoute,
   ApiPublicGoogleRetornoRoute: ApiPublicGoogleRetornoRoute,
