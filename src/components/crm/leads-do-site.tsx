@@ -100,7 +100,7 @@ export function LeadsDoSite() {
       {q.isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : q.isError ? (
-        <p className="text-sm text-problema">
+        <p className="text-sm text-problema-foreground">
           {mensagemDeErro(q.error, "Não foi possível carregar.")}
         </p>
       ) : !visiveis.length ? (
@@ -190,7 +190,7 @@ function CartaoLead({ lead: l }: { lead: LeadSite }) {
           Mensagem enviada em {dateTimeBR(l.modeloEnviadoEm)}
         </p>
       ) : l.modeloErro && l.modeloErro !== "enviando" ? (
-        <p className="text-xs text-problema">Mensagem não enviada: {l.modeloErro}</p>
+        <p className="text-xs text-problema-foreground">Mensagem não enviada: {l.modeloErro}</p>
       ) : null}
       {l.repetidos ? (
         <p className="text-xs text-muted-foreground">

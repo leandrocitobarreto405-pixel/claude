@@ -39,7 +39,7 @@ function Implantacao() {
       />
       {q.isLoading ? <Card className="text-sm">Conferindo as etapas…</Card> : null}
       {q.error ? (
-        <Card className="text-sm text-problema">
+        <Card className="text-sm text-problema-foreground">
           {q.error instanceof Error ? q.error.message : "Não foi possível carregar."}
         </Card>
       ) : null}

@@ -40,6 +40,7 @@ import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { SinoNexa } from "@/components/plano/sino-nexa";
 import { AlertaParadaIa } from "@/components/plano/alerta-parada-ia";
 import { limparCacheAnexos } from "@/lib/anexos";
+import { SeletorTema, SeletorTemaPainel } from "@/components/seletor-tema";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
@@ -261,6 +262,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
 
+            <SeletorTema />
+
             {painelNexa ? <SinoNexa /> : <SinoDeAvisos ligado={Boolean(vinculo)} />}
 
             <Button
@@ -286,6 +289,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </ScrollArea>
                 <div className="flex flex-col gap-2 border-t border-navy-foreground/10 p-3">
                   {ctx && (ctx.souNexa || ctx.empresas.length > 1) ? <SeletorEmpresa /> : null}
+                  <SeletorTemaPainel />
                   <button
                     type="button"
                     onClick={sair}
