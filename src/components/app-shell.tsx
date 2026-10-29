@@ -39,6 +39,7 @@ import { recursoDaRota, temRecurso } from "@/lib/recursos";
 import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { SinoNexa } from "@/components/plano/sino-nexa";
 import { AlertaParadaIa } from "@/components/plano/alerta-parada-ia";
+import { limparCacheAnexos } from "@/lib/anexos";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
@@ -204,6 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   async function sair() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    await limparCacheAnexos();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }

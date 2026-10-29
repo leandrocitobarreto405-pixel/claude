@@ -1,8 +1,11 @@
 // Áudio e foto das mensagens gravadas (do cliente, da Alice ou da equipe), baixados pelo
-// servidor (/api/anexo) quando a pessoa toca/abre, nunca com o token do Chatwoot no navegador.
-import { useEffect, useState } from "react";
+// servidor (/api/anexo), nunca com o token do Chatwoot no navegador. O áudio começa a baixar
+// quando o balão aparece na tela (e o decodificador do Safari já é carregado), para tocar
+// logo no primeiro toque.
+import { useEffect, useRef, useState } from "react";
 import { PlayerAudio } from "@/components/conversas/player-audio";
-import { baixarAnexo } from "@/lib/anexos";
+import { preCarregarDecodificador } from "@/lib/audio-reproducao";
+import { baixarAnexo, esquecerAnexo } from "@/lib/anexos";
 
 export function AudioMensagem({
   mensagemId,
@@ -12,9 +15,29 @@ export function AudioMensagem({
   /** Texto que o app mostra para a mensagem ("(áudio)" ou a transcrição). */
   transcricao?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    preCarregarDecodificador();
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (itens) => {
+        if (itens.some((i) => i.isIntersecting)) {
+          obs.disconnect();
+          void baixarAnexo(mensagemId).catch(() => undefined);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [mensagemId]);
   return (
-    <div className="flex w-[min(280px,70vw)] flex-col gap-1">
-      <PlayerAudio fonte={() => baixarAnexo(mensagemId)} />
+    <div ref={ref} className="flex w-[min(280px,calc(100vw-8.5rem))] flex-col gap-1">
+      <PlayerAudio
+        fonte={() => baixarAnexo(mensagemId)}
+        aoTentarDeNovo={() => esquecerAnexo(mensagemId)}
+      />
       {transcricao && transcricao !== "(áudio)" ? (
         <p className="text-[13px] text-muted-foreground break-words whitespace-pre-wrap">
           {transcricao}
