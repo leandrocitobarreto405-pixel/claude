@@ -61,7 +61,7 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
       etapa: "A1",
       trilha: "A",
       quando: { minutos: 10 },
-      guia: 'Mande um resumo curto do orçamento (itens, total e o valor no Pix) e termine com uma pergunta para agendar (ex.: "Quer que eu veja um horário pra você esta semana, [nome]?"). Não pergunte se ele viu o orçamento nem se ficou com dúvida.',
+      guia: 'Ofereça um horário concreto da agenda (consulte com consultar_agenda; ex.: "Tenho quinta de manhã livre, quer que eu reserve pra você, [nome]?"). Não pergunte se ele viu o orçamento nem se ficou com dúvida e não repita os valores.',
       modelo: null,
     },
     {
