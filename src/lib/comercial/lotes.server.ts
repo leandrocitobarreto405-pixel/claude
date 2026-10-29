@@ -6,8 +6,9 @@
  */
 import { analisarLead, contextoDaEmpresa } from "./analise.server";
 
-/** Leads analisados por passada (em paralelo) e tempo máximo da passada. */
-const POR_PASSADA = 3;
+/** Leads analisados por rodada (em paralelo); a passada faz rodadas até gastar ~2 min. */
+const POR_RODADA = 6;
+const TEMPO_DA_PASSADA_MS = 120_000;
 /** Margem de segurança: não começa um lead se o gasto + isto passar do teto. */
 const CUSTO_MAXIMO_POR_LEAD = 0.25;
 /** Outra passada só assume o lote se a anterior parou de atualizar há mais que isto. */
@@ -22,6 +23,9 @@ type Lote = {
   com_erro: number;
   custo_usd: number;
   iniciado_em: string | null;
+  gerar_relatorio: boolean;
+  relatorio_periodo: string | null;
+  relatorio_id: string | null;
 };
 
 export async function gastoDaEmpresa(
@@ -44,7 +48,7 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
   const { data: lotes } = await db
     .from("comercial_lotes")
     .select(
-      "id, empresa_id, leads, status, processados, com_erro, custo_usd, iniciado_em, atualizado_em",
+      "id, empresa_id, leads, status, processados, com_erro, custo_usd, iniciado_em, atualizado_em, gerar_relatorio, relatorio_periodo, relatorio_id",
     )
     .in("status", ["pendente", "rodando"])
     .order("pedido_em")
@@ -97,6 +101,39 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
     ((feitos ?? []) as Array<{ crm_lead_id: string }>).map((f) => f.crm_lead_id),
   );
   const faltam = lote.leads.filter((id) => !jaFeitos.has(id));
+  if (!faltam.length && lote.gerar_relatorio && !lote.relatorio_id) {
+    // Todas as fichas prontas: relatório do período (uma tentativa).
+    const { gerarRelatorioComercial } = await import("./relatorio.server");
+    try {
+      const r = await gerarRelatorioComercial(db, {
+        empresaId: lote.empresa_id,
+        periodo: lote.relatorio_periodo || "Período analisado",
+      });
+      const fim = new Date().toISOString();
+      await db
+        .from("comercial_lotes")
+        .update({
+          relatorio_id: r.id,
+          custo_usd: Number(lote.custo_usd) + r.custoUsd,
+          status: "concluido",
+          concluido_em: fim,
+          atualizado_em: fim,
+        })
+        .eq("id", lote.id);
+      return { lote: lote.id, situacao: "relatório pronto", custo: r.custoUsd };
+    } catch (e) {
+      const erro = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+      await db
+        .from("comercial_lotes")
+        .update({
+          status: "erro",
+          erro: `relatório: ${erro}`,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", lote.id);
+      return { lote: lote.id, situacao: "relatório falhou", erro };
+    }
+  }
   if (!faltam.length) {
     await db
       .from("comercial_lotes")
@@ -124,12 +161,28 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
   }
 
   const contexto = await contextoDaEmpresa(db, lote.empresa_id);
-  const agoraLeads = faltam.slice(0, Math.min(POR_PASSADA, cabem));
-  const resultados = await Promise.all(
-    agoraLeads.map((leadId) =>
-      analisarLead(db, { empresaId: lote.empresa_id, leadId, loteId: lote.id, contexto }),
-    ),
-  );
+  const inicio = Date.now();
+  const resultados: Awaited<ReturnType<typeof analisarLead>>[] = [];
+  let feitosAgora = 0;
+  let livres = cabem;
+  while (feitosAgora < faltam.length && livres > 0 && Date.now() - inicio < TEMPO_DA_PASSADA_MS) {
+    const rodada = faltam.slice(feitosAgora, feitosAgora + Math.min(POR_RODADA, livres));
+    resultados.push(
+      ...(await Promise.all(
+        rodada.map((leadId) =>
+          analisarLead(db, { empresaId: lote.empresa_id, leadId, loteId: lote.id, contexto }),
+        ),
+      )),
+    );
+    feitosAgora += rodada.length;
+    livres -= rodada.length;
+    // Marca que a passada segue viva (outra passada não assume o lote no meio).
+    await db
+      .from("comercial_lotes")
+      .update({ atualizado_em: new Date().toISOString() })
+      .eq("id", lote.id);
+  }
+  const agoraLeads = faltam.slice(0, feitosAgora);
   const custo = resultados.reduce((s, r) => s + r.custoUsd, 0);
   const erros = resultados.filter((r) => !r.ok).length;
   const restam = faltam.length - agoraLeads.length;
@@ -140,8 +193,8 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
       processados: lote.processados + agoraLeads.length,
       com_erro: lote.com_erro + erros,
       custo_usd: Number(lote.custo_usd) + custo,
-      atualizado_em: restam ? new Date(0).toISOString() : fim,
-      ...(restam ? {} : { status: "concluido", concluido_em: fim }),
+      atualizado_em: restam || lote.gerar_relatorio ? new Date(0).toISOString() : fim,
+      ...(restam || lote.gerar_relatorio ? {} : { status: "concluido", concluido_em: fim }),
     })
     .eq("id", lote.id);
   return {

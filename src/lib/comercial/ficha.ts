@@ -44,6 +44,32 @@ export const NOME_REGRA: Record<Regra, string> = {
   pix: "Ofereceu o desconto no Pix",
 };
 
+/** Defeitos da Alice em lista fixa (para contar casos no relatório). */
+export const DEFEITOS_ALICE = [
+  "cep_nao_localizado_travou",
+  "pediu_cep_de_novo",
+  "seguiu_sem_foto",
+  "ficou_com_duvida",
+  "repetiu_outra_pergunta",
+  "orcou_item_ou_tamanho_errado",
+  "followups_em_sequencia",
+  "sem_empatia",
+  "outro",
+] as const;
+export type DefeitoAlice = (typeof DEFEITOS_ALICE)[number];
+
+export const NOME_DEFEITO: Record<DefeitoAlice, string> = {
+  cep_nao_localizado_travou: "Travou em CEP não localizado em vez de aceitar rua e bairro",
+  pediu_cep_de_novo: "Pediu o CEP de novo",
+  seguiu_sem_foto: "Seguiu sem a foto",
+  ficou_com_duvida: '"Ficou com alguma dúvida?"',
+  repetiu_outra_pergunta: "Repetiu outra pergunta já respondida",
+  orcou_item_ou_tamanho_errado: "Entendeu errado o item ou o tamanho",
+  followups_em_sequencia: "Vários toques seguidos sem resposta",
+  sem_empatia: "Não acolheu o problema contado",
+  outro: "Outro",
+};
+
 export type Ficha = {
   servico: string;
   perfil: {
@@ -69,6 +95,7 @@ export type Ficha = {
   mensagem_sugerida: string;
   o_que_ajudou_a_vender: string;
   erros: Array<{ quem: "alice" | "equipe"; erro: string }>;
+  defeitos_alice: DefeitoAlice[];
 };
 
 const texto = { type: "string" } as const;
@@ -93,6 +120,7 @@ export const ESQUEMA_FICHA = {
     "mensagem_sugerida",
     "o_que_ajudou_a_vender",
     "erros",
+    "defeitos_alice",
   ],
   properties: {
     servico: texto,
@@ -143,6 +171,7 @@ export const ESQUEMA_FICHA = {
         },
       },
     },
+    defeitos_alice: { type: "array", items: { type: "string", enum: [...DEFEITOS_ALICE] } },
   },
 } as const;
 
@@ -156,7 +185,7 @@ export function instrucoesFicha(o: { empresa: string; pixPct: number | null }): 
     "Regras de leitura:",
     "- Use os fatos do sistema como verdade para números, datas, valores, resultado e quem atendeu. Não invente valores nem datas.",
     '- Baseie cada julgamento no que está escrito na conversa. Se não dá para saber, diga isso ("não dá para saber") em vez de supor.',
-    "- Escreva em português do Brasil, frases curtas e diretas. Não cite o nome nem o telefone do cliente.",
+    "- Escreva em português do Brasil, frases curtas e diretas. Nunca cite o telefone. O nome do cliente só pode aparecer na mensagem_sugerida; em todo o resto da ficha (evidências, frases, erros, resumo) escreva [nome] no lugar dele, inclusive dentro de trechos copiados da conversa. Também não cite o nome de pessoas da equipe: escreva [atendente].",
     "",
     "Como preencher:",
     '- servico: o serviço que o cliente quis (ex.: "Higienização de sofá 3 lugares").',
@@ -165,14 +194,16 @@ export function instrucoesFicha(o: { empresa: string; pixPct: number | null }): 
     `- regras: avalie as 5 regras, uma linha cada: foto_cep (pediu foto do item e CEP antes do preço), empatia (acolheu o problema do cliente antes de vender), nao_repetir_pergunta (não perguntou de novo algo que o cliente já respondeu), sem_ficou_com_duvida (não usou "ficou com alguma dúvida?" ou parecido), pix (ofereceu o desconto no Pix de ${pix} quando falou de preço). Diga quem seguiu ou quebrou (alice ou equipe) e a evidência (trecho curto ou o que faltou). Use nao_se_aplica quando a regra não teve chance de acontecer.`,
     '- momento_esfriou: em que ponto o cliente parou de responder ou perdeu o interesse (ex.: "depois de receber o preço", "depois do 2º follow-up"). Se vendeu, "não esfriou".',
     "- resumo_resultado: uma frase com o desfecho.",
-    "- motivo_perda_sugerido: se NÃO vendeu, escolha exatamente um nome da lista de motivos da empresa; se vendeu, deixe vazio.",
+    '- motivo_perda_sugerido: se NÃO vendeu, escolha exatamente um nome da lista de motivos; se vendeu, deixe vazio. Cuidados: "Adiou" só quando o cliente deu ou aceitou uma data para retomar; cliente que recusou ("optamos por não fazer agora", "não vou fazer") NUNCA é "Adiou" (use "Não precisa mais" ou o motivo que ele disse). Cliente que disse "vou pensar" ou "vou ver com meu marido/esposa" e parou de responder não deu motivo de perda: use "Não respondeu depois dos follow-ups" e trate como sem desfecho (ainda vale chamar), nunca como preço, a não ser que ele tenha falado de preço.',
     "- frase_cliente: a frase do cliente que melhor mostra o motivo (copiada da conversa, curta). Vazio se não houver.",
     "- pediu_encaixe: true se o cliente pediu um horário que não tinha (manhã, sábado, data cheia) ou pediu para avisar se abrir vaga.",
     "- o_que_poderia_ter_sido_feito: 1 a 3 frases práticas, específicas deste atendimento.",
     "- nota: 0 a 10 para o atendimento (não para o cliente).",
-    "- ainda_vale_chamar: true só se fizer sentido retomar agora (não comprou, não disse não, não fechou com outro). mensagem_sugerida: a mensagem curta que a equipe poderia mandar (tom humano, sem pressão, sem inventar desconto); vazio se não vale.",
+    "- ainda_vale_chamar: true só se fizer sentido retomar agora (não comprou, não disse não, não fechou com outro).",
+    '- mensagem_sugerida: a mensagem que a equipe poderia copiar e mandar (vazio se não vale chamar), no mesmo roteiro da Alice: (1) cite algo específico desta conversa (o serviço, a situação contada, o que ficou combinado); (2) se o cliente contou um problema (mancha, xixi de pet, alergia, mudança), empatia primeiro; (3) traga algo novo e útil: um resumo curto do orçamento para ele mostrar a quem decide, um cuidado com o estofado, um horário disponível, ou rever o tamanho/valor quando o orçamento estava errado; (4) termine com UMA pergunta só, fácil de responder. Até 3 frases curtas, tom humano, sem pressão, sem inventar desconto nem horário exato (fale "um horário nesta semana" se não souber). Pode usar o primeiro nome do cliente. Não se apresente com nome de pessoa. PROIBIDO: "passando para saber", "conseguiu decidir", "ficou com alguma dúvida", "está aí?", "fico à disposição".',
     "- o_que_ajudou_a_vender: se vendeu, o que fez fechar; senão, vazio.",
     "- erros: os erros concretos do atendimento, separados por quem errou (alice ou equipe). Lista vazia se não houve.",
+    '- defeitos_alice: os defeitos da ALICE (só dela, não da equipe) que aparecem na conversa, da lista fixa: cep_nao_localizado_travou (não achou o CEP e travou em vez de aceitar rua e bairro), pediu_cep_de_novo, seguiu_sem_foto (passou adiante ou deu preço sem a foto que pediu), ficou_com_duvida (usou "ficou com alguma dúvida?" ou parecido), repetiu_outra_pergunta, orcou_item_ou_tamanho_errado, followups_em_sequencia (vários toques seguidos sem resposta), sem_empatia, outro. Cada um no máximo uma vez. Lista vazia se não houve.',
   ].join("\n");
 }
 
@@ -186,6 +217,13 @@ export function lerFicha(json: string): Ficha {
   f.nota = entre(f.nota, 0, 10);
   f.regras = f.regras.filter((r) => (REGRAS as readonly string[]).includes(r.regra));
   f.erros = Array.isArray(f.erros) ? f.erros : [];
+  f.defeitos_alice = [
+    ...new Set(
+      (Array.isArray(f.defeitos_alice) ? f.defeitos_alice : []).filter((d) =>
+        (DEFEITOS_ALICE as readonly string[]).includes(d),
+      ),
+    ),
+  ];
   return f;
 }
 
@@ -212,4 +250,58 @@ export function idDoMotivo(
   const n = nome.trim().toLowerCase();
   if (!n) return null;
   return motivos.find((m) => m.nome.trim().toLowerCase() === n)?.id ?? null;
+}
+
+/** Expressões que a mensagem sugerida não pode ter (mesmo roteiro da Alice). */
+export const PROIBIDAS_MENSAGEM = [
+  /passando para saber/i,
+  /conseguiu decidir/i,
+  /ficou com (alguma )?d[uú]vida/i,
+  /est[aá] a[ií]\s*\?/i,
+  /fico [aà] disposi[cç][aã]o/i,
+];
+
+export function mensagemProibida(texto: string): string | null {
+  const r = PROIBIDAS_MENSAGEM.find((p) => p.test(texto));
+  return r ? (texto.match(r)?.[0] ?? null) : null;
+}
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/**
+ * Troca o nome do cliente por [nome] em toda a ficha, menos na mensagem sugerida (rede de
+ * segurança para quando a IA cita o nome mesmo com a instrução). Compara sem acento.
+ */
+export function mascararNome<T>(valor: T, nomeCliente: string | null, preservar: string[] = []): T {
+  const partes = (nomeCliente ?? "")
+    .split(/\s+/)
+    .map((p) => semAcento(p.trim()))
+    .filter((p) => p.length >= 3);
+  if (!partes.length) return valor;
+  const re = new RegExp(
+    `\\b(${partes.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+    "gi",
+  );
+  const trocar = (t: string) => {
+    const limpo = semAcento(t);
+    if (!re.test(limpo)) return t;
+    re.lastIndex = 0;
+    // As posições batem porque a normalização só remove acentos combinados de letras simples.
+    let saida = "";
+    let i = 0;
+    for (const m of limpo.matchAll(re)) {
+      const ini = m.index ?? 0;
+      saida += t.slice(i, ini) + "[nome]";
+      i = ini + m[0].length;
+    }
+    return saida + t.slice(i);
+  };
+  const andar = (v: unknown, chave?: string): unknown => {
+    if (typeof v === "string") return chave && preservar.includes(chave) ? v : trocar(v);
+    if (Array.isArray(v)) return v.map((x) => andar(x));
+    if (v && typeof v === "object")
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, andar(x, k)]));
+    return v;
+  };
+  return andar(valor) as T;
 }

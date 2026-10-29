@@ -306,12 +306,103 @@ function Resumo({ d }: { d: GerenteComercial }) {
           cabecalho={["Regra", "Avaliadas", "Alice quebrou", "Equipe quebrou"]}
           linhas={regras.map((r) => [r.nome, r.avaliadas, r.alice, r.equipe])}
         />
-        <p className="text-xs text-muted-foreground">
+      </Card>
+      {d.relatorio ? (
+        <Relatorio r={d.relatorio} />
+      ) : (
+        <Card className="text-xs text-muted-foreground lg:col-span-2">
           O relatório completo (padrões das vendas, perfil de quem mais fecha, erros com exemplos e
           sugestões) sai quando todas as fichas estiverem prontas.
-        </p>
-      </Card>
+        </Card>
+      )}
     </div>
+  );
+}
+
+function Relatorio({ r }: { r: NonNullable<GerenteComercial["relatorio"]> }) {
+  const l = r.leitura;
+  const lista = (itens: string[]) => (
+    <ul className="ml-4 list-disc space-y-1 text-sm">
+      {itens.map((t, i) => (
+        <li key={i}>{t}</li>
+      ))}
+    </ul>
+  );
+  return (
+    <>
+      <Card className="flex flex-col gap-2 lg:col-span-2">
+        <h2 className="font-bold">Defeitos da Alice para corrigir</h2>
+        <p className="text-xs text-muted-foreground">
+          Leads que começaram antes de 28/10: {r.numeros.leadsAntesDepois.antes} · depois:{" "}
+          {r.numeros.leadsAntesDepois.depois}.
+        </p>
+        <Tabela
+          cabecalho={["Defeito", "Antes de 28/10", "Depois", "Total"]}
+          linhas={r.numeros.defeitosAlice.map((x) => [x.nome, x.antes, x.depois, x.total])}
+        />
+      </Card>
+      <Card className="flex flex-col gap-2">
+        <h2 className="font-bold">Padrões das vendas</h2>
+        {lista(l.padroes_vendas.map((p) => `${p.padrao} (${p.casos} casos)`))}
+        <h3 className="mt-2 font-bold">Perfil de quem mais fecha</h3>
+        <p className="text-sm">{l.perfil_que_mais_fecha}</p>
+        <h3 className="mt-2 font-bold">Onde os leads somem</h3>
+        <p className="text-sm">{l.onde_somem}</p>
+      </Card>
+      <Card className="flex flex-col gap-2">
+        <h2 className="font-bold">Vendeu × não vendeu</h2>
+        {lista(l.vendeu_x_nao_vendeu.map((v) => `${v.servico}: ${v.diferenca}`))}
+      </Card>
+      <Card className="flex flex-col gap-2 lg:col-span-2">
+        <h2 className="font-bold">Erros recorrentes</h2>
+        {(["alice", "equipe"] as const).map((q) => (
+          <div key={q}>
+            <h3 className="font-semibold">{q === "alice" ? "Alice" : "Equipe"}</h3>
+            {lista(
+              l.erros_recorrentes
+                .filter((e) => e.quem === q)
+                .map((e) => `${e.erro} (${e.casos} casos). Ex.: ${e.exemplos.join(" · ")}`),
+            )}
+          </div>
+        ))}
+      </Card>
+      <Card className="flex flex-col gap-2 lg:col-span-2">
+        <h2 className="font-bold">Sugestões</h2>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          {l.sugestoes.map((s, i) => (
+            <li key={i}>
+              <Chip tom={s.forca === "forte" ? "sucesso" : "neutro"}>
+                {s.forca === "forte" ? "Forte" : "Hipótese"}
+              </Chip>{" "}
+              {s.sugestao} <span className="text-muted-foreground">({s.casos} casos)</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card className="flex flex-col gap-3 lg:col-span-2">
+        <h2 className="font-bold">Mudanças sugeridas na Alice (não aplicadas)</h2>
+        {l.mudancas_alice.map((m, i) => (
+          <div key={i} className="flex flex-col gap-1 text-sm">
+            <p className="font-semibold">
+              {m.tema} <span className="font-normal text-muted-foreground">({m.casos} casos)</span>
+            </p>
+            <p className="whitespace-pre-wrap rounded-botao bg-background p-2">
+              <span className="font-semibold">Antes: </span>
+              {m.antes}
+            </p>
+            <p className="whitespace-pre-wrap rounded-botao bg-marca-claro p-2">
+              <span className="font-semibold">Depois: </span>
+              {m.depois}
+            </p>
+          </div>
+        ))}
+      </Card>
+      <Card className="text-xs text-muted-foreground lg:col-span-2">
+        {r.periodo} · relatório de {dateBR(r.criadoEm.slice(0, 10))} · custo do relatório{" "}
+        {usd(r.custoUsd)} · rotina diária estimada:{" "}
+        {r.estimativaMensal.map((e) => `${e.empresa} ${usd(e.usdMes)}/mês`).join(" · ")}
+      </Card>
+    </>
   );
 }
 
