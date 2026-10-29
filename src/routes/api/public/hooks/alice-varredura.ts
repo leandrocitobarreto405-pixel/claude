@@ -92,6 +92,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
               );
               return null;
             });
+          // Gerente comercial: lotes de análise pedidos (só leitura; ligado por empresa).
+          const { rodarLotesComerciais } = await import("@/lib/comercial/lotes.server");
+          const comercial = await rodarLotesComerciais().catch((e) => {
+            console.error("Gerente comercial: falha no lote", e instanceof Error ? e.message : e);
+            return null;
+          });
           return json({
             ok: true,
             encerramento,
@@ -105,6 +111,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             servicosNaoConcluidos,
             precisaResumo,
             exportacaoGoogle,
+            comercial,
           });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);

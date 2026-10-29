@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BriefcaseBusiness,
   Bot,
   Building2,
   CalendarClock,
@@ -68,6 +69,13 @@ export const GRUPOS_MENU: GrupoMenu[] = [
         ativoEm: ["/crm/funil", "/crm/lead", "/crm/importar"],
       },
       { to: "/marketing", rotulo: "Marketing WhatsApp", icone: Send, ativoEm: ["/listas"] },
+      // Só admin e só na empresa com o gerente comercial ligado (ver menuDoPapel).
+      {
+        to: "/gerente-comercial",
+        rotulo: "Gerente comercial",
+        icone: BriefcaseBusiness,
+        papeis: ["admin"],
+      },
     ],
   },
   {
@@ -135,6 +143,7 @@ export function menuDoPapel(
   souNexa = false,
   primeirosPassos: { faltam: boolean; progresso: string } | null = null,
   painelNexa = false,
+  gerenteComercial = false,
 ): GrupoMenu[] {
   if (painelNexa) return souNexa ? GRUPOS_MENU.filter((g) => g.soNexa) : [];
   const base = papel === "tecnico" ? MENU_TECNICO : GRUPOS_MENU;
@@ -149,6 +158,7 @@ export function menuDoPapel(
         )
         .filter((i) => !i.papeis || (papel !== null && i.papeis.includes(papel)) || souNexa)
         .filter((i) => i.to !== "/implantacao" || primeirosPassos?.faltam)
+        .filter((i) => i.to !== "/gerente-comercial" || gerenteComercial)
         .map((i) =>
           i.to === "/implantacao" && primeirosPassos
             ? { ...i, rotulo: `Primeiros passos · ${primeirosPassos.progresso}` }

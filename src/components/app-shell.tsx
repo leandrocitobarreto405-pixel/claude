@@ -67,7 +67,26 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       }
     : null;
   const { data: planoEmpresa } = usePlanoDaEmpresa();
-  const grupos = menuDoPapel(papel, souNexa, primeirosPassos, ctx?.painelNexa ?? false);
+  // Gerente comercial: só aparece para o admin da empresa em que está ligado.
+  const comercial = useQuery({
+    queryKey: ["gerente-comercial-ligado", ctx?.ativa?.empresa.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("comercial_configuracoes" as never)
+        .select("ligado")
+        .maybeSingle();
+      return Boolean((data as { ligado?: boolean } | null)?.ligado);
+    },
+    enabled: papel === "admin" && !ctx?.painelNexa,
+    staleTime: 10 * 60_000,
+  });
+  const grupos = menuDoPapel(
+    papel,
+    souNexa,
+    primeirosPassos,
+    ctx?.painelNexa ?? false,
+    comercial.data === true,
+  );
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
       {grupos.map((group) => (

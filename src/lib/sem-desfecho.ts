@@ -6,7 +6,7 @@ import type { MotivoPerda } from "@/lib/alice/regras";
 
 /** Os 11 motivos padrão (os nomes são os da migração 20261228150000; cada empresa edita). */
 export const MOTIVOS_SEM_DESFECHO = [
-  "Agenda cheia",
+  "Agenda cheia / sem manhã livre",
   "Preço alto – fechou com outra empresa",
   "Preço alto – desistiu/adiou",
   "Fechou com outra empresa (motivo não informado)",
