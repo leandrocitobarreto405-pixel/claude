@@ -20,7 +20,10 @@ import {
   idDoMotivo,
   instrucoesFicha,
   lerFicha,
+  mascararNome,
+  mensagemProibida,
   pedidoDaFicha,
+  type Uso,
 } from "./ficha";
 
 type Db = SupabaseClient;
@@ -38,15 +41,23 @@ export async function contextoDaEmpresa(db: Db, empresaId: string): Promise<Cont
     db.from("orcamento_configuracoes").select("pix_pct").eq("empresa_id", empresaId).maybeSingle(),
     db
       .from("config_options")
-      .select("id, name, display_order")
+      .select("id, name, display_order, metadata")
       .eq("empresa_id", empresaId)
       .eq("kind", "crm_loss_reason")
       .eq("active", true)
       .order("display_order"),
   ]);
+  // Só os motivos do Sem desfecho (os antigos, como "Sem retorno", ficam de fora); empresa sem
+  // eles usa todos.
+  const todos = (motivos ?? []) as Array<{
+    id: string;
+    name: string;
+    metadata: Record<string, unknown> | null;
+  }>;
+  const doSemDesfecho = todos.filter((m) => m.metadata?.["sem_desfecho"] === true);
   const vistos = new Set<string>();
   const lista: Contexto["motivos"] = [];
-  for (const m of (motivos ?? []) as Array<{ id: string; name: string }>) {
+  for (const m of doSemDesfecho.length ? doSemDesfecho : todos) {
     const k = m.name.trim().toLowerCase();
     if (vistos.has(k)) continue;
     vistos.add(k);
@@ -131,11 +142,11 @@ export async function entradaDoLead(
   db: Db,
   empresaId: string,
   leadId: string,
-): Promise<{ entrada: EntradaFatos; transcritos: number }> {
+): Promise<{ entrada: EntradaFatos; transcritos: number; nomeCliente: string | null }> {
   const { data: l, error } = await db
     .from("crm_leads")
     .select(
-      "id, created_at, gclid, gbraid, lp_origem, service_interest, sales_origin_id, orcamento_enviado_em, perdido_em, loss_reason_id, desfecho_obs, realizado_em, os_criada_em, linked_work_order_id",
+      "id, lead_name, created_at, gclid, gbraid, lp_origem, service_interest, sales_origin_id, orcamento_enviado_em, perdido_em, loss_reason_id, desfecho_obs, realizado_em, os_criada_em, linked_work_order_id",
     )
     .eq("id", leadId)
     .eq("empresa_id", empresaId)
@@ -293,7 +304,7 @@ export async function entradaDoLead(
       responsavel: f.responsavel,
     })),
   };
-  return { entrada, transcritos };
+  return { entrada, transcritos, nomeCliente: lead("lead_name") };
 }
 
 export type ResultadoAnalise = {
@@ -321,32 +332,79 @@ export async function analisarLead(
     });
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-    const resp = await chamarIa(() =>
-      new Anthropic({ timeout: 170_000, maxRetries: 1 }).messages.create({
-        model: MODELO_FICHA,
-        max_tokens: 16_000,
-        output_config: {
-          effort: "medium",
-          format: {
-            type: "json_schema",
-            schema: ESQUEMA_FICHA as unknown as Record<string, unknown>,
-          },
-        },
-        system: [
-          {
-            type: "text",
-            text: instrucoesFicha({ empresa: o.contexto.empresaNome, pixPct: o.contexto.pixPct }),
-            cache_control: { type: "ephemeral" },
-          },
-        ],
-        messages: [{ role: "user", content: pedido }],
-      }),
+    const sistema = [
+      {
+        type: "text" as const,
+        text: instrucoesFicha({ empresa: o.contexto.empresaNome, pixPct: o.contexto.pixPct }),
+        cache_control: { type: "ephemeral" as const },
+      },
+    ];
+    const uso: Uso = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+    };
+    const somar = (u: Uso) => {
+      uso.input_tokens += u.input_tokens;
+      uso.output_tokens += u.output_tokens;
+      uso.cache_creation_input_tokens! += u.cache_creation_input_tokens ?? 0;
+      uso.cache_read_input_tokens! += u.cache_read_input_tokens ?? 0;
+      custo = custoUsd(uso);
+    };
+    const pedir = (
+      messages: import("@anthropic-ai/sdk").default.MessageParam[],
+      schema: Record<string, unknown>,
+    ) =>
+      chamarIa(() =>
+        new Anthropic({ timeout: 170_000, maxRetries: 1 }).messages.create({
+          model: MODELO_FICHA,
+          max_tokens: 16_000,
+          output_config: { effort: "medium", format: { type: "json_schema", schema } },
+          system: sistema,
+          messages,
+        }),
+      );
+    const resp = await pedir(
+      [{ role: "user", content: pedido }],
+      ESQUEMA_FICHA as unknown as Record<string, unknown>,
     );
-    custo = custoUsd(resp.usage);
+    somar(resp.usage);
     if (resp.stop_reason === "refusal") throw new Error("a IA recusou este atendimento");
     if (resp.stop_reason === "max_tokens") throw new Error("resposta cortada (limite de tokens)");
     const json = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-    const ficha = lerFicha(json);
+    const ficha = mascararNome(lerFicha(json), r.nomeCliente, ["mensagem_sugerida"]);
+    // Mensagem sugerida com expressão proibida: pede de novo só a mensagem (uma vez).
+    const proibida = ficha.mensagem_sugerida ? mensagemProibida(ficha.mensagem_sugerida) : null;
+    if (proibida) {
+      const r2 = await pedir(
+        [
+          { role: "user", content: pedido },
+          { role: "assistant", content: json },
+          {
+            role: "user",
+            content: `A mensagem_sugerida usa "${proibida}", que é proibido. Reescreva só a mensagem, seguindo as mesmas regras (algo específico da conversa, empatia primeiro se houve problema, algo novo e útil, uma pergunta só).`,
+          },
+        ],
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["mensagem_sugerida"],
+          properties: { mensagem_sugerida: { type: "string" } },
+        },
+      );
+      somar(r2.usage);
+      try {
+        const nova = (
+          JSON.parse(r2.content.map((b) => (b.type === "text" ? b.text : "")).join("")) as {
+            mensagem_sugerida?: string;
+          }
+        ).mensagem_sugerida;
+        ficha.mensagem_sugerida = nova && !mensagemProibida(nova) ? nova : "";
+      } catch {
+        ficha.mensagem_sugerida = "";
+      }
+    }
     const motivoId =
       fatos.resultado === "vendeu"
         ? null
@@ -374,10 +432,9 @@ export async function analisarLead(
         mensagem_sugerida: ficha.mensagem_sugerida || null,
         pediu_encaixe: ficha.pediu_encaixe,
         modelo: MODELO_FICHA,
-        tokens_entrada: resp.usage.input_tokens,
-        tokens_cache:
-          (resp.usage.cache_read_input_tokens ?? 0) + (resp.usage.cache_creation_input_tokens ?? 0),
-        tokens_saida: resp.usage.output_tokens,
+        tokens_entrada: uso.input_tokens,
+        tokens_cache: (uso.cache_read_input_tokens ?? 0) + (uso.cache_creation_input_tokens ?? 0),
+        tokens_saida: uso.output_tokens,
         custo_usd: custo,
         analisado_em: new Date().toISOString(),
         updated_at: new Date().toISOString(),

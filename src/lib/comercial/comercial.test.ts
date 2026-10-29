@@ -157,3 +157,59 @@ test("resumo: conversão, perdas em R$ e serviço principal", async () => {
   assert.deepEqual(perdasPorMotivo(fichas), [{ motivo: "Preço", n: 2, valor: 800 }]);
   assert.equal(funil(fichas)[2]!.n, 3);
 });
+
+test("nome do cliente vira [nome] fora da mensagem sugerida", async () => {
+  const { mascararNome } = await import("./ficha");
+  const f = mascararNome(
+    {
+      evidencia: "No áudio: 'você tem alguma dúvida Márcia'",
+      mensagem_sugerida: "Oi, Márcia!",
+      lista: ["MARCIA disse"],
+    },
+    "Márcia Fictícia",
+    ["mensagem_sugerida"],
+  );
+  assert.equal(f.evidencia, "No áudio: 'você tem alguma dúvida [nome]'");
+  assert.equal(f.mensagem_sugerida, "Oi, Márcia!");
+  assert.deepEqual(f.lista, ["[nome] disse"]);
+});
+
+test("mensagem sugerida: expressões proibidas", async () => {
+  const { mensagemProibida } = await import("./ficha");
+  assert.equal(mensagemProibida("Oi! Passando para saber se deu certo"), "Passando para saber");
+  assert.equal(mensagemProibida("Ficou com alguma dúvida?"), "Ficou com alguma dúvida");
+  assert.equal(mensagemProibida("Está aí?"), "Está aí?");
+  assert.equal(
+    mensagemProibida("Separei um resumo para você mostrar ao seu marido. Posso mandar?"),
+    null,
+  );
+});
+
+test("relatório: defeitos da Alice antes e depois de 28/10", async () => {
+  const { defeitosAntesDepois } = await import("./relatorio");
+  const ficha = (defeitos: string[], em: string) => ({
+    grupo: "google" as const,
+    status: "ok" as const,
+    servico: null,
+    origem: null,
+    resultado: "sem_desfecho" as const,
+    valorOrcado: null,
+    valorVendido: null,
+    nota: null,
+    motivoSugerido: null,
+    motivoRegistrado: null,
+    quemAtendeu: null,
+    custoUsd: 0,
+    ficha: { defeitos_alice: defeitos } as never,
+    fatos: { primeiraMensagemCliente: em } as never,
+  });
+  const r = defeitosAntesDepois([
+    ficha(["pediu_cep_de_novo", "ficou_com_duvida"], "2026-10-10T12:00:00Z"),
+    ficha(["pediu_cep_de_novo"], "2026-10-29T12:00:00Z"),
+    ficha(["ficou_com_duvida", "ficou_com_duvida"], "2026-10-27T12:00:00Z"),
+  ]);
+  const cep = r.find((x) => x.defeito === "pediu_cep_de_novo")!;
+  const duvida = r.find((x) => x.defeito === "ficou_com_duvida")!;
+  assert.deepEqual([cep.antes, cep.depois], [1, 1]);
+  assert.deepEqual([duvida.antes, duvida.depois, duvida.total], [2, 0, 2]);
+});

@@ -7,6 +7,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
+import type { LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
+
+export type RelatorioTela = {
+  periodo: string;
+  criadoEm: string;
+  custoUsd: number;
+  numeros: NumerosRelatorio;
+  leitura: LeituraRelatorio;
+  estimativaMensal: Array<{ empresa: string; leads: number; usdMes: number }>;
+};
 
 export type AnaliseTela = {
   id: string;
@@ -59,6 +69,7 @@ export type GerenteComercial = {
   }>;
   motivos: Array<{ id: string; nome: string; pedeData: string | null }>;
   analises: AnaliseTela[];
+  relatorio: RelatorioTela | null;
 };
 
 type Db = SupabaseClient;
@@ -90,7 +101,10 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
           )
           .order("analisado_em", { ascending: false, nullsFirst: false })
           .limit(1000),
-        db.from("comercial_relatorios").select("custo_usd"),
+        db
+          .from("comercial_relatorios")
+          .select("custo_usd, periodo, criado_em, dados")
+          .order("criado_em", { ascending: false }),
       ]);
     type LinhaAnalise = {
       id: string;
@@ -159,7 +173,25 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
     } | null;
     const num = (v: number | string | null) => (v === null ? null : Number(v));
 
+    const ultimo = (
+      (rel ?? []) as Array<{
+        custo_usd: number | string;
+        periodo: string;
+        criado_em: string;
+        dados: Omit<RelatorioTela, "periodo" | "criadoEm" | "custoUsd">;
+      }>
+    )[0];
     return {
+      relatorio: ultimo
+        ? {
+            periodo: ultimo.periodo,
+            criadoEm: ultimo.criado_em,
+            custoUsd: Number(ultimo.custo_usd),
+            numeros: ultimo.dados.numeros,
+            leitura: ultimo.dados.leitura,
+            estimativaMensal: ultimo.dados.estimativaMensal ?? [],
+          }
+        : null,
       ligado: Boolean(config?.ligado),
       tetoUsd: Number(config?.teto_usd ?? 0),
       rotinaDiaria: Boolean(config?.rotina_diaria),
