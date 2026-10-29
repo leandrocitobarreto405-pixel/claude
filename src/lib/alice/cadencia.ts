@@ -61,7 +61,7 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
       etapa: "A1",
       trilha: "A",
       quando: { minutos: 10 },
-      guia: "Conseguiu ver o orçamento que te passei, [nome]?",
+      guia: 'Mande um resumo curto do orçamento (itens, total e o valor no Pix) e termine com uma pergunta para agendar (ex.: "Quer que eu veja um horário pra você esta semana, [nome]?"). Não pergunte se ele viu o orçamento nem se ficou com dúvida.',
       modelo: null,
     },
     {
@@ -314,7 +314,7 @@ export function toqueEmAudio(o: {
 
 /** Instrução do toque D1 em áudio (o guia do passo diz o "algo novo"). */
 export const GUIA_TOQUE_AUDIO =
-  "Faça este toque em ÁUDIO, com falar_em_audio: até 350 caracteres (uns 25 segundos), escrito para ser falado. Comece pelo nome do cliente; lembre a dor ou o motivo que ele contou e traga o algo novo do guia; sem pressão e sem falar de validade; não repita pergunta já feita; termine com UMA pergunta. Vale a regra de empatia (se ele contou algo da vida dele, comece por isso). Horários, valores e datas não vão no áudio: se precisar, mande depois, em texto, sem outra pergunta.";
+  "Faça este toque em ÁUDIO, com falar_em_audio: até 350 caracteres (uns 25 segundos), escrito para ser falado. Comece pelo nome do cliente; lembre a dor ou o motivo que ele contou e traga o algo novo do guia; sem pressão e sem falar de validade; não repita pergunta já feita; termine com UMA pergunta que leve ao próximo passo (nunca “ficou alguma dúvida?” nem parecido). Vale a regra de empatia (se ele contou algo da vida dele, comece por isso). Horários, valores e datas não vão no áudio: se precisar, mande depois, em texto, sem outra pergunta.";
 
 /** Modelo do retorno combinado (trilha C) fora da janela de 24 h (só o nome). */
 export const MODELO_RETORNO_COMBINADO = "fu_retorno_combinado";

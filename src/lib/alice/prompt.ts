@@ -155,7 +155,7 @@ export function regraNome(c: ContextoEmpresa): string {
   - Na dúvida, pergunte.
 - Quando o cliente disser o nome: registrar_nome_cliente (acao "cliente_informou", com o nome como ele escreveu) e use só o primeiro nome, com a primeira letra maiúscula.
 - Se ele não disser o nome, pergunte de novo uma única vez mais adiante, de forma natural (ex.: antes de montar o orçamento ou a OS), e registre de novo com "perguntei". Se ainda assim não disser, siga sem nome até o fim.
-- Sem nome confirmado, não use nome nenhum: onde as instruções da empresa trazem [nome], escreva a frase sem o nome (ex.: "Ficou alguma dúvida?"). O nome do perfil é só referência.`;
+- Sem nome confirmado, não use nome nenhum: onde as instruções da empresa trazem [nome], escreva a frase sem o nome (ex.: "Posso te mandar seu orçamento agora?"). O nome do perfil é só referência.`;
 }
 
 export type ContextoLead = {
