@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  comNome,
   demorasDaEquipe,
   entraNaNoite,
   fraseReserva,
   FRASES_RESERVA,
+  nomeDaPessoa,
   padraoFaria,
   pendenteAntiga,
   quandoParaIso,
@@ -187,4 +189,24 @@ test("semanaPorPessoa e pendenteAntiga", () => {
     pendenteAntiga({ situacao: "resolvida", criadaEm: "2026-10-20T12:00:00Z" }, agora),
     false,
   );
+});
+
+test("nome no recado: só o nome do cadastro, nunca o e-mail; sem nome, sem nome", () => {
+  assert.equal(nomeDaPessoa("Maria", "usuario123@exemplo.com"), "Maria");
+  assert.equal(nomeDaPessoa("maria germano", null), "Maria");
+  assert.equal(nomeDaPessoa("usuario123", "usuario123@exemplo.com"), "");
+  assert.equal(nomeDaPessoa("ecoprimeoficial", "ecoprimeoficial@exemplo.com"), "");
+  assert.equal(nomeDaPessoa("x@y.com", null), "");
+  assert.equal(nomeDaPessoa("", "a@b.com"), "");
+  assert.equal(
+    comNome("Bom dia, {nome}! Bora vender 💙", "Carol"),
+    "Bom dia, Carol! Bora vender 💙",
+  );
+  assert.equal(comNome("Bom dia, {nome}! Bora vender 💙", ""), "Bom dia! Bora vender 💙");
+  assert.equal(
+    comNome("{nome}, bora fazer dinheiro, time! 💙", ""),
+    "Bora fazer dinheiro, time! 💙",
+  );
+  assert.equal(comNome("Bora fazer acontecer hoje, {nome}!", ""), "Bora fazer acontecer hoje!");
+  for (const f of FRASES_RESERVA) assert.doesNotMatch(comNome(f, ""), /\{nome\}|^,|\s,/);
 });

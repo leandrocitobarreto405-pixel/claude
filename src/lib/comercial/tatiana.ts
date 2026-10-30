@@ -301,11 +301,34 @@ export const FRASES_RESERVA = [
   "{nome}, hoje a gente faz bonito! Bora?",
 ];
 
+/**
+ * Primeiro nome da pessoa para o recado, vindo do cadastro. Nunca o e-mail nem um apelido de
+ * usuário (com números, "@" ou igual ao começo do e-mail): nesses casos, "" (o recado sai sem nome).
+ */
+export function nomeDaPessoa(cadastro: string | null | undefined, email?: string | null): string {
+  const n = (cadastro ?? "").trim();
+  const usuario = (email ?? "").split("@")[0]!.toLowerCase();
+  if (!n || n.includes("@") || /\d/.test(n) || (usuario && n.toLowerCase() === usuario)) return "";
+  const p = n.split(/\s+/)[0]!;
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+/** Frase com o nome; sem nome, a mesma frase sem ele ("Bom dia, {nome}! …" → "Bom dia! …"). */
+export function comNome(frase: string, nome: string): string {
+  if (nome) return frase.replaceAll("{nome}", nome);
+  const sem = frase
+    .replace(/,\s*\{nome\}/g, "")
+    .replace(/^\{nome\},\s*/, "")
+    .replace(/\{nome\}\s*/g, "")
+    .trim();
+  return sem.charAt(0).toUpperCase() + sem.slice(1);
+}
+
 /** Escolhe a frase de reserva que não saiu nos últimos 7 dias (estável por dia e pessoa). */
 export function fraseReserva(nome: string, recentes: string[], semente: number): string {
-  const comNome = FRASES_RESERVA.map((f) => f.replaceAll("{nome}", nome));
-  const livres = comNome.filter((f) => !recentes.includes(f));
-  const lista = livres.length ? livres : comNome;
+  const comNome_ = FRASES_RESERVA.map((f) => comNome(f, nome));
+  const livres = comNome_.filter((f) => !recentes.includes(f));
+  const lista = livres.length ? livres : comNome_;
   return lista[Math.abs(semente) % lista.length]!;
 }
 
@@ -319,7 +342,7 @@ export const ESQUEMA_RECADO = {
 export function instrucoesRecado(): string {
   return [
     "Você é a Tatiana, gerente comercial carinhosa e animada. Escreva o recado do dia para uma pessoa da equipe de vendas, em português do Brasil.",
-    'frase: UMA frase curta (até 90 caracteres), motivacional, carinhosa e animada, começando pelo nome da pessoa (ex.: "Bom dia, Maria! Bora vender, que quem vende vence 💙", "Bora fazer acontecer hoje, Carol!"). Não repita nenhuma das frases recentes. Se houver conquista de ontem, use-a (ex.: "ontem saíram 2 vendas, bora repetir!"). Em dia fraco, encoraje sem cobrar. No máximo um emoji.',
+    'frase: UMA frase curta (até 90 caracteres), motivacional, carinhosa e animada, começando pelo nome da pessoa (ex.: "Bom dia, Maria! Bora vender, que quem vende vence 💙", "Bora fazer acontecer hoje, Carol!"). Use só o nome informado; se vier "(sem nome)", não use nome nenhum (ex.: "Bom dia! Bora vender 💙"). Nunca use e-mail nem nome de usuário. Não repita nenhuma das frases recentes. Se houver conquista de ontem, use-a (ex.: "ontem saíram 2 vendas, bora repetir!"). Em dia fraco, encoraje sem cobrar. No máximo um emoji.',
     "resumo: até 2 frases com as prioridades do dia (quantas tarefas, o mais importante primeiro, acertos no app se houver). Sem nomes de clientes; pode citar o serviço.",
   ].join("\n");
 }

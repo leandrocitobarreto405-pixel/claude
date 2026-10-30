@@ -17,6 +17,7 @@ import {
   demorasDaEquipe,
   entraNaNoite,
   fraseReserva,
+  nomeDaPessoa,
   instrucoesDecisao,
   instrucoesRecado,
   padraoFaria,
@@ -78,37 +79,46 @@ type Noite = {
 
 // ---------------------------------------------------------------- pessoas da empresa
 
-type PessoaEquipe = { userId: string; nome: string; papel: string };
+type PessoaEquipe = {
+  userId: string;
+  /** Primeiro nome do cadastro ("" sem nome: o recado sai sem nome, nunca com o e-mail). */
+  nome: string;
+  papel: string;
+  /** Agente do Chatwoot ligado à pessoa (Equipe), para achar o dono da conversa. */
+  chatwootAgentId: number | null;
+};
 
 export async function pessoasDaEmpresa(db: Db, empresaId: string): Promise<PessoaEquipe[]> {
   const { data } = await db
     .from("usuarios_empresa")
-    .select("user_id, papel")
+    .select("user_id, papel, chatwoot_agent_id")
     .eq("empresa_id", empresaId)
     .in("papel", ["admin", "atendente"]);
   const saida: PessoaEquipe[] = [];
-  for (const u of (data ?? []) as Array<{ user_id: string; papel: string }>) {
+  for (const u of (data ?? []) as Array<{
+    user_id: string;
+    papel: string;
+    chatwoot_agent_id: number | null;
+  }>) {
     const { data: r } = await db.auth.admin.getUserById(u.user_id);
     const meta = (r?.user?.user_metadata ?? {}) as Record<string, unknown>;
-    const completo =
-      (meta["full_name"] as string | undefined) ||
-      (meta["name"] as string | undefined) ||
-      (r?.user?.email ?? "").split("@")[0] ||
-      "";
-    saida.push({ userId: u.user_id, nome: completo, papel: u.papel });
+    const cadastro =
+      (meta["full_name"] as string | undefined) || (meta["name"] as string | undefined) || "";
+    saida.push({
+      userId: u.user_id,
+      nome: nomeDaPessoa(cadastro, r?.user?.email),
+      papel: u.papel,
+      chatwootAgentId: u.chatwoot_agent_id === null ? null : Number(u.chatwoot_agent_id),
+    });
   }
   return saida;
 }
 
-const primeiroNome = (n: string) => {
-  const p = n.trim().split(/\s+/)[0] ?? "";
-  return p ? p.charAt(0).toUpperCase() + p.slice(1) : "time";
-};
-
 /**
  * Quem cuida do lead: quem assumiu a conversa pelo app; senão quem mandou a última mensagem pelo
- * Nexa; senão o responsável do Chatwoot pelo nome; senão ninguém (o admin vê). Mensagem sem
- * remetente conta para quem é responsável pela conversa.
+ * Nexa; senão o responsável do Chatwoot (pelo agente ligado à pessoa em Equipe; sem isso, pelo
+ * primeiro nome); senão ninguém (o admin vê). Mensagem sem remetente conta para quem é
+ * responsável pela conversa.
  */
 async function donoDoLead(
   db: Db,
@@ -118,7 +128,7 @@ async function donoDoLead(
 ): Promise<string | null> {
   const { data: convs } = await db
     .from("conversas")
-    .select("id, assumida_por, responsavel_nome, ultima_atividade_em")
+    .select("id, assumida_por, responsavel_id, responsavel_nome, ultima_atividade_em")
     .eq("empresa_id", empresaId)
     .eq("crm_lead_id", leadId)
     .order("ultima_atividade_em", { ascending: false, nullsFirst: false })
@@ -126,6 +136,7 @@ async function donoDoLead(
   const lista = (convs ?? []) as Array<{
     id: string;
     assumida_por: string | null;
+    responsavel_id: number | null;
     responsavel_nome: string | null;
   }>;
   const assumida = lista.find((c) => c.assumida_por)?.assumida_por;
@@ -146,6 +157,11 @@ async function donoDoLead(
     const por = (ult as { enviada_por?: string } | null)?.enviada_por;
     if (por) return por;
   }
+  const agente = lista.find((c) => c.responsavel_id !== null)?.responsavel_id;
+  if (agente !== undefined && agente !== null) {
+    const dono = pessoas.find((p) => p.chatwootAgentId === Number(agente));
+    if (dono) return dono.userId;
+  }
   const nomeResp = lista
     .find((c) => c.responsavel_nome)
     ?.responsavel_nome?.toLowerCase()
@@ -153,9 +169,7 @@ async function donoDoLead(
   if (nomeResp) {
     const achou = pessoas.find((p) => {
       const n = p.nome.toLowerCase().trim();
-      return (
-        n && (n === nomeResp || nomeResp.startsWith(n) || n.startsWith(nomeResp.split(" ")[0]!))
-      );
+      return n && (n === nomeResp || nomeResp.split(" ")[0] === n);
     });
     if (achou) return achou.userId;
   }
@@ -753,7 +767,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     const minhas = p.papel === "admin" ? ts : ts.filter((t) => t.assigned_to === p.userId);
     const meusAcertos =
       p.papel === "admin" ? cs.length : cs.filter((c) => c.user_id === p.userId).length;
-    const nome = primeiroNome(p.nome);
+    const nome = p.nome;
     const jaDisse = rs.filter((r) => r.user_id === p.userId).map((r) => r.frase);
     const fallback = {
       frase: fraseReserva(nome, jaDisse, Date.parse(`${dia}T12:00:00Z`) / 86_400_000 + i),
@@ -779,7 +793,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
           {
             role: "user",
             content: [
-              `Pessoa: ${nome}${p.papel === "admin" ? " (dona/admin: vê a equipe toda)" : ""}.`,
+              `Pessoa: ${nome || "(sem nome)"}${p.papel === "admin" ? " (dona/admin: vê a equipe toda)" : ""}.`,
               `Tarefas de hoje: ${minhas.length}. Principais: ${
                 minhas
                   .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
@@ -801,7 +815,8 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
           resp.content.map((b) => (b.type === "text" ? b.text : "")).join(""),
         ) as { frase?: string; resumo?: string };
         const frase = (r.frase ?? "").trim().slice(0, 200);
-        if (frase && !jaDisse.includes(frase))
+        // Sem nome no cadastro: frase com "@" ou números (cara de e-mail) fica a de reserva.
+        if (frase && !jaDisse.includes(frase) && !/@|\d{3}/.test(frase))
           recado = { frase, resumo: (r.resumo ?? fallback.resumo).trim().slice(0, 600) };
       }
     } catch {
