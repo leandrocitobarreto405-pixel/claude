@@ -897,7 +897,12 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
   let custo = Number(noite.custo_usd);
   const gastoAntes =
     noite.modo === "conferencia" ? 0 : await gastoDoMes(db, noite.empresa_id, agora);
+  const { podeSeguir } = await import("@/lib/freio.server");
+  let primeiraRodada = true;
   while (feitos < noite.leads.length && Date.now() - inicio < TEMPO_DA_PASSADA_MS) {
+    // Freio: banco lento (consulta simples acima de 2 s) para a passada; pausa entre rodadas.
+    if (!(await podeSeguir(db, primeiraRodada))) break;
+    primeiraRodada = false;
     if (noite.modo !== "conferencia" && gastoAntes + (custo - Number(noite.custo_usd)) >= teto) {
       await db
         .from("comercial_noites")

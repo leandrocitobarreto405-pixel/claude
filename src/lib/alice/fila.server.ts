@@ -111,10 +111,14 @@ export async function varrerFila(): Promise<{
     await processarTarefa(t.id).catch((e) => console.error("Alice: falha na varredura", t.id, e));
   }
   // Áudios recebidos sem transcrição (inclusive em conversa que está com a equipe).
+  // Freio: com o banco lento, a transcrição dos pendentes fica para o minuto seguinte.
+  const { podeSeguir } = await import("@/lib/freio.server");
   const { transcreverPendentes } = await import("./audios.server");
-  const audios = await transcreverPendentes(admin).catch((e) => {
-    console.error("Alice: falha ao transcrever áudios pendentes", e);
-    return { tentados: 0, transcritos: 0 };
-  });
+  const audios = (await podeSeguir(admin, true))
+    ? await transcreverPendentes(admin).catch((e) => {
+        console.error("Alice: falha ao transcrever áudios pendentes", e);
+        return { tentados: 0, transcritos: 0 };
+      })
+    : { tentados: 0, transcritos: 0, adiado: true };
   return { entregues, atrasadas: atrasadas?.length ?? 0, audios };
 }
