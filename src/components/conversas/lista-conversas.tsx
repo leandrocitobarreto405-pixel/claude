@@ -14,6 +14,7 @@ import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
 import { escolherAba, useAbaConversas, useEhPc, useRolagemDaLista } from "@/lib/conversas-tela";
 import { cn } from "@/lib/utils";
 import { ABAS, CHAVE_CONVERSAS, type Aba } from "@/components/conversas/abas-conversas";
+import { intervalo } from "@/lib/ritmo";
 
 /** Lista de conversas (celular: tela inteira; PC: coluna da esquerda, ao lado da conversa). */
 export function ListaConversas({ abaInicial }: { abaInicial?: Aba | undefined }) {
@@ -23,13 +24,13 @@ export function ListaConversas({ abaInicial }: { abaInicial?: Aba | undefined })
     queryKey: CHAVE_CONVERSAS,
     queryFn: () => listarFn(),
     // Tempo real pelo Realtime; o refetch é só garantia (e para quem tem várias empresas).
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   useTempoRealConversas();
   const alice = useQuery({
     queryKey: ["alice_resumo_hoje"],
     queryFn: () => resumoFn(),
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   const [busca, setBusca] = useState("");
   const porGrupo = useMemo(() => {

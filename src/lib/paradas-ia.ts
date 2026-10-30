@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { corpoParadaNexa, tituloParadaNexa } from "@/lib/alice/parada-ia";
 import { paradasAbertasFn, type ParadaIa } from "@/lib/paradas-ia.functions";
+import { intervalo } from "@/lib/ritmo";
 
 export const CHAVE_PARADAS = ["nexa_paradas_ia"] as const;
 
@@ -29,5 +30,9 @@ export function resumoDasParadas(paradas: ParadaIa[]) {
 
 export function useParadasIa() {
   const listar = useServerFn(paradasAbertasFn);
-  return useQuery({ queryKey: CHAVE_PARADAS, queryFn: () => listar(), refetchInterval: 60_000 });
+  return useQuery({
+    queryKey: CHAVE_PARADAS,
+    queryFn: () => listar(),
+    refetchInterval: intervalo(60_000),
+  });
 }

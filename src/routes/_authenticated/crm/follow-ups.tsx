@@ -29,6 +29,7 @@ import {
 } from "@/lib/follow-ups";
 import { concluirFollowupEquipeFn, precisaDeVoceFn } from "@/lib/precisa-de-voce.functions";
 import { cn } from "@/lib/utils";
+import { intervalo } from "@/lib/ritmo";
 
 export const Route = createFileRoute("/_authenticated/crm/follow-ups")({
   validateSearch: (s: Record<string, unknown>): { aba?: AbaFollowups } =>
@@ -151,7 +152,7 @@ function FollowUps() {
         lead: f.lead,
       }));
     },
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
 
   // Leads abertos parados há 3+ dias sem retorno marcado (sugestão; nada vira perdido sozinho).

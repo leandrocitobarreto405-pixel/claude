@@ -18,6 +18,7 @@ import {
   type LeadSite,
   type SituacaoLeadSite,
 } from "@/lib/leads-site.functions";
+import { intervalo } from "@/lib/ritmo";
 
 const SITUACAO: Record<SituacaoLeadSite, { texto: string; tom: TomChip }> = {
   nao_chamou: { texto: "Ainda não chamou", tom: "atencao" },
@@ -42,7 +43,7 @@ export function LeadsDoSite() {
   const q = useQuery({
     queryKey: [CHAVE, periodo],
     queryFn: () => listarFn({ data: { periodo } }),
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   const leads = useMemo(() => q.data?.leads ?? [], [q.data]);
   const contagem = useMemo(() => {

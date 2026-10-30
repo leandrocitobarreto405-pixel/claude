@@ -8,6 +8,7 @@ import { SectionCard } from "@/components/app-shell";
 import { LeadLink } from "@/components/crm-ui";
 import { conversasComAlice, pararAliceNaConversa } from "@/lib/alice.functions";
 import { dateTimeBR } from "@/lib/format";
+import { intervalo } from "@/lib/ritmo";
 
 /**
  * Conversas que a Alice está atendendo agora, com um toque para a equipe assumir.
@@ -20,7 +21,7 @@ export function AliceAgora({ vazio = null }: { vazio?: React.ReactNode } = {}) {
   const q = useQuery({
     queryKey: ["alice_agora"],
     queryFn: () => listarFn(),
-    refetchInterval: 30_000,
+    refetchInterval: intervalo(45_000),
   });
   const [parando, setParando] = useState<string | null>(null);
 

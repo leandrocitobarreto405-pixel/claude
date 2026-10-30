@@ -21,6 +21,7 @@ import {
   precisaDeVoceFn,
   resolverAvisoPrecisaFn,
 } from "@/lib/precisa-de-voce.functions";
+import { intervalo } from "@/lib/ritmo";
 
 const CHAVE = ["precisa-de-voce"] as const;
 
@@ -41,7 +42,7 @@ export function PrecisaDeVoce() {
   const { data, isLoading, error } = useQuery({
     queryKey: CHAVE,
     queryFn: () => buscar(),
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   const [filtro, setFiltro] = useState<FiltroPrecisa>("meus");
 
