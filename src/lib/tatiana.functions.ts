@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminEmpresa, requireEmpresa } from "@/lib/empresa.middleware";
 import {
   COBRANCA,
+  dataHoraCurta,
   semanaPorPessoa,
   type AcaoCobranca,
   type TipoCobranca,
@@ -657,7 +658,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         leadId: d.crm_lead_id,
         telefoneFinal: finais.get(d.crm_lead_id) ?? null,
         padrao: d.padrao_faria,
-        decidiu: `${d.acao}${d.quando ? ` (${d.quando.slice(0, 16).replace("T", " ")})` : ""}${d.motivo ? `: ${d.motivo}` : ""}`,
+        decidiu: `${d.acao}${d.quando ? ` (${dataHoraCurta(d.quando)})` : ""}${d.motivo ? `: ${d.motivo}` : ""}`,
         responsavel: d.responsavel,
       })),
     };

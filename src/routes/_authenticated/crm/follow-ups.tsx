@@ -114,6 +114,8 @@ function FollowUps() {
         )
         .in("status", ["Pendente", "Vencida"])
         .gte("scheduled_at", desde)
+        // As tarefas da Tatiana (trilha G) aparecem no cartão dela, não aqui.
+        .or("trilha.is.null,trilha.neq.G")
         .order("scheduled_at")
         .limit(1000);
       if (error) throw error;

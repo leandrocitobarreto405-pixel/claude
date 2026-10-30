@@ -100,8 +100,12 @@ export function CobrancasTatiana({ dados }: { dados?: PainelCobrancas }) {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Chip tom="sucesso">{s.resolvidas} resolvidas</Chip>
-                  <Chip tom={s.pendentes ? "atencao" : "neutro"}>{s.pendentes} pendentes</Chip>
+                  <Chip tom="sucesso">
+                    {s.resolvidas} {s.resolvidas === 1 ? "resolvida" : "resolvidas"}
+                  </Chip>
+                  <Chip tom={s.pendentes ? "atencao" : "neutro"}>
+                    {s.pendentes} {s.pendentes === 1 ? "pendente" : "pendentes"}
+                  </Chip>
                   {s.horasMedias !== null ? (
                     <Chip tom="neutro">resolve em ~{Math.round(s.horasMedias)} h</Chip>
                   ) : null}

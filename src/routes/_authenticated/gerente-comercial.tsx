@@ -89,7 +89,7 @@ function GerenteComercialTela() {
       <CabecalhoDeTela
         sobretitulo="Vendas"
         titulo="Tatiana · Gerente comercial"
-        descricao="Análise dos atendimentos, lead a lead. Só leitura: nada é enviado aos clientes e nada muda na Alice."
+        descricao="Análise dos atendimentos, lead a lead, e o plano de cada noite para a equipe e a Alice."
       />
       {q.isLoading ? <Card className="text-sm">Carregando…</Card> : null}
       {q.error ? (
