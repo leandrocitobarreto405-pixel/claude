@@ -24,7 +24,7 @@ import {
   type MotivoPerda,
 } from "./regras";
 
-import { rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
+import { itensComDistancia, rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
@@ -1253,12 +1253,8 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     if (!c.ok) return { erro: true, texto: c.texto };
     cupom = c.cupom;
   }
-  const baseDesconto =
-    Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
-  const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
-
-  // Distância (só a ida) e taxa de deslocamento pela regra da empresa: sempre aplicada, sem
-  // negociação; acima do limite, fora da área (não orça).
+  // Distância (só a ida) e acréscimo pela regra da empresa: sempre aplicado, sem negociação,
+  // DENTRO do preço de cada item (o cliente nunca vê taxa); acima do limite, fora da área.
   let km = 0;
   let endereco: string | null = null;
   let baseTecnico: string | null = null;
@@ -1276,13 +1272,23 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     Math.round(
       escolhidos.filter((e) => !e.adicional).reduce((s, e) => s + e.preco * e.quantidade, 0) * 100,
     ) / 100;
-  const taxa = taxaDeslocamento(kmIda, regras.distancia, valorItens);
+  const taxa = taxaDeslocamento(
+    kmIda,
+    regras.distancia,
+    valorItens,
+    escolhidos.filter((e) => !e.adicional).map((e) => e.preco * e.quantidade),
+  );
   if (taxa.foraDaArea) {
     return {
       erro: true,
       texto: `Endereço a ~${kmIda} km da base: fora da área atendida (até ${regras.distancia.limiteKm} km). Não passe valores; transfira para a equipe.`,
     };
   }
+  const baseDesconto =
+    Math.round((escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) + taxa.valor) * 100) /
+    100;
+  const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
+
   const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
@@ -1400,13 +1406,22 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     .eq("empresa_id", ctx.empresaId)
     .maybeSingle();
   const numero = formatarNumeroOrcamento(comNumero?.numero, String(salvo.id));
+  // Preço de cada item como o cliente vê: com o acréscimo por distância dentro.
+  const finais = itensComDistancia(
+    escolhidos.map((e) => ({
+      quantidade: e.quantidade,
+      subtotal: Math.round(e.preco * e.quantidade * 100) / 100,
+      adicional_pos_fechamento: Boolean(e.adicional),
+    })),
+    taxa.valor,
+  );
   const linhas = escolhidos.map(
-    (e) =>
+    (e, i) =>
       `• ${
         unidadeDaCategoria(e.item.categoria) === "m2"
-          ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(e.preco)})`
+          ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(finais[i]!.preco_cliente)})`
           : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${comDuplaFace(e.item.nome, Boolean(e.duplaFace))}`
-      } — ${reais(Math.round(e.preco * e.quantidade * 100) / 100)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
+      } — ${reais(finais[i]!.subtotal_cliente)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
   );
   return {
     erro: false,
@@ -1426,8 +1441,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         : []),
       ...(taxa.valor > 0
         ? [
-            `Taxa de deslocamento: ${reais(taxa.valor)}`,
-            `(Para você, não copie: a taxa de deslocamento é regra da empresa para ~${kmIda} km da base. Não retire, não diminua e não negocie a taxa; se o cliente reclamar do valor, siga o roteiro de objeção de preço ou passe para a equipe.)`,
+            `(Para você, não copie: os preços acima já são os finais para o endereço do cliente, a ~${kmIda} km da base. Nunca fale em taxa, deslocamento, distância ou acréscimo. Se o cliente perguntar sobre deslocamento, diga só que o valor enviado já é o final para o endereço dele. Não diminua nem negocie; se reclamar do valor, siga o roteiro de objeção de preço ou passe para a equipe.)`,
           ]
         : []),
       ...(avisoDesconto ? [`(Para você, não copie: ${avisoDesconto})`] : []),

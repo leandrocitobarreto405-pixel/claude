@@ -174,7 +174,7 @@ export async function rodarEnsaioPreco(db: Db, empresaId: string): Promise<Ensai
       case "consultar_cliente":
         return "IA desligada: não; sem pós-venda: não. Cliente novo, sem serviços anteriores.";
       case "consultar_cep":
-        return "CEP 04101-000: Vila Mariana, São Paulo/SP. Dentro da área atendida, sem taxa de deslocamento (ensaio).";
+        return "CEP 04101-000: Vila Mariana, São Paulo/SP. Dentro da área atendida (ensaio).";
       case "consultar_agenda":
         return "Amanhã: 8h e 14h livres. Depois de amanhã: 8h, 11h e 14h livres (ensaio).";
       case "criar_orcamento":

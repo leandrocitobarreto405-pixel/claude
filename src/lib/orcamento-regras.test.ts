@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   REGRAS_DESLIGADAS,
   calcularTotais,
+  distribuirNosValores,
+  itensComDistancia,
   calcularVitrine,
   regrasDaLinha,
   sugerirPrecos,
@@ -237,10 +239,75 @@ test("taxa de deslocamento por faixa de valor", () => {
   assert.equal(tirada.acrescimoDistanciaRegra, 70);
   assert.equal(tirada.base, 700);
   assert.equal(um(700, 30, { taxaDistancia: 50 }).base, 750);
-  // Desconto de campanha (10%) só nos itens, não na taxa.
+  // O acréscimo está dentro do preço do item: o desconto de campanha (10%) vale sobre 770.
   const comDesconto = um(700, 30, { descontoPct: 10 });
-  assert.equal(comDesconto.desconto, 70);
-  assert.equal(comDesconto.base, 700);
+  assert.equal(comDesconto.desconto, 77);
+  assert.equal(comDesconto.base, 693);
+});
+
+test("acréscimo por distância dentro de cada item: +10% em qualquer valor acima de 25 km", () => {
+  const dez = regrasDaLinha({
+    distancia_ligado: true,
+    distancia_sem_acrescimo_km: 25,
+    distancia_pct: 10,
+  });
+  const t = (linhas: Array<[number, number]>, km: number) =>
+    calcularTotais({
+      linhas: linhas.map(([preco, q]) => ({
+        categoria: "sofa" as const,
+        precoAplicado: preco,
+        quantidade: q,
+      })),
+      regras: dez,
+      muitoSujo: false,
+      distanciaKm: km,
+      desconto: 0,
+      clienteNovo: true,
+    });
+  // Nº 125: sofá R$ 395 a 33,6 km → R$ 434,50.
+  assert.equal(t([[395, 1]], 33.6).acrescimoDistancia, 39.5);
+  assert.equal(t([[395, 1]], 33.6).base, 434.5);
+  assert.equal(t([[395, 1]], 25).acrescimoDistancia, 0);
+  // Três itens: 350 → 385, 4 cadeiras de 30 (120) → 132, 200 → 220; total 737.
+  const tres = t(
+    [
+      [350, 1],
+      [30, 4],
+      [200, 1],
+    ],
+    30,
+  );
+  assert.equal(tres.acrescimoDistancia, 67);
+  assert.equal(tres.base, 737);
+  assert.equal(t([[5000, 1]], 30).acrescimoDistancia, 500);
+});
+
+test("distribuirNosValores e itensComDistancia: cada item com o seu valor final", () => {
+  assert.deepEqual(distribuirNosValores([350, 120, 200], 67), [385, 132, 220]);
+  assert.deepEqual(distribuirNosValores([395], 39.5), [434.5]);
+  // Soma sempre fecha nos centavos.
+  const v = distribuirNosValores([33.33, 33.33, 33.34], 10);
+  assert.equal(Math.round(v.reduce((a, b) => a + b, 0) * 100), 11000);
+  assert.deepEqual(distribuirNosValores([100, 0], 10), [110, 0]);
+  assert.deepEqual(distribuirNosValores([100, 50], 0), [100, 50]);
+  const itens = itensComDistancia(
+    [
+      { quantidade: 1, subtotal: 350 },
+      { quantidade: 4, subtotal: 120 },
+      { quantidade: 1, subtotal: 200 },
+      { quantidade: 1, subtotal: 80, adicional_pos_fechamento: true },
+    ],
+    67,
+  );
+  assert.deepEqual(
+    itens.map((i) => [i.subtotal_cliente, i.preco_cliente]),
+    [
+      [385, 385],
+      [132, 33],
+      [220, 220],
+      [80, 80],
+    ],
+  );
 });
 
 test("sem arredondamento: vitrine e Pix só nos centavos, Pix nunca abaixo da tabela", () => {
