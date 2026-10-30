@@ -636,3 +636,48 @@ test("PDF do orçamento: cupom, Pix e validade como na mensagem; nada no Drive n
     null,
   );
 });
+
+test("PDF: acréscimo por distância dentro dos itens (proposta e OS antiga com a linha)", () => {
+  const q = {
+    ...(tabelas["quotes"]![0]! as unknown as Parameters<typeof docs.propostaComoOs>[0]),
+    acrescimo_distancia: 39.5,
+  };
+  const wo = docs.propostaComoOs(q, [
+    {
+      nome_snapshot: "Sofá",
+      tipo_servico: "higienizacao",
+      categoria: "sofa",
+      quantidade: 1,
+      preco_aplicado: 395,
+      subtotal: 395,
+      display_order: 0,
+      tabela_preco_item_id: null,
+    },
+  ]);
+  const itens = wo.visits.flatMap((v) => v.service_items);
+  assert.deepEqual(
+    itens.map((i) => [i.description, i.unit_price, i.subtotal]),
+    [["Sofá", 434.5, 434.5]],
+  );
+  // OS antiga com a linha "Taxa de deslocamento": o valor vai para os itens do atendimento.
+  const antiga = docs.semLinhaDeTaxa({
+    ...wo,
+    visits: [
+      {
+        ...wo.visits[0]!,
+        service_items: [
+          { ...itens[0]!, unit_price: 350, subtotal: 350 },
+          { ...itens[0]!, description: "Cadeiras", quantity: 4, unit_price: 30, subtotal: 120 },
+          { ...itens[0]!, description: "Taxa de deslocamento", unit_price: 47, subtotal: 47 },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(
+    antiga.visits[0]!.service_items.map((i) => [i.description, i.unit_price, i.subtotal]),
+    [
+      ["Sofá", 385, 385],
+      ["Cadeiras", 33, 132],
+    ],
+  );
+});

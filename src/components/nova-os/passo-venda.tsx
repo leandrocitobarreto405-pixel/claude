@@ -101,11 +101,11 @@ export function PassoVenda({ n, ehAdmin }: { n: NovaOs; ehAdmin: boolean }) {
           >
             {n.taxaInfo?.foraDaArea
               ? `Fora da área de atendimento (${n.taxaInfo.km ?? "?"} km; limite ${n.taxaInfo.limiteKm ?? "—"} km). Confirme com a equipe.`
-              : `Taxa de deslocamento pela regra: ${brl(e.taxaRegra ?? 0)}${
+              : `Acréscimo por distância pela regra: ${brl(e.taxaRegra ?? 0)}${
                   n.taxaInfo?.km !== null && n.taxaInfo?.km !== undefined
                     ? ` (${n.taxaInfo.km} km da base${n.taxaInfo.pct ? `, +${n.taxaInfo.pct}% dos itens` : ""})`
                     : ""
-                }. Vai como a linha "Taxa de deslocamento" no 1º atendimento; se alterar ou tirar, fica registrado.`}
+                }. Aqui aparece como uma linha só para a equipe; ao salvar, vai dentro do preço dos itens do 1º atendimento (o cliente não vê taxa). Se alterar ou tirar, fica registrado.`}
           </p>
         ) : null}
         <div className="grid grid-cols-2 gap-3">

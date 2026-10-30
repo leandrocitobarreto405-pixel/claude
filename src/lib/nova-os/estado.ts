@@ -11,6 +11,7 @@ import { defaultCollectionRule, type CollectionVisit } from "@/lib/collection";
 import { normalizarQuantidade, rotuloServico, unidadeDaCategoria } from "@/lib/unidade";
 import { onlyDigits, parseNumberBR, todayISO } from "@/lib/format";
 import { erroDaOrigem, type OrigemDetectada } from "@/lib/origem-venda";
+import { distribuirNosValores } from "@/lib/orcamento-regras";
 
 export type ItemForm = {
   id?: string | null;
@@ -352,32 +353,37 @@ export function montarPayload(e: EstadoNovaOs, ctx: ContextoPayload): PayloadNov
     collection_visit_index: regra === "specific_visit" ? e.visitaCobranca : null,
     payment_instruction: e.instrucaoManual.trim() || null,
   };
-  const visits: VisitInput[] = e.visitas.map((v) => ({
-    id: v.id ?? null,
-    service_type_id: v.service_type_id,
-    scheduled_date: v.scheduled_date,
-    scheduled_time: v.scheduled_time,
-    technician_id: v.technician_id || null,
-    visit_notes: v.visit_notes.trim() || null,
-    items: v.items.map((it, idx) => ({
-      id: it.id ?? null,
-      upholstery_type_id: it.upholstery_type_id || null,
-      description: it.description.trim() || null,
-      quantity: normalizarQuantidade(qtdItem(it), it.unidade ?? "un"),
-      unidade: it.unidade ?? "un",
-      unit_price: parseNumberBR(it.unit_price),
-      item_group_id: it.item_group_id,
-      display_order: idx,
-      preco_tabela: it.preco_tabela ?? null,
-      adicional_pos_fechamento: Boolean(it.adicional),
-      ...(itemEditado(it)
-        ? {
-            editado_por: it.editado_por ?? ctx.userId ?? null,
-            editado_em: it.editado_em ?? ctx.agora,
-          }
-        : { editado_por: null, editado_em: null }),
-    })),
-  }));
+  const visits: VisitInput[] = e.visitas
+    .map((v) => ({
+      ...v,
+      items: itensSemLinhaDaTaxa(v.items),
+    }))
+    .map((v) => ({
+      id: v.id ?? null,
+      service_type_id: v.service_type_id,
+      scheduled_date: v.scheduled_date,
+      scheduled_time: v.scheduled_time,
+      technician_id: v.technician_id || null,
+      visit_notes: v.visit_notes.trim() || null,
+      items: v.items.map((it, idx) => ({
+        id: it.id ?? null,
+        upholstery_type_id: it.upholstery_type_id || null,
+        description: it.description.trim() || null,
+        quantity: normalizarQuantidade(qtdItem(it), it.unidade ?? "un"),
+        unidade: it.unidade ?? "un",
+        unit_price: parseNumberBR(it.unit_price),
+        item_group_id: it.item_group_id,
+        display_order: idx,
+        preco_tabela: it.preco_tabela ?? null,
+        adicional_pos_fechamento: Boolean(it.adicional),
+        ...(itemEditado(it)
+          ? {
+              editado_por: it.editado_por ?? ctx.userId ?? null,
+              editado_em: it.editado_em ?? ctx.agora,
+            }
+          : { editado_por: null, editado_em: null }),
+      })),
+    }));
   return {
     customer,
     customerId: e.clienteExistente,
@@ -609,6 +615,50 @@ export function aplicarCotacao(
 }
 
 // ---------------------------------------------------------------- taxa de deslocamento
+/**
+ * Na OS gravada o acréscimo por distância vai dentro do preço dos itens do atendimento (o cliente
+ * nunca vê linha de taxa). A linha interna do formulário some e o valor é distribuído nos itens
+ * normais, proporcional; com várias peças o preço unitário fecha nos centavos e a sobra (se houver)
+ * vai para um item de 1 peça. O total do atendimento não muda. O item fica marcado como editado
+ * só se já estava (o acréscimo não conta como edição).
+ */
+export function itensSemLinhaDaTaxa(items: ItemForm[]): ItemForm[] {
+  const taxa = items
+    .filter(ehTaxaDeslocamento)
+    .reduce((s, it) => s + Math.round(parseNumberBR(it.unit_price) * qtdItem(it) * 100), 0);
+  const resto = items.filter((it) => !ehTaxaDeslocamento(it));
+  const alvo = resto.filter((it) => !it.adicional && subtotalItem(it) > 0);
+  if (!taxa || !alvo.length) return taxa ? items : resto;
+  const partes = distribuirNosValores(
+    alvo.map((it) => subtotalItem(it)),
+    taxa / 100,
+  );
+  let sobra = taxa;
+  const novos = new Map<ItemForm, number>();
+  alvo.forEach((it, k) => {
+    const q = qtdItem(it) || 1;
+    const unit = Math.round((partes[k]! / q) * 100) / 100;
+    novos.set(it, unit);
+    sobra -= Math.round((unit - parseNumberBR(it.unit_price)) * q * 100);
+  });
+  const umaPeca = alvo.find((it) => qtdItem(it) === 1) ?? alvo[0]!;
+  if (sobra) {
+    const q = qtdItem(umaPeca) || 1;
+    novos.set(umaPeca, Math.round((novos.get(umaPeca)! + sobra / 100 / q) * 100) / 100);
+  }
+  return resto.map((it) => {
+    const unit = novos.get(it);
+    if (unit === undefined) return it;
+    const editado = itemEditado(it);
+    return {
+      ...it,
+      unit_price: unit.toFixed(2).replace(".", ","),
+      // Mantém a referência para o acréscimo não virar "preço editado".
+      ...(editado ? {} : { preco_referencia: unit, preco_tabela: it.preco_tabela ?? null }),
+    };
+  });
+}
+
 /** Grupo fixo da linha "Taxa de deslocamento" (identifica a linha nos itens). */
 export const GRUPO_TAXA_DESLOCAMENTO = "0d15ca00-0000-4000-8000-000000000001";
 export const ehTaxaDeslocamento = (it: Pick<ItemForm, "item_group_id">) =>
@@ -648,7 +698,7 @@ export function comTaxa(e: EstadoNovaOs, valor: number): EstadoNovaOs {
                   ...v.items,
                   {
                     upholstery_type_id: "",
-                    description: "Taxa de deslocamento",
+                    description: "Acréscimo por distância (vai dentro do preço dos itens)",
                     quantity: "1",
                     unidade: "un" as const,
                     unit_price: valor.toFixed(2).replace(".", ","),

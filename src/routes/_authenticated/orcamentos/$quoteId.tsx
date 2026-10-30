@@ -1293,7 +1293,8 @@ function OrcamentoDetalhe() {
                   <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-3">
                     <div className="grid gap-1">
                       <Label htmlFor="taxa-desl" className="text-xs">
-                        Taxa de deslocamento (linha na proposta)
+                        Acréscimo por distância (só a equipe vê; o cliente vê dentro do preço de
+                        cada item)
                       </Label>
                       <MoneyInput
                         id="taxa-desl"

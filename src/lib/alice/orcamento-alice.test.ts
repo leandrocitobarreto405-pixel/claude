@@ -139,3 +139,11 @@ test("tapete por m² (Alice): 1,6 × 2,3 = 3,68 m² × R$ 62,40 = R$ 229,63; per
   const t = totalizar([lt, lp], null, 5, 5);
   assert.equal(t.bruto, 529.63);
 });
+
+test("acréscimo por distância dentro dos itens: o desconto vale sobre o preço final", () => {
+  const l = { preco: 350, quantidade: 1 } as Parameters<typeof totalizar>[0][number];
+  const t = totalizar([l], { pct: 10, rotulo: "Condição da campanha" }, 5, 5, 35);
+  assert.equal(t.bruto, 385);
+  assert.equal(t.desconto!.valor, 38.5);
+  assert.equal(t.cond.total, 346.5);
+});
