@@ -71,6 +71,8 @@ export const situacaoPushFn = createServerFn({ method: "GET" })
             campanha_aprovacao: pref.campanha_aprovacao,
             agendamento_promocao: pref.agendamento_promocao,
             resumo_dia: pref.resumo_dia,
+            tatiana_tarefas: pref.tatiana_tarefas ?? true,
+            tatiana_cobrancas: pref.tatiana_cobrancas ?? true,
           }
         : PREFERENCIAS_PADRAO,
       celulares: (celulares ?? []).map((c) => ({
@@ -150,6 +152,8 @@ export const salvarPreferenciasPushFn = createServerFn({ method: "POST" })
     campanha_aprovacao: Boolean(p.campanha_aprovacao),
     agendamento_promocao: Boolean(p.agendamento_promocao),
     resumo_dia: Boolean(p.resumo_dia),
+    tatiana_tarefas: p.tatiana_tarefas !== false,
+    tatiana_cobrancas: p.tatiana_cobrancas !== false,
   }))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("push_preferencias").upsert({

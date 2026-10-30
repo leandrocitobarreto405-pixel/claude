@@ -98,6 +98,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Gerente comercial: falha no lote", e instanceof Error ? e.message : e);
             return null;
           });
+          // Tatiana: passada da noite (21h30), recados, pushes e conferência (modo por empresa).
+          const { rodarTatiana } = await import("@/lib/comercial/noite.server");
+          const tatiana = await rodarTatiana().catch((e) => {
+            console.error("Tatiana: falha na passada", e instanceof Error ? e.message : e);
+            return null;
+          });
           return json({
             ok: true,
             encerramento,
@@ -112,6 +118,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             precisaResumo,
             exportacaoGoogle,
             comercial,
+            tatiana,
           });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);

@@ -9,7 +9,9 @@ export type TipoPush =
   | "servico_concluido"
   | "campanha_aprovacao"
   | "agendamento_promocao"
-  | "resumo_dia";
+  | "resumo_dia"
+  | "tatiana_tarefas"
+  | "tatiana_cobrancas";
 
 export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; papeis: Papel[] }[] =
   [
@@ -45,6 +47,18 @@ export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; pa
       descricao: "Serviços de hoje, atrasados e sem técnico.",
       papeis: ["admin", "atendente", "tecnico"],
     },
+    {
+      tipo: "tatiana_tarefas",
+      rotulo: "Tarefas da Tatiana de manhã",
+      descricao: "Quantas tarefas a Tatiana separou pra você hoje, com a frase do dia.",
+      papeis: ["admin", "atendente"],
+    },
+    {
+      tipo: "tatiana_cobrancas",
+      rotulo: "Cobranças da Tatiana à noite",
+      descricao: "Quantas cobranças a Tatiana fez no dia: resolvidas e pendentes.",
+      papeis: ["admin"],
+    },
   ];
 
 export function tiposDoPapel(papel: Papel | null): TipoPush[] {
@@ -59,6 +73,8 @@ export type PreferenciasPush = {
   campanha_aprovacao: boolean;
   agendamento_promocao: boolean;
   resumo_dia: boolean;
+  tatiana_tarefas: boolean;
+  tatiana_cobrancas: boolean;
 };
 
 export const PREFERENCIAS_PADRAO: PreferenciasPush = {
@@ -68,6 +84,8 @@ export const PREFERENCIAS_PADRAO: PreferenciasPush = {
   campanha_aprovacao: true,
   agendamento_promocao: true,
   resumo_dia: false,
+  tatiana_tarefas: true,
+  tatiana_cobrancas: true,
 };
 
 export const MINUTOS_ESPERA = [5, 10, 15, 30, 60];

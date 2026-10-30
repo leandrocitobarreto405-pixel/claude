@@ -22,6 +22,10 @@ import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/conversas/$conversaId")({
+  validateSearch: (search: Record<string, unknown>): { texto?: string } =>
+    typeof search["texto"] === "string"
+      ? { texto: (search["texto"] as string).slice(0, 1000) }
+      : {},
   head: () => ({ meta: [{ title: "Conversa — Nexa OS" }] }),
   component: Conversa,
 });
@@ -93,6 +97,7 @@ const ETIQUETA_REMETENTE = { alice: "Alice", voce: "você", equipe: "equipe", cl
 
 function Conversa() {
   const { conversaId } = Route.useParams();
+  const { texto: textoDaTarefa } = Route.useSearch();
   const qc = useQueryClient();
   const lerFn = useServerFn(lerConversa);
   const q = useQuery({
@@ -237,6 +242,7 @@ function Conversa() {
           onEnviou={mudou}
           colega={c.posse === "outra" ? primeiroNome(c.responsavelNome) : null}
           onAssumiu={mudou}
+          textoInicial={textoDaTarefa ?? ""}
         />
       </div>
     </div>

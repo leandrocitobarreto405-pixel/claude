@@ -43,6 +43,7 @@ import { rotuloCupom } from "@/lib/alice/cupons";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarPropostaOrcamento } from "@/lib/os-docs.functions";
 import { pdfDoOrcamentoFn } from "@/lib/documentos.functions";
+import { itensDoAcertoFn } from "@/lib/tatiana.functions";
 import { useModoDocumentos, usePodeBaixarOs } from "@/lib/documentos-hooks";
 import { usePdfCompartilhavel } from "@/lib/compartilhar-pdf";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
@@ -82,8 +83,11 @@ import {
 } from "@/lib/quotes.functions";
 
 export const Route = createFileRoute("/_authenticated/orcamentos/$quoteId")({
-  validateSearch: (search: Record<string, unknown>): { lead?: string } =>
-    typeof search["lead"] === "string" ? { lead: search["lead"] as string } : {},
+  validateSearch: (search: Record<string, unknown>): { lead?: string; acerto?: string } => ({
+    ...(typeof search["lead"] === "string" ? { lead: search["lead"] as string } : {}),
+    // Acerto da Tatiana: itens e valores lidos na conversa já entram como sugestão.
+    ...(typeof search["acerto"] === "string" ? { acerto: search["acerto"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Orçamento — Nexa OS" },
@@ -172,7 +176,9 @@ const round = (v: number) => Math.round(v * 100) / 100;
 
 function OrcamentoDetalhe() {
   const { quoteId } = Route.useParams();
-  const { lead: leadParam } = Route.useSearch();
+  const { lead: leadParam, acerto: acertoParam } = Route.useSearch();
+  const itensAcertoFn = useServerFn(itensDoAcertoFn);
+  const [lidosDaConversa, setLidosDaConversa] = useState(0);
   const novo = quoteId === "novo";
   const navigate = useNavigate();
   const { papel } = usePapel();
@@ -415,6 +421,47 @@ function OrcamentoDetalhe() {
       ativo = false;
     };
   }, [novo, leadParam]);
+
+  // Acerto da Tatiana: os itens lidos na conversa entram como linhas a conferir (a pessoa escolhe o
+  // item da tabela em cada uma; o valor lido fica como preço digitado). Nada vai ao cliente.
+  useEffect(() => {
+    if (!novo || !acertoParam) return;
+    let ativo = true;
+    void itensAcertoFn({ data: { id: acertoParam } })
+      .then(({ itens }) => {
+        if (!ativo || !itens.length) return;
+        setLinhas((prev) =>
+          prev.length
+            ? prev
+            : itens.map((i) => ({
+                key: novaChave(),
+                tabela_preco_item_id: "",
+                nome_snapshot: i.descricao,
+                tipo_servico: "higienizacao" as TipoServico,
+                categoria: "outro" as Categoria,
+                preco_tabela: 0,
+                preco_editado: i.valor,
+                desconto: "auto" as ModoDesconto,
+                classe: "B" as Classe,
+                almofadas: false,
+                encardido: false,
+                duplaFace: false,
+                adicional: false,
+                preco_adicional: null,
+                motivo_desconto: "",
+                quantidade: i.quantidade,
+                editado_por: null,
+                editado_em: null,
+              })),
+        );
+        setLidosDaConversa(itens.length);
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novo, acertoParam]);
 
   // Origem detectada pela conversa/lead ou pelo telefone; preenche o campo quando está vazio.
   const telefoneParaOrigem = onlyDigits(telefone).length >= 10 ? onlyDigits(telefone) : "";
@@ -844,6 +891,14 @@ function OrcamentoDetalhe() {
         }
         description="Os custos e a margem são de uso interno e não aparecem na mensagem do cliente."
       />
+
+      {lidosDaConversa ? (
+        <div className="mb-4 rounded-card border border-marca/30 bg-marca-claro p-3 text-sm">
+          A Tatiana leu na conversa {lidosDaConversa} {lidosDaConversa === 1 ? "item" : "itens"} com
+          os valores combinados. Escolha o item da tabela em cada linha, confira e salve. Nada é
+          enviado ao cliente.
+        </div>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button variant="outline" asChild>

@@ -1698,6 +1698,11 @@ export type Database = {
           scheduled_at: string;
           status: string;
           updated_at: string;
+          mensagem: string | null;
+          motivo: string | null;
+          origem: string | null;
+          prioridade: number | null;
+          pulado_motivo: string | null;
         };
         Insert: {
           trilha?: string | null;
@@ -1719,6 +1724,11 @@ export type Database = {
           scheduled_at?: string;
           status?: string;
           updated_at?: string;
+          mensagem?: string | null;
+          motivo?: string | null;
+          origem?: string | null;
+          prioridade?: number | null;
+          pulado_motivo?: string | null;
         };
         Update: {
           trilha?: string | null;
@@ -1740,6 +1750,11 @@ export type Database = {
           scheduled_at?: string;
           status?: string;
           updated_at?: string;
+          mensagem?: string | null;
+          motivo?: string | null;
+          origem?: string | null;
+          prioridade?: number | null;
+          pulado_motivo?: string | null;
         };
         Relationships: [
           {
@@ -5651,6 +5666,8 @@ export type Database = {
           servico_concluido: boolean;
           updated_at: string;
           user_id: string;
+          tatiana_cobrancas: boolean;
+          tatiana_tarefas: boolean;
         };
         Insert: {
           agendamento_promocao?: boolean;
@@ -5662,6 +5679,8 @@ export type Database = {
           servico_concluido?: boolean;
           updated_at?: string;
           user_id: string;
+          tatiana_cobrancas?: boolean;
+          tatiana_tarefas?: boolean;
         };
         Update: {
           agendamento_promocao?: boolean;
@@ -5673,6 +5692,8 @@ export type Database = {
           servico_concluido?: boolean;
           updated_at?: string;
           user_id?: string;
+          tatiana_cobrancas?: boolean;
+          tatiana_tarefas?: boolean;
         };
         Relationships: [
           {

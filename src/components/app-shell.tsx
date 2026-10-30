@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { resumoAliceHoje } from "@/lib/alice.functions";
+import { contagemTatianaFn } from "@/lib/tatiana.functions";
 import { SinoDeAvisos } from "@/components/avisos/painel-avisos";
 import { displayName, useProfile, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -87,6 +88,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
     ctx?.painelNexa ?? false,
     comercial.data === true,
   );
+  // Selo da Tatiana: cobranças pendentes há mais de 2 dias (só admin).
+  const contagemFn = useServerFn(contagemTatianaFn);
+  const tatiana = useQuery({
+    queryKey: ["tatiana-contagem", ctx?.ativa?.empresa.id],
+    queryFn: () => contagemFn(),
+    enabled: comercial.data === true,
+    staleTime: 5 * 60_000,
+  });
+  const antigas = tatiana.data?.cobrancasAntigas ?? 0;
   return (
     <nav className="flex flex-col gap-5 p-3 pb-8">
       {grupos.map((group) => (
@@ -118,6 +128,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 ) : null}
                 <Icon className={cn("size-4 shrink-0", active && "text-destaque")} />
                 <span className="truncate">{item.rotulo}</span>
+                {item.to === "/gerente-comercial" && antigas ? (
+                  <span
+                    className="ml-auto rounded-full bg-destaque px-1.5 text-xs font-bold tabular-nums text-navy"
+                    aria-label={`${antigas} cobranças pendentes há mais de 2 dias`}
+                  >
+                    {antigas}
+                  </span>
+                ) : null}
                 {(() => {
                   const r = recursoDaRota(item.to);
                   return r && !temRecurso(planoEmpresa, r) ? (
