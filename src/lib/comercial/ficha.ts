@@ -17,7 +17,13 @@ export type Uso = {
   cache_read_input_tokens?: number | null;
 };
 
-export function custoUsd(u: Uso, p: typeof PRECO_SONNET = PRECO_SONNET): number {
+export type Precos = { entrada: number; cacheGravar: number; cacheLer: number; saida: number };
+
+/** Preço do Haiku 5.5 por milhão de tokens (US$), para prompts até 100 mil tokens. */
+export const PRECO_HAIKU: Precos = { entrada: 0.1, cacheGravar: 0.125, cacheLer: 0.01, saida: 0.5 };
+export const MODELO_HAIKU = "claude-haiku-5-5";
+
+export function custoUsd(u: Uso, p: Precos = PRECO_SONNET): number {
   const v =
     (u.input_tokens * p.entrada +
       (u.cache_creation_input_tokens ?? 0) * p.cacheGravar +

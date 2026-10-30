@@ -8,6 +8,7 @@ import { AgendarManual } from "@/components/crm/agendar-retorno";
 import { Destino } from "@/components/crm/destino-lead";
 import { LeadsDoSite } from "@/components/crm/leads-do-site";
 import { SemDesfechoLista } from "@/components/crm/sem-desfecho";
+import { TatianaHoje } from "@/components/crm/tatiana-hoje";
 import { LeadLink, TemperatureBadge } from "@/components/crm-ui";
 import { Botao, CabecalhoDeTela, Card, Chip, Recolhido } from "@/components/nexa";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +115,8 @@ function FollowUps() {
         )
         .in("status", ["Pendente", "Vencida"])
         .gte("scheduled_at", desde)
+        // As tarefas da Tatiana (trilha G) aparecem no cartão dela, não aqui.
+        .or("trilha.is.null,trilha.neq.G")
         .order("scheduled_at")
         .limit(1000);
       if (error) throw error;
@@ -213,6 +216,8 @@ function FollowUps() {
         sobretitulo="Vendas"
         descricao="Quem precisa de um retorno: da equipe e da Alice, com o destino em um toque."
       />
+
+      <TatianaHoje />
 
       <div
         role="tablist"

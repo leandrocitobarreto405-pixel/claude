@@ -72,7 +72,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
       // Só admin e só na empresa com o gerente comercial ligado (ver menuDoPapel).
       {
         to: "/gerente-comercial",
-        rotulo: "Gerente comercial",
+        rotulo: "Tatiana · Gerente comercial",
         icone: BriefcaseBusiness,
         papeis: ["admin"],
       },

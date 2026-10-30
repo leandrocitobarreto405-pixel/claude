@@ -48,8 +48,11 @@ export function BarraResposta({
   onEnviou,
   colega = null,
   onAssumiu,
+  textoInicial = "",
 }: {
   conversaId: string;
+  /** Mensagem pronta (ex.: tarefa da Tatiana) já na barra; a pessoa revisa e envia. */
+  textoInicial?: string;
   onEnviou: () => void;
   /** Primeiro nome de quem está com a conversa, quando é outra pessoa da equipe. */
   colega?: string | null;
@@ -77,7 +80,7 @@ export function BarraResposta({
     staleTime: 10 * 60_000,
   });
 
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useState(textoInicial);
   // Respostas prontas: "/" no começo do campo abre a lista filtrada; o botão abre com busca.
   const respostasFn = useServerFn(listarRespostasFn);
   const respostas = useQuery({

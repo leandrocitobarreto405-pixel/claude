@@ -165,7 +165,10 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
   const resultados: Awaited<ReturnType<typeof analisarLead>>[] = [];
   let feitosAgora = 0;
   let livres = cabem;
+  const { podeSeguir } = await import("@/lib/freio.server");
   while (feitosAgora < faltam.length && livres > 0 && Date.now() - inicio < TEMPO_DA_PASSADA_MS) {
+    // Freio: banco lento (consulta simples acima de 2 s) para a passada; pausa entre rodadas.
+    if (!(await podeSeguir(db, feitosAgora === 0))) break;
     const rodada = faltam.slice(feitosAgora, feitosAgora + Math.min(POR_RODADA, livres));
     resultados.push(
       ...(await Promise.all(

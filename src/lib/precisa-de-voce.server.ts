@@ -82,6 +82,8 @@ export async function coletarItens(
       .eq("empresa_id", emp)
       .eq("responsavel", "equipe")
       .in("status", ["Pendente", "Vencida"])
+      // As tarefas da Tatiana (trilha G) aparecem no cartão dela, não aqui.
+      .or("trilha.is.null,trilha.neq.G")
       .gte("scheduled_at", desde14d)
       .lte("scheduled_at", fimDeHojeSP(agora))
       .limit(100),

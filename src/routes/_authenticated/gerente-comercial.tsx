@@ -18,13 +18,16 @@ import {
 } from "@/lib/comercial.functions";
 import { NOME_REGRA } from "@/lib/comercial/ficha";
 import { ResumoGerente } from "@/components/comercial/resumo-gerente";
+import { CobrancasTatiana, NoitesTatiana } from "@/components/comercial/cobrancas-tatiana";
 import { custos, servicoPrincipal } from "@/lib/comercial/resumo";
 import { brl, dateBR } from "@/lib/format";
 import { usePapel } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/gerente-comercial")({
-  head: () => ({ meta: [{ title: "Gerente comercial — Nexa OS" }] }),
+  validateSearch: (search: Record<string, unknown>): { aba?: string } =>
+    typeof search["aba"] === "string" ? { aba: search["aba"] as string } : {},
+  head: () => ({ meta: [{ title: "Tatiana · Gerente comercial — Nexa OS" }] }),
   component: GerenteComercialTela,
 });
 
@@ -39,6 +42,8 @@ const ABAS = [
   { id: "recuperar", rotulo: "Ainda dá para recuperar" },
   { id: "encaixe", rotulo: "Fila de encaixe" },
   { id: "fichas", rotulo: "Fichas" },
+  { id: "cobrancas", rotulo: "Cobranças" },
+  { id: "noites", rotulo: "Noites e teste" },
 ] as const;
 type Aba = (typeof ABAS)[number]["id"];
 
@@ -67,7 +72,10 @@ function GerenteComercialTela() {
   const admin = papel === "admin";
   const fn = useServerFn(gerenteComercialFn);
   const q = useQuery({ queryKey: CHAVE, queryFn: () => fn(), enabled: admin });
-  const [aba, setAba] = useState<Aba>("resumo");
+  const { aba: abaInicial } = Route.useSearch();
+  const [aba, setAba] = useState<Aba>(
+    ABAS.some((a) => a.id === abaInicial) ? (abaInicial as Aba) : "resumo",
+  );
 
   if (papel && !admin)
     return (
@@ -80,8 +88,8 @@ function GerenteComercialTela() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <CabecalhoDeTela
         sobretitulo="Vendas"
-        titulo="Gerente comercial"
-        descricao="Análise dos atendimentos, lead a lead. Só leitura: nada é enviado aos clientes e nada muda na Alice."
+        titulo="Tatiana · Gerente comercial"
+        descricao="Análise dos atendimentos, lead a lead, e o plano de cada noite para a equipe e a Alice."
       />
       {q.isLoading ? <Card className="text-sm">Carregando…</Card> : null}
       {q.error ? (
@@ -129,6 +137,8 @@ function GerenteComercialTela() {
           {aba === "recuperar" ? <Recuperar d={d} /> : null}
           {aba === "encaixe" ? <Encaixe d={d} /> : null}
           {aba === "fichas" ? <Fichas d={d} /> : null}
+          {aba === "cobrancas" ? <CobrancasTatiana /> : null}
+          {aba === "noites" ? <NoitesTatiana /> : null}
         </>
       ) : null}
     </div>

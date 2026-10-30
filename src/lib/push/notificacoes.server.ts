@@ -150,6 +150,8 @@ export async function pessoasComCelular(
               campanha_aprovacao: pr.campanha_aprovacao,
               agendamento_promocao: pr.agendamento_promocao,
               resumo_dia: pr.resumo_dia,
+              tatiana_tarefas: pr.tatiana_tarefas ?? true,
+              tatiana_cobrancas: pr.tatiana_cobrancas ?? true,
             }
           : PREFERENCIAS_PADRAO,
         celulares: [],

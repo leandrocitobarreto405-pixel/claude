@@ -92,12 +92,30 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
               );
               return null;
             });
+          // Freio: com o banco lento (consulta simples acima de 2 s), os trabalhos pesados sem
+          // pressa (lotes da gerente e Tatiana) ficam para o minuto seguinte.
+          const { bancoLento } = await import("@/lib/freio.server");
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const freio = await bancoLento(supabaseAdmin);
           // Gerente comercial: lotes de análise pedidos (só leitura; ligado por empresa).
           const { rodarLotesComerciais } = await import("@/lib/comercial/lotes.server");
-          const comercial = await rodarLotesComerciais().catch((e) => {
-            console.error("Gerente comercial: falha no lote", e instanceof Error ? e.message : e);
-            return null;
-          });
+          const comercial = freio.lento
+            ? { adiado: true, ms: freio.ms }
+            : await rodarLotesComerciais().catch((e) => {
+                console.error(
+                  "Gerente comercial: falha no lote",
+                  e instanceof Error ? e.message : e,
+                );
+                return null;
+              });
+          // Tatiana: passada da noite (21h30), recados, pushes e conferência (modo por empresa).
+          const { rodarTatiana } = await import("@/lib/comercial/noite.server");
+          const tatiana = freio.lento
+            ? { adiado: true, ms: freio.ms }
+            : await rodarTatiana().catch((e) => {
+                console.error("Tatiana: falha na passada", e instanceof Error ? e.message : e);
+                return null;
+              });
           return json({
             ok: true,
             encerramento,
@@ -112,6 +130,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             precisaResumo,
             exportacaoGoogle,
             comercial,
+            tatiana,
           });
         } catch (erro) {
           console.error("Alice: falha na varredura", erro);
