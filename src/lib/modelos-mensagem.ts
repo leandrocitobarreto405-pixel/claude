@@ -736,7 +736,7 @@ _Orçamento válido por {validade} dias._`,
       { nome: "empresa", descricao: "nome da empresa", exemplo: "Turbine Clean" },
     ],
     padrao:
-      "Olá {nome}! Enviei o orçamento do seu estofado. Ficou alguma dúvida? Posso reservar uma data para você.",
+      "Olá {nome}! Enviei o orçamento do seu estofado. Posso reservar uma data pra você esta semana?",
   },
   {
     chave: "crm_repescagem",

@@ -121,7 +121,7 @@ test("com impermeabilização: benefícios e garantia (meses e fluidos corporais
 test("combinado: as duas colunas, dados da empresa no rodapé e Turbine em lugar nenhum", async () => {
   const { texto } = await lerPdf(await pdfDaOs(EXEMPLO_OS, empresa, config));
   assert.match(texto, /HIGIENIZAÇÃO E IMPERMEABILIZAÇÃO/);
-  assert.match(texto, /Estofado Quantidade Higienização Impermeabilização/);
+  assert.match(texto, /Item Quantidade Higienização Impermeabilização/);
   assert.match(texto, /CNPJ: 00\.000\.000\/0001-00/);
   assert.match(texto, /@exemplo/);
   assert.match(texto, /WhatsApp: \(11\) 90000-0000/);
@@ -217,7 +217,7 @@ test("nome longo e muitos itens: quebra de página com cabeçalho da tabela repe
   const { texto, paginas } = await lerPdf(await pdfDaOs(muitos, empresa, config));
   assert.ok(paginas >= 3, `páginas: ${paginas}`);
   assert.match(texto, /Item fictício número 45/);
-  assert.ok((texto.match(/Estofado Quantidade/g) ?? []).length >= 2, "cabeçalho repetido");
+  assert.ok((texto.match(/Item Quantidade/g) ?? []).length >= 2, "cabeçalho repetido");
   assert.match(texto, new RegExp(`Página ${paginas} de ${paginas}`));
   assert.match(texto, /Cavalcanti Fictícia/);
 });

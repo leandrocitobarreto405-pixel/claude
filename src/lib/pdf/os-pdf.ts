@@ -120,7 +120,7 @@ export async function pdfDaOs(
     fracao: number;
     alinhamento?: "esquerda" | "centro" | "direita";
   }> = [
-    { titulo: "Estofado", fracao: 0 },
+    { titulo: "Item", fracao: 0 },
     { titulo: "Quantidade", fracao: 0.16, alinhamento: "centro" },
   ];
   if (d.temHig) colunas.push({ titulo: "Higienização", fracao: 0.2, alinhamento: "direita" });
