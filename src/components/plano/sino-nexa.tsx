@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { marcarPedidoVistoFn, pedidosPlanoNexaFn } from "@/lib/plano.functions";
 import { rotuloRecurso, type Recurso } from "@/lib/recursos";
 import { resumoDasParadas, useParadasIa } from "@/lib/paradas-ia";
+import { intervalo } from "@/lib/ritmo";
 
 const CHAVE = ["nexa_pedidos_plano"] as const;
 
@@ -18,7 +19,11 @@ export function SinoNexa() {
   const listar = useServerFn(pedidosPlanoNexaFn);
   const marcar = useServerFn(marcarPedidoVistoFn);
   const [aberto, setAberto] = useState(false);
-  const q = useQuery({ queryKey: CHAVE, queryFn: () => listar(), refetchInterval: 120_000 });
+  const q = useQuery({
+    queryKey: CHAVE,
+    queryFn: () => listar(),
+    refetchInterval: intervalo(120_000),
+  });
   const pedidos = q.data ?? [];
   const paradas = resumoDasParadas(useParadasIa().data ?? []);
   const total = pedidos.length + paradas.length;

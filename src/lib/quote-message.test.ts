@@ -209,3 +209,47 @@ test("mensagem com o número do orçamento (4 dígitos) na primeira linha", () =
   const sem = quoteWhatsappMessage(base, itens, textos);
   assert.ok(sem.startsWith("Olá, Cliente Fictício!"));
 });
+
+test("acréscimo por distância dentro do preço de cada item, sem taxa na mensagem", () => {
+  const semVitrine = { ...t, regras: regrasDaLinha({ distancia_ligado: true, distancia_pct: 10 }) };
+  const m = quoteWhatsappMessage(
+    {
+      cliente_nome: "Ana",
+      subtotal: 670,
+      desconto: 0,
+      total: 737,
+      valor_a_vista: 737,
+      acrescimo_sujidade: 0,
+      acrescimo_distancia: 67,
+      minimo_aplicado: 0,
+    },
+    [
+      {
+        quantidade: 1,
+        nome_snapshot: "Sofá",
+        tipo_servico: "higienizacao",
+        subtotal: 350,
+        desconto_regra_texto: null,
+      },
+      {
+        quantidade: 4,
+        nome_snapshot: "Cadeiras",
+        tipo_servico: "higienizacao",
+        subtotal: 120,
+        desconto_regra_texto: null,
+      },
+      {
+        quantidade: 1,
+        nome_snapshot: "Colchão",
+        tipo_servico: "higienizacao",
+        subtotal: 200,
+        desconto_regra_texto: null,
+      },
+    ],
+    semVitrine,
+  );
+  assert.match(m, /Sofá — .*: R\$ 385,00/);
+  assert.match(m, /Cadeiras — .*: R\$ 132,00/);
+  assert.match(m, /Colchão — .*: R\$ 220,00/);
+  assert.doesNotMatch(m, /taxa|deslocamento/i);
+});

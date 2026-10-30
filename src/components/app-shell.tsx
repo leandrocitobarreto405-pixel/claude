@@ -42,6 +42,7 @@ import { SinoNexa } from "@/components/plano/sino-nexa";
 import { AlertaParadaIa } from "@/components/plano/alerta-parada-ia";
 import { limparCacheAnexos } from "@/lib/anexos";
 import { SeletorTema, SeletorTemaPainel } from "@/components/seletor-tema";
+import { intervalo } from "@/lib/ritmo";
 
 const NOME_PAPEL = { admin: "Administrador", atendente: "Atendente", tecnico: "Técnico" } as const;
 
@@ -227,7 +228,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryKey: ["alice_resumo_hoje"],
     queryFn: () => resumoFn(),
     enabled: temConversas,
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   const esperando = resumoAlice.data?.esperandoEquipe ?? 0;
   const respostaEmFoco = useRespostaEmFoco();

@@ -7,6 +7,10 @@ import {
   comDeteccao,
   comNegociadoAtualizado,
   comTaxa,
+  GRUPO_TAXA_DESLOCAMENTO,
+  itemEditado,
+  itensSemLinhaDaTaxa,
+  novoId,
   somaSemTaxa,
   taxaDaOs,
   valorDaTaxa,
@@ -423,4 +427,55 @@ test("taxa de deslocamento: linha própria na OS e registro de quem alterou ou t
   assert.equal(taxaDaOs(tirada, ctx).taxa_deslocamento_editada_por, "u-maria");
   // Sem regra e sem taxa: nada muda na OS.
   assert.deepEqual(taxaDaOs(base, ctx), {});
+});
+
+test("OS gravada: o acréscimo por distância vai dentro dos itens, sem linha de taxa", () => {
+  const item = (preco: string, q: string, extra: object = {}) => ({
+    upholstery_type_id: "",
+    description: "Item",
+    quantity: q,
+    unidade: "un" as const,
+    unit_price: preco,
+    item_group_id: novoId(),
+    preco_tabela: Number(preco.replace(",", ".")),
+    ...extra,
+  });
+  const itens = [item("350,00", "1"), item("30,00", "4"), item("200,00", "1")];
+  const linhas = itensSemLinhaDaTaxa([
+    ...itens,
+    {
+      upholstery_type_id: "",
+      description: "x",
+      quantity: "1",
+      unidade: "un",
+      unit_price: "67,00",
+      item_group_id: GRUPO_TAXA_DESLOCAMENTO,
+    },
+  ]);
+  assert.deepEqual(
+    linhas.map((l) => [l.unit_price, l.quantity]),
+    [
+      ["385,00", "1"],
+      ["33,00", "4"],
+      ["220,00", "1"],
+    ],
+  );
+  // O acréscimo não conta como preço editado.
+  assert.equal(
+    linhas.some((l) => itemEditado(l)),
+    false,
+  );
+  // Centavos que não dividem pelas peças: a sobra vai para o item de 1 peça e o total fecha.
+  const quebrado = itensSemLinhaDaTaxa([
+    item("10,00", "3"),
+    item("100,00", "1"),
+    { ...item("1,00", "1"), unit_price: "1,01", item_group_id: GRUPO_TAXA_DESLOCAMENTO },
+  ]);
+  const soma = quebrado.reduce(
+    (s, l) => s + Math.round(Number(l.unit_price.replace(",", ".")) * Number(l.quantity) * 100),
+    0,
+  );
+  assert.equal(soma, 13101);
+  // Sem linha de taxa: nada muda.
+  assert.deepEqual(itensSemLinhaDaTaxa(itens), itens);
 });

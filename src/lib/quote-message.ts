@@ -4,7 +4,7 @@ import { brl } from "@/lib/format";
 import { preencherTexto } from "@/lib/modelos-mensagem";
 import { linhasPagamento } from "@/lib/texto-pagamento";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
-import type { RegrasOrcamento } from "@/lib/orcamento-regras";
+import { itensComDistancia, type RegrasOrcamento } from "@/lib/orcamento-regras";
 import type { Quote, QuoteItem } from "@/lib/quotes";
 import {
   categoriaDeLimpeza,
@@ -96,9 +96,15 @@ export function rotuloDesconto(quote: {
 
 export function quoteWhatsappMessage(
   quote: QuoteMensagem,
-  items: ItemMensagem[],
+  itensGravados: ItemMensagem[],
   t: TextosOrcamento,
 ): string {
+  // O acréscimo por distância vai dentro do preço de cada item: o cliente vê só o valor final.
+  const distancia = Number(quote.acrescimo_distancia ?? 0);
+  const items: ItemMensagem[] = itensComDistancia(itensGravados, distancia).map((it) => ({
+    ...it,
+    subtotal: it.subtotal_cliente,
+  }));
   const tipos = new Set(items.map((it) => it.tipo_servico));
   const chave =
     tipos.size > 1
@@ -131,7 +137,6 @@ export function quoteWhatsappMessage(
   // Adicionais: com vitrine, só em texto (já estão nos valores); sem vitrine, com o valor.
   const adicionais: string[] = [];
   const sujidade = Number(quote.acrescimo_sujidade ?? 0);
-  const distancia = Number(quote.acrescimo_distancia ?? 0);
   const minimo = Number(quote.minimo_aplicado ?? 0);
   if (sujidade > 0) {
     const pct = t.regras?.sujidade.pct;
@@ -139,15 +144,6 @@ export function quoteWhatsappMessage(
       vitrine
         ? `➕ Sujeira intensa${pct ? `: +${pct}%` : ""}`
         : `Acréscimo por sujeira intensa: ${brl(sujidade)}`,
-    );
-  }
-  if (distancia > 0) {
-    // Com faixas por valor, o % muda de orçamento para orçamento: na vitrine vai sem o %.
-    const pct = t.regras?.distancia.faixas.length ? null : t.regras?.distancia.pct;
-    adicionais.push(
-      vitrine
-        ? `➕ Taxa de deslocamento${pct ? `: +${pct}%` : ""}`
-        : `Taxa de deslocamento: ${brl(distancia)}`,
     );
   }
   if (minimo > 0 && !vitrine) adicionais.push(`Ajuste para o valor mínimo: ${brl(minimo)}`);
@@ -180,7 +176,7 @@ export function quoteWhatsappMessage(
     const rotulo = rotuloDesconto(quote);
     partes.push(
       "",
-      `Subtotal: ${brl(quote.subtotal)}`,
+      `Subtotal: ${brl(Number(quote.subtotal ?? 0) + distancia)}`,
       `${rotulo}: ${quote.cupom ? "−" : "-"}${brl(quote.desconto)}`,
     );
   }

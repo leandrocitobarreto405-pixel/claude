@@ -39,6 +39,7 @@ import {
 import { mensagemDeErro } from "@/lib/erros";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { intervalo } from "@/lib/ritmo";
 
 export const CHAVE_ESTADO_RESPOSTA = (id: string) => ["conversas", "resposta", id] as const;
 
@@ -68,7 +69,7 @@ export function BarraResposta({
   const estado = useQuery({
     queryKey: CHAVE_ESTADO_RESPOSTA(conversaId),
     queryFn: () => estadoFn({ data: { conversaId } }),
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
   const e = estado.data;
   const foraDaJanela = Boolean(e && e.podeResponder && e.situacao.pode && !e.janela.aberta);

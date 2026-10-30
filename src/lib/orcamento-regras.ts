@@ -12,7 +12,7 @@ export type Categoria = "sofa" | "colchao" | "cadeira" | "outro" | "tapete" | "p
 /** Classe do estofado: A tem acréscimo; B (padrão) e C ficam no preço da tabela. */
 export type Classe = "A" | "B" | "C";
 export type Arredondamento = "dezena_5" | "noventa" | "nenhum";
-/** Faixa da taxa de deslocamento: até `ate` reais (null = sem teto), `pct` sobre os itens. */
+/** Faixa do acréscimo por distância: até `ate` reais (null = sem teto), `pct` sobre os itens. */
 export type FaixaValor = { ate: number | null; pct: number };
 
 export type RegrasOrcamento = {
@@ -336,7 +336,7 @@ export type Totais = {
   subtotalItens: number;
   minimoAplicado: number;
   acrescimoSujidade: number;
-  /** Taxa de deslocamento cobrada (a da regra, ou o valor que a equipe pôs). */
+  /** Acréscimo por distância cobrado, dentro dos itens (o da regra, ou o valor que a equipe pôs). */
   acrescimoDistancia: number;
   /** Taxa pela regra, para comparar com a cobrada (equipe alterou ou tirou). */
   acrescimoDistanciaRegra: number;
@@ -359,14 +359,62 @@ export function faixaDistancia(km: number | null, d: RegrasOrcamento["distancia"
   return { pct, foraDaArea: km > limite };
 }
 
-/** Taxa de deslocamento pela regra (R$), sobre a soma dos itens antes do desconto do Pix. */
+/**
+ * Acréscimo por distância pela regra (R$). Vai DENTRO do preço de cada item (o cliente vê só o
+ * valor final do item, nunca uma linha de taxa): cada linha recebe o % com centavos, e o acréscimo
+ * é a soma. Sem as linhas, o % sobre o valor dos itens.
+ */
 export function taxaDeslocamento(
   km: number | null,
   d: RegrasOrcamento["distancia"],
   valorItens: number,
+  linhas?: number[],
 ) {
   const f = faixaDistancia(km, d, valorItens);
-  return { ...f, valor: r2((valorItens * f.pct) / 100) };
+  const valor = linhas?.length
+    ? r2(linhas.reduce((s, v) => s + r2((v * f.pct) / 100), 0))
+    : r2((valorItens * f.pct) / 100);
+  return { ...f, valor };
+}
+
+/**
+ * Põe o acréscimo por distância dentro dos valores (um por item), proporcional a cada um, em
+ * centavos; a sobra do arredondamento vai para os maiores. Com o mesmo % em todos, cada item sai
+ * com o seu valor + % (R$ 350 → R$ 385). Valores 0 (ou negativos) não recebem nada.
+ */
+export function distribuirNosValores(valores: number[], acrescimo: number): number[] {
+  const centavos = Math.round(Math.max(acrescimo, 0) * 100);
+  const bases = valores.map((v) => Math.max(Math.round(v * 100), 0));
+  const total = bases.reduce((s, v) => s + v, 0);
+  if (!centavos || !total) return valores.map(r2);
+  const brutos = bases.map((b) => (b * centavos) / total);
+  const partes = brutos.map(Math.floor);
+  let sobra = centavos - partes.reduce((s, v) => s + v, 0);
+  const ordem = brutos
+    .map((b, i) => ({ i, resto: b - Math.floor(b), base: bases[i]! }))
+    .filter((x) => x.base > 0)
+    .sort((a, b) => b.resto - a.resto || b.base - a.base);
+  for (let k = 0; sobra > 0 && ordem.length; k = (k + 1) % ordem.length, sobra--) {
+    partes[ordem[k]!.i]! += 1;
+  }
+  return bases.map((b, i) => (b + partes[i]!) / 100);
+}
+
+/**
+ * Itens como o cliente vê: o acréscimo por distância distribuído no subtotal de cada item normal
+ * (o adicional pós-fechamento fica com o preço dele) e o preço unitário refeito. A linha de taxa
+ * nunca aparece para o cliente.
+ */
+export function itensComDistancia<
+  T extends { quantidade: number; subtotal: number; adicional_pos_fechamento?: boolean | null },
+>(itens: T[], acrescimo: number): Array<T & { preco_cliente: number; subtotal_cliente: number }> {
+  const normais = itens.map((it) => (it.adicional_pos_fechamento ? 0 : Number(it.subtotal) || 0));
+  const novos = distribuirNosValores(normais, acrescimo);
+  return itens.map((it, i) => {
+    const sub = it.adicional_pos_fechamento ? r2(Number(it.subtotal) || 0) : novos[i]!;
+    const q = Number(it.quantidade) > 0 ? Number(it.quantidade) : 1;
+    return { ...it, subtotal_cliente: sub, preco_cliente: r2(sub / q) };
+  });
 }
 
 export function calcularTotais(args: {
@@ -397,17 +445,22 @@ export function calcularTotais(args: {
   const baseAdicionais = r2(subtotalNormais + minimoAplicado);
   const acrescimoSujidade =
     regras.sujidade.ligado && args.muitoSujo ? r2((baseAdicionais * regras.sujidade.pct) / 100) : 0;
-  const faixa = taxaDeslocamento(args.distanciaKm, regras.distancia, baseAdicionais);
+  // Acréscimo por distância: o % em cada linha (e no ajuste do mínimo), dentro do preço do item.
+  const faixa = taxaDeslocamento(args.distanciaKm, regras.distancia, baseAdicionais, [
+    ...normais.map((l) => l.precoAplicado * (l.quantidade > 0 ? l.quantidade : 1)),
+    ...(minimoAplicado > 0 ? [minimoAplicado] : []),
+  ]);
   const manual = args.taxaDistancia;
   const acrescimoDistancia =
     manual === null || manual === undefined || !Number.isFinite(manual)
       ? faixa.valor
       : r2(Math.max(manual, 0));
-  // A taxa de deslocamento não entra no desconto (campanha, indicação, cupom): só os itens.
-  const antes = r2(baseAdicionais + acrescimoSujidade);
+  // O acréscimo por distância está dentro do preço dos itens: o desconto (campanha, indicação,
+  // cupom) vale sobre o preço que o cliente vê.
+  const antes = r2(baseAdicionais + acrescimoSujidade + acrescimoDistancia);
   const pedido = args.descontoPct ? descontoPorPct(antes, args.descontoPct) : args.desconto;
   const desconto = Math.min(Math.max(r2(pedido), 0), antes);
-  const base = r2(antes - desconto + acrescimoDistancia + subtotalAdicional);
+  const base = r2(antes - desconto + subtotalAdicional);
   return {
     subtotalItens,
     minimoAplicado,

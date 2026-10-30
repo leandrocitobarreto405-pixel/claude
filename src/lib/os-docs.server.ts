@@ -1,5 +1,6 @@
 import { brl } from "@/lib/format";
 import { textoQuantidade } from "@/lib/unidade";
+import { itensComDistancia } from "@/lib/orcamento-regras";
 import {
   copyFile,
   deleteFile,
@@ -276,7 +277,43 @@ async function loadWorkOrder(workOrderId: string): Promise<WorkOrderData> {
     .eq("id", workOrderId)
     .single();
   if (error || !data) throw new Error("Ordem de serviço não encontrada.");
-  return data as unknown as WorkOrderData;
+  return semLinhaDeTaxa(data as unknown as WorkOrderData);
+}
+
+/** Linha antiga "Taxa de deslocamento" (OS feitas antes de o acréscimo ir dentro dos itens). */
+const ehLinhaDeTaxa = (i: Pick<ItemData, "item_group_id" | "description">) =>
+  i.item_group_id === "0d15ca00-0000-4000-8000-000000000001" ||
+  i.item_group_id === "taxa-deslocamento" ||
+  /^\s*taxa de deslocamento\s*$/i.test(i.description ?? "");
+
+/**
+ * O cliente nunca vê uma linha de taxa: o valor da linha antiga vai para dentro dos itens do mesmo
+ * atendimento (proporcional, em centavos). O total do atendimento e da OS não mudam.
+ */
+export function semLinhaDeTaxa(wo: WorkOrderData): WorkOrderData {
+  const visits = wo.visits.map((v) => {
+    const itens = v.service_items ?? [];
+    const taxa = itens
+      .filter((i) => i.active !== false && ehLinhaDeTaxa(i))
+      .reduce((s, i) => s + Number(i.subtotal ?? 0), 0);
+    const resto = itens.filter((i) => !ehLinhaDeTaxa(i));
+    if (resto.length === itens.length) return v;
+    const ativos = resto.filter((i) => i.active !== false && Number(i.quantity) > 0);
+    if (!ativos.length) return v;
+    const novos = itensComDistancia(
+      ativos.map((i) => ({ quantidade: Number(i.quantity), subtotal: Number(i.subtotal ?? 0) })),
+      taxa,
+    );
+    const porItem = new Map(ativos.map((i, k) => [i, novos[k]!]));
+    return {
+      ...v,
+      service_items: resto.map((i) => {
+        const n = porItem.get(i);
+        return n ? { ...i, subtotal: n.subtotal_cliente, unit_price: n.preco_cliente } : i;
+      }),
+    };
+  });
+  return { ...wo, visits };
 }
 
 function isHig(name: string) {
@@ -716,7 +753,7 @@ export type PropostaOrcamento = {
   status: string;
   updated_at: string;
   proposta_documento_id: string | null;
-  /** Taxa de deslocamento: entra como uma linha própria na proposta (não escondida no preço). */
+  /** Acréscimo por distância: vai dentro do preço de cada item (o cliente não vê linha de taxa). */
   acrescimo_distancia?: number | null;
 };
 
@@ -748,14 +785,24 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
     ["impermeabilizacao", "Impermeabilização"],
   ];
   const visits: VisitData[] = [];
+  // O acréscimo por distância entra no preço de cada item, como o cliente vê na mensagem.
+  const taxa = Math.round(Number(q.acrescimo_distancia ?? 0) * 100) / 100;
+  const ajustados = itensComDistancia(
+    itens.map((i) => ({
+      ...i,
+      quantidade: Number(i.quantidade),
+      subtotal: Number(i.subtotal ?? 0),
+    })),
+    taxa,
+  );
   for (const [tipo, nome] of servicos) {
-    const doTipo = itens
+    const doTipo = ajustados
       .filter((i) => i.tipo_servico === tipo && Number(i.quantidade) > 0)
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
     if (!doTipo.length) continue;
     visits.push({
       status: "Agendado",
-      visit_value: doTipo.reduce((s, i) => s + Number(i.subtotal ?? 0), 0),
+      visit_value: doTipo.reduce((s, i) => s + i.subtotal_cliente, 0),
       final_value: null,
       item_quantity: doTipo.length,
       upholstery_description: null,
@@ -765,8 +812,8 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
         description: i.nome_snapshot,
         quantity: Number(i.quantidade),
         unidade: i.categoria === "tapete" ? "m2" : "un",
-        unit_price: Number(i.preco_aplicado ?? 0),
-        subtotal: Number(i.subtotal ?? 0),
+        unit_price: i.preco_cliente,
+        subtotal: i.subtotal_cliente,
         // O mesmo item nos dois serviços fica numa linha só no modelo combinado.
         item_group_id: i.tabela_preco_item_id || i.nome_snapshot.trim().toLowerCase(),
         display_order: i.display_order ?? 0,
@@ -774,25 +821,6 @@ export function propostaComoOs(q: PropostaOrcamento, itens: PropostaItem[]): Wor
         upholstery_type: null,
       })),
     });
-  }
-  const taxa = Math.round(Number(q.acrescimo_distancia ?? 0) * 100) / 100;
-  const primeira = visits[0];
-  if (taxa > 0 && primeira) {
-    primeira.visit_value = Number(primeira.visit_value ?? 0) + taxa;
-    primeira.service_items = [
-      ...(primeira.service_items ?? []),
-      {
-        description: "Taxa de deslocamento",
-        quantity: 1,
-        unidade: "un",
-        unit_price: taxa,
-        subtotal: taxa,
-        item_group_id: "taxa-deslocamento",
-        display_order: 9999,
-        active: true,
-        upholstery_type: null,
-      },
-    ];
   }
   return {
     id: q.id,
@@ -901,7 +929,10 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
       desconto:
         desconto > 0
           ? {
-              subtotal: brl(Number(o.subtotal ?? total + desconto)),
+              // Subtotal como o cliente vê os itens (já com o acréscimo por distância).
+              subtotal: brl(
+                Number(o.subtotal ?? total + desconto) + Number(o.acrescimo_distancia ?? 0),
+              ),
               rotulo: rotuloDesconto(o),
               valor: brl(desconto),
             }
