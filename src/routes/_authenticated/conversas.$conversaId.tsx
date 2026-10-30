@@ -20,6 +20,7 @@ import { AudioMensagem, ImagemMensagem } from "@/components/conversas/anexo-mens
 import { ehAudio, ehImagem } from "@/lib/conversas";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { intervalo } from "@/lib/ritmo";
 
 export const Route = createFileRoute("/_authenticated/conversas/$conversaId")({
   head: () => ({ meta: [{ title: "Conversa — Nexa OS" }] }),
@@ -99,7 +100,7 @@ function Conversa() {
     queryKey: ["conversas", "uma", conversaId],
     queryFn: () => lerFn({ data: { conversaId } }),
     // Tempo real pelo Realtime; o refetch é só garantia (e para quem tem várias empresas).
-    refetchInterval: 30_000,
+    refetchInterval: intervalo(45_000),
   });
   useTempoRealConversas();
   const c = q.data;

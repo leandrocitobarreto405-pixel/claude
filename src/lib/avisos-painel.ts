@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listarAvisos } from "@/lib/avisos.functions";
+import { intervalo } from "@/lib/ritmo";
 
 export const CHAVE_AVISOS = ["avisos"] as const;
 
@@ -11,6 +12,6 @@ export function useAvisos(ligado = true) {
     queryKey: CHAVE_AVISOS,
     queryFn: () => listarFn(),
     enabled: ligado,
-    refetchInterval: 60_000,
+    refetchInterval: intervalo(60_000),
   });
 }

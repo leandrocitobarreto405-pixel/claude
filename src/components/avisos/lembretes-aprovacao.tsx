@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check, MessageCircle, X } from "lucide-react";
 import { Botao, Card, Chip } from "@/components/nexa";
 import { decidirLembretesFn, lembretesParaAprovarFn } from "@/lib/marketing.functions";
+import { intervalo } from "@/lib/ritmo";
 
 export const CHAVE_LEMBRETES = ["avisos", "lembretes"] as const;
 
@@ -19,7 +20,7 @@ export function LembretesParaAprovar() {
   const q = useQuery({
     queryKey: CHAVE_LEMBRETES,
     queryFn: () => lerFn(),
-    refetchInterval: 120_000,
+    refetchInterval: intervalo(120_000),
   });
   const [ocupado, setOcupado] = useState<string | null>(null);
   const r = q.data;
