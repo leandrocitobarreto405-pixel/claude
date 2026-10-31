@@ -551,7 +551,7 @@ export function ferramentasDisponiveis(
     lista.push({
       name: "enviar_dados_tecnico",
       description:
-        "Manda ao cliente a foto do técnico responsável (junto da sua mensagem) e devolve o nome dele. Use depois que o cliente aprovar o orçamento e na confirmação do agendamento. Informe o técnico do horário oferecido (o nome que veio em consultar_agenda); se a empresa tiver um técnico só, pode omitir.",
+        "Manda ao cliente a foto do técnico responsável (junto da sua mensagem) e devolve o nome dele. Use SÓ depois que o cliente confirmar dia e horário (horário reservado) e, ao remarcar, se o técnico mudou. Nunca antes do agendamento (nem para quem está comparando, pensando ou só escolheu a opção do orçamento). Informe o técnico do horário oferecido (o nome que veio em consultar_agenda); se a empresa tiver um técnico só, pode omitir.",
       input_schema: {
         type: "object",
         properties: {
@@ -1482,6 +1482,14 @@ function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: 
 
 /** Foto (anexo) e nome do técnico; nunca diz ao cliente quantos técnicos a empresa tem. */
 async function enviarDadosTecnico(ctx: ContextoFerramenta, input: z.infer<typeof DadosTecnico>) {
+  // A foto do técnico só vai depois do agendamento fechado (30/10, caso 3039).
+  const { temAgendamento } = await import("./agendamento.server");
+  if (!(await temAgendamento(ctx)))
+    return {
+      erro: true,
+      texto:
+        "Ainda não há horário reservado: a foto do técnico só vai depois que o cliente confirmar dia e horário. Não fale do técnico agora; siga com a pergunta da agenda.",
+    };
   const { data } = await ctx.admin
     .from("technicians")
     .select("id, name, foto_path, parceiro")
