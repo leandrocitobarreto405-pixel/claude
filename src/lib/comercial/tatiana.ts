@@ -313,6 +313,13 @@ export function nomeDaPessoa(cadastro: string | null | undefined, email?: string
   return p.charAt(0).toUpperCase() + p.slice(1);
 }
 
+/** Nomes da equipe para o recado da equipe única: "Maria e Carol", "Ana, Bia e Carol". */
+export function nomesDaEquipe(nomes: string[]): string {
+  const ns = [...new Set(nomes.map((n) => n.trim()).filter(Boolean))];
+  if (ns.length <= 1) return ns[0] ?? "";
+  return `${ns.slice(0, -1).join(", ")} e ${ns[ns.length - 1]}`;
+}
+
 /** Frase com o nome; sem nome, a mesma frase sem ele ("Bom dia, {nome}! …" → "Bom dia! …"). */
 export function comNome(frase: string, nome: string): string {
   if (nome) return frase.replaceAll("{nome}", nome);
@@ -342,7 +349,7 @@ export const ESQUEMA_RECADO = {
 export function instrucoesRecado(): string {
   return [
     "Você é a Tatiana, gerente comercial carinhosa e animada. Escreva o recado do dia para uma pessoa da equipe de vendas, em português do Brasil.",
-    'frase: UMA frase curta (até 90 caracteres), motivacional, carinhosa e animada, começando pelo nome da pessoa (ex.: "Bom dia, Maria! Bora vender, que quem vende vence 💙", "Bora fazer acontecer hoje, Carol!"). Use só o nome informado; se vier "(sem nome)", não use nome nenhum (ex.: "Bom dia! Bora vender 💙"). Nunca use e-mail nem nome de usuário. Não repita nenhuma das frases recentes. Se houver conquista de ontem, use-a (ex.: "ontem saíram 2 vendas, bora repetir!"). Em dia fraco, encoraje sem cobrar. No máximo um emoji.',
+    'frase: UMA frase curta (até 90 caracteres), motivacional, carinhosa e animada, começando pelo nome da pessoa (ex.: "Bom dia, Maria! Bora vender, que quem vende vence 💙", "Bora fazer acontecer hoje, Carol!"). Use só o nome informado (pode ser a equipe, ex.: "Maria e Carol": fale com as duas); se vier "(sem nome)", não use nome nenhum (ex.: "Bom dia! Bora vender 💙"). Nunca use e-mail nem nome de usuário. Não repita nenhuma das frases recentes. Se houver conquista de ontem, use-a (ex.: "ontem saíram 2 vendas, bora repetir!"). Em dia fraco, encoraje sem cobrar. No máximo um emoji.',
     "resumo: até 2 frases com as prioridades do dia (quantas tarefas, o mais importante primeiro, acertos no app se houver). Sem nomes de clientes; pode citar o serviço.",
   ].join("\n");
 }
@@ -352,12 +359,14 @@ export function instrucoesRecado(): string {
 export function textoPushTarefas(
   n: number,
   frase: string | null,
+  equipe = false,
 ): { titulo: string; corpo: string } {
+  const pra = equipe ? "pra equipe" : "pra você";
   return {
     titulo:
       n === 1
-        ? `A ${NOME_GERENTE} separou 1 tarefa pra você hoje`
-        : `A ${NOME_GERENTE} separou ${n} tarefas pra você hoje`,
+        ? `A ${NOME_GERENTE} separou 1 tarefa ${pra} hoje`
+        : `A ${NOME_GERENTE} separou ${n} tarefas ${pra} hoje`,
     corpo: frase || "Abra a aba Follow-ups para ver.",
   };
 }

@@ -7,6 +7,7 @@ import {
   fraseReserva,
   FRASES_RESERVA,
   nomeDaPessoa,
+  nomesDaEquipe,
   padraoFaria,
   pendenteAntiga,
   quandoParaIso,
@@ -209,4 +210,19 @@ test("nome no recado: só o nome do cadastro, nunca o e-mail; sem nome, sem nome
   );
   assert.equal(comNome("Bora fazer acontecer hoje, {nome}!", ""), "Bora fazer acontecer hoje!");
   for (const f of FRASES_RESERVA) assert.doesNotMatch(comNome(f, ""), /\{nome\}|^,|\s,/);
+});
+
+test("equipe única: nomes no recado e push para a equipe", () => {
+  assert.equal(nomesDaEquipe(["Maria", "Carol"]), "Maria e Carol");
+  assert.equal(nomesDaEquipe(["Ana", "Bia", "Carol", "Bia"]), "Ana, Bia e Carol");
+  assert.equal(nomesDaEquipe(["Maria", ""]), "Maria");
+  assert.equal(nomesDaEquipe([]), "");
+  assert.equal(
+    comNome("Bom dia, {nome}! Bora vender 💙", nomesDaEquipe(["Maria", "Carol"])),
+    "Bom dia, Maria e Carol! Bora vender 💙",
+  );
+  assert.equal(
+    textoPushTarefas(5, null, true).titulo,
+    "A Tatiana separou 5 tarefas pra equipe hoje",
+  );
 });

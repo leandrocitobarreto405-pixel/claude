@@ -18,6 +18,7 @@ import {
   entraNaNoite,
   fraseReserva,
   nomeDaPessoa,
+  nomesDaEquipe,
   instrucoesDecisao,
   instrucoesRecado,
   padraoFaria,
@@ -59,6 +60,8 @@ const somarDias = (dia: string, n: number) =>
 type Config = {
   empresa_id: string;
   modo: "desligado" | "teste" | "ativo";
+  /** Equipe única: tarefas, acertos e recado são da equipe (sem separar por pessoa). */
+  equipe_unica?: boolean;
   teto_mensal_usd: number | string;
   hora_noite: string;
   alerta_teto_mes: string | null;
@@ -489,6 +492,10 @@ type ContextoNoite = {
   pixPct: number | null;
   motivos: Array<{ id: string; nome: string }>;
   pessoas: PessoaEquipe[];
+  /** Equipe única: sem dono por pessoa (tarefas e acertos da equipe, um recado só). */
+  equipeUnica: boolean;
+  /** Vendedoras ativas com login (sem a IA): os nomes do recado da equipe. */
+  nomesAtendentes: string[];
   amanha: string;
 };
 
@@ -499,7 +506,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
   const [{ entrada }, est, dono] = await Promise.all([
     entradaDoLead(db, emp, leadId),
     estadoDoLead(db, emp, leadId),
-    donoDoLead(db, emp, leadId, ctx.pessoas),
+    ctx.equipeUnica ? Promise.resolve(null) : donoDoLead(db, emp, leadId, ctx.pessoas),
   ]);
   const fatos = calcularFatos(entrada);
   let conversa = conversaEmTexto(entrada.mensagens);
@@ -552,7 +559,9 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     };
     const porTipo = { ...(r.porTipo ?? {}) };
     const porPessoa = { ...(r.porPessoa ?? {}) };
-    const nomeDono = ctx.pessoas.find((p) => p.userId === dono)?.nome || "(sem dono)";
+    const nomeDono = ctx.equipeUnica
+      ? "Equipe"
+      : ctx.pessoas.find((p) => p.userId === dono)?.nome || "(sem dono)";
     for (const a of acertos) {
       porTipo[a.tipo] = (porTipo[a.tipo] ?? 0) + 1;
       porPessoa[nomeDono] = (porPessoa[nomeDono] ?? 0) + 1;
@@ -763,12 +772,40 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
   const cs = (cobr ?? []) as Array<{ user_id: string | null }>;
   const rs = (recentes ?? []) as Array<{ user_id: string; frase: string }>;
   let custo = 0;
-  for (const [i, p] of ctx.pessoas.entries()) {
-    const minhas = p.papel === "admin" ? ts : ts.filter((t) => t.assigned_to === p.userId);
-    const meusAcertos =
-      p.papel === "admin" ? cs.length : cs.filter((c) => c.user_id === p.userId).length;
-    const nome = p.nome;
-    const jaDisse = rs.filter((r) => r.user_id === p.userId).map((r) => r.frase);
+  // Equipe única: um recado só para a equipe (com os nomes das atendentes), gravado para todos.
+  const grupos: Array<{
+    para: PessoaEquipe[];
+    nome: string;
+    admin: boolean;
+    minhas: typeof ts;
+    acertos: number;
+    jaDisse: string[];
+  }> = ctx.equipeUnica
+    ? [
+        {
+          para: ctx.pessoas,
+          nome: nomesDaEquipe(
+            ctx.nomesAtendentes.length
+              ? ctx.nomesAtendentes
+              : ctx.pessoas.filter((p) => p.papel === "atendente").map((p) => p.nome),
+          ),
+          admin: false,
+          minhas: ts,
+          acertos: cs.length,
+          jaDisse: [...new Set(rs.map((r) => r.frase))],
+        },
+      ]
+    : ctx.pessoas.map((p) => ({
+        para: [p],
+        nome: p.nome,
+        admin: p.papel === "admin",
+        minhas: p.papel === "admin" ? ts : ts.filter((t) => t.assigned_to === p.userId),
+        acertos: p.papel === "admin" ? cs.length : cs.filter((c) => c.user_id === p.userId).length,
+        jaDisse: rs.filter((r) => r.user_id === p.userId).map((r) => r.frase),
+      }));
+  for (const [i, g] of grupos.entries()) {
+    const { minhas, nome, jaDisse } = g;
+    const meusAcertos = g.acertos;
     const fallback = {
       frase: fraseReserva(nome, jaDisse, Date.parse(`${dia}T12:00:00Z`) / 86_400_000 + i),
       resumo:
@@ -793,7 +830,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
           {
             role: "user",
             content: [
-              `Pessoa: ${nome || "(sem nome)"}${p.papel === "admin" ? " (dona/admin: vê a equipe toda)" : ""}.`,
+              `Pessoa: ${nome || "(sem nome)"}${g.admin ? " (dona/admin: vê a equipe toda)" : ""}${ctx.equipeUnica ? " (equipe única: o recado é para todas)" : ""}.`,
               `Tarefas de hoje: ${minhas.length}. Principais: ${
                 minhas
                   .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
@@ -822,12 +859,13 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     } catch {
       // Fica a frase de reserva.
     }
-    await db
-      .from("comercial_recados")
-      .upsert(
-        { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo: recado.resumo },
-        { onConflict: "empresa_id,user_id,dia" },
-      );
+    for (const p of g.para)
+      await db
+        .from("comercial_recados")
+        .upsert(
+          { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo: recado.resumo },
+          { onConflict: "empresa_id,user_id,dia" },
+        );
   }
   return custo;
 }
@@ -870,11 +908,21 @@ async function gastoDoMes(db: Db, empresaId: string, agora: Date): Promise<numbe
 
 async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
   const { contextoDaEmpresa } = await import("./analise.server");
-  const [ctx, { data: ia }, pessoas] = await Promise.all([
+  const [ctx, { data: ia }, pessoas, { data: cfg }] = await Promise.all([
     contextoDaEmpresa(db, noite.empresa_id),
     db.from("ia_configuracoes").select("ativo").eq("empresa_id", noite.empresa_id).maybeSingle(),
     pessoasDaEmpresa(db, noite.empresa_id),
+    db
+      .from("comercial_configuracoes")
+      .select("equipe_unica")
+      .eq("empresa_id", noite.empresa_id)
+      .maybeSingle(),
   ]);
+  const { data: vendedoras } = await db
+    .from("salespeople")
+    .select("name, user_id, eh_ia")
+    .eq("empresa_id", noite.empresa_id)
+    .eq("active", true);
   const temAlice = Boolean((ia as { ativo?: boolean } | null)?.ativo);
   return {
     noite,
@@ -882,6 +930,12 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
     pixPct: ctx.pixPct,
     motivos: ctx.motivos,
     pessoas,
+    equipeUnica: Boolean((cfg as { equipe_unica?: boolean } | null)?.equipe_unica),
+    nomesAtendentes: (
+      (vendedoras ?? []) as Array<{ name: string; user_id: string | null; eh_ia: boolean | null }>
+    )
+      .filter((v) => v.user_id && !v.eh_ia)
+      .map((v) => nomeDaPessoa(v.name)),
     amanha: somarDias(noite.noite, 1),
     sistema: instrucoesDecisao({
       empresa: ctx.empresaNome,
@@ -985,7 +1039,7 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     .limit(2);
   const { data: cfgs } = await db
     .from("comercial_configuracoes")
-    .select("empresa_id, modo, teto_mensal_usd, hora_noite, alerta_teto_mes")
+    .select("empresa_id, modo, equipe_unica, teto_mensal_usd, hora_noite, alerta_teto_mes")
     .eq("ligado", true);
   const configs = (cfgs ?? []) as Config[];
   for (const n of (andamento ?? []) as Noite[]) {
@@ -1109,8 +1163,9 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
         .eq("dia", hoje);
       for (const p of pessoas) {
         if (!querReceber("tatiana_tarefas", p.papel, p.pref)) continue;
+        // Equipe única: as atendentes recebem o total da equipe.
         const n =
-          p.papel === "admin"
+          p.papel === "admin" || cfg.equipe_unica
             ? lista.length
             : lista.filter((t) => t.assigned_to === p.userId).length;
         if (!n) continue;
@@ -1118,7 +1173,7 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
           ((recs ?? []) as Array<{ user_id: string; frase: string }>).find(
             (r) => r.user_id === p.userId,
           )?.frase ?? null;
-        const t = textoPushTarefas(n, frase);
+        const t = textoPushTarefas(n, frase, Boolean(cfg.equipe_unica) && p.papel !== "admin");
         const id = await registrarUmaVez(
           db as never,
           emp,

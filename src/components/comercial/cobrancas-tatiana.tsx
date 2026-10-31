@@ -84,7 +84,7 @@ export function CobrancasTatiana({ dados }: { dados?: PainelCobrancas }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <Card className="min-w-0">
-        <h2 className="font-bold">Semana por pessoa</h2>
+        <h2 className="font-bold">{d.equipeUnica ? "Semana da equipe" : "Semana por pessoa"}</h2>
         <p className="text-xs text-muted-foreground">
           Últimos 7 dias, com a semana anterior entre parênteses. Tempos médios das conversas
           assumidas na semana.
@@ -125,16 +125,18 @@ export function CobrancasTatiana({ dados }: { dados?: PainelCobrancas }) {
       </Card>
 
       <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
-        <Seletor
-          rotulo="Pessoa"
-          valor={pessoa}
-          onChange={setPessoa}
-          opcoes={[
-            { id: "todas", rotulo: "Todas" },
-            ...pessoas.map(([id, nome]) => ({ id, rotulo: nome })),
-            { id: "sem", rotulo: "Sem dono" },
-          ]}
-        />
+        {d.equipeUnica ? null : (
+          <Seletor
+            rotulo="Pessoa"
+            valor={pessoa}
+            onChange={setPessoa}
+            opcoes={[
+              { id: "todas", rotulo: "Todas" },
+              ...pessoas.map(([id, nome]) => ({ id, rotulo: nome })),
+              { id: "sem", rotulo: "Sem dono" },
+            ]}
+          />
+        )}
         <Seletor
           rotulo="Tipo"
           valor={tipo}
@@ -189,7 +191,10 @@ export function CobrancasTatiana({ dados }: { dados?: PainelCobrancas }) {
                   </div>
                   <p>{l.texto}</p>
                   <p className="text-xs text-muted-foreground">
-                    {dateTimeBR(l.criadaEm)} · {l.pessoa ?? "Sem dono"} ·{" "}
+                    {dateTimeBR(l.criadaEm)} · {d.equipeUnica ? "Equipe" : (l.pessoa ?? "Sem dono")}
+                    {l.resolvidaPor
+                      ? ` · resolvida por ${l.resolvidaPor.split(" ")[0]}`
+                      : ""} ·{" "}
                     <Link
                       to="/crm/lead/$leadId"
                       params={{ leadId: l.leadId }}

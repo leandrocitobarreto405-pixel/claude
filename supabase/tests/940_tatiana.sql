@@ -101,6 +101,27 @@ RESET ROLE;
 SELECT pg_temp.ok((SELECT situacao = 'resolvida' FROM public.comercial_cobrancas WHERE tipo = 'cadastro' AND empresa_id = :'E'),
                   'admin resolve');
 
+-- 3b. Equipe única: acerto da equipe (sem pessoa) aparece e é resolvido por qualquer atendente.
+INSERT INTO public.comercial_configuracoes (empresa_id, ligado, equipe_unica) VALUES (:'E', true, false)
+ON CONFLICT (empresa_id) DO UPDATE SET equipe_unica = false;
+INSERT INTO public.comercial_cobrancas (empresa_id, crm_lead_id, user_id, tipo, texto)
+VALUES (:'E', :'L1', NULL, 'pagamento', 'Pagamento não lançado');
+SELECT pg_temp.como('carol@p940.test', :'E');
+SET ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_cobrancas WHERE tipo = 'pagamento') = 0,
+                  'sem equipe única, acerto sem dono só o admin vê');
+RESET ROLE;
+UPDATE public.comercial_configuracoes SET equipe_unica = true WHERE empresa_id = :'E';
+SELECT pg_temp.como('carol@p940.test', :'E');
+SET ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_cobrancas WHERE tipo = 'pagamento') = 1,
+                  'equipe única: a atendente vê o acerto da equipe');
+SELECT public.comercial_resolver_cobranca((SELECT id FROM public.comercial_cobrancas WHERE tipo = 'pagamento'), 'resolvida');
+RESET ROLE;
+SELECT pg_temp.ok((SELECT situacao = 'resolvida' AND resolvida_por = (SELECT id FROM auth.users WHERE email = 'carol@p940.test')
+                     FROM public.comercial_cobrancas WHERE tipo = 'pagamento' AND empresa_id = :'E'),
+                  'equipe única: quem resolveu fica gravado');
+
 -- 4. Tarefa da Tatiana (trilha G) em crm_followups.
 INSERT INTO public.crm_followups (empresa_id, crm_lead_id, scheduled_at, status, responsavel, trilha, etapa, origem, mensagem, motivo, prioridade)
 VALUES (:'E', :'L2', now() + interval '12 hours', 'Pendente', 'equipe', 'G', 'G1', 'gerente', 'Oi! Separei um horário…', 'pediu desconto', 1);
