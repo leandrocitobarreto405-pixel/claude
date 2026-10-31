@@ -31,6 +31,12 @@ async function nomesDaEmpresa(empresaId: string): Promise<Map<string, string>> {
   return new Map(ps.map((p) => [p.userId, p.nome || "Sem nome"]));
 }
 
+/** Nome para o detalhe "resolvida por" (sem nome no cadastro: não mostra). */
+function nomeOuNada(nomes: Map<string, string>, id: string | null): string | null {
+  const n = id ? nomes.get(id) : undefined;
+  return n && n !== "Sem nome" ? n : null;
+}
+
 const fimDeHojeSP = () => {
   const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   return { hoje, fim: new Date(`${hoje}T23:59:59-03:00`).toISOString() };
@@ -82,6 +88,8 @@ export type Acerto = {
 export type HojeTatiana = {
   modo: "desligado" | "teste" | "ativo";
   admin: boolean;
+  /** Equipe única: lista e recado da equipe, sem separar por pessoa. */
+  equipeUnica: boolean;
   recado: { frase: string; resumo: string | null } | null;
   tarefas: TarefaHoje[];
   alice: TarefaAlice[];
@@ -103,14 +111,22 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     const adm = supabaseAdmin as unknown as Db;
     const { data: cfg } = await adm
       .from("comercial_configuracoes")
-      .select("ligado, modo")
+      .select("ligado, modo, equipe_unica")
       .eq("empresa_id", emp)
       .maybeSingle();
-    const c = cfg as { ligado: boolean; modo: HojeTatiana["modo"] } | null;
+    const c = cfg as {
+      ligado: boolean;
+      modo: HojeTatiana["modo"];
+      equipe_unica: boolean | null;
+    } | null;
     const modo: HojeTatiana["modo"] = c?.ligado ? c.modo : "desligado";
+    const equipeUnica = Boolean(c?.equipe_unica);
+    // Equipe única: a atendente vê a lista inteira da equipe (como o admin).
+    const veTudo = admin || equipeUnica;
     const vazio: HojeTatiana = {
       modo,
       admin,
+      equipeUnica,
       recado: null,
       tarefas: [],
       alice: [],
@@ -131,7 +147,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       .order("prioridade", { ascending: true, nullsFirst: false })
       .order("scheduled_at")
       .limit(200);
-    if (!admin) qTarefas = qTarefas.eq("assigned_to", eu);
+    if (!veTudo) qTarefas = qTarefas.eq("assigned_to", eu);
     const [{ data: recado }, { data: tarefas }, { data: cobr }, { data: noite }] =
       await Promise.all([
         db
@@ -147,6 +163,8 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
           .select("id, tipo, texto, crm_lead_id, user_id, anuncio, criada_em")
           .eq("empresa_id", emp)
           .eq("situacao", "pendente")
+          // Lista da equipe: só os acertos escolhidos pela noite (até 10 por dia).
+          .eq("visivel_equipe", true)
           .order("criada_em", { ascending: false })
           .limit(200),
         admin
@@ -180,7 +198,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
         anuncio: boolean;
         criada_em: string;
       }>
-    ).filter((x) => admin || x.user_id === eu);
+    ).filter((x) => veTudo || x.user_id === eu);
     let alice: Array<{
       crm_lead_id: string;
       quando: string | null;
@@ -255,6 +273,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     return {
       modo,
       admin,
+      equipeUnica,
       recado: recado as HojeTatiana["recado"],
       tarefas: ts.map((t) => ({
         id: t.id,
@@ -267,7 +286,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
         motivo: t.motivo,
         mensagem: t.mensagem,
         responsavelId: t.assigned_to,
-        responsavelNome: t.assigned_to ? (nomes.get(t.assigned_to) ?? null) : null,
+        responsavelNome: !equipeUnica && t.assigned_to ? (nomes.get(t.assigned_to) ?? null) : null,
         dentroDaJanela: Boolean(t.conversa_id && janela.has(t.conversa_id)),
       })),
       alice: alice.map((a) => ({
@@ -293,12 +312,13 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
           leadNome: l?.lead_name || "Cliente",
           telefoneFinal: l?.normalized_phone ? l.normalized_phone.slice(-4) : null,
           osNumero: l?.linked_work_order_id ? (numeroOs.get(l.linked_work_order_id) ?? null) : null,
-          responsavelNome: x.user_id ? (nomes.get(x.user_id) ?? null) : null,
+          responsavelNome: !equipeUnica && x.user_id ? (nomes.get(x.user_id) ?? null) : null,
           anuncio: x.anuncio,
           criadaEm: x.criada_em,
         };
       }),
-      pessoas: admin ? [...nomes.entries()].map(([id, nome]) => ({ id, nome })) : [],
+      pessoas:
+        admin && !equipeUnica ? [...nomes.entries()].map(([id, nome]) => ({ id, nome })) : [],
     };
   });
 
@@ -309,7 +329,12 @@ export const concluirTarefaFn = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as Db;
     const { error } = await db
       .from("crm_followups")
-      .update({ status: "Concluída", completed_at: new Date().toISOString(), result: "Feito" })
+      .update({
+        status: "Concluída",
+        completed_at: new Date().toISOString(),
+        result: "Feito",
+        concluida_por: context.userId as string,
+      })
       .eq("id", data.id)
       .eq("origem", "gerente")
       .eq("status", "Pendente");
@@ -330,7 +355,13 @@ export const pularTarefaFn = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as Db;
     const { error } = await db
       .from("crm_followups")
-      .update({ status: "Cancelada", pulado_motivo: data.motivo, result: "Pulada" })
+      .update({
+        status: "Cancelada",
+        pulado_motivo: data.motivo,
+        result: "Pulada",
+        completed_at: new Date().toISOString(),
+        concluida_por: context.userId as string,
+      })
       .eq("id", data.id)
       .eq("origem", "gerente")
       .eq("status", "Pendente");
@@ -404,7 +435,16 @@ export const contagemTatianaFn = createServerFn({ method: "GET" })
       .eq("origem", "gerente")
       .eq("status", "Pendente")
       .lte("scheduled_at", fim);
-    if (!admin) q = q.eq("assigned_to", context.userId as string);
+    if (!admin) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: cfg } = await (supabaseAdmin as unknown as Db)
+        .from("comercial_configuracoes")
+        .select("equipe_unica")
+        .eq("empresa_id", context.empresaId as string)
+        .maybeSingle();
+      if (!(cfg as { equipe_unica?: boolean } | null)?.equipe_unica)
+        q = q.eq("assigned_to", context.userId as string);
+    }
     const [{ count: tarefas }, antigas] = await Promise.all([
       q,
       admin
@@ -433,6 +473,8 @@ export type LinhaCobranca = {
   telefoneFinal: string | null;
   situacao: "pendente" | "resolvida" | "ja_certo";
   horasParaResolver: number | null;
+  /** Quem resolveu (só detalhe da linha). */
+  resolvidaPor: string | null;
   motivo: string | null;
   anuncio: boolean;
 };
@@ -445,6 +487,8 @@ export type ResumoNoite = {
 };
 
 export type PainelCobrancas = {
+  /** Equipe única: totais da equipe, sem separar por pessoa. */
+  equipeUnica: boolean;
   linhas: LinhaCobranca[];
   semana: Array<{
     pessoa: string;
@@ -488,7 +532,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
       db
         .from("comercial_cobrancas")
         .select(
-          "id, criada_em, user_id, tipo, texto, crm_lead_id, situacao, resolvida_em, motivo, anuncio",
+          "id, criada_em, user_id, tipo, texto, crm_lead_id, situacao, resolvida_em, resolvida_por, motivo, anuncio",
         )
         .eq("empresa_id", emp)
         .gte("criada_em", desde)
@@ -502,7 +546,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         .limit(40),
       db
         .from("comercial_configuracoes")
-        .select("teto_mensal_usd")
+        .select("teto_mensal_usd, equipe_unica")
         .eq("empresa_id", emp)
         .maybeSingle(),
     ]);
@@ -515,9 +559,11 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
       crm_lead_id: string;
       situacao: LinhaCobranca["situacao"];
       resolvida_em: string | null;
+      resolvida_por: string | null;
       motivo: string | null;
       anuncio: boolean;
     }>;
+    const equipeUnica = Boolean((cfg as { equipe_unica?: boolean } | null)?.equipe_unica);
     const ns = (noites ?? []) as Array<{
       id: string;
       noite: string;
@@ -588,8 +634,10 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         }>
       ).map((p) => [p.id, p]),
     );
+    // Equipe única: os tempos médios são os da equipe toda (chave "").
+    const chaveTempo = (u: string) => (equipeUnica ? "" : u);
     for (const c of leadsSemana) {
-      const t = tempos.get(c.assumida_por!) ?? { resp: [], preco: [] };
+      const t = tempos.get(chaveTempo(c.assumida_por!)) ?? { resp: [], preco: [] };
       if (c.criada_em && c.primeira_resposta_em)
         t.resp.push((Date.parse(c.primeira_resposta_em) - Date.parse(c.criada_em)) / 60_000);
       const p = c.crm_lead_id ? precoDo.get(c.crm_lead_id) : null;
@@ -597,7 +645,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         t.preco.push(
           (Date.parse(p.orcamento_enviado_em) - Date.parse(p.primeira_mensagem_em)) / 60_000,
         );
-      tempos.set(c.assumida_por!, t);
+      tempos.set(chaveTempo(c.assumida_por!), t);
     }
     const media = (xs: number[]) =>
       xs.length
@@ -605,30 +653,32 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         : null;
     const semana = semanaPorPessoa(
       cs.map((c) => ({
-        userId: c.user_id,
+        userId: equipeUnica ? null : c.user_id,
         situacao: c.situacao,
         criadaEm: c.criada_em,
         resolvidaEm: c.resolvida_em,
       })),
     ).map((s) => ({
-      pessoa: s.userId ? (nomes.get(s.userId) ?? "Sem nome") : "Sem dono",
+      pessoa: equipeUnica ? "Equipe" : s.userId ? (nomes.get(s.userId) ?? "Sem nome") : "Sem dono",
       semana: s.semana,
       anterior: s.anterior,
       resolvidas: s.resolvidas,
       pendentes: s.pendentes,
       horasMedias: s.horasMedias,
-      primeiraRespostaMin: s.userId ? media(tempos.get(s.userId)?.resp ?? []) : null,
-      precoMin: s.userId ? media(tempos.get(s.userId)?.preco ?? []) : null,
+      primeiraRespostaMin:
+        equipeUnica || s.userId ? media(tempos.get(s.userId ?? "")?.resp ?? []) : null,
+      precoMin: equipeUnica || s.userId ? media(tempos.get(s.userId ?? "")?.preco ?? []) : null,
     }));
     const gastoMes = ns
       .filter((n) => n.noite.startsWith(mes))
       .reduce((s, n) => s + Number(n.custo_usd ?? 0), 0);
     return {
+      equipeUnica,
       linhas: cs.map((c) => ({
         id: c.id,
         criadaEm: c.criada_em,
-        pessoa: c.user_id ? (nomes.get(c.user_id) ?? "Sem nome") : null,
-        pessoaId: c.user_id,
+        pessoa: equipeUnica ? null : c.user_id ? (nomes.get(c.user_id) ?? "Sem nome") : null,
+        pessoaId: equipeUnica ? null : c.user_id,
         tipo: c.tipo,
         rotulo: COBRANCA[c.tipo].rotulo,
         texto: c.texto,
@@ -638,6 +688,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         horasParaResolver: c.resolvida_em
           ? Math.round((Date.parse(c.resolvida_em) - Date.parse(c.criada_em)) / 3_600_000)
           : null,
+        resolvidaPor: nomeOuNada(nomes, c.resolvida_por),
         motivo: c.motivo,
         anuncio: c.anuncio,
       })),

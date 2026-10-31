@@ -14,10 +14,16 @@ import {
   ESQUEMA_DECISAO,
   ESQUEMA_RECADO,
   NOME_GERENTE,
+  LIMITE_TAREFAS_DIA,
+  aplicarTravas,
+  cobrancasVisiveis,
   demorasDaEquipe,
+  desdeAUltimaPassada,
   entraNaNoite,
+  finalDoTelefone,
   fraseReserva,
   nomeDaPessoa,
+  nomesDaEquipe,
   instrucoesDecisao,
   instrucoesRecado,
   padraoFaria,
@@ -59,6 +65,8 @@ const somarDias = (dia: string, n: number) =>
 type Config = {
   empresa_id: string;
   modo: "desligado" | "teste" | "ativo";
+  /** Equipe única: tarefas, acertos e recado são da equipe (sem separar por pessoa). */
+  equipe_unica?: boolean;
   teto_mensal_usd: number | string;
   hora_noite: string;
   alerta_teto_mes: string | null;
@@ -179,72 +187,79 @@ async function donoDoLead(
 // ---------------------------------------------------------------- escopo da noite
 
 async function leadsDaNoite(db: Db, empresaId: string, agora: Date): Promise<string[]> {
-  const desde = new Date(agora.getTime() - 14 * 86_400_000).toISOString();
+  // Mensagem nova = do cliente, desde o começo da última passada (sem passada: últimas 24 h).
+  const { data: anterior } = await db
+    .from("comercial_noites")
+    .select("iniciada_em")
+    .eq("empresa_id", empresaId)
+    .neq("modo", "conferencia")
+    .order("iniciada_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const desde = desdeAUltimaPassada(
+    (anterior as { iniciada_em?: string } | null)?.iniciada_em ?? null,
+    agora,
+  );
   const ate2dias = new Date(agora.getTime() + 2 * 86_400_000).toISOString();
-  const [{ data: convs }, { data: toques }] = await Promise.all([
+  const [{ data: msgs }, { data: toques }, { data: orcs }] = await Promise.all([
     db
-      .from("conversas")
-      .select("crm_lead_id, ultima_atividade_em")
+      .from("whatsapp_messages")
+      .select("crm_lead_id")
       .eq("empresa_id", empresaId)
+      .eq("direction", "Recebida")
+      .eq("privada", false)
       .not("crm_lead_id", "is", null)
-      .gte("ultima_atividade_em", desde)
-      .limit(2000),
+      .gte("message_timestamp", desde)
+      .limit(5000),
+    // Toque marcado nos próximos 2 dias (os atrasados não contam).
     db
       .from("crm_followups")
       .select("crm_lead_id")
       .eq("empresa_id", empresaId)
       .eq("status", "Pendente")
+      .gte("scheduled_at", agora.toISOString())
       .lte("scheduled_at", ate2dias)
       .limit(2000),
+    db
+      .from("crm_leads")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .gte("orcamento_enviado_em", desde)
+      .limit(2000),
   ]);
-  const ultima = new Map<string, string>();
-  for (const c of (convs ?? []) as Array<{ crm_lead_id: string; ultima_atividade_em: string }>) {
-    const a = ultima.get(c.crm_lead_id);
-    if (!a || a < c.ultima_atividade_em) ultima.set(c.crm_lead_id, c.ultima_atividade_em);
-  }
+  const escreveu = new Set(
+    ((msgs ?? []) as Array<{ crm_lead_id: string }>).map((m) => m.crm_lead_id),
+  );
   const comToque = new Set(
     ((toques ?? []) as Array<{ crm_lead_id: string | null }>)
       .map((t) => t.crm_lead_id)
       .filter(Boolean) as string[],
   );
-  const ids = [...new Set([...ultima.keys(), ...comToque])];
+  const orcamentoNovo = new Set(((orcs ?? []) as Array<{ id: string }>).map((o) => o.id));
+  const ids = [...new Set([...escreveu, ...comToque, ...orcamentoNovo])];
   if (!ids.length) return [];
   const saida: string[] = [];
   for (let i = 0; i < ids.length; i += 200) {
     const parte = ids.slice(i, i + 200);
-    const [{ data: leads }, { data: decs }] = await Promise.all([
-      db
-        .from("crm_leads")
-        .select("id, is_open, perdido_em, orcamento_enviado_em, linked_work_order_id")
-        .eq("empresa_id", empresaId)
-        .in("id", parte),
-      db
-        .from("comercial_decisoes")
-        .select("crm_lead_id, criado_em")
-        .eq("empresa_id", empresaId)
-        .in("crm_lead_id", parte)
-        .order("criado_em", { ascending: false }),
-    ]);
-    const ultimaDecisao = new Map<string, string>();
-    for (const d of (decs ?? []) as Array<{ crm_lead_id: string; criado_em: string }>)
-      if (!ultimaDecisao.has(d.crm_lead_id)) ultimaDecisao.set(d.crm_lead_id, d.criado_em);
+    const { data: leads } = await db
+      .from("crm_leads")
+      .select("id, is_open, perdido_em, linked_work_order_id")
+      .eq("empresa_id", empresaId)
+      .in("id", parte);
     for (const l of (leads ?? []) as Array<{
       id: string;
       is_open: boolean | null;
       perdido_em: string | null;
-      orcamento_enviado_em: string | null;
       linked_work_order_id: string | null;
     }>) {
-      // Lead com OS também entra (acertos de visita e pagamento), se tiver mensagem nova.
+      // Lead com OS também entra (acertos de visita e pagamento), se tiver novidade.
       const aberto = !l.perdido_em && (l.is_open !== false || Boolean(l.linked_work_order_id));
       if (
         entraNaNoite({
           aberto,
-          temOrcamento: Boolean(l.orcamento_enviado_em) || Boolean(l.linked_work_order_id),
-          ultimaMensagem: ultima.get(l.id) ?? null,
-          ultimaDecisao: ultimaDecisao.get(l.id) ?? null,
+          clienteEscreveu: escreveu.has(l.id),
+          orcamentoNovo: orcamentoNovo.has(l.id),
           toqueEmAte2Dias: comToque.has(l.id),
-          agora,
         })
       )
         saida.push(l.id);
@@ -263,19 +278,39 @@ type EstadoLead = {
   anuncio: boolean;
   conversaId: string | null;
   pendente: { id: string; etapa: string | null; quando: string; responsavel: string } | null;
+  /** Travas da tarefa (31/10). */
+  travas: { retornoCombinado: boolean; toqueMarcado: boolean; campanha30Dias: boolean };
+  /** OS com visita marcada e o cliente sem endereço ou CEP (única cobrança de cadastro que vale). */
+  osSemEndereco: boolean;
+  /** Última mensagem do cliente (acertos só de conversa dos últimos 7 dias). */
+  ultimaDoCliente: string | null;
 };
 
 async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<EstadoLead> {
   const { data: l } = await db
     .from("crm_leads")
     .select(
-      "id, lead_name, is_open, perdido_em, customer_id, linked_work_order_id, gclid, gbraid, lp_origem, source_type, orcamento_enviado_em, orcamento_origem, retorno_combinado_em",
+      "id, lead_name, phone, normalized_phone, is_open, perdido_em, customer_id, linked_work_order_id, gclid, gbraid, lp_origem, source_type, orcamento_enviado_em, orcamento_origem, retorno_combinado_em",
     )
     .eq("id", leadId)
     .eq("empresa_id", empresaId)
     .maybeSingle();
   const lead = (l ?? {}) as Record<string, string | boolean | null>;
   const os = lead["linked_work_order_id"] as string | null;
+  // Cliente: o do lead ou, sem ele, o da OS (o cadastro nasce do orçamento ao virar OS).
+  let clienteId = (lead["customer_id"] as string | null) ?? null;
+  if (!clienteId && os) {
+    const { data: w } = await db
+      .from("work_orders")
+      .select("customer_id")
+      .eq("id", os)
+      .eq("empresa_id", empresaId)
+      .maybeSingle();
+    clienteId = (w as { customer_id?: string | null } | null)?.customer_id ?? null;
+  }
+  const fim = finalDoTelefone(
+    (lead["normalized_phone"] as string | null) ?? (lead["phone"] as string | null),
+  );
   const [
     { data: quotes },
     { data: visitas },
@@ -283,6 +318,9 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
     { data: cli },
     { data: fus },
     { data: conv },
+    { data: soltos },
+    { data: envios },
+    { data: ultimaCli },
   ] = await Promise.all([
     db
       .from("quotes")
@@ -305,21 +343,21 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
           .eq("work_order_id", os)
           .eq("is_active", true)
       : Promise.resolve({ data: [] }),
-    lead["customer_id"]
+    clienteId
       ? db
           .from("customers")
           .select("full_name, document_number, email, full_address, postal_code")
-          .eq("id", lead["customer_id"] as string)
+          .eq("id", clienteId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     db
       .from("crm_followups")
-      .select("id, etapa, scheduled_at, responsavel")
+      .select("id, etapa, scheduled_at, responsavel, trilha, origem")
       .eq("empresa_id", empresaId)
       .eq("crm_lead_id", leadId)
       .eq("status", "Pendente")
       .order("scheduled_at")
-      .limit(1),
+      .limit(10),
     db
       .from("conversas")
       .select("id")
@@ -328,7 +366,42 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
       .order("ultima_atividade_em", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
+    // Orçamento solto do mesmo telefone (sem lead), dos últimos 30 dias.
+    fim.length === 8
+      ? db
+          .from("quotes")
+          .select("cliente_telefone, created_at")
+          .eq("empresa_id", empresaId)
+          .is("crm_lead_id", null)
+          .ilike("cliente_telefone", `%${fim.slice(-4)}%`)
+          .gte("created_at", new Date(Date.now() - 30 * 86_400_000).toISOString())
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+    // Campanha ou promoção recebida nos últimos 30 dias (trava da tarefa).
+    fim.length === 8
+      ? db
+          .from("mkt_envios")
+          .select("normalized_phone, respondido_em")
+          .eq("empresa_id", empresaId)
+          .eq("status", "enviado")
+          .like("normalized_phone", `%${fim}`)
+          .gte("enviado_em", new Date(Date.now() - 30 * 86_400_000).toISOString())
+          .limit(5)
+      : Promise.resolve({ data: [] }),
+    db
+      .from("whatsapp_messages")
+      .select("message_timestamp")
+      .eq("empresa_id", empresaId)
+      .eq("crm_lead_id", leadId)
+      .eq("direction", "Recebida")
+      .eq("privada", false)
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+  const orcSoltos = (
+    (soltos ?? []) as Array<{ cliente_telefone: string | null; created_at: string }>
+  ).filter((q) => finalDoTelefone(q.cliente_telefone) === fim);
   const qs = (quotes ?? []) as Array<{
     numero: number | null;
     status: string;
@@ -343,17 +416,34 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
   }>;
   const ps = (pags ?? []) as Array<{ payment_status: string | null; gross_amount: number | null }>;
   const c = (cli ?? null) as Record<string, string | null> | null;
-  const f = (
-    (fus ?? []) as Array<{
-      id: string;
-      etapa: string | null;
-      scheduled_at: string;
-      responsavel: string;
-    }>
-  )[0];
+  const pendentes = (fus ?? []) as Array<{
+    id: string;
+    etapa: string | null;
+    scheduled_at: string;
+    responsavel: string;
+    trilha: string | null;
+    origem: string | null;
+  }>;
+  const f = pendentes[0];
+  const retorno = lead["retorno_combinado_em"] as string | null;
+  const travas = {
+    retornoCombinado:
+      (retorno !== null && Date.parse(retorno) > Date.now()) ||
+      pendentes.some((p) => p.trilha === "C"),
+    toqueMarcado: pendentes.some((p) => p.origem !== "gerente"),
+    campanha30Dias: ((envios ?? []) as Array<{ respondido_em: string | null }>).some(
+      (e) => !e.respondido_em,
+    ),
+  };
+  const visitaMarcada = vs.some((v) => v.scheduled_date && v.status !== "Concluído");
+  const osSemEndereco =
+    Boolean(os) && visitaMarcada && !(c?.["full_address"] && c?.["postal_code"]);
   const linhas = [
     `Lead: ${lead["is_open"] === false ? "fechado" : "em aberto"}${lead["perdido_em"] ? " (perdido)" : ""}.`,
     `Orçamentos no app: ${qs.length ? qs.map((q) => `nº ${q.numero ?? "?"} ${q.status} R$ ${q.total ?? "?"} (${q.created_at.slice(0, 10)})`).join("; ") : "nenhum"}.`,
+    orcSoltos.length
+      ? `Orçamento solto no app com o mesmo telefone (sem ligação com o lead): ${orcSoltos.length}.`
+      : null,
     `Orçamento enviado marcado: ${lead["orcamento_enviado_em"] ? `sim (${lead["orcamento_origem"] ?? "app"})` : "não"}.`,
     `OS: ${os ? "sim" : "não"}.`,
     os
@@ -387,14 +477,18 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
   return {
     texto: linhas.join("\n"),
     estado: {
-      orcamentos: qs.map((q) => ({ criadoEm: q.created_at })),
+      orcamentos: [
+        ...qs.map((q) => ({ criadoEm: q.created_at })),
+        ...orcSoltos.map((q) => ({ criadoEm: q.created_at })),
+      ],
       temOs: Boolean(os),
       visitas: vs.map((v) => ({
         data: v.scheduled_date,
         status: v.status,
         atualizadaEm: v.updated_at,
       })),
-      pagamentoLancado: ps.some((p) => p.payment_status === "Pago"),
+      // Qualquer pagamento ativo lançado na OS conta (pago, a receber ou parcial).
+      pagamentoLancado: ps.length > 0,
     },
     temOs: Boolean(os),
     aberto: lead["is_open"] !== false && !lead["perdido_em"],
@@ -403,6 +497,10 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
     pendente: f
       ? { id: f.id, etapa: f.etapa, quando: f.scheduled_at, responsavel: f.responsavel }
       : null,
+    travas,
+    osSemEndereco,
+    ultimaDoCliente:
+      (ultimaCli as { message_timestamp?: string } | null)?.message_timestamp ?? null,
   };
 }
 
@@ -489,6 +587,10 @@ type ContextoNoite = {
   pixPct: number | null;
   motivos: Array<{ id: string; nome: string }>;
   pessoas: PessoaEquipe[];
+  /** Equipe única: sem dono por pessoa (tarefas e acertos da equipe, um recado só). */
+  equipeUnica: boolean;
+  /** Vendedoras ativas com login (sem a IA): os nomes do recado da equipe. */
+  nomesAtendentes: string[];
   amanha: string;
 };
 
@@ -499,7 +601,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
   const [{ entrada }, est, dono] = await Promise.all([
     entradaDoLead(db, emp, leadId),
     estadoDoLead(db, emp, leadId),
-    donoDoLead(db, emp, leadId, ctx.pessoas),
+    ctx.equipeUnica ? Promise.resolve(null) : donoDoLead(db, emp, leadId, ctx.pessoas),
   ]);
   const fatos = calcularFatos(entrada);
   let conversa = conversaEmTexto(entrada.mensagens);
@@ -531,15 +633,30 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         anuncio: est.anuncio,
       })
     : [];
+  // Acertos (31/10): só de conversa com o cliente nos últimos 7 dias; cadastro só o do sistema (OS
+  // agendada sem endereço ou CEP); pagamento só com OS; o que o app já mostra certo não entra.
+  const conversaRecente =
+    est.ultimaDoCliente !== null && Date.now() - Date.parse(est.ultimaDoCliente) <= 7 * 86_400_000;
   const acertos: Array<{ tipo: TipoCobranca; texto: string; dados: Record<string, unknown> }> = [
-    ...decisao.acertos
+    ...(conversaRecente ? decisao.acertos : [])
+      .filter((a) => a.tipo !== "cadastro")
       .filter((a) => !(a.tipo === "orcamento_sem_app" && est.estado.orcamentos.length))
       .filter((a) => !(a.tipo === "fechou_sem_os" && est.temOs))
+      .filter((a) => !(a.tipo === "pagamento" && (!est.temOs || est.estado.pagamentoLancado)))
       .map((a) => ({
         tipo: a.tipo as TipoCobranca,
         texto: a.texto.slice(0, 400),
-        dados: { itens: a.itens, cadastro: a.cadastro },
+        dados: { itens: a.itens, prioridade: decisao.prioridade },
       })),
+    ...(est.osSemEndereco
+      ? [
+          {
+            tipo: "cadastro" as TipoCobranca,
+            texto: "A visita está marcada e o cadastro do cliente está sem endereço ou CEP.",
+            dados: { prioridade: decisao.prioridade },
+          },
+        ]
+      : []),
     ...demoras.map((d) => ({ tipo: d.tipo as TipoCobranca, texto: d.texto, dados: {} })),
   ];
 
@@ -552,7 +669,9 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     };
     const porTipo = { ...(r.porTipo ?? {}) };
     const porPessoa = { ...(r.porPessoa ?? {}) };
-    const nomeDono = ctx.pessoas.find((p) => p.userId === dono)?.nome || "(sem dono)";
+    const nomeDono = ctx.equipeUnica
+      ? "Equipe"
+      : ctx.pessoas.find((p) => p.userId === dono)?.nome || "(sem dono)";
     for (const a of acertos) {
       porTipo[a.tipo] = (porTipo[a.tipo] ?? 0) + 1;
       porPessoa[nomeDono] = (porPessoa[nomeDono] ?? 0) + 1;
@@ -565,6 +684,24 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
 
   // Lead fechado (OS) ou perdido: só os acertos; a ação fica "esperar".
   if (!est.aberto && decisao.acao !== "esperar") decisao.acao = "esperar";
+  // Travas (31/10): tarefa só para as caixinhas 2 a 5, sem retorno combinado, sem outro toque
+  // marcado e sem campanha nos últimos 30 dias; caixinha 6 vai para a campanha da semana.
+  const travado = aplicarTravas({ caixinha: decisao.caixinha, acao: decisao.acao }, est.travas);
+  decisao.acao = travado.acao;
+  if (travado.trava) decisao.motivo = `${travado.trava} · ${decisao.motivo}`;
+  {
+    const r = (noite.resumo ?? {}) as {
+      travas?: Record<string, number>;
+      campanhaDaSemana?: number;
+    };
+    const travas = { ...(r.travas ?? {}) };
+    if (travado.trava) travas[travado.trava] = (travas[travado.trava] ?? 0) + 1;
+    noite.resumo = {
+      ...r,
+      travas,
+      campanhaDaSemana: (r.campanhaDaSemana ?? 0) + (travado.campanhaDaSemana ? 1 : 0),
+    };
+  }
   const responsavel: "alice" | "equipe" =
     !ctx.temAlice || decisao.negociacao ? "equipe" : decisao.responsavel;
   let mensagem = decisao.mensagem.trim();
@@ -706,7 +843,18 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         .update({ situacao: "resolvida", resolvida_em: new Date().toISOString() })
         .eq("id", p.id);
   }
+  // Uma por lead e tipo: se já houve uma do mesmo tipo nos últimos 7 dias (qualquer situação), não
+  // cria outra. Nasce fora da lista da equipe; no fim da noite as mais importantes entram.
+  const { data: recentes } = await db
+    .from("comercial_cobrancas")
+    .select("tipo")
+    .eq("empresa_id", emp)
+    .eq("crm_lead_id", leadId)
+    .gte("criada_em", new Date(Date.now() - 7 * 86_400_000).toISOString());
+  const jaTem = new Set(((recentes ?? []) as Array<{ tipo: string }>).map((r) => r.tipo));
   for (const a of acertos) {
+    if (jaTem.has(a.tipo)) continue;
+    jaTem.add(a.tipo);
     const { error } = await db.from("comercial_cobrancas").insert({
       empresa_id: emp,
       noite_id: noite.id,
@@ -717,6 +865,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       texto: a.texto,
       dados: a.dados,
       anuncio: est.anuncio,
+      visivel_equipe: false,
     });
     // Já existe uma pendente do mesmo tipo para o lead: fica a que está.
     if (error && error.code !== "23505") throw new Error(`cobrança: ${error.message}`);
@@ -763,12 +912,40 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
   const cs = (cobr ?? []) as Array<{ user_id: string | null }>;
   const rs = (recentes ?? []) as Array<{ user_id: string; frase: string }>;
   let custo = 0;
-  for (const [i, p] of ctx.pessoas.entries()) {
-    const minhas = p.papel === "admin" ? ts : ts.filter((t) => t.assigned_to === p.userId);
-    const meusAcertos =
-      p.papel === "admin" ? cs.length : cs.filter((c) => c.user_id === p.userId).length;
-    const nome = p.nome;
-    const jaDisse = rs.filter((r) => r.user_id === p.userId).map((r) => r.frase);
+  // Equipe única: um recado só para a equipe (com os nomes das atendentes), gravado para todos.
+  const grupos: Array<{
+    para: PessoaEquipe[];
+    nome: string;
+    admin: boolean;
+    minhas: typeof ts;
+    acertos: number;
+    jaDisse: string[];
+  }> = ctx.equipeUnica
+    ? [
+        {
+          para: ctx.pessoas,
+          nome: nomesDaEquipe(
+            ctx.nomesAtendentes.length
+              ? ctx.nomesAtendentes
+              : ctx.pessoas.filter((p) => p.papel === "atendente").map((p) => p.nome),
+          ),
+          admin: false,
+          minhas: ts,
+          acertos: cs.length,
+          jaDisse: [...new Set(rs.map((r) => r.frase))],
+        },
+      ]
+    : ctx.pessoas.map((p) => ({
+        para: [p],
+        nome: p.nome,
+        admin: p.papel === "admin",
+        minhas: p.papel === "admin" ? ts : ts.filter((t) => t.assigned_to === p.userId),
+        acertos: p.papel === "admin" ? cs.length : cs.filter((c) => c.user_id === p.userId).length,
+        jaDisse: rs.filter((r) => r.user_id === p.userId).map((r) => r.frase),
+      }));
+  for (const [i, g] of grupos.entries()) {
+    const { minhas, nome, jaDisse } = g;
+    const meusAcertos = g.acertos;
     const fallback = {
       frase: fraseReserva(nome, jaDisse, Date.parse(`${dia}T12:00:00Z`) / 86_400_000 + i),
       resumo:
@@ -793,7 +970,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
           {
             role: "user",
             content: [
-              `Pessoa: ${nome || "(sem nome)"}${p.papel === "admin" ? " (dona/admin: vê a equipe toda)" : ""}.`,
+              `Pessoa: ${nome || "(sem nome)"}${g.admin ? " (dona/admin: vê a equipe toda)" : ""}${ctx.equipeUnica ? " (equipe única: o recado é para todas)" : ""}.`,
               `Tarefas de hoje: ${minhas.length}. Principais: ${
                 minhas
                   .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
@@ -822,12 +999,13 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     } catch {
       // Fica a frase de reserva.
     }
-    await db
-      .from("comercial_recados")
-      .upsert(
-        { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo: recado.resumo },
-        { onConflict: "empresa_id,user_id,dia" },
-      );
+    for (const p of g.para)
+      await db
+        .from("comercial_recados")
+        .upsert(
+          { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo: recado.resumo },
+          { onConflict: "empresa_id,user_id,dia" },
+        );
   }
   return custo;
 }
@@ -870,11 +1048,21 @@ async function gastoDoMes(db: Db, empresaId: string, agora: Date): Promise<numbe
 
 async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
   const { contextoDaEmpresa } = await import("./analise.server");
-  const [ctx, { data: ia }, pessoas] = await Promise.all([
+  const [ctx, { data: ia }, pessoas, { data: cfg }] = await Promise.all([
     contextoDaEmpresa(db, noite.empresa_id),
     db.from("ia_configuracoes").select("ativo").eq("empresa_id", noite.empresa_id).maybeSingle(),
     pessoasDaEmpresa(db, noite.empresa_id),
+    db
+      .from("comercial_configuracoes")
+      .select("equipe_unica")
+      .eq("empresa_id", noite.empresa_id)
+      .maybeSingle(),
   ]);
+  const { data: vendedoras } = await db
+    .from("salespeople")
+    .select("name, user_id, eh_ia")
+    .eq("empresa_id", noite.empresa_id)
+    .eq("active", true);
   const temAlice = Boolean((ia as { ativo?: boolean } | null)?.ativo);
   return {
     noite,
@@ -882,6 +1070,12 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
     pixPct: ctx.pixPct,
     motivos: ctx.motivos,
     pessoas,
+    equipeUnica: Boolean((cfg as { equipe_unica?: boolean } | null)?.equipe_unica),
+    nomesAtendentes: (
+      (vendedoras ?? []) as Array<{ name: string; user_id: string | null; eh_ia: boolean | null }>
+    )
+      .filter((v) => v.user_id && !v.eh_ia)
+      .map((v) => nomeDaPessoa(v.name)),
     amanha: somarDias(noite.noite, 1),
     sistema: instrucoesDecisao({
       empresa: ctx.empresaNome,
@@ -954,7 +1148,12 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
     await db.from("comercial_noites").update({ atualizada_em: null }).eq("id", noite.id);
     return { noite: noite.id, feitos, faltam: noite.leads.length - feitos };
   }
-  if (noite.modo !== "conferencia") custo += await escreverRecados(db, ctx).catch(() => 0);
+  if (noite.modo !== "conferencia") {
+    await limitesDaNoite(db, noite).catch((e) =>
+      console.error("Tatiana: limites da noite", e instanceof Error ? e.message : String(e)),
+    );
+    custo += await escreverRecados(db, ctx).catch(() => 0);
+  }
   await db
     .from("comercial_noites")
     .update({
@@ -965,6 +1164,74 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
     })
     .eq("id", noite.id);
   return { noite: noite.id, situacao: "concluida", custo };
+}
+
+/**
+ * Fim da noite (31/10): até LIMITE_TAREFAS_DIA tarefas novas por empresa (as de maior prioridade;
+ * as outras são canceladas e a decisão vira "esperar") e até 10 acertos novos na lista da equipe.
+ */
+async function limitesDaNoite(db: Db, noite: Noite) {
+  const { data: decs } = await db
+    .from("comercial_decisoes")
+    .select("id, followup_id, motivo")
+    .eq("noite_id", noite.id)
+    .not("followup_id", "is", null);
+  const ds = (decs ?? []) as Array<{ id: string; followup_id: string; motivo: string | null }>;
+  const prioridade = new Map<string, number>();
+  for (let i = 0; i < ds.length; i += 200) {
+    const { data: fus } = await db
+      .from("crm_followups")
+      .select("id, prioridade")
+      .in(
+        "id",
+        ds.slice(i, i + 200).map((d) => d.followup_id),
+      );
+    for (const f of (fus ?? []) as Array<{ id: string; prioridade: number | null }>)
+      prioridade.set(f.id, f.prioridade ?? 5);
+  }
+  const lista = [...ds].sort(
+    (a, b) => (prioridade.get(a.followup_id) ?? 5) - (prioridade.get(b.followup_id) ?? 5),
+  );
+  const sobra = lista.slice(LIMITE_TAREFAS_DIA);
+  if (sobra.length) {
+    await db
+      .from("crm_followups")
+      .update({ status: "Cancelada", notes: `${NOME_GERENTE}: limite do dia (esperar)` })
+      .in(
+        "id",
+        sobra.map((d) => d.followup_id),
+      )
+      .eq("status", "Pendente");
+    for (const d of sobra)
+      await db
+        .from("comercial_decisoes")
+        .update({
+          acao: "esperar",
+          executada: false,
+          followup_id: null,
+          motivo: `limite do dia · ${d.motivo ?? ""}`.slice(0, 300),
+        })
+        .eq("id", d.id);
+  }
+  const { data: novas } = await db
+    .from("comercial_cobrancas")
+    .select("id, tipo, dados")
+    .eq("noite_id", noite.id)
+    .eq("situacao", "pendente");
+  const visiveis = cobrancasVisiveis(
+    (
+      (novas ?? []) as Array<{ id: string; tipo: TipoCobranca; dados: { prioridade?: number } }>
+    ).map((c) => ({ id: c.id, tipo: c.tipo, prioridade: Number(c.dados?.prioridade ?? 5) })),
+  );
+  if (visiveis.length)
+    await db.from("comercial_cobrancas").update({ visivel_equipe: true }).in("id", visiveis);
+  noite.resumo = {
+    ...(noite.resumo ?? {}),
+    tarefasNoLimite: Math.min(lista.length, LIMITE_TAREFAS_DIA),
+    tarefasEsperar: sobra.length,
+    acertosNaLista: visiveis.length,
+    acertosSoNaAba: Math.max(0, (novas ?? []).length - visiveis.length),
+  };
 }
 
 /** Chamada pela varredura do servidor. */
@@ -985,7 +1252,7 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     .limit(2);
   const { data: cfgs } = await db
     .from("comercial_configuracoes")
-    .select("empresa_id, modo, teto_mensal_usd, hora_noite, alerta_teto_mes")
+    .select("empresa_id, modo, equipe_unica, teto_mensal_usd, hora_noite, alerta_teto_mes")
     .eq("ligado", true);
   const configs = (cfgs ?? []) as Config[];
   for (const n of (andamento ?? []) as Noite[]) {
@@ -1109,8 +1376,9 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
         .eq("dia", hoje);
       for (const p of pessoas) {
         if (!querReceber("tatiana_tarefas", p.papel, p.pref)) continue;
+        // Equipe única: as atendentes recebem o total da equipe.
         const n =
-          p.papel === "admin"
+          p.papel === "admin" || cfg.equipe_unica
             ? lista.length
             : lista.filter((t) => t.assigned_to === p.userId).length;
         if (!n) continue;
@@ -1118,7 +1386,7 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
           ((recs ?? []) as Array<{ user_id: string; frase: string }>).find(
             (r) => r.user_id === p.userId,
           )?.frase ?? null;
-        const t = textoPushTarefas(n, frase);
+        const t = textoPushTarefas(n, frase, Boolean(cfg.equipe_unica) && p.papel !== "admin");
         const id = await registrarUmaVez(
           db as never,
           emp,

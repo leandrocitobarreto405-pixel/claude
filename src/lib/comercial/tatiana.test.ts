@@ -1,12 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  LIMITE_TAREFAS_DIA,
+  aplicarTravas,
+  cobrancasVisiveis,
   comNome,
+  desdeAUltimaPassada,
+  finalDoTelefone,
   demorasDaEquipe,
   entraNaNoite,
   fraseReserva,
   FRASES_RESERVA,
   nomeDaPessoa,
+  nomesDaEquipe,
   padraoFaria,
   pendenteAntiga,
   quandoParaIso,
@@ -116,28 +122,73 @@ test("pushes: singular, plural e por empresa", () => {
   assert.match(c.titulo, /^Turbine/);
 });
 
-test("entraNaNoite: só lead aberto com novidade ou toque perto", () => {
-  const agora = new Date("2026-10-30T00:30:00Z");
+test("entraNaNoite: só lead aberto com mensagem nova do cliente, orçamento novo ou toque perto", () => {
   const base = {
     aberto: true,
-    temOrcamento: true,
-    ultimaMensagem: "2026-10-29T15:00:00Z",
-    ultimaDecisao: "2026-10-29T00:30:00Z",
+    clienteEscreveu: false,
+    orcamentoNovo: false,
     toqueEmAte2Dias: false,
-    agora,
   };
-  assert.equal(entraNaNoite(base), true);
-  assert.equal(entraNaNoite({ ...base, aberto: false }), false);
-  assert.equal(entraNaNoite({ ...base, ultimaDecisao: "2026-10-29T16:00:00Z" }), false);
+  assert.equal(entraNaNoite(base), false);
+  assert.equal(entraNaNoite({ ...base, clienteEscreveu: true }), true);
+  assert.equal(entraNaNoite({ ...base, orcamentoNovo: true }), true);
+  assert.equal(entraNaNoite({ ...base, toqueEmAte2Dias: true }), true);
+  assert.equal(entraNaNoite({ ...base, aberto: false, clienteEscreveu: true }), false);
+});
+
+test("desdeAUltimaPassada: última passada, 24 h sem ela, no máximo 3 dias", () => {
+  const agora = new Date("2026-10-31T00:30:00Z");
+  assert.equal(desdeAUltimaPassada(null, agora), "2026-10-30T00:30:00.000Z");
+  assert.equal(desdeAUltimaPassada("2026-10-30T00:30:05Z", agora), "2026-10-30T00:30:05.000Z");
+  assert.equal(desdeAUltimaPassada("2026-10-01T00:30:00Z", agora), "2026-10-28T00:30:00.000Z");
+});
+
+test("travas da noite: tarefa só para caixinhas 2 a 5 e sem outro toque, retorno ou campanha", () => {
+  const livre = { retornoCombinado: false, toqueMarcado: false, campanha30Dias: false };
+  assert.deepEqual(aplicarTravas({ caixinha: 2, acao: "chamar" }, livre), {
+    acao: "chamar",
+    trava: null,
+    campanhaDaSemana: false,
+  });
+  const seis = aplicarTravas({ caixinha: 6, acao: "chamar" }, livre);
+  assert.equal(seis.acao, "esperar");
+  assert.equal(seis.campanhaDaSemana, true);
+  assert.equal(aplicarTravas({ caixinha: 6, acao: "parar" }, livre).acao, "parar");
   assert.equal(
-    entraNaNoite({ ...base, ultimaDecisao: "2026-10-29T16:00:00Z", toqueEmAte2Dias: true }),
-    true,
+    aplicarTravas({ caixinha: 1, acao: "chamar" }, livre).trava,
+    "comprou: só pós-venda",
   );
-  // sem orçamento e conversa velha: fora
+  assert.equal(aplicarTravas({ caixinha: 7, acao: "agendar" }, livre).acao, "esperar");
   assert.equal(
-    entraNaNoite({ ...base, temOrcamento: false, ultimaMensagem: "2026-10-01T15:00:00Z" }),
-    false,
+    aplicarTravas({ caixinha: 3, acao: "agendar" }, { ...livre, retornoCombinado: true }).trava,
+    "retorno combinado",
   );
+  assert.equal(
+    aplicarTravas({ caixinha: 4, acao: "chamar" }, { ...livre, toqueMarcado: true }).trava,
+    "já tem toque marcado",
+  );
+  assert.match(
+    aplicarTravas({ caixinha: 5, acao: "chamar" }, { ...livre, campanha30Dias: true }).trava ?? "",
+    /30 dias/,
+  );
+  assert.equal(
+    aplicarTravas({ caixinha: 5, acao: "esperar" }, { ...livre, toqueMarcado: true }).trava,
+    null,
+  );
+});
+
+test("acertos na lista da equipe: até 10, pela ordem dos tipos e prioridade", () => {
+  const novas = [
+    { id: "d", tipo: "demora_resposta" as const, prioridade: 1 },
+    { id: "r", tipo: "remarcar" as const, prioridade: 1 },
+    { id: "p2", tipo: "pagamento" as const, prioridade: 2 },
+    { id: "f", tipo: "fechou_sem_os" as const, prioridade: 5 },
+    { id: "p1", tipo: "pagamento" as const, prioridade: 1 },
+  ];
+  assert.deepEqual(cobrancasVisiveis(novas), ["f", "p1", "p2", "r"]);
+  assert.deepEqual(cobrancasVisiveis(novas, 2), ["f", "p1"]);
+  assert.equal(LIMITE_TAREFAS_DIA, 15);
+  assert.equal(finalDoTelefone("(11) 99400-0001"), "94000001");
 });
 
 test("padraoFaria e quandoParaIso", () => {
@@ -195,7 +246,7 @@ test("nome no recado: só o nome do cadastro, nunca o e-mail; sem nome, sem nome
   assert.equal(nomeDaPessoa("Maria", "usuario123@exemplo.com"), "Maria");
   assert.equal(nomeDaPessoa("maria germano", null), "Maria");
   assert.equal(nomeDaPessoa("usuario123", "usuario123@exemplo.com"), "");
-  assert.equal(nomeDaPessoa("ecoprimeoficial", "ecoprimeoficial@exemplo.com"), "");
+  assert.equal(nomeDaPessoa("Carol", "carol@exemplo.com"), "Carol");
   assert.equal(nomeDaPessoa("x@y.com", null), "");
   assert.equal(nomeDaPessoa("", "a@b.com"), "");
   assert.equal(
@@ -209,4 +260,19 @@ test("nome no recado: só o nome do cadastro, nunca o e-mail; sem nome, sem nome
   );
   assert.equal(comNome("Bora fazer acontecer hoje, {nome}!", ""), "Bora fazer acontecer hoje!");
   for (const f of FRASES_RESERVA) assert.doesNotMatch(comNome(f, ""), /\{nome\}|^,|\s,/);
+});
+
+test("equipe única: nomes no recado e push para a equipe", () => {
+  assert.equal(nomesDaEquipe(["Maria", "Carol"]), "Maria e Carol");
+  assert.equal(nomesDaEquipe(["Ana", "Bia", "Carol", "Bia"]), "Ana, Bia e Carol");
+  assert.equal(nomesDaEquipe(["Maria", ""]), "Maria");
+  assert.equal(nomesDaEquipe([]), "");
+  assert.equal(
+    comNome("Bom dia, {nome}! Bora vender 💙", nomesDaEquipe(["Maria", "Carol"])),
+    "Bom dia, Maria e Carol! Bora vender 💙",
+  );
+  assert.equal(
+    textoPushTarefas(5, null, true).titulo,
+    "A Tatiana separou 5 tarefas pra equipe hoje",
+  );
 });
