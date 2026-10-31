@@ -5,7 +5,13 @@
  * exemplos tirados das próprias fichas, que já vêm sem o nome do cliente).
  */
 import { DEFEITOS_ALICE, NOME_DEFEITO, type DefeitoAlice, type Ficha, type Regra } from "./ficha";
-import { CORTE_ALICE, NOME_TEMA_EQUIPE, TEMAS_EQUIPE, type TemaEquipe } from "./relatorio";
+import {
+  CORTE_ALICE,
+  CORTE_DEFEITO,
+  NOME_TEMA_EQUIPE,
+  TEMAS_EQUIPE,
+  type TemaEquipe,
+} from "./relatorio";
 import type { FichaResumo } from "./resumo";
 
 export type FichaPainel = FichaResumo & { criadoEm: string | null };
@@ -97,6 +103,8 @@ export type ItemCorrigir = {
   depois: number | null;
   tendencia: Tendencia;
   exemplos: string[];
+  /** Data da correção usada no antes × depois (null = correção ainda não publicada). */
+  corte: string | null;
 };
 
 /** Tendência só com pelo menos 5 leads de cada lado e diferença de 2 pontos ou mais. */
@@ -116,9 +124,9 @@ export function tendencia(
   };
 }
 
-const depoisDoCorte = (f: FichaPainel, corte: string) => {
+const depoisDoCorte = (f: FichaPainel, corte: string | null) => {
   const ini = inicioDoLead(f);
-  return ini ? new Date(ini).getTime() >= new Date(corte).getTime() : false;
+  return ini && corte ? new Date(ini).getTime() >= new Date(corte).getTime() : false;
 };
 
 /** Monta a lista: cada ficha diz se teve o problema e qual trecho serve de exemplo. */
@@ -127,13 +135,14 @@ function lista<T extends string>(
   ids: readonly T[],
   nome: (id: T) => string,
   achar: (f: Ficha, id: T) => string | null,
-  corte: string,
+  corteDe: (id: T) => string | null,
 ): ItemCorrigir[] {
   const ok = fichas.filter((f) => f.status === "ok" && f.ficha);
-  const leadsDepois = ok.filter((f) => depoisDoCorte(f, corte)).length;
-  const leadsAntes = ok.length - leadsDepois;
   return ids
     .map((id) => {
+      const corte = corteDe(id);
+      const leadsDepois = ok.filter((f) => depoisDoCorte(f, corte)).length;
+      const leadsAntes = ok.length - leadsDepois;
       let antes = 0;
       let depois = 0;
       const exemplos: string[] = [];
@@ -150,6 +159,7 @@ function lista<T extends string>(
         casos: antes + depois,
         ...tendencia({ casos: antes, leads: leadsAntes }, { casos: depois, leads: leadsDepois }),
         exemplos,
+        corte,
       };
     })
     .filter((l) => l.casos > 0)
@@ -172,7 +182,10 @@ const REGRA_DO_DEFEITO: Partial<Record<DefeitoAlice, Regra>> = {
   sem_empatia: "empatia",
 };
 
-export function defeitosAlice(fichas: FichaPainel[], corte = CORTE_ALICE): ItemCorrigir[] {
+export function defeitosAlice(
+  fichas: FichaPainel[],
+  corteDe: (d: DefeitoAlice) => string | null = (d) => CORTE_DEFEITO[d],
+): ItemCorrigir[] {
   return lista(
     fichas,
     DEFEITOS_ALICE,
@@ -182,7 +195,7 @@ export function defeitosAlice(fichas: FichaPainel[], corte = CORTE_ALICE): ItemC
       const regra = REGRA_DO_DEFEITO[d];
       return (regra ? regraQuebrada(f, regra, "alice") : null) || erroDe(f, "alice") || "";
     },
-    corte,
+    corteDe,
   );
 }
 
@@ -208,5 +221,11 @@ export function temaDaEquipe(f: Ficha, t: TemaEquipe): string | null {
 }
 
 export function errosEquipe(fichas: FichaPainel[], corte = CORTE_ALICE): ItemCorrigir[] {
-  return lista(fichas, TEMAS_EQUIPE, (t) => NOME_TEMA_EQUIPE[t], temaDaEquipe, corte);
+  return lista(
+    fichas,
+    TEMAS_EQUIPE,
+    (t) => NOME_TEMA_EQUIPE[t],
+    temaDaEquipe,
+    () => corte,
+  );
 }
