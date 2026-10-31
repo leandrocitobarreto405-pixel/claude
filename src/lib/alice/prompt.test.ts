@@ -239,7 +239,13 @@ test("regra do nome: desligada não muda as instruções; ligada acrescenta a se
   assert.ok(sem.includes('chame pelo nome ("Me conta, Ana, o que...").'));
   const com = instrucoesFixas({ ...base, regraNome: true });
   assert.ok(com.includes("# Nome do cliente"));
-  assert.ok(com.includes('"Oi! Eu sou a Alice, da Empresa Fictícia 💙 Com quem eu falo?"'));
+  assert.ok(
+    com.includes(
+      '"Oi! Eu sou a Alice, da Empresa Fictícia. Tudo bem? Estou muito feliz por poder te ajudar com seus estofados 💙 Como você se chama?"',
+    ),
+  );
+  assert.match(com, /sem pedir foto nem CEP/);
+  assert.match(com, /Nunca três pedidos na mesma mensagem/);
   assert.ok(com.includes("só quando o nome estiver confirmado"));
 });
 
@@ -264,36 +270,37 @@ test("regras de 26/10: desligadas não mudam as instruções", () => {
   assert.doesNotMatch(instrucoesFixas(classe), /Respostas do cliente|Tecido não identificado/);
 });
 
-test("não perguntar duas vezes: seção para todas as empresas, com o exemplo das almofadas", () => {
+test("não perguntar duas vezes: seção para todas as empresas, com o exemplo do colchão", () => {
   const txt = instrucoesFixas({ ...empresa, regraRespostas: true });
   assert.match(txt, /# Respostas do cliente \(vale para todas as empresas/);
   assert.match(txt, /Nunca refaça a mesma pergunta/);
-  assert.match(txt, /"Não" = não são soltas, ou seja, fixas/);
+  assert.match(txt, /"Não" = um lado só/);
+  assert.doesNotMatch(txt, /As almofadas são soltas ou fixas\?/);
   assert.match(txt, /vale o que ele disse/);
   // Sem classe ligada, não fala de tecido.
   assert.doesNotMatch(txt, /Tecido não identificado/);
 });
 
-test("tecido não identificado: equipe (padrão) transfere; B segue sem falar de classe", () => {
+test("tecido e almofadas pela foto: pergunta só com dúvida em sofá caro; equipe transfere se não souber", () => {
   const classe = {
     ...empresa,
     regraRespostas: true,
     acrescimosPreco: { classeAPct: 20, almofadasPct: null, encardidoPct: null },
   };
   const equipe = instrucoesFixas(classe);
+  assert.match(equipe, /decida pela foto, sem perguntar/);
+  assert.match(equipe, /uma pergunta só: "Esse tecido é linho, veludo ou bouclê\?"/);
+  assert.match(equipe, /Sem dúvida: não pergunte e siga com a classe B/);
+  assert.match(equipe, /não souber: não marque classe e transfira .*"confirmar tecido"/);
   assert.match(
     equipe,
-    /Tecido não identificado .*: não marque classe e transfira .*"confirmar tecido"/,
+    /Almofadas .*nunca pergunte.*soltas ou não dá para ver → marque `almofadas_soltas`/,
   );
   const b = instrucoesFixas({ ...classe, tecidoNaoIdentificado: "B" });
-  assert.match(b, /não peça foto de perto do tecido/);
-  assert.match(b, /Se a foto mostrar o tecido, use a classe dele/);
-  assert.match(
-    b,
-    /pergunte uma única vez: "Você sabe qual é o tecido\? Por exemplo: linho, veludo, suede/,
-  );
+  assert.match(b, /Nunca peça foto de perto do tecido/);
+  assert.doesNotMatch(b, /Você sabe qual é o tecido/);
   assert.match(b, /classe B \(padrão: não marque classe\)/);
-  assert.match(b, /sem falar de classe nem de categoria de tecido com o cliente/);
+  assert.match(b, /não fale de classe nem de categoria de tecido com o cliente/);
   assert.match(b, /técnico confere o tecido no local/);
   assert.match(b, /Nunca transfira para a equipe por causa do tecido/);
   assert.doesNotMatch(b, /confirmar tecido/);

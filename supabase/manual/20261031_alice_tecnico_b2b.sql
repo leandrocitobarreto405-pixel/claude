@@ -1,3 +1,4 @@
+-- NÃO RODAR: substituído por supabase/manual/20261031_alice_unico.sql (SQL único de 31/10).
 -- Alice (31/10): foto do técnico só depois do agendamento (Parte B), texto explicativo, regra B2B
 -- e o reforço do deslocamento (substitui supabase/manual/20261030_alice_deslocamento.sql, que não
 -- foi rodado). Turbine e Modelo Nexa. Rodar no SQL Editor, inteiro, só com OK do usuário.

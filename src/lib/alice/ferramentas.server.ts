@@ -30,6 +30,7 @@ import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
+import { SEM_ENDERECO, temEnderecoParaOrcamento } from "./cep-obrigatorio";
 import { MAX_CARACTERES_EXPLICACAO, MAX_CARACTERES_TOQUE_AUDIO } from "./voz";
 import {
   blocoDosModulos,
@@ -211,6 +212,7 @@ const CriarOrcamento = z.object({
     .min(1)
     .max(15),
   cep: z.string().trim().max(10).optional(),
+  endereco: z.string().trim().max(200).optional(),
   rotulo: z.string().trim().max(40).optional(),
   desconto: z.enum(["campanha", "indicacao", "oferta_followup"]).optional(),
   cupom: z.string().trim().min(3).max(30).optional(),
@@ -291,7 +293,8 @@ const S_CLASSE = {
 } as const;
 const S_ALMOFADAS = {
   type: "boolean",
-  description: "true se as almofadas são soltas (acréscimo da empresa). Fixas: false.",
+  description:
+    "Pela foto, sem perguntar ao cliente: true se as almofadas são soltas ou se a foto não deixa ver (acréscimo da empresa); false só se a foto mostrar almofadas fixas.",
 } as const;
 const S_ENCARDIDO = {
   type: "boolean",
@@ -430,7 +433,14 @@ export function ferramentasDisponiveis(
               additionalProperties: false,
             },
           },
-          cep: { type: "string", description: "CEP do cliente, se já souber." },
+          cep: {
+            type: "string",
+            description: "CEP do cliente. Sem CEP nem endereço, o orçamento não sai.",
+          },
+          endereco: {
+            type: "string",
+            description: "Rua e bairro, só se o cliente não souber o CEP.",
+          },
           rotulo: { type: "string", description: "Ex.: 'Opção 1'." },
           desconto: {
             type: "string",
@@ -1192,6 +1202,34 @@ async function orcamentoIgualRecente(
   return null;
 }
 
+/**
+ * CEP (ou rua e bairro) do orçamento: o informado agora ou, ao refazer, o do último orçamento do
+ * lead. Sem nenhum dos dois: null (a Alice pede o CEP antes de passar preço).
+ */
+async function enderecoDoOrcamento(
+  ctx: ContextoFerramenta,
+  cepInformado: string | undefined,
+  enderecoInformado: string | undefined,
+): Promise<{ cep: string | null; endereco: string | null } | null> {
+  const cep = cepInformado?.replace(/\D/g, "") || null;
+  const endereco = enderecoInformado?.trim() || null;
+  if (temEnderecoParaOrcamento(cep, endereco)) return { cep, endereco };
+  if (!ctx.leadId) return null;
+  const { data } = await ctx.admin
+    .from("quotes")
+    .select("cliente_cep, cliente_endereco")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("crm_lead_id", ctx.leadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const cepAnterior = data?.cliente_cep?.replace(/\D/g, "") || null;
+  const enderecoAnterior = data?.cliente_endereco?.trim() || null;
+  return temEnderecoParaOrcamento(cepAnterior, enderecoAnterior)
+    ? { cep: cepAnterior, endereco: enderecoAnterior }
+    : null;
+}
+
 async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof CriarOrcamento>) {
   const itens = await tabela(ctx);
   const porNome = new Map(itens.map((i) => [normalizarNome(i.nome), i]));
@@ -1259,12 +1297,15 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   let endereco: string | null = null;
   let baseTecnico: string | null = null;
   let kmIda: number | null = null;
-  const cep = input.cep?.replace(/\D/g, "") || null;
+  const local = await enderecoDoOrcamento(ctx, input.cep, input.endereco);
+  if (!local) return { erro: true, texto: SEM_ENDERECO };
+  const cep = local.cep;
+  endereco = local.endereco;
   if (cep?.length === 8) {
     const { estimateKmByCep } = await import("@/lib/quotes.server");
     const r = await estimateKmByCep(ctx.admin, cep, ctx.empresaId).catch(() => null);
     km = r?.km ?? 0;
-    endereco = r?.endereco ?? null;
+    endereco = r?.endereco ?? endereco;
     baseTecnico = r?.base ?? null;
     kmIda = r?.kmIda ?? (km > 0 ? Math.round((km / 2) * 10) / 10 : null);
   }
