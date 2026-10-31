@@ -516,6 +516,30 @@ async function origemDaReserva(
 }
 
 // ---------------------------------------------------------------- reservar
+/**
+ * Já há agendamento fechado para este cliente: OS reservada pela Alice nesta conversa ou serviço
+ * agendado no lead (OS ligada ou visita marcada pela equipe). A foto do técnico só vai depois disso.
+ */
+export async function temAgendamento(ctx: Ctx): Promise<boolean> {
+  if (await osDaConversa(ctx)) return true;
+  const { data: conv } = await ctx.admin
+    .from("conversas")
+    .select("crm_lead_id")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("id", ctx.conversaId)
+    .maybeSingle();
+  const leadId = (conv as { crm_lead_id?: string | null } | null)?.crm_lead_id;
+  if (!leadId) return false;
+  const { data: lead } = await ctx.admin
+    .from("crm_leads")
+    .select("linked_work_order_id, agendado_em")
+    .eq("empresa_id", ctx.empresaId)
+    .eq("id", leadId)
+    .maybeSingle();
+  const l = lead as { linked_work_order_id?: string | null; agendado_em?: string | null } | null;
+  return Boolean(l?.linked_work_order_id || l?.agendado_em);
+}
+
 /** OS que a Alice reservou nesta conversa (para gerar o documento ou não duplicar). */
 async function osDaConversa(ctx: Ctx): Promise<{ id: string; os_number: string } | null> {
   if (ctx.osReservada) return ctx.osReservada;
