@@ -218,6 +218,7 @@ for (const c of CASOS) {
     const r = await executarFerramenta(ctx, "criar_orcamento", {
       servico: c.servico,
       itens: [{ item: "Sofá comum 3 lugares", quantidade: 1 }],
+      endereco: "Rua Fictícia, Bairro Teste",
       cupom: c.cupom.toLowerCase(),
     });
     assert.equal(r.erro, false, r.conteudo);
@@ -232,6 +233,17 @@ for (const c of CASOS) {
     assert.equal(Number(q["desconto"]), c.desconto);
   });
 }
+
+test("criar_orcamento sem CEP nem endereço: não cria e pede só o CEP", async () => {
+  const { ctx, tabelas } = contexto();
+  const r = await executarFerramenta(ctx, "criar_orcamento", {
+    servico: "higienizacao",
+    itens: [{ item: "Sofá comum 3 lugares", quantidade: 1 }],
+  });
+  assert.equal(r.erro, true);
+  assert.match(r.conteudo, /Sem CEP nem endereço o orçamento não sai/);
+  assert.equal((tabelas["quotes"] ?? []).length, 0);
+});
 
 test("criar_orcamento com cupom do outro serviço: não cria e indica o cupom certo", async () => {
   const { ctx, tabelas } = contexto();

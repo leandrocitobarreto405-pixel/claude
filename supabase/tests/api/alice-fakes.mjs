@@ -200,6 +200,7 @@ servidor(PORTA_CLAUDE, (req, body) => {
         ferramenta("toolu_orc_camp", "criar_orcamento", {
           servico: "higienizacao",
           itens: [{ item: "Sofá 3 lugares", quantidade: 1 }],
+          endereco: "Rua Fictícia, Bairro Teste",
           desconto: "campanha",
         }),
         ferramenta("toolu_ind", "registrar_indicacao", {
@@ -220,6 +221,7 @@ servidor(PORTA_CLAUDE, (req, body) => {
         ferramenta("toolu_orc", "criar_orcamento", {
           servico: "higienizacao",
           itens: [{ item: "sofa 3 LUGARES", quantidade: 1 }],
+          endereco: "Rua Fictícia, Bairro Teste",
         }),
       ],
       "tool_use",

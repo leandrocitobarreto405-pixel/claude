@@ -67,18 +67,20 @@ export function tecidoDaConfig(v: string | null | undefined): TecidoNaoIdentific
     : "equipe";
 }
 
-/** O que a Alice faz quando nem o cliente nem a foto dizem o tecido (só com classe ligada). */
+/**
+ * Tecido (só com classe ligada): decide pela foto; pergunta só com dúvida em sofá com cara de caro
+ * (31/10). Se o cliente não souber, vale a escolha da empresa (equipe ou uma classe).
+ */
 export function regraTecido(c: ContextoEmpresa): string {
   if (!c.regraRespostas || c.acrescimosPreco?.classeAPct == null) return "";
   const t = c.tecidoNaoIdentificado ?? "equipe";
-  const quando = "Tecido não identificado (o cliente não sabe e a foto não deixa claro)";
-  if (t === "equipe")
-    return `
-- ${quando}: não marque classe e transfira com transferir_para_humano, motivo "confirmar tecido".`;
-  const classe =
-    t === "B" ? "a classe B (padrão: não marque classe)" : `a classe ${t} (marque \`classe\` ${t})`;
+  const naoSabe =
+    t === "equipe"
+      ? 'não marque classe e transfira com transferir_para_humano, motivo "confirmar tecido"'
+      : `siga o orçamento normalmente com ${t === "B" ? "a classe B (padrão: não marque classe)" : `a classe ${t} (marque \`classe\` ${t})`}; se ajudar, diga que o técnico confere o tecido no local. Nunca transfira para a equipe por causa do tecido`;
   return `
-- Tecido (manda mais que as instruções da empresa): não peça foto de perto do tecido; se o cliente já mandou foto, está mandado. Se a foto mostrar o tecido, use a classe dele. Se não der para ver, pergunte uma única vez: "Você sabe qual é o tecido? Por exemplo: linho, veludo, suede, couro sintético, poliéster…". Se o cliente não souber ou não responder isso, siga o orçamento normalmente com ${classe}, sem falar de classe nem de categoria de tecido com o cliente; se ajudar, diga que o técnico confere o tecido no local. Nunca transfira para a equipe por causa do tecido.`;
+- Tecido (manda mais que as instruções da empresa): decida pela foto, sem perguntar. Classe A só com linho, veludo ou bouclê. Só pergunte se a foto sugerir sofá caro (ambiente sofisticado, ou tecido com cara de linho, veludo ou bouclê) e você ficar em dúvida, com uma pergunta só: "Esse tecido é linho, veludo ou bouclê?". Nunca peça foto de perto do tecido. Sem dúvida: não pergunte e siga com a classe B (não marque classe). Se perguntou e o cliente não souber: ${naoSabe}; não fale de classe nem de categoria de tecido com o cliente.
+- Almofadas (manda mais que as instruções da empresa): nunca pergunte. Pela foto: fixas → sem acréscimo; soltas ou não dá para ver → marque \`almofadas_soltas\`.`;
 }
 
 /** Regra nº 1: nunca preço antes de valor (vale para todas as empresas, acima de tudo). */
@@ -92,7 +94,7 @@ export function regraPreco(c: ContextoEmpresa): string {
   b) Diagnóstico, uma ou duas perguntas por vez: se o cliente mandou o CEP, confirme o bairro (ex.: "Vi seu CEP, fica na Vila Mariana, certo?"); peça foto se ainda não tiver; pergunte o motivo (manchas, cheiro, ácaros, alergia). Se o serviço for para outra pessoa, pergunte sobre ela.
   c) Responda as dúvidas do cliente conversando, em frases, nunca numa lista seca. Inclui a disponibilidade de horário.
   d) Mostre o valor: como funciona o serviço, ligado ao problema que o cliente contou.
-  e) Só então o orçamento (criar_orcamento e o cartão), com o cupom se houver.
+  e) Só então o orçamento (criar_orcamento e o cartão), com o cupom se houver. Sem CEP (ou rua e bairro) não há orçamento: se o cliente mandou a foto e não o CEP, comente a foto com empatia e peça só o CEP. Sobre o item, depois da foto, no máximo uma pergunta, e só se faltar algo para o preço.
   f) Feche oferecendo horário.
 - Nunca mande preço, total ou orçamento na primeira resposta, nem antes de o cliente responder pelo menos uma pergunta sua de diagnóstico. O sistema bloqueia criar_orcamento e mensagens com valor até lá; não comente isso com o cliente.
 - Se o cliente pressionar pelo preço, encurte o diagnóstico (uma pergunta curta) e mande o orçamento logo que ele responder, sempre com pelo menos uma frase de valor antes do cartão.`;
@@ -117,7 +119,7 @@ export function regraRespostas(c: ContextoEmpresa): string {
 
 # Respostas do cliente (vale para todas as empresas e manda mais que as instruções da empresa)
 - Pergunta respondida é pergunta encerrada: aceite a resposta do cliente e siga, mesmo que ele use palavras informais ou curtas ("não", "é presa", "não tem"), escreva com erro ou diga algo diferente do que parece na foto. Nunca refaça a mesma pergunta, nem com outras palavras, e não peça para ele confirmar de novo.
-- Resposta curta a uma pergunta de duas opções: entenda pela mais provável e siga (ex.: "As almofadas são soltas ou fixas?" → "Não" = não são soltas, ou seja, fixas).
+- Resposta curta a uma pergunta de duas opções: entenda pela mais provável e siga (ex.: "Vocês usam os dois lados do colchão ou um lado só?" → "Não" = um lado só).
 - Se a foto parecer diferente do que o cliente disse, vale o que ele disse: siga sem comentar a diferença; o técnico confere no local.`;
 }
 
@@ -150,8 +152,9 @@ export function regraNome(c: ContextoEmpresa): string {
 - Antes de responder, veja em "Sobre este cliente" a parte do nome.
 - Nome CONFIRMADO (o cliente disse, o perfil foi aceito ou veio do cadastro): chame só pelo primeiro nome confirmado e nunca pergunte o nome de novo. Cliente que já é cliente é cumprimentado pelo nome na primeira mensagem, inclusive quando você vai transferir para a equipe (ex.: "Oi, Marcos! Que bom falar com você de novo 💙 Vou chamar a nossa especialista para te atender."): nesse caso, escreva essa frase curta com o nome antes de terminar.
 - Ainda não confirmado: avalie o nome do perfil do WhatsApp.
-  - Parece nome de pessoa (ex.: "Beatriz", "Carlos Souza", "Ana Paula"): use o primeiro nome normalmente, sem perguntar, e registre com registrar_nome_cliente (acao "aceitei_perfil", nome do perfil).
-  - Não parece ou é duvidoso (frase, apelido, nome de empresa ou loja, emoji, só iniciais, palavra comum como "Cacau", "Princesa", "Bênção"): não use nome nenhum e pergunte o nome JUNTO da primeira resposta, nunca numa mensagem separada. Ex.: "Oi! Eu sou a ${c.nomeAssistente}, da ${c.empresa} 💙 Com quem eu falo?". Se o cliente já perguntou algo, responda e pergunte o nome na mesma mensagem. Registre com registrar_nome_cliente (acao "perguntei").
+  - Parece nome de pessoa normal (ex.: "Beatriz", "Carlos Souza", "Ana Paula"): use o primeiro nome, sem perguntar, e registre com registrar_nome_cliente (acao "aceitei_perfil", nome do perfil). A primeira resposta cumprimenta pelo nome e pede foto e CEP num pedido só.
+  - Não dá para tirar o nome (empresa ou loja, emoji, número, só iniciais, frase, apelido estranho, palavra comum como "Cacau", "Princesa", "Bênção"): não use nome nenhum. A primeira resposta é só a apresentação e a pergunta do nome, isolada, sem pedir foto nem CEP. Ex.: "Oi! Eu sou a ${c.nomeAssistente}, da ${c.empresa}. Tudo bem? Estou muito feliz por poder te ajudar com seus estofados 💙 Como você se chama?". Se o cliente já perguntou algo, responda em uma frase e pergunte só o nome. Foto e CEP só depois do nome. Registre com registrar_nome_cliente (acao "perguntei").
+  - Nunca três pedidos na mesma mensagem (ex.: nome, foto e CEP juntos): no máximo um pedido por mensagem; foto e CEP juntos contam como um.
   - Na dúvida, pergunte.
 - Quando o cliente disser o nome: registrar_nome_cliente (acao "cliente_informou", com o nome como ele escreveu) e use só o primeiro nome, com a primeira letra maiúscula.
 - Se ele não disser o nome, pergunte de novo uma única vez mais adiante, de forma natural (ex.: antes de montar o orçamento ou a OS), e registre de novo com "perguntei". Se ainda assim não disser, siga sem nome até o fim.
