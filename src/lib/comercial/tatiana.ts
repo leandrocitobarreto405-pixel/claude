@@ -270,6 +270,7 @@ export function instrucoesDecisao(o: {
     "",
     "1. caixinha (uma só, lendo a conversa): 1 Comprou · 2 Em negociação (conversa viva, cliente decidindo) · 3 Retorno com data (cliente deu ou aceitou uma data) · 4 Achou caro · 5 Sumiu depois do orçamento · 6 Não chegou a pedir orçamento · 7 Fechou com outra empresa · 8 Fora da área (preencha cidade e bairro se a conversa disser) · 9 Descartado (spam, parceria, engano, fornecedor).",
     "   servico: o serviço orçado ou feito (curto). data_evento: AAAA-MM-DD se o cliente citou uma data importante (mudança, visita, festa), senão vazio. valor_orcado: o valor do orçamento, se houver.",
+    "   Caixinha 1 (comprou): nunca chamar para venda. Caixinha 6 (não pediu orçamento): acao esperar (o lead vai para a campanha da semana, não para tarefa). Tarefa do dia só para as caixinhas 2 a 5.",
     "2. acao (UMA): chamar (alguém deve escrever amanhã), agendar (retomar numa data que faz sentido: quando = AAAA-MM-DDTHH:MM), esperar (não fazer nada agora: o cliente pediu tempo ou já há toque/retorno marcado) ou parar (o cliente recusou ou não é cliente: sugira motivo_perda exatamente com um nome da lista).",
     `   Para chamar, quando = amanhã (AAAA-MM-DDTHH:MM) só se o horário importar (ex.: cliente disse que fala depois das 18h); senão vazio. Motivos da lista: ${o.motivos.join("; ")}.`,
     `3. responsavel: ${o.temAlice ? "alice para toque simples (lembrar, oferecer horário, mandar resumo); equipe para negociação, desconto, reclamação, pedido especial, ou se a equipe já estava conduzindo a conversa. negociacao = true quando envolver preço, desconto ou condição." : "sempre equipe (esta empresa não tem Alice)."}`,
@@ -282,7 +283,6 @@ export function instrucoesDecisao(o: {
     "   remarcar: o cliente pediu outra data e a visita no app continua na data antiga;",
     "   concluir_os: o serviço foi feito (conversa diz) e a visita não está concluída;",
     "   pagamento: o cliente pagou ou combinou o pagamento e não há pagamento lançado;",
-    "   cadastro: a conversa traz nome completo, CPF, endereço, CEP ou e-mail que não estão no cadastro (cadastro = campos e valores lidos).",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
   ].join("\n");
 }
@@ -391,23 +391,90 @@ export function textoPushCobrancas(o: {
  * Quem entra na noite: lead em aberto com orçamento ou conversa recente, e só com mensagem nova
  * desde a última decisão ou toque marcado para os próximos 2 dias (para baratear).
  */
+/**
+ * Quem entra na noite (31/10): lead aberto (ou com OS) com mensagem nova do cliente desde a última
+ * passada, orçamento marcado desde então, ou toque marcado nos próximos 2 dias.
+ */
 export function entraNaNoite(l: {
   aberto: boolean;
-  temOrcamento: boolean;
-  ultimaMensagem: string | null;
-  ultimaDecisao: string | null;
+  clienteEscreveu: boolean;
+  orcamentoNovo: boolean;
   toqueEmAte2Dias: boolean;
-  agora: Date;
 }): boolean {
   if (!l.aberto) return false;
-  const recente =
-    l.ultimaMensagem !== null &&
-    l.agora.getTime() - Date.parse(l.ultimaMensagem) <= 14 * 86_400_000;
-  if (!l.temOrcamento && !recente) return false;
-  const nova =
-    l.ultimaMensagem !== null &&
-    (l.ultimaDecisao === null || Date.parse(l.ultimaMensagem) > Date.parse(l.ultimaDecisao));
-  return nova || l.toqueEmAte2Dias;
+  return l.clienteEscreveu || l.orcamentoNovo || l.toqueEmAte2Dias;
+}
+
+/**
+ * Referência da "mensagem nova": o começo da última passada (sem passada anterior, as últimas
+ * 24 h; passada muito antiga vale no máximo 3 dias para trás).
+ */
+export function desdeAUltimaPassada(ultimaPassada: string | null, agora: Date): string {
+  if (!ultimaPassada) return new Date(agora.getTime() - 86_400_000).toISOString();
+  const tresDias = new Date(agora.getTime() - 3 * 86_400_000).toISOString();
+  const ref = new Date(ultimaPassada).toISOString();
+  return ref < tresDias ? tresDias : ref;
+}
+
+/** Até quantas tarefas novas por empresa e por noite (as de maior prioridade; o resto espera). */
+export const LIMITE_TAREFAS_DIA = 15;
+/** Até quantos acertos novos por noite na lista da equipe (o resto só na aba Cobranças do dono). */
+export const LIMITE_COBRANCAS_EQUIPE = 10;
+/** Ordem dos acertos na lista da equipe; os que não estão aqui ficam só na aba do dono. */
+export const PRIORIDADE_COBRANCA: TipoCobranca[] = [
+  "fechou_sem_os",
+  "orcamento_sem_app",
+  "pagamento",
+  "concluir_os",
+  "remarcar",
+  "cadastro",
+];
+
+/**
+ * Travas da ação da noite (31/10). Tarefa do dia só para as caixinhas 2 a 5; caixinha 6 vai para a
+ * campanha da semana; caixinha 1 nunca é chamada para venda; e nada de tarefa com retorno
+ * combinado, outro toque já marcado ou campanha/promoção recebida há menos de 30 dias.
+ */
+export function aplicarTravas(
+  d: { caixinha: Caixinha; acao: DecisaoIA["acao"] },
+  t: { retornoCombinado: boolean; toqueMarcado: boolean; campanha30Dias: boolean },
+): { acao: DecisaoIA["acao"]; trava: string | null; campanhaDaSemana: boolean } {
+  const chama = d.acao === "chamar" || d.acao === "agendar";
+  if (d.caixinha === 6)
+    return {
+      acao: d.acao === "parar" ? "parar" : "esperar",
+      trava: chama ? "não pediu orçamento: vai para a campanha da semana" : null,
+      campanhaDaSemana: d.acao !== "parar",
+    };
+  if (!chama) return { acao: d.acao, trava: null, campanhaDaSemana: false };
+  const esperar = (trava: string) => ({ acao: "esperar" as const, trava, campanhaDaSemana: false });
+  if (d.caixinha === 1) return esperar("comprou: só pós-venda");
+  if (d.caixinha < 2 || d.caixinha > 5) return esperar(`caixinha ${d.caixinha}: sem tarefa`);
+  if (t.retornoCombinado) return esperar("retorno combinado");
+  if (t.toqueMarcado) return esperar("já tem toque marcado");
+  if (t.campanha30Dias) return esperar("recebeu campanha ou promoção há menos de 30 dias");
+  return { acao: d.acao, trava: null, campanhaDaSemana: false };
+}
+
+/** Dos acertos novos da noite, os que vão para a lista da equipe (por tipo e, no empate, prioridade). */
+export function cobrancasVisiveis<T extends { id: string; tipo: TipoCobranca; prioridade: number }>(
+  novas: T[],
+  limite = LIMITE_COBRANCAS_EQUIPE,
+): string[] {
+  return novas
+    .filter((c) => PRIORIDADE_COBRANCA.includes(c.tipo))
+    .sort(
+      (a, b) =>
+        PRIORIDADE_COBRANCA.indexOf(a.tipo) - PRIORIDADE_COBRANCA.indexOf(b.tipo) ||
+        a.prioridade - b.prioridade,
+    )
+    .slice(0, limite)
+    .map((c) => c.id);
+}
+
+/** Últimos 8 dígitos do telefone (para achar orçamento solto do mesmo cliente). */
+export function finalDoTelefone(tel: string | null | undefined): string {
+  return (tel ?? "").replace(/\D/g, "").slice(-8);
 }
 
 /** O que a cadência padrão faria amanhã (para o teste "padrão faria × Tatiana decidiu"). */

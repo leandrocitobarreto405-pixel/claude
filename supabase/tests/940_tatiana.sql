@@ -122,6 +122,29 @@ SELECT pg_temp.ok((SELECT situacao = 'resolvida' AND resolvida_por = (SELECT id 
                      FROM public.comercial_cobrancas WHERE tipo = 'pagamento' AND empresa_id = :'E'),
                   'equipe única: quem resolveu fica gravado');
 
+-- 3c. Acerto fora da lista da equipe (visivel_equipe = false): só o admin vê.
+INSERT INTO public.comercial_cobrancas (empresa_id, crm_lead_id, user_id, tipo, texto, visivel_equipe)
+VALUES (:'E', :'L2', NULL, 'remarcar', 'Remarcar a visita', false);
+SELECT pg_temp.como('carol@p940.test', :'E');
+SET ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_cobrancas WHERE tipo = 'remarcar') = 0,
+                  'fora da lista: a atendente não vê');
+RESET ROLE;
+SELECT pg_temp.como('dona@p940.test', :'E');
+SET ROLE authenticated;
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_cobrancas WHERE tipo = 'remarcar') = 1,
+                  'fora da lista: o admin vê');
+RESET ROLE;
+
+-- 3d. Lead com OS passa a apontar para o cliente da OS.
+\set C1 '94000000-0000-4000-8000-0000000000e1'
+\set O1 '94000000-0000-4000-8000-0000000000f1'
+INSERT INTO public.customers (id, empresa_id, full_name, phone) VALUES (:'C1', :'E', 'Cliente Fictício', '11994000001');
+INSERT INTO public.work_orders (id, empresa_id, customer_id, os_number) VALUES (:'O1', :'E', :'C1', '9401');
+UPDATE public.crm_leads SET linked_work_order_id = :'O1' WHERE id = :'L1';
+SELECT pg_temp.ok((SELECT customer_id FROM public.crm_leads WHERE id = :'L1') = :'C1'::uuid,
+                  'lead com OS aponta para o cliente da OS');
+
 -- 4. Tarefa da Tatiana (trilha G) em crm_followups.
 INSERT INTO public.crm_followups (empresa_id, crm_lead_id, scheduled_at, status, responsavel, trilha, etapa, origem, mensagem, motivo, prioridade)
 VALUES (:'E', :'L2', now() + interval '12 hours', 'Pendente', 'equipe', 'G', 'G1', 'gerente', 'Oi! Separei um horário…', 'pediu desconto', 1);

@@ -163,6 +163,8 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
           .select("id, tipo, texto, crm_lead_id, user_id, anuncio, criada_em")
           .eq("empresa_id", emp)
           .eq("situacao", "pendente")
+          // Lista da equipe: só os acertos escolhidos pela noite (até 10 por dia).
+          .eq("visivel_equipe", true)
           .order("criada_em", { ascending: false })
           .limit(200),
         admin
