@@ -196,7 +196,7 @@ test("nome no recado: só o nome do cadastro, nunca o e-mail; sem nome, sem nome
   assert.equal(nomeDaPessoa("Maria", "usuario123@exemplo.com"), "Maria");
   assert.equal(nomeDaPessoa("maria germano", null), "Maria");
   assert.equal(nomeDaPessoa("usuario123", "usuario123@exemplo.com"), "");
-  assert.equal(nomeDaPessoa("ecoprimeoficial", "ecoprimeoficial@exemplo.com"), "");
+  assert.equal(nomeDaPessoa("Carol", "carol@exemplo.com"), "Carol");
   assert.equal(nomeDaPessoa("x@y.com", null), "");
   assert.equal(nomeDaPessoa("", "a@b.com"), "");
   assert.equal(

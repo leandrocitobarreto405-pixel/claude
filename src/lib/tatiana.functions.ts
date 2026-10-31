@@ -31,6 +31,12 @@ async function nomesDaEmpresa(empresaId: string): Promise<Map<string, string>> {
   return new Map(ps.map((p) => [p.userId, p.nome || "Sem nome"]));
 }
 
+/** Nome para o detalhe "resolvida por" (sem nome no cadastro: não mostra). */
+function nomeOuNada(nomes: Map<string, string>, id: string | null): string | null {
+  const n = id ? nomes.get(id) : undefined;
+  return n && n !== "Sem nome" ? n : null;
+}
+
 const fimDeHojeSP = () => {
   const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   return { hoje, fim: new Date(`${hoje}T23:59:59-03:00`).toISOString() };
@@ -680,7 +686,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         horasParaResolver: c.resolvida_em
           ? Math.round((Date.parse(c.resolvida_em) - Date.parse(c.criada_em)) / 3_600_000)
           : null,
-        resolvidaPor: c.resolvida_por ? (nomes.get(c.resolvida_por) ?? null) : null,
+        resolvidaPor: nomeOuNada(nomes, c.resolvida_por),
         motivo: c.motivo,
         anuncio: c.anuncio,
       })),

@@ -303,12 +303,14 @@ export const FRASES_RESERVA = [
 
 /**
  * Primeiro nome da pessoa para o recado, vindo do cadastro. Nunca o e-mail nem um apelido de
- * usuário (com números, "@" ou igual ao começo do e-mail): nesses casos, "" (o recado sai sem nome).
+ * usuário (com números ou "@"): nesses casos, "" (o recado sai sem nome).
  */
 export function nomeDaPessoa(cadastro: string | null | undefined, email?: string | null): string {
   const n = (cadastro ?? "").trim();
-  const usuario = (email ?? "").split("@")[0]!.toLowerCase();
-  if (!n || n.includes("@") || /\d/.test(n) || (usuario && n.toLowerCase() === usuario)) return "";
+  // O cadastro sem nome vem vazio (o começo do e-mail fica em users_profiles, não aqui); número ou
+  // "@" é sinal de usuário/e-mail.
+  if (!n || n.includes("@") || /\d/.test(n) || (email && n.toLowerCase() === email.toLowerCase()))
+    return "";
   const p = n.split(/\s+/)[0]!;
   return p.charAt(0).toUpperCase() + p.slice(1);
 }
