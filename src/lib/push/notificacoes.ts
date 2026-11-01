@@ -13,7 +13,8 @@ export type TipoPush =
   | "tatiana_tarefas"
   | "tatiana_cobrancas"
   | "cliente_esperando_2h"
-  | "equipe_sem_push";
+  | "equipe_sem_push"
+  | "alerta_gerente";
 
 export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; papeis: Papel[] }[] =
   [
@@ -75,6 +76,13 @@ export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; pa
         "Às 10h, quando alguém com tarefa da Tatiana está sem push ativo ou não abriu o app.",
       papeis: ["admin"],
     },
+    {
+      tipo: "alerta_gerente",
+      rotulo: "Alertas do mês da Tatiana",
+      descricao:
+        "De manhã, quando a Tatiana vê agenda vazia, queda de leads ou de conversão, objeção frequente ou mês sem meta.",
+      papeis: ["admin"],
+    },
   ];
 
 export function tiposDoPapel(papel: Papel | null): TipoPush[] {
@@ -94,6 +102,7 @@ export type PreferenciasPush = {
   /** Avisos do admin (seguem a chave "cliente esperando" e "cobranças da Tatiana"). */
   cliente_esperando_2h: boolean;
   equipe_sem_push: boolean;
+  alerta_gerente: boolean;
 };
 
 export const PREFERENCIAS_PADRAO: PreferenciasPush = {
@@ -107,6 +116,7 @@ export const PREFERENCIAS_PADRAO: PreferenciasPush = {
   tatiana_cobrancas: true,
   cliente_esperando_2h: true,
   equipe_sem_push: true,
+  alerta_gerente: true,
 };
 
 export const MINUTOS_ESPERA = [5, 10, 15, 30, 60];

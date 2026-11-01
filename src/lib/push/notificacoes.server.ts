@@ -155,6 +155,7 @@ export async function pessoasComCelular(
               tatiana_cobrancas: pr.tatiana_cobrancas ?? true,
               cliente_esperando_2h: pr.cliente_esperando,
               equipe_sem_push: pr.tatiana_cobrancas ?? true,
+              alerta_gerente: pr.tatiana_cobrancas ?? true,
             }
           : PREFERENCIAS_PADRAO,
         celulares: [],

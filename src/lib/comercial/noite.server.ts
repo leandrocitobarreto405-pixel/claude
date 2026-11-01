@@ -2102,6 +2102,18 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
   if (Object.keys(campanhas).length) saida["campanhas"] = campanhas;
 
+  // 4d. Gerente do mês (8h): alertas do dia para o admin (aviso no app + push), uma vez por chave.
+  const { rodarMesDaTatiana } = await import("./mes.server");
+  const mesSaida = await rodarMesDaTatiana(
+    db,
+    configs
+      .filter((c) => c.modo !== "desligado")
+      .map((c) => ({ empresa_id: c.empresa_id, dias_uteis: c.dias_uteis ?? null })),
+    hoje,
+    hora,
+  ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+  if (Object.keys(mesSaida).length) saida["mes"] = mesSaida;
+
   // 5. Pushes.
   saida["pushes"] = await pushesDaTatiana(db, configs, agora).catch((e) => ({
     erro: e instanceof Error ? e.message : String(e),

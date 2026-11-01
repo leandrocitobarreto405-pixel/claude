@@ -21,6 +21,7 @@ import { ResumoGerente } from "@/components/comercial/resumo-gerente";
 import { CobrancasTatiana, NoitesTatiana } from "@/components/comercial/cobrancas-tatiana";
 import { AvisosTatiana } from "@/components/comercial/avisos-tatiana";
 import { CampanhasTatiana } from "@/components/comercial/campanhas-tatiana";
+import { MesTatiana } from "@/components/comercial/mes-tatiana";
 import { custos, servicoPrincipal } from "@/lib/comercial/resumo";
 import { brl, dateBR } from "@/lib/format";
 import { usePapel } from "@/lib/tenant";
@@ -39,6 +40,7 @@ const LEADS_PREVISTOS = 176;
 
 const ABAS = [
   { id: "resumo", rotulo: "Resumo" },
+  { id: "mes", rotulo: "Mês" },
   { id: "confirmar", rotulo: "Confirmar perdas" },
   { id: "perdidos", rotulo: "Perdidos após orçamento" },
   { id: "recuperar", rotulo: "Ainda dá para recuperar" },
@@ -136,6 +138,7 @@ function GerenteComercialTela() {
               custoCartao={<Custos d={d} />}
             />
           ) : null}
+          {aba === "mes" ? <MesTatiana /> : null}
           {aba === "confirmar" ? <ConfirmarPerdas d={d} /> : null}
           {aba === "perdidos" ? <Perdidos d={d} /> : null}
           {aba === "recuperar" ? <Recuperar d={d} /> : null}
