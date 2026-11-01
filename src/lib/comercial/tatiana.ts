@@ -32,6 +32,8 @@ export const TIPOS_COBRANCA = [
   "demora_resposta",
   "demora_preco",
   "cadastro",
+  "follow_up_esquecido",
+  "tarefa_atrasada",
 ] as const;
 export type TipoCobranca = (typeof TIPOS_COBRANCA)[number];
 
@@ -67,6 +69,16 @@ export const COBRANCA: Record<TipoCobranca, { rotulo: string; botao: string; aca
       rotulo: "Dados do cliente na conversa que faltam no cadastro",
       botao: "Completar cadastro",
       acao: "cadastro",
+    },
+    follow_up_esquecido: {
+      rotulo: "Follow-up marcado que ninguém fez",
+      botao: "Entendi",
+      acao: "entendi",
+    },
+    tarefa_atrasada: {
+      rotulo: "Tarefa da Tatiana sem Feito nem Pular há 2 dias",
+      botao: "Entendi",
+      acao: "entendi",
     },
   };
 
@@ -161,6 +173,10 @@ export type DecisaoIA = {
   mensagem: string;
   negociacao: boolean;
   motivo_perda: string;
+  /** O cliente pediu ligação ("me liga", "pode ligar às 18h"): a tarefa vira "ligar". */
+  pediu_ligacao: boolean;
+  /** Horário pedido para a ligação (AAAA-MM-DDTHH:MM) ou vazio. */
+  ligar_quando: string;
   acertos: Array<{
     tipo: Exclude<TipoCobranca, "demora_resposta" | "demora_preco">;
     texto: string;
@@ -189,6 +205,8 @@ export const ESQUEMA_DECISAO = {
     "mensagem",
     "negociacao",
     "motivo_perda",
+    "pediu_ligacao",
+    "ligar_quando",
     "acertos",
   ],
   properties: {
@@ -206,6 +224,8 @@ export const ESQUEMA_DECISAO = {
     mensagem: s,
     negociacao: { type: "boolean" },
     motivo_perda: s,
+    pediu_ligacao: { type: "boolean" },
+    ligar_quando: s,
     acertos: {
       type: "array",
       items: {
@@ -271,7 +291,8 @@ export function instrucoesDecisao(o: {
     "1. caixinha (uma só, lendo a conversa): 1 Comprou · 2 Em negociação (conversa viva, cliente decidindo) · 3 Retorno com data (cliente deu ou aceitou uma data) · 4 Achou caro · 5 Sumiu depois do orçamento · 6 Não chegou a pedir orçamento · 7 Fechou com outra empresa · 8 Fora da área (preencha cidade e bairro se a conversa disser) · 9 Descartado (spam, parceria, engano, fornecedor).",
     "   servico: o serviço orçado ou feito (curto). data_evento: AAAA-MM-DD se o cliente citou uma data importante (mudança, visita, festa), senão vazio. valor_orcado: o valor do orçamento, se houver.",
     "   Caixinha 1 (comprou): nunca chamar para venda. Caixinha 6 (não pediu orçamento): acao esperar (o lead vai para a campanha da semana, não para tarefa). Tarefa do dia só para as caixinhas 2 a 5.",
-    "2. acao (UMA): chamar (alguém deve escrever amanhã), agendar (retomar numa data que faz sentido: quando = AAAA-MM-DDTHH:MM), esperar (não fazer nada agora: o cliente pediu tempo ou já há toque/retorno marcado) ou parar (o cliente recusou ou não é cliente: sugira motivo_perda exatamente com um nome da lista).",
+    "2. acao (UMA): chamar (alguém deve escrever amanhã), agendar (retomar numa data que faz sentido: quando = AAAA-MM-DDTHH:MM), esperar (não fazer nada agora: o cliente pediu tempo ou já há toque/retorno marcado; se ele deu uma data, quando = essa data) ou parar (o cliente recusou ou não é cliente: sugira motivo_perda exatamente com um nome da lista).",
+    '   pediu_ligacao: true se o cliente pediu para ligar ("me liga", "pode ligar", "prefiro por telefone"); ligar_quando = o horário pedido (AAAA-MM-DDTHH:MM, o próximo que faça sentido) ou vazio. Com pediu_ligacao, a tarefa é ligar, não mandar mensagem.',
     `   Para chamar, quando = amanhã (AAAA-MM-DDTHH:MM) só se o horário importar (ex.: cliente disse que fala depois das 18h); senão vazio. Motivos da lista: ${o.motivos.join("; ")}.`,
     `3. responsavel: ${o.temAlice ? "alice para toque simples (lembrar, oferecer horário, mandar resumo); equipe para negociação, desconto, reclamação, pedido especial, ou se a equipe já estava conduzindo a conversa. negociacao = true quando envolver preço, desconto ou condição." : "sempre equipe (esta empresa não tem Alice)."}`,
     '   motivo: 1 frase curta, para a equipe, do porquê (ex.: "pediu para falar amanhã depois das 18h").',
@@ -422,6 +443,7 @@ export const LIMITE_TAREFAS_DIA = 15;
 export const LIMITE_COBRANCAS_EQUIPE = 10;
 /** Ordem dos acertos na lista da equipe; os que não estão aqui ficam só na aba do dono. */
 export const PRIORIDADE_COBRANCA: TipoCobranca[] = [
+  "follow_up_esquecido",
   "fechou_sem_os",
   "orcamento_sem_app",
   "pagamento",

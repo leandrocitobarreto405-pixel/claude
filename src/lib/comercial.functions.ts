@@ -60,6 +60,9 @@ export type AnaliseTela = {
   encaixeObs: string | null;
   leadPerdidoEm: string | null;
   perdaSituacao: "confirmada" | "trocada" | "nao_perdeu" | null;
+  /** Caixinha da Tatiana e a próxima olhada (ISO), quando a noite já passou por aqui. */
+  caixinha: number | null;
+  proximaOlhada: string | null;
   perdaMotivoFinal: string | null;
   custoUsd: number;
   ficha: Ficha | null;
@@ -114,7 +117,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
         db
           .from("comercial_analises")
           .select(
-            "id, crm_lead_id, grupo, status, erro, servico, origem, quem_atendeu, resultado, valor_orcado, valor_vendido, nota, motivo_sugerido_id, frase_cliente, ainda_vale, mensagem_sugerida, pediu_encaixe, perda_situacao, perda_motivo_final_id, custo_usd, ficha, fatos, analisado_em",
+            "id, crm_lead_id, grupo, status, erro, servico, origem, quem_atendeu, resultado, valor_orcado, valor_vendido, nota, motivo_sugerido_id, frase_cliente, ainda_vale, mensagem_sugerida, pediu_encaixe, perda_situacao, perda_motivo_final_id, custo_usd, ficha, fatos, analisado_em, caixinha, rever_em",
           )
           .order("analisado_em", { ascending: false, nullsFirst: false })
           .limit(1000),
@@ -147,6 +150,8 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
       ficha: Ficha | null;
       fatos: Fatos | null;
       analisado_em: string | null;
+      caixinha: number | null;
+      rever_em: string | null;
     };
     const linhas = (analises ?? []) as LinhaAnalise[];
     const leadIds = linhas.map((a) => a.crm_lead_id);
@@ -274,6 +279,8 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
           encaixeObs: l?.encaixe_obs ?? null,
           leadPerdidoEm: l?.perdido_em ?? null,
           perdaSituacao: a.perda_situacao,
+          caixinha: a.caixinha,
+          proximaOlhada: a.rever_em,
           perdaMotivoFinal: nomeMotivo(a.perda_motivo_final_id),
           custoUsd: Number(a.custo_usd),
           ficha: a.ficha,

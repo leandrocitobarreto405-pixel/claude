@@ -35,6 +35,8 @@ export type DadosCadencia = {
   /** Retorno combinado fora da janela: a frase {{2}} usada e o modelo. */
   frase_retorno?: string;
   modelo_retorno?: string;
+  /** Toque da Tatiana (trilha G): fora da janela, só pelo modelo de retomada (lead com orçamento). */
+  com_orcamento?: boolean;
 };
 
 const SELECT_LEAD =
@@ -221,6 +223,8 @@ export async function travaDoToque(
     desde: Date;
     /** Agente-robô da Alice no Chatwoot: responsável que não conta como dono. */
     botId?: number | null;
+    /** O toque é da própria Tatiana (trilha G): não trava por ela mesma. */
+    daTatiana?: boolean;
   },
 ): Promise<string | null> {
   if (o.contato?.ia_desligada) return "IA desligada para o cliente";
@@ -245,6 +249,18 @@ export async function travaDoToque(
     .limit(1);
   if (daEquipe?.length) return "equipe escreveu para o cliente";
   if (!o.conversa.crm_lead_id) return "sem lead";
+  // Um dono por lead: com tarefa ou toque da Tatiana pendente, a cadência padrão não manda nada.
+  const { data: daTatiana } = o.daTatiana
+    ? { data: [] }
+    : await db
+        .from("crm_followups")
+        .select("id")
+        .eq("empresa_id", o.empresaId)
+        .eq("crm_lead_id", o.conversa.crm_lead_id)
+        .eq("origem", "gerente")
+        .eq("status", "Pendente")
+        .limit(1);
+  if (daTatiana?.length) return "a Tatiana está cuidando deste lead";
   const lead = await lerLead(db, o.empresaId, o.conversa.crm_lead_id);
   const trava = travaDoLead(lead);
   if (trava) return trava;

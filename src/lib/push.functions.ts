@@ -73,6 +73,8 @@ export const situacaoPushFn = createServerFn({ method: "GET" })
             resumo_dia: pref.resumo_dia,
             tatiana_tarefas: pref.tatiana_tarefas ?? true,
             tatiana_cobrancas: pref.tatiana_cobrancas ?? true,
+            cliente_esperando_2h: pref.cliente_esperando,
+            equipe_sem_push: pref.tatiana_cobrancas ?? true,
           }
         : PREFERENCIAS_PADRAO,
       celulares: (celulares ?? []).map((c) => ({

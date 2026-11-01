@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Check, Copy, MessageCircle, SkipForward } from "lucide-react";
+import { Bot, Check, Copy, MessageCircle, Phone, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 import { Botao, Card, Chip, Recolhido } from "@/components/nexa";
 import {
@@ -18,6 +18,8 @@ import {
   type TarefaHoje,
 } from "@/lib/tatiana.functions";
 import { NOME_GERENTE } from "@/lib/comercial/tatiana";
+import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
+import { ROTULO_TAREFA } from "@/lib/comercial/furos";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +160,8 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
   const qc = useQueryClient();
   const feito = useServerFn(concluirTarefaFn);
   const pular = useServerFn(pularTarefaFn);
+  const chamarSite = useServerFn(chamarLeadPeloModelo);
+  const marcarSite = useServerFn(marcarLeadChamado);
   const [pulando, setPulando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -192,10 +196,32 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
           <span className="text-xs text-muted-foreground">final {t.telefoneFinal}</span>
         ) : null}
         <span className="ml-auto flex flex-wrap gap-1">
+          {t.tipo !== "mensagem" ? (
+            <Chip tom={t.tipo === "follow_up_esquecido" ? "problema" : "sucesso"}>
+              {t.tipo === "ligar" ? <Phone aria-hidden className="size-3.5" /> : null}
+              {ROTULO_TAREFA[t.tipo]}
+            </Chip>
+          ) : null}
+          {t.adiamentos > 0 ? (
+            <Chip tom="atencao">
+              Pendente de ontem{t.adiamentos > 1 ? ` (${t.adiamentos}ª vez)` : ""}
+            </Chip>
+          ) : null}
           {t.prioridade === 1 ? <Chip tom="problema">Prioridade</Chip> : null}
           <Chip tom="neutro">{hora(t.quando)}</Chip>
         </span>
       </div>
+      {t.telefone ? (
+        <p className="text-sm">
+          <span className="font-semibold">Telefone: </span>
+          <a
+            href={`tel:+${t.telefone.replace(/\D/g, "")}`}
+            className="underline underline-offset-2"
+          >
+            {t.telefone}
+          </a>
+        </p>
+      ) : null}
       {admin && t.responsavelNome ? (
         <p className="text-xs text-muted-foreground">Para {t.responsavelNome.split(" ")[0]}</p>
       ) : null}
@@ -206,7 +232,14 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
         </p>
       ) : null}
       {t.mensagem ? (
-        <p className="whitespace-pre-wrap rounded-botao bg-background p-3 text-sm">{t.mensagem}</p>
+        <div className="flex flex-col gap-1">
+          {t.tipo === "ligar" ? (
+            <span className="text-xs font-semibold">O que dizer na ligação</span>
+          ) : null}
+          <p className="whitespace-pre-wrap rounded-botao bg-background p-3 text-sm">
+            {t.mensagem}
+          </p>
+        </div>
       ) : null}
       {!t.dentroDaJanela && t.conversaId ? (
         <p className="text-xs text-atencao-foreground">
@@ -238,6 +271,37 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
               Cancelar
             </Botao>
           </div>
+        </div>
+      ) : t.leadSiteId ? (
+        <div className="flex flex-wrap gap-2">
+          <Botao
+            disabled={salvando}
+            onClick={() =>
+              void agir(
+                () => chamarSite({ data: { id: t.leadSiteId! } }),
+                "Modelo aprovado enviado ao lead do site.",
+              )
+            }
+          >
+            <MessageCircle aria-hidden /> Mandar modelo
+          </Botao>
+          <Botao
+            variante="neutro"
+            disabled={salvando}
+            onClick={() =>
+              void agir(
+                () => marcarSite({ data: { id: t.leadSiteId!, chamado: true } }),
+                "Marcado como chamado.",
+              )
+            }
+          >
+            <Check aria-hidden /> Já liguei
+          </Botao>
+          {t.mensagem ? (
+            <Botao variante="contorno" onClick={() => copiar(t.mensagem!)}>
+              <Copy aria-hidden /> Copiar
+            </Botao>
+          ) : null}
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
