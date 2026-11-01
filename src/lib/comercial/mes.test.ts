@@ -99,10 +99,19 @@ describe("mês: previsão pelos orçamentos abertos", () => {
       conv,
     );
     assert.equal(p.porServico[0]!.previsto, 300);
-    assert.equal(p.porServico[0]!.historica, true);
-    assert.equal(p.porServico[1]!.previsto, 600);
-    assert.equal(p.porServico[1]!.historica, false);
-    assert.equal(p.total, 900);
+    assert.equal(p.porServico[0]!.base, "servico");
+    // Impermeabilização sem 5 fichas: vale a conversão da empresa toda (3 vendas em 11).
+    assert.equal(p.porServico[1]!.base, "geral");
+    assert.equal(p.porServico[1]!.conversao, 0.273);
+    assert.equal(p.porServico[1]!.previsto, 546);
+    assert.equal(p.total, 846);
+    // Sem histórico nenhum: padrão de 30%.
+    const semHistorico = previsaoDosOrcamentos(
+      [{ id: "z", total: 1000, servico: "outro" }],
+      conversaoPorServico([]),
+    );
+    assert.equal(semHistorico.porServico[0]!.base, "padrao");
+    assert.equal(semHistorico.porServico[0]!.previsto, 300);
   });
 });
 

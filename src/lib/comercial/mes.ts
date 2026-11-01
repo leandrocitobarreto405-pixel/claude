@@ -141,24 +141,36 @@ export type PrevisaoServico = {
   orcamentos: number;
   valor: number;
   conversao: number;
-  /** Conversão veio do histórico da empresa (false: padrão por falta de dados). */
-  historica: boolean;
+  /** De onde veio a conversão: do serviço, da empresa toda ("geral") ou o padrão de 30%. */
+  base: "servico" | "geral" | "padrao";
   previsto: number;
 };
 
-/** Padrão quando a empresa ainda não tem 5 fichas com orçamento no serviço. */
+/** Padrão quando a empresa ainda não tem 5 fichas com orçamento (no serviço nem no total). */
 export const CONVERSAO_PADRAO = 0.3;
 
 export function previsaoDosOrcamentos(
   abertos: OrcamentoAberto[],
   conv: ReturnType<typeof conversaoPorServico>,
 ): { total: number; porServico: PrevisaoServico[] } {
+  const todos = Object.values(conv).reduce(
+    (t, s) => ({ comOrcamento: t.comOrcamento + s.comOrcamento, vendas: t.vendas + s.vendas }),
+    { comOrcamento: 0, vendas: 0 },
+  );
+  const geral =
+    todos.comOrcamento >= 5 ? Math.round((todos.vendas / todos.comOrcamento) * 1000) / 1000 : null;
   const porServico: PrevisaoServico[] = [];
   for (const servico of ["higienizacao", "impermeabilizacao", "ambos", "outro"] as Servico[]) {
     const lista = abertos.filter((a) => a.servico === servico);
     if (!lista.length) continue;
-    const c = conv[servico].conversao;
-    const conversao = c ?? CONVERSAO_PADRAO;
+    // "Outros" (sem serviço reconhecido) usa a conversão da empresa toda, nunca a do próprio balde.
+    const doServico = servico === "outro" ? null : conv[servico].conversao;
+    const [conversao, base]: [number, PrevisaoServico["base"]] =
+      doServico !== null
+        ? [doServico, "servico"]
+        : geral !== null
+          ? [geral, "geral"]
+          : [CONVERSAO_PADRAO, "padrao"];
     const valor = r2(lista.reduce((s, a) => s + a.total, 0));
     porServico.push({
       servico,
@@ -166,7 +178,7 @@ export function previsaoDosOrcamentos(
       orcamentos: lista.length,
       valor,
       conversao,
-      historica: c !== null,
+      base,
       previsto: r2(valor * conversao),
     });
   }
@@ -301,7 +313,7 @@ export function alertasDoMes(o: {
     alertas.push({
       tipo: "agenda_vazia",
       chave: `agenda_vazia:${semana}`,
-      titulo: "Agenda da semana que vem quase vazia",
+      titulo: `Agenda quase vazia nos próximos ${proximos.length} dias úteis`,
       texto: `${livres} de ${base} horários livres nos próximos ${proximos.length} dias úteis.`,
       gravidade: "alta",
     });

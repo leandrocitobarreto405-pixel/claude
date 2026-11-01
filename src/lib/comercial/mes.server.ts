@@ -424,7 +424,7 @@ async function avisarUmaVez(db: Db, emp: string, a: Alerta): Promise<boolean> {
 }
 
 /**
- * 8h00–8h10 (São Paulo), empresas com a Tatiana ligada: calcula os alertas do dia e avisa o admin
+ * 8h00–8h20 (São Paulo), empresas com a Tatiana ligada: calcula os alertas do dia e avisa o admin
  * uma vez por chave (aviso no app + push). O recálculo é barato (só consultas); a trava é a chave.
  */
 export async function rodarMesDaTatiana(
@@ -433,7 +433,7 @@ export async function rodarMesDaTatiana(
   hojeSP: string,
   horaSP: string,
 ): Promise<Record<string, unknown>> {
-  if (horaSP < "08:00" || horaSP >= "08:10") return {};
+  if (horaSP < "08:00" || horaSP >= "08:20") return {};
   const { pessoasComCelular, enviarParaPessoa, registrarUmaVez } =
     await import("@/lib/push/notificacoes.server");
   const { querReceber } = await import("@/lib/push/notificacoes");

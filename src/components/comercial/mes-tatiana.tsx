@@ -120,7 +120,8 @@ export function MesTatiana() {
                 </span>
                 <span className="tabular-nums text-muted-foreground">
                   × {pct0(p.conversao)}
-                  {p.historica ? "" : " (padrão)"} = {brl(p.previsto)}
+                  {p.base === "servico" ? "" : p.base === "geral" ? " (geral)" : " (padrão)"} ={" "}
+                  {brl(p.previsto)}
                 </span>
               </li>
             ))}
@@ -128,7 +129,8 @@ export function MesTatiana() {
         ) : null}
         <p className="text-xs text-muted-foreground">
           Conversão histórica = de quem recebeu orçamento nas fichas da Tatiana (90 dias), por
-          serviço; "padrão" (30%) quando ainda há menos de 5 fichas no serviço.
+          serviço; "geral" usa a empresa toda quando o serviço tem menos de 5 fichas, e "padrão"
+          (30%) quando não há histórico nenhum.
         </p>
       </Card>
 
