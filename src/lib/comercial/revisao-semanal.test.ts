@@ -4,10 +4,12 @@ import { horaDaRevisao, leadsDaRevisao, rotuloSemana, MAX_LEADS_REVISAO } from "
 import { codificarAvisos, sugestaoDeCadaAviso } from "./relatorio";
 
 test("revisão semanal: domingo das 22h às 23h29 em São Paulo", () => {
-  assert.equal(horaDaRevisao(0, "22:00"), true);
-  assert.equal(horaDaRevisao(0, "23:29"), true);
-  assert.equal(horaDaRevisao(0, "21:59"), false);
-  assert.equal(horaDaRevisao(6, "22:30"), false);
+  assert.equal(horaDaRevisao(0, "22:00", "2026-11-08"), true);
+  assert.equal(horaDaRevisao(0, "23:29", "2026-11-15"), true);
+  assert.equal(horaDaRevisao(0, "21:59", "2026-11-08"), false);
+  assert.equal(horaDaRevisao(6, "22:30", "2026-11-14"), false);
+  // 01/11 fica de fora (primeira revisão em 08/11)
+  assert.equal(horaDaRevisao(0, "22:30", "2026-11-01"), false);
   assert.equal(rotuloSemana("2026-11-08"), "Semana de 02/11 a 08/11");
 });
 

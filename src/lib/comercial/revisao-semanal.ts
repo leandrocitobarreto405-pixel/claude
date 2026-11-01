@@ -8,9 +8,12 @@ export const DESCRICAO_REVISAO = "Revisão semanal";
 export const LEADS_DA_SEMANA = 30;
 export const MAX_LEADS_REVISAO = 40;
 
-/** É hora da revisão: domingo em São Paulo, das 22h às 23h29. */
-export function horaDaRevisao(diaDaSemanaSP: number, horaSP: string): boolean {
-  return diaDaSemanaSP === 0 && horaSP >= "22:00" && horaSP < "23:30";
+/** Primeira revisão (OK do usuário: pula 01/11, o botão de avisos tinha acabado de entrar). */
+export const PRIMEIRA_REVISAO = "2026-11-08";
+
+/** É hora da revisão: domingo em São Paulo, das 22h às 23h29, a partir da primeira revisão. */
+export function horaDaRevisao(diaDaSemanaSP: number, horaSP: string, hojeSP: string): boolean {
+  return hojeSP >= PRIMEIRA_REVISAO && diaDaSemanaSP === 0 && horaSP >= "22:00" && horaSP < "23:30";
 }
 
 /** "Semana de dd/mm a dd/mm" (os 7 dias que terminam no domingo `dia`, AAAA-MM-DD). */

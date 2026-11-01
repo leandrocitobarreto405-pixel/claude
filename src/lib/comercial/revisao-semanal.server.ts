@@ -40,7 +40,7 @@ export async function pedirRevisoesSemanais(
   horaSP: string,
 ): Promise<Record<string, unknown>> {
   const dia = new Date(`${hojeSP}T12:00:00Z`).getUTCDay();
-  if (!horaDaRevisao(dia, horaSP)) return {};
+  if (!horaDaRevisao(dia, horaSP, hojeSP)) return {};
   const descricao = `${DESCRICAO_REVISAO} ${hojeSP}`;
   const saida: Record<string, unknown> = {};
   for (const emp of empresas) {
