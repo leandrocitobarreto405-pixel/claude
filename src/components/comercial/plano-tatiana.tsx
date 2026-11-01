@@ -13,6 +13,15 @@ import { brl, dateBR } from "@/lib/format";
 
 const CHAVE_PLANO = ["tatiana", "plano"];
 const pct = (v: number) => `${String(v).replace(".", ",")}%`;
+/** Sem centavos: "R$ 50". */
+const brl0 = (v: number) =>
+  `R$ ${Math.round(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+/** Venda esperada sem fração: "menos de 1 venda", "~1 venda", "~3 vendas". */
+function vendasTexto(v: number): string {
+  if (v < 1) return "menos de 1 venda";
+  const n = Math.round(v);
+  return `~${n} ${n === 1 ? "venda" : "vendas"}`;
+}
 
 export function PlanoTatiana() {
   const fn = useServerFn(planoTatianaFn);
@@ -123,7 +132,7 @@ function Acao({ planoId, a }: { planoId: string; a: AcaoPlano }) {
         <Linha r="Custo de envio" v={brl(a.custo)} />
         <Linha
           r="Venda esperada"
-          v={`${a.esperado.respostas} ${a.esperado.respostas === 1 ? "resposta" : "respostas"} · ${String(a.esperado.vendas).replace(".", ",")} ${a.esperado.vendas === 1 ? "venda" : "vendas"} · ${brl(a.esperado.valor)}${a.esperado.descontoCusto ? ` (desconto custa ${brl(a.esperado.descontoCusto)})` : ""}`}
+          v={`${a.esperado.respostas} ${a.esperado.respostas === 1 ? "resposta" : "respostas"} · ${vendasTexto(a.esperado.vendas)} · ~${brl0(a.esperado.valor)}${a.esperado.descontoCusto ? ` (desconto custa ~${brl0(a.esperado.descontoCusto)})` : ""}`}
         />
       </dl>
       {a.acimaDaRegra ? (
