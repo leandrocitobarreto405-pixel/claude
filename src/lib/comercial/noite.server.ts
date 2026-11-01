@@ -212,8 +212,8 @@ async function donoDoLead(
 
 export type EscopoDaNoite = {
   ids: string[];
-  /** Quantos entraram por motivo (um lead pode ter mais de um). */
-  entrada: Record<MotivoEntrada | "esquecido", number>;
+  /** Quantos entraram por motivo (um lead pode ter mais de um; resposta a campanha é parte de "mensagem"). */
+  entrada: Record<MotivoEntrada | "esquecido" | "resposta_campanha", number>;
   especiais: EspeciaisDaNoite;
 };
 
@@ -242,35 +242,52 @@ async function escopoDaNoite(
     agora,
   );
   const fimDeHoje = new Date(`${hoje}T23:59:59-03:00`).toISOString();
-  const [{ data: msgs }, { data: disparos }, { data: pendentes }, { data: fichas }] =
-    await Promise.all([
-      db
-        .from("whatsapp_messages")
-        .select("crm_lead_id, chatwoot_message_id")
-        .eq("empresa_id", empresaId)
-        .eq("privada", false)
-        .not("crm_lead_id", "is", null)
-        .gte("message_timestamp", desde)
-        .limit(8000),
-      db
-        .from("mkt_envios")
-        .select("chatwoot_message_id")
-        .eq("empresa_id", empresaId)
-        .gte("enviado_em", desde)
-        .not("chatwoot_message_id", "is", null)
-        .limit(5000),
-      db
-        .from("crm_followups")
-        .select("crm_lead_id, scheduled_at, origem, status")
-        .eq("empresa_id", empresaId)
-        .eq("status", "Pendente")
-        .limit(5000),
-      db
-        .from("comercial_analises")
-        .select("crm_lead_id, caixinha, rever_em")
-        .eq("empresa_id", empresaId)
-        .limit(5000),
-    ]);
+  const [
+    { data: msgs },
+    { data: disparos },
+    { data: pendentes },
+    { data: fichas },
+    { data: respostas },
+  ] = await Promise.all([
+    db
+      .from("whatsapp_messages")
+      .select("crm_lead_id, chatwoot_message_id")
+      .eq("empresa_id", empresaId)
+      .eq("privada", false)
+      .not("crm_lead_id", "is", null)
+      .gte("message_timestamp", desde)
+      .limit(8000),
+    db
+      .from("mkt_envios")
+      .select("chatwoot_message_id")
+      .eq("empresa_id", empresaId)
+      .gte("enviado_em", desde)
+      .not("chatwoot_message_id", "is", null)
+      .limit(5000),
+    db
+      .from("crm_followups")
+      .select("crm_lead_id, scheduled_at, origem, status")
+      .eq("empresa_id", empresaId)
+      .eq("status", "Pendente")
+      .limit(5000),
+    db
+      .from("comercial_analises")
+      .select("crm_lead_id, caixinha, rever_em")
+      .eq("empresa_id", empresaId)
+      .limit(5000),
+    // Resposta do cliente a uma campanha conta sempre (e é contada à parte).
+    db
+      .from("mkt_envios")
+      .select("normalized_phone")
+      .eq("empresa_id", empresaId)
+      .gte("respondido_em", desde)
+      .limit(5000),
+  ]);
+  const respondeuCampanha = new Set(
+    ((respostas ?? []) as Array<{ normalized_phone: string }>).map((r) =>
+      finalDoTelefone(r.normalized_phone),
+    ),
+  );
   const deCampanha = new Set(
     ((disparos ?? []) as Array<{ chatwoot_message_id: number | string }>).map((d) =>
       String(d.chatwoot_message_id),
@@ -324,14 +341,14 @@ async function escopoDaNoite(
   const ids = [...candidatos];
   const saida: EscopoDaNoite = {
     ids: [],
-    entrada: { mensagem: 0, rever: 0, seguranca: 0, esquecido: 0 },
+    entrada: { mensagem: 0, resposta_campanha: 0, rever: 0, seguranca: 0, esquecido: 0 },
     especiais: { esquecidos: {} },
   };
   for (let i = 0; i < ids.length; i += 200) {
     const parte = ids.slice(i, i + 200);
     const { data: leads } = await db
       .from("crm_leads")
-      .select("id, is_open, perdido_em, linked_work_order_id")
+      .select("id, is_open, perdido_em, linked_work_order_id, normalized_phone")
       .eq("empresa_id", empresaId)
       .in("id", parte);
     for (const l of (leads ?? []) as Array<{
@@ -339,6 +356,7 @@ async function escopoDaNoite(
       is_open: boolean | null;
       perdido_em: string | null;
       linked_work_order_id: string | null;
+      normalized_phone: string | null;
     }>) {
       const f = ficha.get(l.id);
       const motivos = motivosDeEntrada({
@@ -358,6 +376,11 @@ async function escopoDaNoite(
       if (!motivos.length && !esquecido) continue;
       saida.ids.push(l.id);
       for (const m of motivos) saida.entrada[m]++;
+      if (
+        motivos.includes("mensagem") &&
+        respondeuCampanha.has(finalDoTelefone(l.normalized_phone))
+      )
+        saida.entrada.resposta_campanha++;
       if (esquecido) {
         saida.entrada.esquecido++;
         saida.especiais.esquecidos[l.id] = esquecido;
@@ -980,7 +1003,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         etapa: "G1",
         canal: "equipe",
         origem: "gerente",
-        mensagem: ligar ? null : mensagem.slice(0, 1000) || null,
+        mensagem: mensagem.slice(0, 1000) || null,
         motivo: decisao.motivo.slice(0, 300) || null,
         prioridade: decisao.prioridade,
         tarefa_tipo: esquecidoEm ? "follow_up_esquecido" : ligar ? "ligar" : "mensagem",
@@ -1475,6 +1498,70 @@ async function tarefasNaoFeitas(
 
 // ---------------------------------------------------------------- recados
 
+/** "(2 pós-venda, 1 remarcar, 1 lead do site)" para o recado; vazio quando são só mensagens. */
+function resumoPorTipo(tarefas: Array<{ tarefa_tipo: string | null }>, leadsSite: number): string {
+  const n = new Map<string, number>();
+  for (const t of tarefas) {
+    const tipo = t.tarefa_tipo ?? "mensagem";
+    if (tipo !== "mensagem") n.set(tipo, (n.get(tipo) ?? 0) + 1);
+  }
+  if (leadsSite) n.set("lead_site", leadsSite);
+  if (!n.size) return "";
+  const rotulo: Record<string, string> = {
+    ligar: "ligação",
+    follow_up_esquecido: "follow-up esquecido",
+    remarcar: "remarcar",
+    pos_venda: "pós-venda",
+    lead_site: "lead do site",
+  };
+  return ` (${[...n.entries()].map(([k, v]) => `${v} ${rotulo[k] ?? k}`).join(", ")})`;
+}
+
+/**
+ * Leads do site sem conversa no WhatsApp que viram tarefa no dia `dia` (D+1 e D+3 do cadastro).
+ * Sem lead no CRM ainda (nasce na primeira mensagem): a tarefa é virtual, sem crm_followups.
+ */
+export async function leadsSiteParaTarefa(
+  db: Db,
+  emp: string,
+  dia: string,
+): Promise<
+  Array<{
+    id: string;
+    nome: string | null;
+    telefone: string | null;
+    servico: string | null;
+    lp: string | null;
+  }>
+> {
+  const { data } = await db
+    .from("leads_site")
+    .select("id, nome, telefone, servico, lp, cadastrado_em")
+    .eq("empresa_id", emp)
+    .eq("situacao", "nao_chamou")
+    .is("conversa_id", null)
+    .is("crm_lead_id", null)
+    .is("repetido_de", null)
+    .not("telefone", "is", null)
+    .gte("cadastrado_em", `${somarDias(dia, -3)}T00:00:00-03:00`)
+    .lt("cadastrado_em", `${dia}T00:00:00-03:00`)
+    .order("cadastrado_em")
+    .limit(50);
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      nome: string | null;
+      telefone: string | null;
+      servico: string | null;
+      lp: string | null;
+      cadastrado_em: string;
+    }>
+  ).filter((l) => {
+    const d = horarioSP(new Date(l.cadastrado_em)).data;
+    return d === somarDias(dia, -1) || d === somarDias(dia, -3);
+  });
+}
+
 async function escreverRecados(db: Db, ctx: ContextoNoite) {
   const emp = ctx.noite.empresa_id;
   const dia = ctx.amanha;
@@ -1483,9 +1570,10 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     await Promise.all([
       db
         .from("crm_followups")
-        .select("assigned_to, motivo, prioridade")
+        .select("assigned_to, motivo, prioridade, tarefa_tipo")
         .eq("empresa_id", emp)
         .eq("origem", "gerente")
+        .eq("responsavel", "equipe")
         .eq("status", "Pendente")
         .lte("scheduled_at", new Date(`${dia}T23:59:59-03:00`).toISOString()),
       db
@@ -1508,7 +1596,9 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     assigned_to: string | null;
     motivo: string | null;
     prioridade: number | null;
+    tarefa_tipo: string | null;
   }>;
+  const leadsSite = (await leadsSiteParaTarefa(db, emp, dia).catch(() => [])).length;
   const cs = (cobr ?? []) as Array<{ user_id: string | null }>;
   const rs = (recentes ?? []) as Array<{ user_id: string; frase: string }>;
   let custo = 0;
@@ -1571,7 +1661,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
             role: "user",
             content: [
               `Pessoa: ${nome || "(sem nome)"}${g.admin ? " (dona/admin: vê a equipe toda)" : ""}${ctx.equipeUnica ? " (equipe única: o recado é para todas)" : ""}.`,
-              `Tarefas de hoje: ${minhas.length}. Principais: ${
+              `Tarefas de hoje: ${minhas.length + leadsSite}${resumoPorTipo(minhas, leadsSite)}. Principais: ${
                 minhas
                   .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
                   .slice(0, 3)
@@ -1789,6 +1879,8 @@ async function limitesDaNoite(db: Db, noite: Noite) {
     .not("followup_id", "is", null);
   const ds = (decs ?? []) as Array<{ id: string; followup_id: string; motivo: string | null }>;
   const prioridade = new Map<string, number>();
+  // Fora do limite de 15: ligar (o cliente pediu) e follow-up esquecido (repõe um toque devido).
+  const foraDoLimite = new Set<string>();
   for (let i = 0; i < ds.length; i += 200) {
     const { data: fus } = await db
       .from("crm_followups")
@@ -1802,12 +1894,15 @@ async function limitesDaNoite(db: Db, noite: Noite) {
       id: string;
       prioridade: number | null;
       tarefa_tipo: string | null;
-    }>)
+    }>) {
       prioridade.set(f.id, f.tarefa_tipo === "follow_up_esquecido" ? 0 : (f.prioridade ?? 5));
+      if (f.tarefa_tipo === "follow_up_esquecido" || f.tarefa_tipo === "ligar")
+        foraDoLimite.add(f.id);
+    }
   }
-  const lista = [...ds].sort(
-    (a, b) => (prioridade.get(a.followup_id) ?? 5) - (prioridade.get(b.followup_id) ?? 5),
-  );
+  const lista = [...ds]
+    .filter((d) => !foraDoLimite.has(d.followup_id))
+    .sort((a, b) => (prioridade.get(a.followup_id) ?? 5) - (prioridade.get(b.followup_id) ?? 5));
   const sobra = lista.slice(LIMITE_TAREFAS_DIA);
   if (sobra.length) {
     await db

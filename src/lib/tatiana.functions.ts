@@ -94,66 +94,34 @@ export type Acerto = {
   criadaEm: string;
 };
 
-/**
- * Lead do site/formulário sem conversa no WhatsApp (item 8): tarefa virtual para a equipe chamar
- * (ligação ou o modelo aprovado pelo Precisa de você), no dia seguinte ao cadastro e de novo dois
- * dias depois; sem lead no CRM ainda (ele nasce na primeira mensagem), então não vira crm_followups.
- */
+/** Lead do site sem conversa (item 8): tarefa virtual para a equipe (ligar ou mandar o modelo). */
 async function tarefasLeadSite(db: Db, emp: string, hoje: string): Promise<TarefaHoje[]> {
-  const dias = (n: number) =>
-    new Date(Date.parse(`${hoje}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
-  const { data } = await db
-    .from("leads_site")
-    .select("id, nome, telefone, servico, lp, cadastrado_em")
-    .eq("empresa_id", emp)
-    .eq("situacao", "nao_chamou")
-    .is("conversa_id", null)
-    .is("crm_lead_id", null)
-    .is("repetido_de", null)
-    .not("telefone", "is", null)
-    .gte("cadastrado_em", `${dias(3)}T00:00:00-03:00`)
-    .lt("cadastrado_em", `${hoje}T00:00:00-03:00`)
-    .order("cadastrado_em")
-    .limit(50);
-  return (
-    (data ?? []) as Array<{
-      id: string;
-      nome: string | null;
-      telefone: string | null;
-      servico: string | null;
-      lp: string | null;
-      cadastrado_em: string;
-    }>
-  )
-    .filter((l) => {
-      const d = new Date(Date.parse(l.cadastrado_em) - 3 * 3_600_000).toISOString().slice(0, 10);
-      return d === dias(1) || d === dias(3);
-    })
-    .map((l) => {
-      const t = textoLeadSite({
-        nome: (l.nome ?? "").split(" ")[0] ?? "",
-        servico: l.servico,
-        lp: l.lp,
-      });
-      return {
-        id: `site:${l.id}`,
-        leadId: null,
-        leadNome: l.nome?.trim() || "Lead do site",
-        telefoneFinal: l.telefone ? l.telefone.slice(-4) : null,
-        conversaId: null,
-        quando: `${hoje}T09:00:00-03:00`,
-        prioridade: 2,
-        motivo: t.motivo,
-        mensagem: t.mensagem,
-        responsavelId: null,
-        responsavelNome: null,
-        dentroDaJanela: false,
-        tipo: "lead_site" as const,
-        adiamentos: 0,
-        telefone: l.telefone,
-        leadSiteId: l.id,
-      };
+  const { leadsSiteParaTarefa } = await import("@/lib/comercial/noite.server");
+  return (await leadsSiteParaTarefa(db, emp, hoje)).map((l) => {
+    const t = textoLeadSite({
+      nome: (l.nome ?? "").split(" ")[0] ?? "",
+      servico: l.servico,
+      lp: l.lp,
     });
+    return {
+      id: `site:${l.id}`,
+      leadId: null,
+      leadNome: l.nome?.trim() || "Lead do site",
+      telefoneFinal: l.telefone ? l.telefone.slice(-4) : null,
+      conversaId: null,
+      quando: `${hoje}T09:00:00-03:00`,
+      prioridade: 2,
+      motivo: t.motivo,
+      mensagem: t.mensagem,
+      responsavelId: null,
+      responsavelNome: null,
+      dentroDaJanela: false,
+      tipo: "lead_site" as const,
+      adiamentos: 0,
+      telefone: l.telefone,
+      leadSiteId: l.id,
+    };
+  });
 }
 
 export type HojeTatiana = {

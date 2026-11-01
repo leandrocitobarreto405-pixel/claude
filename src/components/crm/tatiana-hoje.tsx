@@ -232,7 +232,14 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
         </p>
       ) : null}
       {t.mensagem ? (
-        <p className="whitespace-pre-wrap rounded-botao bg-background p-3 text-sm">{t.mensagem}</p>
+        <div className="flex flex-col gap-1">
+          {t.tipo === "ligar" ? (
+            <span className="text-xs font-semibold">O que dizer na ligação</span>
+          ) : null}
+          <p className="whitespace-pre-wrap rounded-botao bg-background p-3 text-sm">
+            {t.mensagem}
+          </p>
+        </div>
       ) : null}
       {!t.dentroDaJanela && t.conversaId ? (
         <p className="text-xs text-atencao-foreground">
