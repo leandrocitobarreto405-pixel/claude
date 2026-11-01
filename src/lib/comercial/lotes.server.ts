@@ -5,6 +5,7 @@
  * todas as análises e relatórios). Só roda em empresa com o gerente comercial ligado.
  */
 import { analisarLead, contextoDaEmpresa } from "./analise.server";
+import { DESCRICAO_REVISAO } from "./revisao-semanal";
 
 /** Leads analisados por rodada (em paralelo); a passada faz rodadas até gastar ~2 min. */
 const POR_RODADA = 6;
@@ -26,6 +27,7 @@ type Lote = {
   gerar_relatorio: boolean;
   relatorio_periodo: string | null;
   relatorio_id: string | null;
+  descricao: string;
 };
 
 export async function gastoDaEmpresa(
@@ -48,7 +50,7 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
   const { data: lotes } = await db
     .from("comercial_lotes")
     .select(
-      "id, empresa_id, leads, status, processados, com_erro, custo_usd, iniciado_em, atualizado_em, gerar_relatorio, relatorio_periodo, relatorio_id",
+      "id, empresa_id, descricao, leads, status, processados, com_erro, custo_usd, iniciado_em, atualizado_em, gerar_relatorio, relatorio_periodo, relatorio_id",
     )
     .in("status", ["pendente", "rodando"])
     .order("pedido_em")
@@ -105,9 +107,15 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
     // Todas as fichas prontas: relatório do período (uma tentativa).
     const { gerarRelatorioComercial } = await import("./relatorio.server");
     try {
+      // Revisão semanal: só as fichas da semana e os avisos da equipe ainda não revisados.
+      const semanal = lote.descricao.startsWith(DESCRICAO_REVISAO);
+      const { avisosPendentes } = await import("./revisao-semanal.server");
       const r = await gerarRelatorioComercial(db, {
         empresaId: lote.empresa_id,
         periodo: lote.relatorio_periodo || "Período analisado",
+        ...(semanal
+          ? { leadIds: lote.leads, avisos: await avisosPendentes(db, lote.empresa_id) }
+          : {}),
       });
       const fim = new Date().toISOString();
       await db
