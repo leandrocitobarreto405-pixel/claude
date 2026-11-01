@@ -368,7 +368,7 @@ export async function acompanharCampanhas(
       )
       .eq("empresa_id", empresaId)
       .eq("tipo", "calendario")
-      .in("status", ["enviando", "pausada", "concluida"])
+      .in("status", ["aprovada", "enviando", "pausada", "concluida"])
       .limit(200),
     db
       .from("comercial_campanhas")
