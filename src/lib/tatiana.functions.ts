@@ -14,6 +14,7 @@ import {
   type TipoCobranca,
 } from "@/lib/comercial/tatiana";
 import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/lib/comercial/furos";
+import type { MesTatiana as MesTatianaTela } from "@/lib/comercial/mes.server";
 import {
   JANELA_DIAS,
   resumoDasClasses,
@@ -887,4 +888,22 @@ export const campanhasTatianaFn = createServerFn({ method: "GET" })
         custoUsd: Number(l.custo_usd ?? 0),
         atualizadoEm: l.atualizado_em,
       }));
+  });
+
+// ---------------------------------------------------------------- gerente do mês (admin)
+
+/** Aba "Mês" da Tatiana: meta diária, previsão, agenda até o fim do mês e alertas (só admin). */
+export const mesTatianaFn = createServerFn({ method: "GET" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }): Promise<MesTatianaTela> => {
+    const db = context.supabase as unknown as Db;
+    const emp = context.empresaId as string;
+    const { calcularMes } = await import("@/lib/comercial/mes.server");
+    const { data: cfg } = await db
+      .from("comercial_configuracoes")
+      .select("dias_uteis")
+      .eq("empresa_id", emp)
+      .maybeSingle();
+    const dias = (cfg as { dias_uteis?: number[] | null } | null)?.dias_uteis ?? [1, 2, 3, 4, 5, 6];
+    return calcularMes(db, emp, fimDeHojeSP().hoje, dias);
   });
