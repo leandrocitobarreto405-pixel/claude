@@ -14,6 +14,13 @@ import {
   type TipoCobranca,
 } from "@/lib/comercial/tatiana";
 import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/lib/comercial/furos";
+import {
+  JANELA_DIAS,
+  resumoDasClasses,
+  type ClasseResposta,
+  type NumerosCampanha,
+  type Sugestao,
+} from "@/lib/comercial/campanhas";
 
 type Db = SupabaseClient;
 
@@ -794,4 +801,90 @@ export const salvarHorarioTatianaFn = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message || "Não foi possível salvar o horário.");
     return { ok: true };
+  });
+
+// ---------------------------------------------------------------- campanhas (admin)
+
+export type CampanhaTela = {
+  id: string;
+  campanhaId: string;
+  nome: string;
+  tema: string | null;
+  datas: string[];
+  status: string;
+  janelaInicio: string;
+  janelaFim: string;
+  /** Sugestões prontas (janela de 7 dias fechada). */
+  encerrada: boolean;
+  /** Dia da janela em que estamos (1–7); 7 quando fechada. */
+  dia: number;
+  numeros: NumerosCampanha;
+  classes: Array<{ classe: ClasseResposta; nome: string; n: number }>;
+  semTexto: number;
+  sugestoes: Sugestao[];
+  leitura: string | null;
+  custoUsd: number;
+  atualizadoEm: string;
+};
+
+/** Aba "Campanhas" da Tatiana: desempenho de cada campanha enviada (só admin). */
+export const campanhasTatianaFn = createServerFn({ method: "GET" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }): Promise<CampanhaTela[]> => {
+    const db = context.supabase as unknown as Db;
+    const emp = context.empresaId as string;
+    const { data, error } = await db
+      .from("comercial_campanhas")
+      .select(
+        "id, campanha_id, janela_inicio, janela_fim, encerrada, numeros, respostas, sugestoes, leitura, custo_usd, atualizado_em, mkt_campanhas(nome, tema, datas_disparo, status)",
+      )
+      .eq("empresa_id", emp)
+      .order("janela_inicio", { ascending: false })
+      .limit(60);
+    if (error) throw new Error(error.message);
+    const agora = Date.now();
+    return (
+      (data ?? []) as unknown as Array<{
+        id: string;
+        campanha_id: string;
+        janela_inicio: string;
+        janela_fim: string;
+        encerrada: boolean;
+        numeros: NumerosCampanha | Record<string, never>;
+        respostas: { por_envio?: Record<string, ClasseResposta>; sem_texto?: number } | null;
+        sugestoes: Sugestao[] | null;
+        leitura: string | null;
+        custo_usd: number | string;
+        atualizado_em: string;
+        mkt_campanhas: {
+          nome: string;
+          tema: string | null;
+          datas_disparo: string[] | null;
+          status: string;
+        } | null;
+      }>
+    )
+      .filter((l) => "enviados" in l.numeros)
+      .map((l) => ({
+        id: l.id,
+        campanhaId: l.campanha_id,
+        nome: l.mkt_campanhas?.nome ?? "Campanha",
+        tema: l.mkt_campanhas?.tema ?? null,
+        datas: l.mkt_campanhas?.datas_disparo ?? [],
+        status: l.mkt_campanhas?.status ?? "",
+        janelaInicio: l.janela_inicio,
+        janelaFim: l.janela_fim,
+        encerrada: l.encerrada,
+        dia: Math.min(
+          JANELA_DIAS,
+          Math.max(1, Math.ceil((agora - Date.parse(l.janela_inicio)) / 86_400_000)),
+        ),
+        numeros: l.numeros as NumerosCampanha,
+        classes: resumoDasClasses(l.respostas?.por_envio ?? {}),
+        semTexto: Number(l.respostas?.sem_texto ?? 0),
+        sugestoes: l.sugestoes ?? [],
+        leitura: l.leitura,
+        custoUsd: Number(l.custo_usd ?? 0),
+        atualizadoEm: l.atualizado_em,
+      }));
   });

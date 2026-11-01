@@ -755,6 +755,37 @@ function Detalhes({
           }))}
         />
       </div>
+      {relatorio?.campanhas?.length ? (
+        <div className="flex min-w-0 flex-col gap-2 text-sm">
+          <h3 className="font-bold">Campanhas de WhatsApp da semana</h3>
+          {relatorio.campanhas.map((c, i) => (
+            <div key={i} className="flex min-w-0 flex-col gap-1">
+              <p>
+                <span className="font-semibold">{c.nome}</span>{" "}
+                <span className="text-muted-foreground">
+                  {c.encerrada ? "(7 dias fechados)" : "(em acompanhamento)"}
+                </span>
+              </p>
+              <p>{c.resumo}</p>
+              {c.classes.length ? (
+                <p className="text-muted-foreground">
+                  Respostas: {c.classes.map((x) => `${x.nome} ${x.n}`).join(" · ")}
+                </p>
+              ) : null}
+              {c.sugestoes.length ? (
+                <ul className="ml-4 list-disc space-y-1">
+                  {c.sugestoes.map((s, j) => (
+                    <li key={j}>{s.sugestao}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Detalhes e respostas mais comuns na aba Campanhas.
+          </p>
+        </div>
+      ) : null}
       {leitura ? (
         <div className="flex min-w-0 flex-col gap-2 text-sm">
           <h3 className="font-bold">Leitura do relatório</h3>
