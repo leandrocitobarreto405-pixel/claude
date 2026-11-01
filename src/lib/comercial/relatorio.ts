@@ -39,6 +39,31 @@ export const NOME_TEMA_EQUIPE: Record<TemaEquipe, string> = {
 /** Data da mudança da Alice (núcleo de 28/10) usada para separar os defeitos em antes e depois. */
 export const CORTE_ALICE = "2026-10-28T03:00:00Z";
 
+/**
+ * Data da correção de cada defeito (antes × depois). null = correção ainda não publicada: tudo
+ * conta como "antes". Atualizar aqui quando a correção do defeito for ao ar.
+ */
+export const CORTE_DEFEITO: Record<DefeitoAlice, string | null> = {
+  cep_nao_localizado_travou: CORTE_ALICE,
+  pediu_cep_de_novo: CORTE_ALICE,
+  seguiu_sem_foto: CORTE_ALICE,
+  ficou_com_duvida: CORTE_ALICE,
+  repetiu_outra_pergunta: CORTE_ALICE,
+  orcou_item_ou_tamanho_errado: CORTE_ALICE,
+  followups_em_sequencia: CORTE_ALICE,
+  sem_empatia: CORTE_ALICE,
+  // Correções de 31/10 (código da Parte B/C e SQL único do roteiro): conta a partir de 01/11.
+  perguntas_demais_depois_foto: "2026-11-01T03:00:00Z",
+  orcou_sem_cep: "2026-11-01T03:00:00Z",
+  nome_junto_outros_pedidos: "2026-11-01T03:00:00Z",
+  foto_tecnico_antes_agendar: "2026-11-01T03:00:00Z",
+  // Nome nos toques, retorno combinado e um toque por dia: correção ainda não publicada.
+  nome_errado_toque: null,
+  toque_apos_retorno_combinado: null,
+  dois_toques_mesmo_dia: null,
+  outro: CORTE_ALICE,
+};
+
 export type DefeitoContado = {
   defeito: DefeitoAlice;
   nome: string;
@@ -47,8 +72,14 @@ export type DefeitoContado = {
   total: number;
 };
 
-export function defeitosAntesDepois(fichas: FichaResumo[], corte = CORTE_ALICE): DefeitoContado[] {
-  const corteMs = new Date(corte).getTime();
+export function defeitosAntesDepois(
+  fichas: FichaResumo[],
+  corte: string | ((d: DefeitoAlice) => string | null) = (d) => CORTE_DEFEITO[d],
+): DefeitoContado[] {
+  const corteDe = (d: DefeitoAlice) => {
+    const c = typeof corte === "string" ? corte : corte(d);
+    return c ? new Date(c).getTime() : Number.POSITIVE_INFINITY;
+  };
   const linhas = DEFEITOS_ALICE.map((d) => ({
     defeito: d,
     nome: NOME_DEFEITO[d],
@@ -64,7 +95,7 @@ export function defeitosAntesDepois(fichas: FichaResumo[], corte = CORTE_ALICE):
     for (const d of new Set(f.ficha.defeitos_alice ?? [])) {
       const l = linhas.find((x) => x.defeito === d);
       if (!l) continue;
-      if (em >= corteMs) l.depois++;
+      if (em >= corteDe(d)) l.depois++;
       else l.antes++;
       l.total++;
     }

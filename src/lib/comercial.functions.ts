@@ -8,6 +8,7 @@ import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
 import type { LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
+import type { DefeitoSistemaContado } from "@/lib/comercial/defeitos-sistema";
 
 /** Decisão do dono sobre uma sugestão do relatório (só marca; não aplica nada na Alice). */
 export type DecisaoSugestao = {
@@ -82,6 +83,8 @@ export type GerenteComercial = {
   motivos: Array<{ id: string; nome: string; pedeData: string | null }>;
   analises: AnaliseTela[];
   relatorio: RelatorioTela | null;
+  /** Defeitos da Alice contados pelo sistema (exatos), últimos 30 dias. */
+  defeitosSistema: DefeitoSistemaContado[];
 };
 
 type Db = SupabaseClient;
@@ -194,7 +197,13 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
         dados: Omit<RelatorioTela, "id" | "periodo" | "criadoEm" | "custoUsd">;
       }>
     )[0];
+    const { defeitosDoSistema } = await import("@/lib/comercial/defeitos-sistema.server");
+    const defeitosSistema = await defeitosDoSistema(db, empresaId).catch((e) => {
+      console.error("Defeitos do sistema", e instanceof Error ? e.message : String(e));
+      return [];
+    });
     return {
+      defeitosSistema,
       relatorio: ultimo
         ? {
             id: ultimo.id,

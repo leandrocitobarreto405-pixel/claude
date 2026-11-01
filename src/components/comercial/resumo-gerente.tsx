@@ -13,6 +13,7 @@ import {
   type RelatorioTela,
 } from "@/lib/comercial.functions";
 import { NOME_REGRA } from "@/lib/comercial/ficha";
+import type { DefeitoSistemaContado } from "@/lib/comercial/defeitos-sistema";
 import {
   PERIODOS,
   comoEstamos,
@@ -254,7 +255,11 @@ export function ResumoGerente({
             <OndePerdemos fichas={doGrupo} />
           </Secao>
           <Secao titulo="O que corrigir">
-            <OQueCorrigir fichas={doPeriodo} relatorio={d.relatorio} />
+            <OQueCorrigir
+              fichas={doPeriodo}
+              relatorio={d.relatorio}
+              sistema={d.defeitosSistema ?? []}
+            />
           </Secao>
           {d.relatorio?.leitura.sugestoes.length ? (
             <Secao titulo="Sugestões da gerente">
@@ -354,11 +359,22 @@ function OndePerdemos({ fichas }: { fichas: FichaPainel[] }) {
   );
 }
 
+/** "dd/mm" da data da correção (o corte é meia-noite de São Paulo, 03:00 UTC). */
+const diaCorte = (iso: string) =>
+  dateBR(new Date(new Date(iso).getTime() - 3 * 3_600_000).toISOString()).slice(0, 5);
+
 function ChipTendencia({ item }: { item: ItemCorrigir }) {
+  if (!item.corte)
+    return (
+      <Chip tom="neutro" title="A correção deste defeito ainda não foi publicada">
+        correção ainda não publicada
+      </Chip>
+    );
+  const dia = diaCorte(item.corte);
   if (item.tendencia === "sem_base")
     return (
-      <Chip tom="neutro" title="Menos de 5 leads depois de 28/10 para comparar">
-        sem base ainda
+      <Chip tom="neutro" title={`Menos de 5 leads de cada lado de ${dia} para comparar`}>
+        corrigido em {dia} · sem base ainda
       </Chip>
     );
   const tom =
@@ -366,7 +382,7 @@ function ChipTendencia({ item }: { item: ItemCorrigir }) {
   const Icone =
     item.tendencia === "caiu" ? ArrowDown : item.tendencia === "subiu" ? ArrowUp : Minus;
   return (
-    <Chip tom={tom} title="% dos leads com o problema antes e depois de 28/10">
+    <Chip tom={tom} title={`% dos leads com o problema antes e depois de ${dia}`}>
       <Icone aria-hidden className="size-3.5" />
       {pct(item.antes ?? 0)} → {pct(item.depois ?? 0)}
     </Chip>
@@ -450,9 +466,11 @@ function ListaCorrigir({
 function OQueCorrigir({
   fichas,
   relatorio,
+  sistema,
 }: {
   fichas: FichaPainel[];
   relatorio: RelatorioTela | null;
+  sistema: DefeitoSistemaContado[];
 }) {
   const alice = defeitosAlice(fichas);
   const equipe = errosEquipe(fichas);
@@ -473,9 +491,10 @@ function OQueCorrigir({
   return (
     <>
       <p className="text-xs text-muted-foreground">
-        Casos contados nas fichas; a seta compara a % dos leads com o problema antes e depois de
-        28/10. Toque para ver exemplos (sem o nome do cliente).
+        Casos contados nas fichas; a seta compara a % dos leads com o problema antes e depois da
+        correção de cada defeito. Toque para ver exemplos (sem o nome do cliente).
       </p>
+      {sistema.length ? <DefeitosDoSistema itens={sistema} /> : null}
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
         <ListaCorrigir titulo="Alice" itens={alice} />
         <ListaCorrigir
@@ -501,6 +520,45 @@ function OQueCorrigir({
         />
       </div>
     </>
+  );
+}
+
+const porDia = (n: number | null) =>
+  n === null ? "—" : n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+/** Defeitos da Alice contados pelo sistema (exatos, últimos 30 dias), antes × depois da correção. */
+function DefeitosDoSistema({ itens }: { itens: DefeitoSistemaContado[] }) {
+  return (
+    <Card className="min-w-0">
+      <h3 className="font-bold">Alice · contado pelo sistema (exato)</h3>
+      <p className="text-xs text-muted-foreground">
+        Últimos 30 dias, por dia antes e depois da correção de cada defeito.
+      </p>
+      <ul className="flex flex-col divide-y divide-border">
+        {itens.map((it) => (
+          <li key={it.id} className="flex min-w-0 flex-col gap-1 py-2">
+            <span className="text-sm font-semibold">{it.nome}</span>
+            <span className="flex flex-wrap items-center gap-2 text-sm tabular-nums">
+              {it.corte ? (
+                <>
+                  <span>
+                    antes: {it.antes} ({porDia(it.porDiaAntes)}/dia)
+                  </span>
+                  <span>
+                    depois de {diaCorte(it.corte)}: {it.depois} ({porDia(it.porDiaDepois)}/dia)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>{it.antes} casos</span>
+                  <Chip tom="neutro">correção ainda não publicada</Chip>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

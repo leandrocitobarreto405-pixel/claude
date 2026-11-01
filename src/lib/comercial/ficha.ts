@@ -60,6 +60,13 @@ export const DEFEITOS_ALICE = [
   "orcou_item_ou_tamanho_errado",
   "followups_em_sequencia",
   "sem_empatia",
+  "perguntas_demais_depois_foto",
+  "orcou_sem_cep",
+  "nome_junto_outros_pedidos",
+  "foto_tecnico_antes_agendar",
+  "nome_errado_toque",
+  "toque_apos_retorno_combinado",
+  "dois_toques_mesmo_dia",
   "outro",
 ] as const;
 export type DefeitoAlice = (typeof DEFEITOS_ALICE)[number];
@@ -73,6 +80,14 @@ export const NOME_DEFEITO: Record<DefeitoAlice, string> = {
   orcou_item_ou_tamanho_errado: "Entendeu errado o item ou o tamanho",
   followups_em_sequencia: "Vários toques seguidos sem resposta",
   sem_empatia: "Não acolheu o problema contado",
+  perguntas_demais_depois_foto:
+    "Perguntas demais depois da foto (tecido, almofadas, foto de perto)",
+  orcou_sem_cep: "Orçamento ou sequência sem CEP",
+  nome_junto_outros_pedidos: "Pediu o nome junto com outros pedidos",
+  foto_tecnico_antes_agendar: "Foto do técnico antes de agendar",
+  nome_errado_toque: 'Nome errado nos toques (ex.: "Oi, Cond!")',
+  toque_apos_retorno_combinado: 'Toque depois de "retorno em breve" ou "vou aprovar"',
+  dois_toques_mesmo_dia: "Dois toques no mesmo dia",
   outro: "Outro",
 };
 
@@ -209,7 +224,7 @@ export function instrucoesFicha(o: { empresa: string; pixPct: number | null }): 
     '- mensagem_sugerida: a mensagem que a equipe poderia copiar e mandar (vazio se não vale chamar), no mesmo roteiro da Alice: (1) cite algo específico desta conversa (o serviço, a situação contada, o que ficou combinado); (2) se o cliente contou um problema (mancha, xixi de pet, alergia, mudança), empatia primeiro; (3) traga algo novo e útil: um resumo curto do orçamento para ele mostrar a quem decide, um cuidado com o estofado, um horário disponível, ou rever o tamanho/valor quando o orçamento estava errado; (4) termine com UMA pergunta só, fácil de responder. Até 3 frases curtas, tom humano, sem pressão, sem inventar desconto nem horário exato (fale "um horário nesta semana" se não souber). Pode usar o primeiro nome do cliente. Não se apresente com nome de pessoa. PROIBIDO: "passando para saber", "conseguiu decidir", "ficou com alguma dúvida", "está aí?", "fico à disposição".',
     "- o_que_ajudou_a_vender: se vendeu, o que fez fechar; senão, vazio.",
     "- erros: os erros concretos do atendimento, separados por quem errou (alice ou equipe). Lista vazia se não houve.",
-    '- defeitos_alice: os defeitos da ALICE (só dela, não da equipe) que aparecem na conversa, da lista fixa: cep_nao_localizado_travou (não achou o CEP e travou em vez de aceitar rua e bairro), pediu_cep_de_novo, seguiu_sem_foto (passou adiante ou deu preço sem a foto que pediu), ficou_com_duvida (usou "ficou com alguma dúvida?" ou parecido), repetiu_outra_pergunta, orcou_item_ou_tamanho_errado, followups_em_sequencia (vários toques seguidos sem resposta), sem_empatia, outro. Cada um no máximo uma vez. Lista vazia se não houve.',
+    '- defeitos_alice: os defeitos da ALICE (só dela, não da equipe) que aparecem na conversa, da lista fixa: cep_nao_localizado_travou (não achou o CEP e travou em vez de aceitar rua e bairro), pediu_cep_de_novo, seguiu_sem_foto (passou adiante ou deu preço sem a foto que pediu), ficou_com_duvida (usou "ficou com alguma dúvida?" ou parecido), repetiu_outra_pergunta, orcou_item_ou_tamanho_errado, followups_em_sequencia (vários toques seguidos sem resposta), sem_empatia, perguntas_demais_depois_foto (depois da foto fez mais de uma pergunta sobre o item, ou perguntou tecido, almofadas ou pediu foto de perto), orcou_sem_cep (passou preço ou seguiu para o orçamento sem ter CEP ou rua e bairro), nome_junto_outros_pedidos (pediu o nome na mesma mensagem em que pediu foto, CEP ou outra coisa), foto_tecnico_antes_agendar (mandou a foto ou o nome do técnico antes de o cliente confirmar dia e horário), nome_errado_toque (chamou o cliente por um nome que não é o dele, ex.: parte do nome de uma empresa ou condomínio, "Oi, Cond!"), toque_apos_retorno_combinado (mandou toque depois de o cliente dizer que dá retorno em breve, que vai aprovar ou que fala depois), dois_toques_mesmo_dia (dois toques de follow-up no mesmo dia sem resposta do cliente), outro. Cada um no máximo uma vez. Lista vazia se não houve.',
   ].join("\n");
 }
 
