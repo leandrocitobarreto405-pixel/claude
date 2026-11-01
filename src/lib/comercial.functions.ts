@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
-import type { LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
+import type { AvisoRelatorio, LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
 import type { DefeitoSistemaContado } from "@/lib/comercial/defeitos-sistema";
 
 /** Decisão do dono sobre uma sugestão do relatório (só marca; não aplica nada na Alice). */
@@ -29,6 +29,8 @@ export type RelatorioTela = {
   numeros: NumerosRelatorio;
   leitura: LeituraRelatorio;
   estimativaMensal: Array<{ empresa: string; leads: number; usdMes: number }>;
+  /** Avisos da equipe lidos na revisão semanal (relatórios antigos: vazio). */
+  avisos: AvisoRelatorio[];
 };
 
 export type AnaliseTela = {
@@ -214,6 +216,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
             numeros: ultimo.dados.numeros,
             leitura: ultimo.dados.leitura,
             estimativaMensal: ultimo.dados.estimativaMensal ?? [],
+            avisos: ultimo.dados.avisos ?? [],
           }
         : null,
       ligado: Boolean(config?.ligado),

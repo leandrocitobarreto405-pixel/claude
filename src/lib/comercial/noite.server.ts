@@ -1337,6 +1337,16 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     }
   }
 
+  // 4b. Revisão semanal (domingo à noite): lote com os leads da semana e os avisos da equipe.
+  const { pedirRevisoesSemanais } = await import("./revisao-semanal.server");
+  saida["revisao_semanal"] = await pedirRevisoesSemanais(
+    db,
+    configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+    agora,
+    hoje,
+    hora,
+  ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+
   // 5. Pushes.
   saida["pushes"] = await pushesDaTatiana(db, configs, agora).catch((e) => ({
     erro: e instanceof Error ? e.message : String(e),

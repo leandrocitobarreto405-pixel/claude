@@ -247,11 +247,12 @@ export const ESQUEMA_RELATORIO = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["sugestao", "forca", "casos"],
+        required: ["sugestao", "forca", "casos", "avisos"],
         properties: {
           sugestao: { type: "string" },
           forca: { type: "string", enum: ["hipotese", "forte"] },
           casos: { type: "integer" },
+          avisos: { type: "array", items: { type: "string" } },
         },
       },
     },
@@ -298,7 +299,13 @@ export type LeituraRelatorio = {
     casos: number;
     exemplos: string[];
   }>;
-  sugestoes: Array<{ sugestao: string; forca: "hipotese" | "forte"; casos: number }>;
+  sugestoes: Array<{
+    sugestao: string;
+    forca: "hipotese" | "forte";
+    casos: number;
+    /** Códigos dos avisos da equipe que levaram à sugestão (relatórios antes de 01/11 não têm). */
+    avisos?: string[];
+  }>;
   mudancas_alice: Array<{
     tema: string;
     defeito: string;
@@ -318,6 +325,7 @@ export function instrucoesRelatorio(empresa: string): string {
     "- Conte os casos de verdade nas linhas (campo casos). Não invente números; use os do sistema para conversão e valores.",
     "- Sem nomes de clientes nem de pessoas da equipe; use [nome] e [atendente] se precisar.",
     "- Envios de campanha do Marketing (promoções em massa) não são da Alice nem da equipe: não conte como erro de ninguém.",
+    '- AVISOS DA EQUIPE (códigos A1, A2…): erros e acertos que a equipe marcou na conversa. São sinal forte: leia cada um e, se o padrão aparecer, ele pesa mais que uma ficha sozinha. Quando uma sugestão vier de avisos, liste os códigos em "avisos" (senão, lista vazia); nunca invente código. Aviso de acerto pode virar sugestão de manter ou reforçar o que deu certo. Não copie o texto do aviso com nomes.',
     "- padroes_vendas: os 5 padrões mais comuns nas vendas, com o número de casos.",
     "- perfil_que_mais_fecha: 2 a 3 frases.",
     "- vendeu_x_nao_vendeu: para os serviços com vendas e perdas, o que muda entre quem comprou e quem não comprou.",
@@ -327,4 +335,25 @@ export function instrucoesRelatorio(empresa: string): string {
     '- mudancas_alice: mudanças no texto da Alice para os defeitos dela que mais aparecem. Em "antes", copie o trecho atual das instruções que trata do assunto (ou "(não há regra sobre isso)"); em "depois", o texto novo proposto, pronto para colar. Uma por tema, no máximo 8. É só sugestão: nada será aplicado sem o dono aprovar.',
     `- para_a_equipe: uma linha para cada um destes 6 erros da EQUIPE (não da Alice), nesta ordem: ${TEMAS_EQUIPE.map((t) => `${t} (${NOME_TEMA_EQUIPE[t]})`).join("; ")}. casos = quantos atendimentos têm o erro feito pela equipe; exemplo = 1 caso real, curto (o que aconteceu e o trecho, como está nas linhas), sem nome de cliente nem de atendente (use [nome] e [atendente]), vazio se não houve caso; o_certo = em 1 frase, o que fazer no lugar. Material para o dono conversar com a equipe.`,
   ].join("\n");
+}
+
+/** Aviso da equipe enviado à revisão semanal (código curto para a IA citar). */
+export type AvisoRelatorio = { codigo: string; id: string; tipo: "erro" | "acerto"; frase: string };
+
+/** Códigos A1, A2… na ordem dos avisos. */
+export function codificarAvisos(
+  avisos: Array<{ id: string; tipo: "erro" | "acerto"; frase: string }>,
+): AvisoRelatorio[] {
+  return avisos.map((a, i) => ({ codigo: `A${i + 1}`, id: a.id, tipo: a.tipo, frase: a.frase }));
+}
+
+/** Para cada aviso, a primeira sugestão que o cita (ou null: revisado, sem sugestão). */
+export function sugestaoDeCadaAviso(
+  avisos: AvisoRelatorio[],
+  sugestoes: Array<{ avisos?: string[] }>,
+): Array<{ id: string; indice: number | null }> {
+  return avisos.map((a) => {
+    const i = sugestoes.findIndex((s) => (s.avisos ?? []).includes(a.codigo));
+    return { id: a.id, indice: i >= 0 ? i : null };
+  });
 }

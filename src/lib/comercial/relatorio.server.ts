@@ -9,9 +9,11 @@ import type { Fatos } from "./fatos";
 import type { FichaResumo } from "./resumo";
 import {
   ESQUEMA_RELATORIO,
+  codificarAvisos,
   fichaCompacta,
   instrucoesRelatorio,
   numerosDoRelatorio,
+  sugestaoDeCadaAviso,
   type LeituraRelatorio,
 } from "./relatorio";
 
@@ -39,15 +41,29 @@ async function receptivosPorMes(db: Db): Promise<Array<{ empresa: string; leads:
 
 export async function gerarRelatorioComercial(
   db: Db,
-  o: { empresaId: string; periodo: string },
+  o: {
+    empresaId: string;
+    periodo: string;
+    /** Revisão semanal: só as fichas destes leads (sem isto, todas as fichas da empresa). */
+    leadIds?: string[];
+    /** Revisão semanal: avisos da equipe ainda não revisados (sinal forte). */
+    avisos?: Array<{ id: string; tipo: "erro" | "acerto"; frase: string }>;
+  },
 ): Promise<{ id: string; custoUsd: number }> {
-  const { data: linhas } = await db
+  let q = db
     .from("comercial_analises")
     .select(
       "grupo, status, servico, origem, resultado, valor_orcado, valor_vendido, nota, quem_atendeu, custo_usd, ficha, fatos, motivo_sugerido_id, crm_lead_id",
     )
     .eq("empresa_id", o.empresaId)
     .limit(2000);
+  if (o.leadIds)
+    q = q.in(
+      "crm_lead_id",
+      o.leadIds.length ? o.leadIds : ["00000000-0000-0000-0000-000000000000"],
+    );
+  const { data: linhas } = await q;
+  const avisos = codificarAvisos(o.avisos ?? []);
   const { data: motivos } = await db
     .from("config_options")
     .select("id, name")
@@ -147,6 +163,13 @@ export async function gerarRelatorioComercial(
             `ATENDIMENTOS ANALISADOS (${compactas.length}), um por linha:`,
             compactas.map((c) => JSON.stringify(c)).join("\n"),
             "",
+            ...(avisos.length
+              ? [
+                  `AVISOS DA EQUIPE (${avisos.length}), sinal forte:`,
+                  avisos.map((a) => `${a.codigo} [${a.tipo}] ${a.frase}`).join("\n"),
+                  "",
+                ]
+              : []),
             "INSTRUÇÕES ATUAIS DA ALICE (só leitura):",
             textoAlice || "(não encontradas)",
           ].join("\n"),
@@ -170,7 +193,7 @@ export async function gerarRelatorioComercial(
     .insert({
       empresa_id: o.empresaId,
       periodo: o.periodo,
-      dados: { numeros, leitura, estimativaMensal, custoRelatorioUsd: custo },
+      dados: { numeros, leitura, estimativaMensal, custoRelatorioUsd: custo, avisos },
       modelo: MODELO_FICHA,
       tokens_entrada: resp.usage.input_tokens,
       tokens_saida: resp.usage.output_tokens,
@@ -179,5 +202,14 @@ export async function gerarRelatorioComercial(
     .select("id")
     .single();
   if (error || !salvo) throw new Error(`gravar o relatório: ${error?.message ?? "sem retorno"}`);
-  return { id: (salvo as { id: string }).id, custoUsd: custo };
+  const relatorioId = (salvo as { id: string }).id;
+  // Cada aviso fica ligado à sugestão que ele gerou (ou só marcado como revisado).
+  const agora = new Date().toISOString();
+  for (const l of sugestaoDeCadaAviso(avisos, leitura.sugestoes ?? []))
+    await db
+      .from("comercial_avisos")
+      .update({ relatorio_id: relatorioId, sugestao_indice: l.indice, revisado_em: agora })
+      .eq("id", l.id)
+      .eq("empresa_id", o.empresaId);
+  return { id: relatorioId, custoUsd: custo };
 }

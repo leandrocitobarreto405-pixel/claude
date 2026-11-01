@@ -562,6 +562,37 @@ function DefeitosDoSistema({ itens }: { itens: DefeitoSistemaContado[] }) {
   );
 }
 
+/** Avisos da equipe que levaram à sugestão (revisão semanal). */
+function AvisosDaSugestao({
+  codigos,
+  avisos,
+}: {
+  codigos: string[];
+  avisos: RelatorioTela["avisos"];
+}) {
+  const citados = codigos
+    .map((c) => avisos.find((a) => a.codigo === c))
+    .filter((a): a is RelatorioTela["avisos"][number] => Boolean(a));
+  if (!citados.length) return null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-botao bg-background p-2">
+      <span className="text-xs font-semibold">
+        Veio de {citados.length} {citados.length === 1 ? "aviso" : "avisos"} da equipe
+      </span>
+      <ul className="flex flex-col gap-1">
+        {citados.map((a) => (
+          <li key={a.id} className="flex min-w-0 items-start gap-2 text-xs">
+            <Chip tom={a.tipo === "erro" ? "problema" : "sucesso"}>
+              {a.tipo === "erro" ? "Erro" : "Acerto"}
+            </Chip>
+            <span className="min-w-0 break-words">{a.frase}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Sugestoes({ r }: { r: RelatorioTela }) {
   const qc = useQueryClient();
   const decidir = useServerFn(decidirSugestaoFn);
@@ -611,6 +642,7 @@ function Sugestoes({ r }: { r: RelatorioTela }) {
                 ) : null}
               </div>
               <p className="text-sm">{s.sugestao}</p>
+              <AvisosDaSugestao codigos={s.avisos ?? []} avisos={r.avisos} />
               {dec?.motivo ? (
                 <p className="text-xs text-muted-foreground">Motivo: {dec.motivo}</p>
               ) : null}
