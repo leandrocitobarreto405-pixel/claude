@@ -113,16 +113,16 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALHOU: usuário chamou a trava do servidor';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 DO $$ BEGIN
-  PERFORM * FROM public.alice_conversas_caras(current_date);
+  PERFORM * FROM public.alice_conversas_caras((now() AT TIME ZONE 'America/Sao_Paulo')::date);
   RAISE EXCEPTION 'FALHOU: empresa viu as conversas caras de todas';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 RESET ROLE;
 SELECT pg_temp.como('nexa730@nexa.test', NULL);
 SET ROLE authenticated;
 SELECT pg_temp.ok((SELECT conversa_id = '73000000-0000-4000-8000-0000000000c1' AND custo_reais = 11.30
-                     FROM public.alice_conversas_caras(current_date, 1)), 'Nexa vê a conversa mais cara em R$');
+                     FROM public.alice_conversas_caras((now() AT TIME ZONE 'America/Sao_Paulo')::date, 1)), 'Nexa vê a conversa mais cara em R$');
 SELECT pg_temp.ok((SELECT excedentes = 2 AND valor_excedente = 7.00 AND para_equipe = 3
-                     FROM public.alice_franquia_empresas(current_date) WHERE empresa_id = :'P'), 'Painel: excedente e passagens');
+                     FROM public.alice_franquia_empresas((now() AT TIME ZONE 'America/Sao_Paulo')::date) WHERE empresa_id = :'P'), 'Painel: excedente e passagens');
 RESET ROLE;
 
 ROLLBACK;
