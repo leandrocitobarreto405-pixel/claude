@@ -8,6 +8,7 @@ import {
   BotOff,
   ExternalLink,
   Hand,
+  Megaphone,
   MessageCircle,
   MoreVertical,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar } from "@/components/conversas/cartao-conversa";
 import { DadosContato } from "@/components/conversas/dados-contato";
+import { AvisarTatiana } from "@/components/conversas/avisar-tatiana";
 import { useAcoesConversa } from "@/components/conversas/acoes-conversa";
 import { useTirarAlice } from "@/components/tirar-alice-estado";
 import { useEncerrarConversas } from "@/lib/conversas-encerrar";
@@ -33,11 +35,13 @@ const ITEM = "min-h-11 gap-3 text-[15px]";
 export function CabecalhoConversa({ c, onMudou }: { c: ConversaCompleta; onMudou: () => void }) {
   const voltar = useVoltarParaLista();
   const [dadosAbertos, setDadosAbertos] = useState(false);
+  const [avisoAberto, setAvisoAberto] = useState(false);
   const acoes = useAcoesConversa(c, onMudou);
   const tirar = useTirarAlice({ conversaId: c.id });
   const { encerrar, encerrando } = useEncerrarConversas();
   const { papel } = usePapel();
   const podeEncerrar = (papel === "admin" || papel === "atendente") && c.grupo !== "finalizadas";
+  const podeAvisar = papel === "admin" || papel === "atendente";
   const whats = whatsappLink(c.telefone);
 
   return (
@@ -98,6 +102,12 @@ export function CabecalhoConversa({ c, onMudou }: { c: ConversaCompleta; onMudou
               Encerrar
             </DropdownMenuItem>
           ) : null}
+          {podeAvisar ? (
+            <DropdownMenuItem className={ITEM} onSelect={() => setAvisoAberto(true)}>
+              <Megaphone className="size-4" aria-hidden />
+              Avisar a Tatiana
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem className={ITEM} disabled={!whats} asChild={Boolean(whats)}>
             {whats ? (
@@ -147,6 +157,9 @@ export function CabecalhoConversa({ c, onMudou }: { c: ConversaCompleta; onMudou
         </DropdownMenuContent>
       </DropdownMenu>
       <DadosContato c={c} aberto={dadosAbertos} aoMudar={setDadosAbertos} />
+      {podeAvisar ? (
+        <AvisarTatiana conversaId={c.id} aberto={avisoAberto} aoMudar={setAvisoAberto} />
+      ) : null}
     </div>
   );
 }
