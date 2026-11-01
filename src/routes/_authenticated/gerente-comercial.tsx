@@ -532,6 +532,9 @@ function Fichas({ d }: { d: GerenteComercial }) {
               <span className="text-xs font-normal text-muted-foreground">
                 {servicoPrincipal(a.servico)} · {a.resultado ? RESULTADO[a.resultado] : "—"}
                 {a.nota !== null ? ` · nota ${a.nota}` : ""}
+                {a.proximaOlhada
+                  ? ` · próxima olhada: ${dateBR(a.proximaOlhada.slice(0, 10))}`
+                  : ""}
               </span>
             </span>
           }

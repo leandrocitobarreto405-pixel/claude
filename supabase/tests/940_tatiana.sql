@@ -145,10 +145,47 @@ UPDATE public.crm_leads SET linked_work_order_id = :'O1' WHERE id = :'L1';
 SELECT pg_temp.ok((SELECT customer_id FROM public.crm_leads WHERE id = :'L1') = :'C1'::uuid,
                   'lead com OS aponta para o cliente da OS');
 
+-- 3e. Furos (migração 20261228360000): horário de atendimento (só admin, pela função), tipo da
+-- tarefa, acertos novos e próxima olhada.
+SELECT pg_temp.como('carol@p940.test', :'E');
+SET ROLE authenticated;
+DO $$ BEGIN
+  PERFORM public.comercial_salvar_horario(ARRAY[1,2,3,4,5]::smallint[], '09:00', '18:00');
+  RAISE EXCEPTION 'FALHOU: atendente salvou o horário';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+RESET ROLE;
+SELECT pg_temp.como('dona@p940.test', :'E');
+SET ROLE authenticated;
+SELECT public.comercial_salvar_horario(ARRAY[1,2,3,4,5,5]::smallint[], '09:00', '18:00');
+DO $$ BEGIN
+  PERFORM public.comercial_salvar_horario(ARRAY[1]::smallint[], '18:00', '09:00');
+  RAISE EXCEPTION 'FALHOU: aceitou início depois do fim';
+EXCEPTION WHEN OTHERS THEN IF SQLERRM LIKE 'FALHOU%' THEN RAISE; END IF;
+END $$;
+RESET ROLE;
+SELECT pg_temp.ok((SELECT dias_uteis = ARRAY[1,2,3,4,5]::smallint[] AND hora_inicio = '09:00' AND hora_fim = '18:00'
+                     FROM public.comercial_configuracoes WHERE empresa_id = :'E'), 'horário salvo pelo admin, sem dia repetido');
+INSERT INTO public.crm_followups (empresa_id, crm_lead_id, scheduled_at, status, responsavel, trilha, etapa, origem, tarefa_tipo, adiamentos)
+VALUES (:'E', :'L1', now() + interval '1 day', 'Pendente', 'equipe', 'G', 'G1', 'gerente', 'ligar', 1);
+DO $$ BEGIN
+  INSERT INTO public.crm_followups (empresa_id, crm_lead_id, scheduled_at, status, responsavel, trilha, etapa, origem, tarefa_tipo)
+  VALUES ('94000000-0000-4000-8000-00000000000e', '94000000-0000-4000-8000-0000000000a1', now(), 'Pendente', 'equipe', 'G', 'G1', 'gerente', 'qualquer');
+  RAISE EXCEPTION 'FALHOU: aceitou tipo de tarefa inválido';
+EXCEPTION WHEN check_violation THEN NULL;
+END $$;
+INSERT INTO public.comercial_cobrancas (empresa_id, crm_lead_id, user_id, tipo, texto, visivel_equipe)
+VALUES (:'E', :'L2', NULL, 'follow_up_esquecido', 'Follow-up que ninguém fez', true),
+       (:'E', :'L2', NULL, 'tarefa_atrasada', 'Tarefa sem Feito há 2 dias', false);
+UPDATE public.comercial_analises SET rever_em = now() + interval '2 days', rever_motivo = 'ver se respondeu'
+ WHERE empresa_id = :'E';
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_cobrancas WHERE tipo IN ('follow_up_esquecido', 'tarefa_atrasada') AND empresa_id = :'E') = 2,
+                  'acertos novos aceitos');
+
 -- 4. Tarefa da Tatiana (trilha G) em crm_followups.
 INSERT INTO public.crm_followups (empresa_id, crm_lead_id, scheduled_at, status, responsavel, trilha, etapa, origem, mensagem, motivo, prioridade)
 VALUES (:'E', :'L2', now() + interval '12 hours', 'Pendente', 'equipe', 'G', 'G1', 'gerente', 'Oi! Separei um horário…', 'pediu desconto', 1);
-SELECT pg_temp.ok((SELECT count(*) FROM public.crm_followups WHERE empresa_id = :'E' AND trilha = 'G') = 1, 'tarefa G gravada');
+SELECT pg_temp.ok((SELECT count(*) FROM public.crm_followups WHERE empresa_id = :'E' AND trilha = 'G' AND motivo = 'pediu desconto') = 1, 'tarefa G gravada');
 
 -- 5. Pushes novos aceitos.
 INSERT INTO public.push_envios (empresa_id, user_id, tipo, ref, titulo)

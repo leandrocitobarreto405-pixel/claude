@@ -11,7 +11,9 @@ export type TipoPush =
   | "agendamento_promocao"
   | "resumo_dia"
   | "tatiana_tarefas"
-  | "tatiana_cobrancas";
+  | "tatiana_cobrancas"
+  | "cliente_esperando_2h"
+  | "equipe_sem_push";
 
 export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; papeis: Papel[] }[] =
   [
@@ -59,6 +61,20 @@ export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; pa
       descricao: "Quantas cobranças a Tatiana fez no dia: resolvidas e pendentes.",
       papeis: ["admin"],
     },
+    {
+      tipo: "cliente_esperando_2h",
+      rotulo: "Cliente esperando há 2 h",
+      descricao:
+        "Quando um cliente passa de 2 h sem resposta da equipe, em horário de atendimento.",
+      papeis: ["admin"],
+    },
+    {
+      tipo: "equipe_sem_push",
+      rotulo: "Alguém da equipe sem notificação",
+      descricao:
+        "Às 10h, quando alguém com tarefa da Tatiana está sem push ativo ou não abriu o app.",
+      papeis: ["admin"],
+    },
   ];
 
 export function tiposDoPapel(papel: Papel | null): TipoPush[] {
@@ -75,6 +91,9 @@ export type PreferenciasPush = {
   resumo_dia: boolean;
   tatiana_tarefas: boolean;
   tatiana_cobrancas: boolean;
+  /** Avisos do admin (seguem a chave "cliente esperando" e "cobranças da Tatiana"). */
+  cliente_esperando_2h: boolean;
+  equipe_sem_push: boolean;
 };
 
 export const PREFERENCIAS_PADRAO: PreferenciasPush = {
@@ -86,6 +105,8 @@ export const PREFERENCIAS_PADRAO: PreferenciasPush = {
   resumo_dia: false,
   tatiana_tarefas: true,
   tatiana_cobrancas: true,
+  cliente_esperando_2h: true,
+  equipe_sem_push: true,
 };
 
 export const MINUTOS_ESPERA = [5, 10, 15, 30, 60];
@@ -346,4 +367,36 @@ export function inscricaoMorta(
 /** Só caminhos internos do app (nada de link para fora). */
 export function urlSegura(url: string): string {
   return /^\/(?!\/)[\w\-/?=&.%]*$/.test(url) ? url : "/inicio";
+}
+
+/** Aviso ao admin: cliente há 2 h (úteis) sem resposta da equipe. Uma vez por espera. */
+export function avisoEsperaLonga(
+  esperas: Array<EsperaPush & { minutosUteis: number }>,
+  jaAvisadas: Set<string>,
+): { n: Notificacao; marcar: string[] } | null {
+  const longas = esperas
+    .filter((e) => e.ultimaDoCliente && e.minutosUteis >= 120)
+    .filter((e) => !jaAvisadas.has(`${e.id}:${e.desde}:2h`))
+    .sort((a, b) => b.minutosUteis - a.minutosUteis);
+  if (!longas.length) return null;
+  const p = longas[0]!;
+  const h = Math.floor(p.minutosUteis / 60);
+  return {
+    n: {
+      titulo:
+        longas.length === 1
+          ? `${p.nome} está há ${h} h sem resposta`
+          : `${longas.length} clientes há mais de 2 h sem resposta`,
+      corpo:
+        longas.length === 1
+          ? "Em horário de atendimento, ninguém da equipe respondeu. Veja a conversa."
+          : `${longas
+              .map((e) => e.nome)
+              .slice(0, 3)
+              .join(", ")}${longas.length > 3 ? "…" : ""}: ninguém da equipe respondeu.`,
+      url: longas.length === 1 ? `/conversas/${p.id}` : "/crm/follow-ups",
+      tag: "espera-2h",
+    },
+    marcar: longas.map((e) => `${e.id}:${e.desde}:2h`),
+  };
 }

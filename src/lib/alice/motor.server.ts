@@ -50,6 +50,7 @@ import {
 import { primeiroNomeLimpo } from "./nome";
 import {
   GUIA_TOQUE_AUDIO,
+  PASSO_RETOMADA,
   PASSO_RETORNO_COMBINADO,
   passoDaEtapa,
   toqueEmAudio,
@@ -827,6 +828,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     contato: d.contato,
     desde: new Date(tarefa.created_at),
     botId: d.botId ?? null,
+    daTatiana: dados.trilha === "G",
   });
   if (trava) {
     await cancelarToque(db, tarefa, trava);
@@ -895,6 +897,9 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     // Retorno combinado fora da janela: o modelo fu_retorno_combinado (ou a equipe, sem ele).
     if (dados.trilha === "C")
       return toqueForaDaJanela(db, tarefa, cfg, d, PASSO_RETORNO_COMBINADO, dados);
+    // Toque da Tatiana (trilha G): só pelo modelo de retomada (lead com orçamento); senão, equipe.
+    if (dados.trilha === "G" && dados.com_orcamento)
+      return toqueForaDaJanela(db, tarefa, cfg, d, PASSO_RETOMADA, dados);
     await followupParaEquipe(
       db,
       tarefa,

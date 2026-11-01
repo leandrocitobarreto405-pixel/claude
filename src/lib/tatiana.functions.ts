@@ -13,6 +13,7 @@ import {
   type AcaoCobranca,
   type TipoCobranca,
 } from "@/lib/comercial/tatiana";
+import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/lib/comercial/furos";
 
 type Db = SupabaseClient;
 
@@ -56,6 +57,14 @@ export type TarefaHoje = {
   responsavelNome: string | null;
   /** Cliente escreveu nas últimas 24 h: dá para mandar texto livre pelas Conversas. */
   dentroDaJanela: boolean;
+  /** Tipo da tarefa (ligar, follow-up esquecido, remarcar, pós-venda, lead do site). */
+  tipo: TipoTarefa;
+  /** Quantas vezes a tarefa voltou sem Feito/Pular ("pendente de ontem"). */
+  adiamentos: number;
+  /** Telefone inteiro (só para ligar e lead do site). */
+  telefone: string | null;
+  /** Lead do site sem conversa (tarefa virtual, resolvida no Precisa de você). */
+  leadSiteId: string | null;
 };
 
 export type TarefaAlice = {
@@ -84,6 +93,68 @@ export type Acerto = {
   anuncio: boolean;
   criadaEm: string;
 };
+
+/**
+ * Lead do site/formulário sem conversa no WhatsApp (item 8): tarefa virtual para a equipe chamar
+ * (ligação ou o modelo aprovado pelo Precisa de você), no dia seguinte ao cadastro e de novo dois
+ * dias depois; sem lead no CRM ainda (ele nasce na primeira mensagem), então não vira crm_followups.
+ */
+async function tarefasLeadSite(db: Db, emp: string, hoje: string): Promise<TarefaHoje[]> {
+  const dias = (n: number) =>
+    new Date(Date.parse(`${hoje}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+  const { data } = await db
+    .from("leads_site")
+    .select("id, nome, telefone, servico, lp, cadastrado_em")
+    .eq("empresa_id", emp)
+    .eq("situacao", "nao_chamou")
+    .is("conversa_id", null)
+    .is("crm_lead_id", null)
+    .is("repetido_de", null)
+    .not("telefone", "is", null)
+    .gte("cadastrado_em", `${dias(3)}T00:00:00-03:00`)
+    .lt("cadastrado_em", `${hoje}T00:00:00-03:00`)
+    .order("cadastrado_em")
+    .limit(50);
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      nome: string | null;
+      telefone: string | null;
+      servico: string | null;
+      lp: string | null;
+      cadastrado_em: string;
+    }>
+  )
+    .filter((l) => {
+      const d = new Date(Date.parse(l.cadastrado_em) - 3 * 3_600_000).toISOString().slice(0, 10);
+      return d === dias(1) || d === dias(3);
+    })
+    .map((l) => {
+      const t = textoLeadSite({
+        nome: (l.nome ?? "").split(" ")[0] ?? "",
+        servico: l.servico,
+        lp: l.lp,
+      });
+      return {
+        id: `site:${l.id}`,
+        leadId: null,
+        leadNome: l.nome?.trim() || "Lead do site",
+        telefoneFinal: l.telefone ? l.telefone.slice(-4) : null,
+        conversaId: null,
+        quando: `${hoje}T09:00:00-03:00`,
+        prioridade: 2,
+        motivo: t.motivo,
+        mensagem: t.mensagem,
+        responsavelId: null,
+        responsavelNome: null,
+        dentroDaJanela: false,
+        tipo: "lead_site" as const,
+        adiamentos: 0,
+        telefone: l.telefone,
+        leadSiteId: l.id,
+      };
+    });
+}
 
 export type HojeTatiana = {
   modo: "desligado" | "teste" | "ativo";
@@ -138,10 +209,11 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     let qTarefas = db
       .from("crm_followups")
       .select(
-        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to",
+        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to, tarefa_tipo, adiamentos",
       )
       .eq("empresa_id", emp)
       .eq("origem", "gerente")
+      .eq("responsavel", "equipe")
       .eq("status", "Pendente")
       .lte("scheduled_at", fim)
       .order("prioridade", { ascending: true, nullsFirst: false })
@@ -187,6 +259,8 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       motivo: string | null;
       mensagem: string | null;
       assigned_to: string | null;
+      tarefa_tipo: string | null;
+      adiamentos: number | null;
     }>;
     const cs = (
       (cobr ?? []) as Array<{
@@ -275,20 +349,30 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       admin,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
-      tarefas: ts.map((t) => ({
-        id: t.id,
-        leadId: t.crm_lead_id,
-        leadNome: nomeLead(t.crm_lead_id),
-        telefoneFinal: finalLead(t.crm_lead_id),
-        conversaId: t.conversa_id,
-        quando: t.scheduled_at,
-        prioridade: t.prioridade,
-        motivo: t.motivo,
-        mensagem: t.mensagem,
-        responsavelId: t.assigned_to,
-        responsavelNome: !equipeUnica && t.assigned_to ? (nomes.get(t.assigned_to) ?? null) : null,
-        dentroDaJanela: Boolean(t.conversa_id && janela.has(t.conversa_id)),
-      })),
+      tarefas: ts
+        .map((t): TarefaHoje => ({
+          id: t.id,
+          leadId: t.crm_lead_id,
+          leadNome: nomeLead(t.crm_lead_id),
+          telefoneFinal: finalLead(t.crm_lead_id),
+          conversaId: t.conversa_id,
+          quando: t.scheduled_at,
+          prioridade: t.prioridade,
+          motivo: t.motivo,
+          mensagem: t.mensagem,
+          responsavelId: t.assigned_to,
+          responsavelNome:
+            !equipeUnica && t.assigned_to ? (nomes.get(t.assigned_to) ?? null) : null,
+          dentroDaJanela: Boolean(t.conversa_id && janela.has(t.conversa_id)),
+          tipo: tipoTarefa(t.tarefa_tipo),
+          adiamentos: t.adiamentos ?? 0,
+          telefone:
+            tipoTarefa(t.tarefa_tipo) === "ligar"
+              ? (ls.get(t.crm_lead_id ?? "")?.normalized_phone ?? null)
+              : null,
+          leadSiteId: null,
+        }))
+        .concat(await tarefasLeadSite(db, emp, hoje)),
       alice: alice.map((a) => ({
         leadId: a.crm_lead_id,
         leadNome: nomeLead(a.crm_lead_id),
@@ -516,7 +600,11 @@ export type PainelCobrancas = {
     padrao: string | null;
     decidiu: string;
     responsavel: string | null;
+    /** Próxima olhada da Tatiana (dd/mm) ou null. */
+    proximaOlhada: string | null;
   }>;
+  /** Horário de atendimento (tarefas só em dia/hora útil). */
+  horario: { dias: number[]; inicio: string; fim: string };
 };
 
 export const cobrancasTatianaFn = createServerFn({ method: "GET" })
@@ -546,7 +634,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         .limit(40),
       db
         .from("comercial_configuracoes")
-        .select("teto_mensal_usd, equipe_unica")
+        .select("teto_mensal_usd, equipe_unica, dias_uteis, hora_inicio, hora_fim")
         .eq("empresa_id", emp)
         .maybeSingle(),
     ]);
@@ -577,7 +665,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
     const { data: decs } = ultima
       ? await db
           .from("comercial_decisoes")
-          .select("crm_lead_id, acao, quando, responsavel, padrao_faria, motivo")
+          .select("crm_lead_id, acao, quando, responsavel, padrao_faria, motivo, rever_em")
           .eq("noite_id", ultima.id)
           .limit(500)
       : { data: [] };
@@ -588,6 +676,7 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
       responsavel: string | null;
       padrao_faria: string | null;
       motivo: string | null;
+      rever_em: string | null;
     }>;
     const leadIds = [
       ...new Set([...cs.map((c) => c.crm_lead_id), ...ds.map((d) => d.crm_lead_id)]),
@@ -711,6 +800,30 @@ export const cobrancasTatianaFn = createServerFn({ method: "GET" })
         padrao: d.padrao_faria,
         decidiu: `${d.acao}${d.quando ? ` (${dataHoraCurta(d.quando)})` : ""}${d.motivo ? `: ${d.motivo}` : ""}`,
         responsavel: d.responsavel,
+        proximaOlhada: d.rever_em ? dataHoraCurta(d.rever_em).slice(0, 5) : null,
       })),
+      horario: horarioDaConfig(cfg as never),
     };
+  });
+
+/** Horário de atendimento da empresa (só admin): dias da semana e horas das tarefas. */
+export const salvarHorarioTatianaFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa])
+  .inputValidator((d: { dias: number[]; inicio: string; fim: string }) => {
+    const dias = [...new Set((d.dias ?? []).map(Number))].filter((x) => x >= 0 && x <= 6).sort();
+    if (!dias.length) throw new Error("Escolha pelo menos um dia da semana.");
+    const hm = /^\d{2}:\d{2}$/;
+    if (!hm.test(d.inicio) || !hm.test(d.fim) || d.inicio >= d.fim)
+      throw new Error("O horário de início precisa ser antes do fim.");
+    return { dias, inicio: d.inicio, fim: d.fim };
+  })
+  .handler(async ({ context, data }) => {
+    const db = context.supabase as unknown as Db;
+    const { error } = await db.rpc("comercial_salvar_horario", {
+      _dias: data.dias,
+      _inicio: data.inicio,
+      _fim: data.fim,
+    });
+    if (error) throw new Error(error.message || "Não foi possível salvar o horário.");
+    return { ok: true };
   });

@@ -11,6 +11,7 @@ import type { Papel } from "@/lib/tenant";
 import {
   PREFERENCIAS_PADRAO,
   avisoAgrupadoDeEsperas,
+  avisoEsperaLonga,
   inscricaoMorta,
   horaDoResumo,
   notificacaoAgendamentoAlice,
@@ -152,6 +153,8 @@ export async function pessoasComCelular(
               resumo_dia: pr.resumo_dia,
               tatiana_tarefas: pr.tatiana_tarefas ?? true,
               tatiana_cobrancas: pr.tatiana_cobrancas ?? true,
+              cliente_esperando_2h: pr.cliente_esperando,
+              equipe_sem_push: pr.tatiana_cobrancas ?? true,
             }
           : PREFERENCIAS_PADRAO,
         celulares: [],
@@ -282,6 +285,39 @@ async function eventosDaEmpresa(
           ref: `grupo:${agora.toISOString()}`,
           n: plano.n,
           para: (x) => x.userId === p.userId,
+          marcar: plano.marcar,
+        });
+    }
+  }
+
+  if (quer("cliente_esperando_2h")) {
+    // Admin: cliente há 2 h (contadas no horário de atendimento) sem resposta, uma vez por espera.
+    const esperas = await esperasDaEmpresa(db, empresaId, agora);
+    if (esperas.length) {
+      const { data: cfg } = await (db as unknown as import("@supabase/supabase-js").SupabaseClient)
+        .from("comercial_configuracoes")
+        .select("dias_uteis, hora_inicio, hora_fim")
+        .eq("empresa_id", empresaId)
+        .maybeSingle();
+      const { horarioDaConfig, minutosUteis } = await import("@/lib/comercial/furos");
+      const horario = horarioDaConfig(cfg as never);
+      const desde = new Date(agora.getTime() - 24 * 3600_000).toISOString();
+      const { data: ja } = await db
+        .from("push_envios")
+        .select("ref")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "cliente_esperando_2h")
+        .gte("created_at", desde)
+        .limit(500);
+      const plano = avisoEsperaLonga(
+        esperas.map((e) => ({ ...e, minutosUteis: minutosUteis(e.desde, agora, horario) })),
+        new Set((ja ?? []).map((r) => r.ref)),
+      );
+      if (plano)
+        eventos.push({
+          tipo: "cliente_esperando_2h",
+          ref: `2h:${agora.toISOString()}`,
+          n: plano.n,
           marcar: plano.marcar,
         });
     }

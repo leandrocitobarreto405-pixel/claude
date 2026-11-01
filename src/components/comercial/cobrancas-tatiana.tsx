@@ -3,9 +3,10 @@
 // custo por noite e no mês, e "padrão faria × Tatiana decidiu" da última noite.
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Card, Chip } from "@/components/nexa";
+import { toast } from "sonner";
+import { Botao, Card, Chip } from "@/components/nexa";
 import {
   COBRANCA,
   NOME_GERENTE,
@@ -13,7 +14,11 @@ import {
   tempoTexto,
   type TipoCobranca,
 } from "@/lib/comercial/tatiana";
-import { cobrancasTatianaFn, type PainelCobrancas } from "@/lib/tatiana.functions";
+import {
+  cobrancasTatianaFn,
+  salvarHorarioTatianaFn,
+  type PainelCobrancas,
+} from "@/lib/tatiana.functions";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -257,6 +262,7 @@ export function NoitesTatiana({ dados }: { dados?: PainelCobrancas }) {
           ))}
         </ul>
       </Card>
+      <HorarioAtendimento horario={d.horario} />
       <Card className="min-w-0 gap-2">
         <h2 className="font-bold">Padrão faria × {NOME_GERENTE} decidiu (última noite)</h2>
         {d.comparacao.length ? (
@@ -275,6 +281,11 @@ export function NoitesTatiana({ dados }: { dados?: PainelCobrancas }) {
                   {NOME_GERENTE}: {c.decidiu}
                   {c.responsavel ? ` · ${c.responsavel === "alice" ? "Alice" : "equipe"}` : ""}
                 </span>
+                {c.proximaOlhada ? (
+                  <span className="text-xs text-muted-foreground">
+                    Próxima olhada: {c.proximaOlhada}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -283,5 +294,83 @@ export function NoitesTatiana({ dados }: { dados?: PainelCobrancas }) {
         )}
       </Card>
     </div>
+  );
+}
+
+const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+/** Horário de atendimento: as tarefas da Tatiana só caem em dia e hora úteis. */
+function HorarioAtendimento({ horario }: { horario: PainelCobrancas["horario"] }) {
+  const qc = useQueryClient();
+  const salvar = useServerFn(salvarHorarioTatianaFn);
+  const [dias, setDias] = useState<number[]>(horario.dias);
+  const [inicio, setInicio] = useState(horario.inicio);
+  const [fim, setFim] = useState(horario.fim);
+  const [salvando, setSalvando] = useState(false);
+  const mudou =
+    [...dias].sort().join() !== [...horario.dias].sort().join() ||
+    inicio !== horario.inicio ||
+    fim !== horario.fim;
+  const alternar = (d: number) =>
+    setDias((xs) => (xs.includes(d) ? xs.filter((x) => x !== d) : [...xs, d].sort()));
+  const gravar = async () => {
+    setSalvando(true);
+    try {
+      await salvar({ data: { dias, inicio, fim } });
+      toast.success("Horário de atendimento salvo.");
+      await qc.invalidateQueries({ queryKey: CHAVE });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+  return (
+    <Card className="min-w-0 gap-2">
+      <h2 className="font-bold">Horário de atendimento</h2>
+      <p className="text-sm text-muted-foreground">
+        As tarefas da {NOME_GERENTE} só caem em dia e hora de trabalho; o que cair fora vai para o
+        próximo horário útil. O aviso de cliente há 2 h sem resposta também conta só estas horas.
+      </p>
+      <div role="group" aria-label="Dias da semana" className="flex flex-wrap gap-1.5">
+        {DIAS.map((rotulo, d) => (
+          <button
+            key={d}
+            type="button"
+            aria-pressed={dias.includes(d)}
+            onClick={() => alternar(d)}
+            className={cn(
+              "min-h-11 min-w-11 rounded-full border px-3 text-sm font-semibold",
+              dias.includes(d) ? "border-marca bg-marca text-marca-foreground" : "bg-card",
+            )}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Das
+          <input
+            type="time"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            className="min-h-11 rounded-botao border border-border bg-background px-3 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          Até
+          <input
+            type="time"
+            value={fim}
+            onChange={(e) => setFim(e.target.value)}
+            className="min-h-11 rounded-botao border border-border bg-background px-3 text-sm"
+          />
+        </label>
+        <Botao disabled={!mudou || salvando || !dias.length} onClick={() => void gravar()}>
+          {salvando ? "Salvando…" : "Salvar"}
+        </Botao>
+      </div>
+    </Card>
   );
 }
