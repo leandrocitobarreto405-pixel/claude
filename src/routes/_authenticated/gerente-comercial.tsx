@@ -19,6 +19,7 @@ import {
 import { NOME_REGRA } from "@/lib/comercial/ficha";
 import { ResumoGerente } from "@/components/comercial/resumo-gerente";
 import { CobrancasTatiana, NoitesTatiana } from "@/components/comercial/cobrancas-tatiana";
+import { AvisosTatiana } from "@/components/comercial/avisos-tatiana";
 import { custos, servicoPrincipal } from "@/lib/comercial/resumo";
 import { brl, dateBR } from "@/lib/format";
 import { usePapel } from "@/lib/tenant";
@@ -44,6 +45,7 @@ const ABAS = [
   { id: "fichas", rotulo: "Fichas" },
   { id: "cobrancas", rotulo: "Cobranças" },
   { id: "noites", rotulo: "Noites e teste" },
+  { id: "avisos", rotulo: "Avisos" },
 ] as const;
 type Aba = (typeof ABAS)[number]["id"];
 
@@ -139,6 +141,7 @@ function GerenteComercialTela() {
           {aba === "fichas" ? <Fichas d={d} /> : null}
           {aba === "cobrancas" ? <CobrancasTatiana /> : null}
           {aba === "noites" ? <NoitesTatiana /> : null}
+          {aba === "avisos" ? <AvisosTatiana /> : null}
         </>
       ) : null}
     </div>
