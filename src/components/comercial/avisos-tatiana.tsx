@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { Card, Chip } from "@/components/nexa";
-import { rotuloVirou } from "@/components/conversas/avisar-tatiana";
-import { avisosTatianaFn, type AvisoTela } from "@/lib/avisos-tatiana.functions";
+import { avisosTatianaFn, rotuloVirou, type AvisoTela } from "@/lib/avisos-tatiana.functions";
 import { dateBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

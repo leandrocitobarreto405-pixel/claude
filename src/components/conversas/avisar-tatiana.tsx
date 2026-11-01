@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   avisarTatianaFn,
   meusAvisosFn,
+  rotuloVirou,
   type AvisoTela,
   type TipoAviso,
 } from "@/lib/avisos-tatiana.functions";
@@ -22,19 +23,6 @@ import { dateBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const MAX = 300;
-
-/** Texto curto do que o aviso virou (para a pessoa e para o admin). */
-export function rotuloVirou(a: AvisoTela): {
-  texto: string;
-  tom: "neutro" | "sucesso" | "problema";
-} {
-  if (a.virou.situacao === "aguardando") return { texto: "na próxima revisão", tom: "neutro" };
-  if (a.virou.situacao === "sem_sugestao")
-    return { texto: "revisado, sem sugestão", tom: "neutro" };
-  if (a.virou.decisao === "aprovada") return { texto: "virou sugestão aprovada", tom: "sucesso" };
-  if (a.virou.decisao === "recusada") return { texto: "virou sugestão recusada", tom: "problema" };
-  return { texto: "virou sugestão (aguardando o dono)", tom: "neutro" };
-}
 
 /**
  * Diálogo "Avisar a Tatiana" da conversa: erro ou acerto + uma frase. Grava com a conversa e entra

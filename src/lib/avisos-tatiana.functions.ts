@@ -52,6 +52,19 @@ export function virouDoAviso(
   return a.revisado_em ? { situacao: "sem_sugestao" } : { situacao: "aguardando" };
 }
 
+/** Texto curto do que o aviso virou (para a pessoa e para o admin). */
+export function rotuloVirou(a: AvisoTela): {
+  texto: string;
+  tom: "neutro" | "sucesso" | "problema";
+} {
+  if (a.virou.situacao === "aguardando") return { texto: "na próxima revisão", tom: "neutro" };
+  if (a.virou.situacao === "sem_sugestao")
+    return { texto: "revisado, sem sugestão", tom: "neutro" };
+  if (a.virou.decisao === "aprovada") return { texto: "virou sugestão aprovada", tom: "sucesso" };
+  if (a.virou.decisao === "recusada") return { texto: "virou sugestão recusada", tom: "problema" };
+  return { texto: "virou sugestão (aguardando o dono)", tom: "neutro" };
+}
+
 export const avisarTatianaFn = createServerFn({ method: "POST" })
   .middleware([requireEmpresa])
   .inputValidator((d: { conversaId: string; tipo: string; frase: string }) => {
