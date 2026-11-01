@@ -309,31 +309,15 @@ export const criarCampanhaFn = createServerFn({ method: "POST" })
           .eq("empresa_id", context.empresaId)
           .maybeSingle()
       : { data: null };
-    const { data: nova, error } = await db
-      .from("mkt_campanhas")
-      .insert({
-        empresa_id: context.empresaId,
-        nome: c.nome,
-        tipo: "calendario",
-        mes_ref: c.mesRef,
-        grupos: c.listas.map((l) => l.grupo),
-        listas: c.listas,
-        templates: c.templates,
-        datas_disparo: c.datas,
-        condicao_texto: c.condicaoTexto,
-        condicao_pct: c.condicaoPct,
-        custo_msg_estimado: cfg?.custo_msg_estimado ?? 0.32,
-        quem_responde: c.quemResponde,
-        limites: c.limites,
-        hora_inicio: c.horaInicio,
-        criada_por: context.userId,
-        status: "rascunho",
-        repete_de: origem?.id ?? null,
-      })
-      .select("id")
-      .single();
-    if (error || !nova) throw new Error("Não foi possível criar a campanha.");
-    return { id: nova.id as string };
+    const { inserirCampanhaRascunho } = await import("@/lib/mkt/campanhas.server");
+    const id = await inserirCampanhaRascunho(db, {
+      empresaId: context.empresaId,
+      userId: context.userId,
+      campanha: c,
+      custoMsg: Number(cfg?.custo_msg_estimado ?? 0.32),
+      repeteDe: origem?.id ?? null,
+    });
+    return { id };
   });
 
 /** Modelos aprovados na Meta para escolher na campanha nova, com o texto para a prévia. */

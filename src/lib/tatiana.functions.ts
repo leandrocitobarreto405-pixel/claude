@@ -15,6 +15,8 @@ import {
 } from "@/lib/comercial/tatiana";
 import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/lib/comercial/furos";
 import type { MesTatiana as MesTatianaTela } from "@/lib/comercial/mes.server";
+import type { PlanoTatiana } from "@/lib/comercial/plano.server";
+import { requireRecurso } from "@/lib/recurso.middleware";
 import {
   JANELA_DIAS,
   resumoDasClasses,
@@ -906,4 +908,64 @@ export const mesTatianaFn = createServerFn({ method: "GET" })
       .maybeSingle();
     const dias = (cfg as { dias_uteis?: number[] | null } | null)?.dias_uteis ?? [1, 2, 3, 4, 5, 6];
     return calcularMes(db, emp, fimDeHojeSP().hoje, dias);
+  });
+
+// ---------------------------------------------------------------- plano de ação (admin)
+
+/** Plano de ação do dia (ou o mais recente) da Tatiana. */
+export const planoTatianaFn = createServerFn({ method: "GET" })
+  .middleware([requireAdminEmpresa])
+  .handler(async ({ context }): Promise<PlanoTatiana | null> => {
+    const { planoAtual } = await import("@/lib/comercial/plano.server");
+    return planoAtual(context.supabase as unknown as Db, context.empresaId as string);
+  });
+
+const comMarketing = requireRecurso("marketing");
+
+/** Aprovar (cria o rascunho no Marketing) ou recusar uma ação do plano. Só admin. */
+export const decidirAcaoFn = createServerFn({ method: "POST" })
+  .middleware([requireAdminEmpresa, comMarketing])
+  .inputValidator(
+    (input: {
+      planoId: string;
+      indice: number;
+      decisao: "aprovar" | "recusar";
+      motivo?: string;
+    }) => ({
+      planoId: uuid(input.planoId, "Plano"),
+      indice: Math.max(0, Math.min(9, Math.round(Number(input.indice) || 0))),
+      decisao: input.decisao === "aprovar" ? ("aprovar" as const) : ("recusar" as const),
+      motivo: input.motivo ? String(input.motivo).slice(0, 300) : null,
+    }),
+  )
+  .handler(async ({ data, context }): Promise<{ campanhaId: string | null }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as unknown as Db;
+    const emp = context.empresaId as string;
+    const userId = context.userId as string;
+    const { aprovarAcao, recusarAcao } = await import("@/lib/comercial/plano.server");
+    if (data.decisao === "recusar") {
+      await recusarAcao(db, {
+        empresaId: emp,
+        userId,
+        planoId: data.planoId,
+        indice: data.indice,
+        motivo: data.motivo,
+      });
+      return { campanhaId: null };
+    }
+    const agora = new Date().toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const r = await aprovarAcao(db, {
+      empresaId: emp,
+      userId,
+      planoId: data.planoId,
+      indice: data.indice,
+      hoje: fimDeHojeSP().hoje,
+      agora,
+    });
+    return { campanhaId: r.campanhaId };
   });
