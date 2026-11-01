@@ -14,6 +14,7 @@ import {
   type NumerosCampanha,
   type Sugestao,
 } from "./campanhas";
+import { textoMesRelatorio, type MesRelatorio } from "./equipe";
 import {
   ESQUEMA_RELATORIO,
   codificarAvisos,
@@ -91,6 +92,8 @@ export async function gerarRelatorioComercial(
     leadIds?: string[];
     /** Revisão semanal: avisos da equipe ainda não revisados (sinal forte). */
     avisos?: Array<{ id: string; tipo: "erro" | "acerto"; frase: string }>;
+    /** Revisão semanal: bloco "Mês" (meta, previsão, agenda, alertas, plano e semana da equipe). */
+    mes?: MesRelatorio;
   },
 ): Promise<{ id: string; custoUsd: number }> {
   let q = db
@@ -216,6 +219,13 @@ export async function gerarRelatorioComercial(
                   "",
                 ]
               : []),
+            ...(o.mes
+              ? [
+                  "MÊS (números do sistema; use como contexto das sugestões, sem repetir):",
+                  ...textoMesRelatorio(o.mes),
+                  "",
+                ]
+              : []),
             ...(campanhas.length
               ? [
                   `CAMPANHAS DE WHATSAPP DA SEMANA (${campanhas.length}), números do sistema:`,
@@ -251,7 +261,15 @@ export async function gerarRelatorioComercial(
     .insert({
       empresa_id: o.empresaId,
       periodo: o.periodo,
-      dados: { numeros, leitura, estimativaMensal, custoRelatorioUsd: custo, avisos, campanhas },
+      dados: {
+        numeros,
+        leitura,
+        estimativaMensal,
+        custoRelatorioUsd: custo,
+        avisos,
+        campanhas,
+        mes: o.mes ?? null,
+      },
       modelo: MODELO_FICHA,
       tokens_entrada: resp.usage.input_tokens,
       tokens_saida: resp.usage.output_tokens,

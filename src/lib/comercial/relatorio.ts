@@ -325,6 +325,7 @@ export function instrucoesRelatorio(empresa: string): string {
     "- Conte os casos de verdade nas linhas (campo casos). Não invente números; use os do sistema para conversão e valores.",
     "- Sem nomes de clientes nem de pessoas da equipe; use [nome] e [atendente] se precisar.",
     "- Envios de campanha do Marketing (promoções em massa) não são da Alice nem da equipe: não conte como erro de ninguém.",
+    "- MÊS (quando vier): meta, ritmo, previsão, agenda, alertas, plano de ação e semana da equipe. Use como contexto para priorizar as sugestões (o que mais ajuda a bater a meta); não repita os números nem avalie pessoas: a equipe é sempre uma só.",
     '- AVISOS DA EQUIPE (códigos A1, A2…): erros e acertos que a equipe marcou na conversa. São sinal forte: leia cada um e, se o padrão aparecer, ele pesa mais que uma ficha sozinha. Quando uma sugestão vier de avisos, liste os códigos em "avisos" (senão, lista vazia); nunca invente código. Aviso de acerto pode virar sugestão de manter ou reforçar o que deu certo. Não copie o texto do aviso com nomes.',
     "- padroes_vendas: os 5 padrões mais comuns nas vendas, com o número de casos.",
     "- perfil_que_mais_fecha: 2 a 3 frases.",

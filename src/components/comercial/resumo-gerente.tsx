@@ -27,6 +27,7 @@ import {
   type ItemCorrigir,
   type Periodo,
 } from "@/lib/comercial/painel";
+import { textoMesRelatorio } from "@/lib/comercial/equipe";
 import { NOME_TEMA_EQUIPE, type TemaEquipe } from "@/lib/comercial/relatorio";
 import {
   conversaoPor,
@@ -755,6 +756,19 @@ function Detalhes({
           }))}
         />
       </div>
+      {relatorio?.mes ? (
+        <div className="flex min-w-0 flex-col gap-2 text-sm">
+          <h3 className="font-bold">Mês, na semana do relatório</h3>
+          <ul className="ml-4 list-disc space-y-1">
+            {textoMesRelatorio(relatorio.mes).map((l, i) => (
+              <li key={i}>{l.replace(/^- /, "")}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Números do sistema no momento do relatório; a equipe é contada sempre como equipe.
+          </p>
+        </div>
+      ) : null}
       {relatorio?.campanhas?.length ? (
         <div className="flex min-w-0 flex-col gap-2 text-sm">
           <h3 className="font-bold">Campanhas de WhatsApp da semana</h3>

@@ -8,6 +8,7 @@ import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
 import type { CampanhaRelatorio } from "@/lib/comercial/campanhas";
+import type { MesRelatorio } from "@/lib/comercial/equipe";
 import type { AvisoRelatorio, LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
 import type { DefeitoSistemaContado } from "@/lib/comercial/defeitos-sistema";
 
@@ -34,6 +35,8 @@ export type RelatorioTela = {
   avisos: AvisoRelatorio[];
   /** Campanhas de WhatsApp acompanhadas na semana (relatórios antes de 02/11: vazio). */
   campanhas: CampanhaRelatorio[];
+  /** Bloco "Mês" da revisão semanal (relatórios antes de 02/11: vazio). */
+  mes: MesRelatorio | null;
 };
 
 export type AnaliseTela = {
@@ -226,6 +229,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
             estimativaMensal: ultimo.dados.estimativaMensal ?? [],
             avisos: ultimo.dados.avisos ?? [],
             campanhas: ultimo.dados.campanhas ?? [],
+            mes: ultimo.dados.mes ?? null,
           }
         : null,
       ligado: Boolean(config?.ligado),

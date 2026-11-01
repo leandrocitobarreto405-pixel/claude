@@ -7,6 +7,8 @@
 import { analisarLead, contextoDaEmpresa } from "./analise.server";
 import { DESCRICAO_REVISAO } from "./revisao-semanal";
 
+type Db = import("@supabase/supabase-js").SupabaseClient;
+
 /** Leads analisados por rodada (em paralelo); a passada faz rodadas até gastar ~2 min. */
 const POR_RODADA = 6;
 const TEMPO_DA_PASSADA_MS = 120_000;
@@ -110,13 +112,19 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
       // Revisão semanal: só as fichas da semana e os avisos da equipe ainda não revisados.
       const semanal = lote.descricao.startsWith(DESCRICAO_REVISAO);
       const { avisosPendentes } = await import("./revisao-semanal.server");
+      const mes = semanal ? await blocoMes(db, lote.empresa_id).catch(() => undefined) : undefined;
       const r = await gerarRelatorioComercial(db, {
         empresaId: lote.empresa_id,
         periodo: lote.relatorio_periodo || "Período analisado",
         ...(semanal
           ? { leadIds: lote.leads, avisos: await avisosPendentes(db, lote.empresa_id) }
           : {}),
+        ...(mes ? { mes } : {}),
       });
+      if (semanal)
+        await avisarRelatorioPronto(db, lote.empresa_id, r.id, lote.relatorio_periodo || "").catch(
+          () => undefined,
+        );
       const fim = new Date().toISOString();
       await db
         .from("comercial_lotes")
@@ -216,4 +224,70 @@ export async function rodarLotesComerciais(): Promise<Record<string, unknown> | 
     transcritos: resultados.reduce((s, r) => s + r.transcritos, 0),
     restam,
   };
+}
+
+/** Bloco "Mês" da revisão semanal (dias úteis da empresa; hoje em São Paulo). */
+async function blocoMes(db: Db, empresaId: string) {
+  const { mesParaRelatorio } = await import("./equipe.server");
+  const { data: cfg } = await db
+    .from("comercial_configuracoes")
+    .select("dias_uteis")
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return mesParaRelatorio(
+    db,
+    empresaId,
+    hoje,
+    (cfg as { dias_uteis?: number[] | null } | null)?.dias_uteis ?? [1, 2, 3, 4, 5, 6],
+  );
+}
+
+/** Relatório de domingo pronto: aviso no app e push ao admin (uma vez por relatório). */
+async function avisarRelatorioPronto(
+  db: Db,
+  empresaId: string,
+  relatorioId: string,
+  periodo: string,
+) {
+  const { textoPushRelatorio } = await import("./equipe");
+  const t = textoPushRelatorio(periodo || "Relatório da semana");
+  const referencia = `gerente_relatorio:${relatorioId}`;
+  const { data: ja } = await db
+    .from("mkt_avisos")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("referencia", referencia)
+    .limit(1);
+  if (!ja?.length)
+    await db.from("mkt_avisos").insert({
+      empresa_id: empresaId,
+      tipo: "gerente_relatorio",
+      titulo: t.titulo,
+      mensagem: t.corpo,
+      so_no_app: true,
+      referencia,
+    });
+  const { pessoasComCelular, enviarParaPessoa, registrarUmaVez } =
+    await import("@/lib/push/notificacoes.server");
+  const { querReceber } = await import("@/lib/push/notificacoes");
+  const pessoas = ((await pessoasComCelular(db as never, empresaId)).get(empresaId) ?? []).filter(
+    (p) => p.papel === "admin" && querReceber("alerta_gerente", p.papel, p.pref),
+  );
+  for (const p of pessoas) {
+    const id = await registrarUmaVez(
+      db as never,
+      empresaId,
+      p.userId,
+      "alerta_gerente",
+      `relatorio:${relatorioId}`,
+      t.titulo,
+    );
+    if (!id) continue;
+    await enviarParaPessoa(db as never, p.celulares, {
+      ...t,
+      url: "/gerente-comercial",
+      tag: `tatiana-relatorio-${relatorioId}`,
+    });
+  }
 }

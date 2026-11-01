@@ -16,6 +16,7 @@ import {
 import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/lib/comercial/furos";
 import type { MesTatiana as MesTatianaTela } from "@/lib/comercial/mes.server";
 import type { PlanoTatiana } from "@/lib/comercial/plano.server";
+import type { SemanaEquipe } from "@/lib/comercial/equipe";
 import { requireRecurso } from "@/lib/recurso.middleware";
 import {
   JANELA_DIAS,
@@ -140,6 +141,8 @@ export type HojeTatiana = {
   /** Equipe única: lista e recado da equipe, sem separar por pessoa. */
   equipeUnica: boolean;
   recado: { frase: string; resumo: string | null } | null;
+  /** Números da semana da equipe toda (nunca por pessoa). */
+  semana: SemanaEquipe | null;
   tarefas: TarefaHoje[];
   alice: TarefaAlice[];
   acertos: Acerto[];
@@ -177,6 +180,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       admin,
       equipeUnica,
       recado: null,
+      semana: null,
       tarefas: [],
       alice: [],
       acertos: [],
@@ -317,6 +321,12 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       for (const r of (rec ?? []) as Array<{ conversa_id: string }>) janela.add(r.conversa_id);
     }
     const nomes = await nomesDaEmpresa(emp);
+    // Semana da equipe: totais da empresa (pelo servidor), iguais para todo mundo.
+    const semana = await (async () => {
+      const { semanaDaEquipe } = await import("@/lib/comercial/equipe.server");
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      return semanaDaEquipe(supabaseAdmin as unknown as Db, emp, hoje);
+    })().catch(() => null);
     const nomeLead = (id: string | null) => (id && ls.get(id)?.lead_name) || "Cliente";
     const finalLead = (id: string | null) => {
       const t = id ? ls.get(id)?.normalized_phone : null;
@@ -327,6 +337,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       admin,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
+      semana,
       tarefas: ts
         .map((t): TarefaHoje => ({
           id: t.id,
