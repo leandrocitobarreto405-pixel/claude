@@ -8,6 +8,13 @@ import { MODELO_FICHA, custoUsd, type Ficha } from "./ficha";
 import type { Fatos } from "./fatos";
 import type { FichaResumo } from "./resumo";
 import {
+  resumoCurto,
+  resumoDasClasses,
+  type CampanhaRelatorio,
+  type NumerosCampanha,
+  type Sugestao,
+} from "./campanhas";
+import {
   ESQUEMA_RELATORIO,
   codificarAvisos,
   fichaCompacta,
@@ -37,6 +44,42 @@ async function receptivosPorMes(db: Db): Promise<Array<{ empresa: string; leads:
     saida.push({ empresa: e.nome, leads: count ?? 0 });
   }
   return saida;
+}
+
+/** Campanhas com acompanhamento atualizado nos últimos 14 dias, mais recentes primeiro. */
+async function campanhasDoRelatorio(db: Db, empresaId: string): Promise<CampanhaRelatorio[]> {
+  const { data } = await db
+    .from("comercial_campanhas")
+    .select(
+      "janela_inicio, encerrada, numeros, respostas, sugestoes, leitura, atualizado_em, mkt_campanhas(nome)",
+    )
+    .eq("empresa_id", empresaId)
+    .gte("atualizado_em", new Date(Date.now() - 14 * 86_400_000).toISOString())
+    .order("janela_inicio", { ascending: false })
+    .limit(10);
+  return (
+    (data ?? []) as unknown as Array<{
+      encerrada: boolean;
+      numeros: NumerosCampanha | Record<string, never>;
+      respostas: { por_envio?: Record<string, never> } | null;
+      sugestoes: Sugestao[] | null;
+      leitura: string | null;
+      mkt_campanhas: { nome: string } | null;
+    }>
+  )
+    .filter((l) => "enviados" in l.numeros)
+    .map((l) => ({
+      nome: l.mkt_campanhas?.nome ?? "Campanha",
+      resumo: resumoCurto(l.numeros as NumerosCampanha),
+      numeros: l.numeros as NumerosCampanha,
+      classes: resumoDasClasses(l.respostas?.por_envio ?? {}).map((c) => ({
+        nome: c.nome,
+        n: c.n,
+      })),
+      sugestoes: l.sugestoes ?? [],
+      leitura: l.leitura,
+      encerrada: l.encerrada,
+    }));
 }
 
 export async function gerarRelatorioComercial(
@@ -139,6 +182,9 @@ export async function gerarRelatorioComercial(
     .join("")
     .slice(0, 60_000);
 
+  // Campanhas de WhatsApp acompanhadas pela Tatiana nos últimos 14 dias (números do sistema).
+  const campanhas = await campanhasDoRelatorio(db, o.empresaId);
+
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
   const resp = await chamarIa(() =>
@@ -170,6 +216,18 @@ export async function gerarRelatorioComercial(
                   "",
                 ]
               : []),
+            ...(campanhas.length
+              ? [
+                  `CAMPANHAS DE WHATSAPP DA SEMANA (${campanhas.length}), números do sistema:`,
+                  campanhas
+                    .map(
+                      (c) =>
+                        `- ${c.nome}: ${c.resumo}${c.classes.length ? ` · respostas: ${c.classes.map((x) => `${x.nome} ${x.n}`).join(", ")}` : ""}`,
+                    )
+                    .join("\n"),
+                  "",
+                ]
+              : []),
             "INSTRUÇÕES ATUAIS DA ALICE (só leitura):",
             textoAlice || "(não encontradas)",
           ].join("\n"),
@@ -193,7 +251,7 @@ export async function gerarRelatorioComercial(
     .insert({
       empresa_id: o.empresaId,
       periodo: o.periodo,
-      dados: { numeros, leitura, estimativaMensal, custoRelatorioUsd: custo, avisos },
+      dados: { numeros, leitura, estimativaMensal, custoRelatorioUsd: custo, avisos, campanhas },
       modelo: MODELO_FICHA,
       tokens_entrada: resp.usage.input_tokens,
       tokens_saida: resp.usage.output_tokens,

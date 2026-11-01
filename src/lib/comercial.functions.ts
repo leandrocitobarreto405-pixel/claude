@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminEmpresa } from "@/lib/empresa.middleware";
 import type { Ficha } from "@/lib/comercial/ficha";
 import type { Fatos } from "@/lib/comercial/fatos";
+import type { CampanhaRelatorio } from "@/lib/comercial/campanhas";
 import type { AvisoRelatorio, LeituraRelatorio, NumerosRelatorio } from "@/lib/comercial/relatorio";
 import type { DefeitoSistemaContado } from "@/lib/comercial/defeitos-sistema";
 
@@ -31,6 +32,8 @@ export type RelatorioTela = {
   estimativaMensal: Array<{ empresa: string; leads: number; usdMes: number }>;
   /** Avisos da equipe lidos na revisão semanal (relatórios antigos: vazio). */
   avisos: AvisoRelatorio[];
+  /** Campanhas de WhatsApp acompanhadas na semana (relatórios antes de 02/11: vazio). */
+  campanhas: CampanhaRelatorio[];
 };
 
 export type AnaliseTela = {
@@ -222,6 +225,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
             leitura: ultimo.dados.leitura,
             estimativaMensal: ultimo.dados.estimativaMensal ?? [],
             avisos: ultimo.dados.avisos ?? [],
+            campanhas: ultimo.dados.campanhas ?? [],
           }
         : null,
       ligado: Boolean(config?.ligado),

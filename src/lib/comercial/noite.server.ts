@@ -2091,6 +2091,17 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     hora,
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
 
+  // 4c. Desempenho de campanha (22h): números dos 7 dias, classe das respostas e sugestões.
+  const { rodarAcompanhamentoCampanhas } = await import("./campanhas.server");
+  const campanhas = await rodarAcompanhamentoCampanhas(
+    db,
+    configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+    agora,
+    hoje,
+    hora,
+  ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+  if (Object.keys(campanhas).length) saida["campanhas"] = campanhas;
+
   // 5. Pushes.
   saida["pushes"] = await pushesDaTatiana(db, configs, agora).catch((e) => ({
     erro: e instanceof Error ? e.message : String(e),
