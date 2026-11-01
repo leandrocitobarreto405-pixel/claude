@@ -7,6 +7,7 @@
  */
 import { configMkt, log, rpc, type Db } from "./contexto.server";
 import { preencher, situacaoModelo, textoCondicao, type ModeloMeta } from "./modelos";
+import type { NovaCampanha } from "@/lib/campanha-nova";
 
 export function hojeSP(agora = new Date()) {
   return agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -467,4 +468,47 @@ export async function tirarChamadosManualmente(db: Db, empresaId: string): Promi
     await recontarCampanha(db, k.id);
   }
   return n;
+}
+
+/**
+ * Grava uma campanha nova em rascunho (tela "Nova campanha" e "Aprovar" do plano da Tatiana). A
+ * entrada já passou por validarNovaCampanha; daqui ela segue o fluxo normal: preparar, conferir,
+ * aprovar e ativar.
+ */
+export async function inserirCampanhaRascunho(
+  db: Db,
+  o: {
+    empresaId: string;
+    userId: string | null;
+    campanha: NovaCampanha;
+    custoMsg: number;
+    repeteDe: string | null;
+  },
+): Promise<string> {
+  const c = o.campanha;
+  const { data: nova, error } = await db
+    .from("mkt_campanhas")
+    .insert({
+      empresa_id: o.empresaId,
+      nome: c.nome,
+      tipo: "calendario",
+      mes_ref: c.mesRef,
+      grupos: c.listas.map((l) => l.grupo),
+      listas: c.listas,
+      templates: c.templates,
+      datas_disparo: c.datas,
+      condicao_texto: c.condicaoTexto,
+      condicao_pct: c.condicaoPct,
+      custo_msg_estimado: o.custoMsg,
+      quem_responde: c.quemResponde,
+      limites: c.limites,
+      hora_inicio: c.horaInicio,
+      criada_por: o.userId,
+      status: "rascunho",
+      repete_de: o.repeteDe,
+    })
+    .select("id")
+    .single();
+  if (error || !nova) throw new Error("Não foi possível criar a campanha.");
+  return (nova as { id: string }).id;
 }

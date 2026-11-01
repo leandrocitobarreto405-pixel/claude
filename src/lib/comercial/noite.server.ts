@@ -2114,6 +2114,18 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
   if (Object.keys(mesSaida).length) saida["mes"] = mesSaida;
 
+  // 4e. Plano de ação do dia (8h20): 1–3 ações para o admin aprovar (rascunho no Marketing).
+  const { rodarPlanoDaTatiana } = await import("./plano.server");
+  const planoSaida = await rodarPlanoDaTatiana(
+    db,
+    configs
+      .filter((c) => c.modo !== "desligado")
+      .map((c) => ({ empresa_id: c.empresa_id, dias_uteis: c.dias_uteis ?? null })),
+    hoje,
+    hora,
+  ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+  if (Object.keys(planoSaida).length) saida["plano"] = planoSaida;
+
   // 5. Pushes.
   saida["pushes"] = await pushesDaTatiana(db, configs, agora).catch((e) => ({
     erro: e instanceof Error ? e.message : String(e),

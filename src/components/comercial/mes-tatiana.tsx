@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, Chip, NumeroGrande, Recolhido } from "@/components/nexa";
 import { NOME_SERVICO } from "@/lib/comercial/mes";
+import { PlanoTatiana } from "@/components/comercial/plano-tatiana";
 import { mesTatianaFn } from "@/lib/tatiana.functions";
 import { brl, dateBR } from "@/lib/format";
 
@@ -30,6 +31,7 @@ export function MesTatiana() {
   const meta = m.meta;
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <PlanoTatiana />
       {m.alertas.length ? (
         <Card className="flex min-w-0 flex-col gap-2">
           <h2 className="font-titulo text-xl">Alertas de hoje</h2>
