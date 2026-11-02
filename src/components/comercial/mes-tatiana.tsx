@@ -163,7 +163,9 @@ export function MesTatiana() {
                 <span>
                   {diaSemana(d.data)} {curta(d.data)}
                 </span>
-                <span className="tabular-nums">{d.feriado ? "feriado" : `${d.ocupados}/${d.base}`}</span>
+                <span className="tabular-nums">
+                  {d.feriado ? "feriado" : `${d.ocupados}/${d.base}`}
+                </span>
               </li>
             ))}
           </ul>

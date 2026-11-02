@@ -1,16 +1,8 @@
--- Agenda real e feriados (02/11/2026), todas as empresas.
--- 1. Capacidade real: visits.ocupa_dia (true/false/null = automático) e
---    agenda_configuracoes.dia_inteiro_valor (soma do dia do técnico a partir deste valor ocupa o dia
---    inteiro; 0 = regra desligada). A regra de sobreposição pela duração fica no app.
--- 2. Feriados por empresa: calendário com nacionais, estado de SP e cidade de São Paulo (Páscoa
---    calculada), decisão "vamos trabalhar?" (null = sem decisão → dia bloqueado), semeado para as
---    empresas existentes (2026 e 2027) e para empresa nova (gatilho). Só o servidor grava; quem é da
---    empresa lê.
-ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS ocupa_dia boolean;
-ALTER TABLE public.agenda_configuracoes
-  ADD COLUMN IF NOT EXISTS dia_inteiro_valor numeric(12,2) NOT NULL DEFAULT 1000
-    CHECK (dia_inteiro_valor >= 0);
-
+-- Feriados por empresa (02/11/2026, todas as empresas): calendário com nacionais, estado de SP e
+-- cidade de São Paulo (Páscoa calculada), decisão "vamos trabalhar?" (null = sem decisão → dia
+-- bloqueado), semeado para as empresas existentes (2026 e 2027) e para empresa nova (gatilho).
+-- Só o servidor grava; quem é da empresa lê. Em dia bloqueado a Alice não oferece nem agenda, a
+-- Tatiana não cria tarefa e a agenda livre não conta o dia (regras no app).
 CREATE TABLE IF NOT EXISTS public.feriados (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   empresa_id uuid NOT NULL REFERENCES public.empresas(id) ON DELETE CASCADE,

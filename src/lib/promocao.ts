@@ -44,12 +44,11 @@ export function regrasDaAgenda(
   r: { duracaoMin?: number | string | null; diaInteiroValor?: number | string | null } | null,
 ): RegrasAgenda {
   const dur = Number(r?.duracaoMin ?? REGRAS_PADRAO.duracaoMin);
-  const valor =
-    r?.diaInteiroValor === undefined ? REGRAS_PADRAO.diaInteiroValor : r.diaInteiroValor;
-  const v = valor === null ? null : Number(valor);
+  // Sem configuração (null/undefined) vale o padrão; 0 ou negativo desliga a regra do valor.
+  const v = Number(r?.diaInteiroValor ?? REGRAS_PADRAO.diaInteiroValor);
   return {
     duracaoMin: Number.isFinite(dur) && dur > 0 ? dur : REGRAS_PADRAO.duracaoMin,
-    diaInteiroValor: v === null || !Number.isFinite(v) || v <= 0 ? null : v,
+    diaInteiroValor: !Number.isFinite(v) || v <= 0 ? null : v,
   };
 }
 

@@ -4,12 +4,7 @@
  * agenda livre até o fim do mês e os alertas (sem meta, dia vazio, queda de leads por origem,
  * queda de conversão por serviço, objeção mais frequente, agenda vazia).
  */
-import {
-  horariosLivres,
-  type HorarioBase,
-  type Ocupacao,
-  type RegrasAgenda,
-} from "@/lib/promocao";
+import { horariosLivres, type HorarioBase, type Ocupacao, type RegrasAgenda } from "@/lib/promocao";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 

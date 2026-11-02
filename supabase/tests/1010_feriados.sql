@@ -1,4 +1,4 @@
--- Agenda real e feriados (migração 20261228410000). Dados fictícios.
+-- Feriados por empresa (migração 20261228420000). Dados fictícios.
 BEGIN;
 CREATE FUNCTION pg_temp.ok(_cond boolean, _msg text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -16,7 +16,7 @@ SELECT pg_temp.ok((SELECT data FROM private.feriados_padrao(2026) WHERE nome = '
 
 -- Empresa nova nasce com o calendário (gatilho) e semear de novo não duplica.
 \set E '99000000-0000-4000-8000-00000000001a'
-INSERT INTO public.empresas (id, nome) VALUES (:'E', 'Empresa Fictícia 1000');
+INSERT INTO public.empresas (id, nome) VALUES (:'E', 'Empresa Fictícia 1010');
 SELECT pg_temp.ok((SELECT count(*) FROM public.feriados WHERE empresa_id = :'E') = 30, 'empresa nova: 2 anos semeados');
 SELECT pg_temp.ok(public.feriados_semear(:'E', extract(year FROM private.hoje_sp())::integer) = 0, 'semear de novo não duplica');
 SELECT pg_temp.ok((SELECT count(*) FROM public.feriados WHERE empresa_id = :'E' AND trabalhamos IS NULL) = 30, 'nasce sem decisão');
@@ -37,20 +37,16 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALHOU: data repetida entrou';
 EXCEPTION WHEN unique_violation THEN NULL; END $$;
 
--- Quem é da empresa lê; não grava.
-INSERT INTO auth.users (id, email) VALUES ('99000000-0000-4000-8000-00000000002a', 'admin1000@ficticio.test') ON CONFLICT DO NOTHING;
-INSERT INTO public.users_profiles (id, full_name, empresa_id) VALUES ('99000000-0000-4000-8000-00000000002a', 'Admin Fictício', :'E') ON CONFLICT (id) DO UPDATE SET empresa_id = EXCLUDED.empresa_id;
-INSERT INTO public.user_roles (user_id, role, empresa_id) VALUES ('99000000-0000-4000-8000-00000000002a', 'admin', :'E') ON CONFLICT DO NOTHING;
+-- Quem é da empresa lê os dela; não grava.
+INSERT INTO auth.users (id, email) VALUES ('99000000-0000-4000-8000-00000000002a', 'admin1010@ficticio.test');
+INSERT INTO public.usuarios_empresa (user_id, empresa_id, papel) VALUES ('99000000-0000-4000-8000-00000000002a', :'E', 'admin');
+SELECT set_config('request.jwt.claims', '{"sub":"99000000-0000-4000-8000-00000000002a","role":"authenticated"}', true);
+SELECT set_config('app.empresa_ativa', :'E', true);
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', json_build_object('sub', '99000000-0000-4000-8000-00000000002a', 'role', 'authenticated')::text, true);
-SELECT pg_temp.ok((SELECT count(*) FROM public.feriados) = 31, 'admin da empresa lê os feriados dela');
+SELECT pg_temp.ok((SELECT count(*) FROM public.feriados) = 31, 'admin da empresa lê só os feriados dela');
 DO $$ BEGIN
   UPDATE public.feriados SET trabalhamos = true WHERE data = '2026-12-25';
   IF FOUND THEN RAISE EXCEPTION 'FALHOU: authenticated gravou feriado'; END IF;
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $$;
 RESET ROLE;
-
--- Colunas novas da capacidade.
-SELECT pg_temp.ok((SELECT dia_inteiro_valor FROM public.agenda_configuracoes LIMIT 1) IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.agenda_configuracoes), 'dia_inteiro_valor existe');
-SELECT pg_temp.ok(EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'visits' AND column_name = 'ocupa_dia'), 'visits.ocupa_dia existe');
 ROLLBACK;

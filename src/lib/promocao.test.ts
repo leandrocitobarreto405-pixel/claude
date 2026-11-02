@@ -379,3 +379,57 @@ test("capacidade real (02/11): sobreposição pela duração, dia inteiro por va
     diaInteiroValor: null,
   });
 });
+
+test("casos reais de 03 a 06/11/2026 (Turbine): a Alice não pode mais oferecer horário em cima de visita", () => {
+  // Base do técnico: ter 11h e 14h, qua 10h e 14h, qui 9h e 14h, sex 10h e 14h.
+  const t = { tecnicoId: "t", tecnico: "Técnico" };
+  const base: HorarioBase[] = [
+    ...["11:00", "14:00"].map((hora) => ({ ...t, diaSemana: 2, hora })),
+    ...["10:00", "14:00"].map((hora) => ({ ...t, diaSemana: 3, hora })),
+    ...["09:00", "14:00"].map((hora) => ({ ...t, diaSemana: 4, hora })),
+    ...["10:00", "14:00"].map((hora) => ({ ...t, diaSemana: 5, hora })),
+  ];
+  const horas = (o: Parameters<typeof horariosLivres>[1], data: string) =>
+    horariosLivres(base, o, data).map((h) => h.hora);
+  // 03/11 (ter): OS 1685 às 11h, serviço grande (R$ 1.145,96): dia inteiro.
+  assert.deepEqual(
+    horas([{ tecnicoId: "t", hora: "11:00", status: "Agendado", valor: 1145.96 }], "2026-11-03"),
+    [],
+  );
+  // 04/11 (qua): OS 1701 às 9h e OS 1694 às 9h30: o das 10h está tomado (a Alice ofereceu "entre 10h e 11h"); sobra 14h.
+  assert.deepEqual(
+    horas(
+      [
+        { tecnicoId: "t", hora: "09:00", status: "Agendado", valor: 300 },
+        { tecnicoId: "t", hora: "09:30", status: "Agendado", valor: 280 },
+      ],
+      "2026-11-04",
+    ),
+    ["14:00"],
+  );
+  // 05/11 (qui): OS 1702 às 9h e OS 1704 às 16h: 9h tomado e 16h–19h sobrepõe 14h–17h. Nada livre.
+  assert.deepEqual(
+    horas(
+      [
+        { tecnicoId: "t", hora: "09:00", status: "Agendado", valor: 350 },
+        { tecnicoId: "t", hora: "16:00", status: "Agendado", valor: 400 },
+      ],
+      "2026-11-05",
+    ),
+    [],
+  );
+  // 06/11 (sex): OS 1705 às 9h: 9h–12h sobrepõe 10h–13h; sobra 14h.
+  assert.deepEqual(
+    horas([{ tecnicoId: "t", hora: "09:00", status: "Agendado", valor: 300 }], "2026-11-06"),
+    ["14:00"],
+  );
+  // Regra antiga (só o minuto exato) deixava 04/11 inteiro livre; a nova não.
+});
+
+test("empresa sem configuração de agenda usa os padrões (180 min, R$ 1.000); 0 desliga o valor", () => {
+  assert.deepEqual(regrasDaAgenda({ duracaoMin: null, diaInteiroValor: null }), {
+    duracaoMin: 180,
+    diaInteiroValor: 1000,
+  });
+  assert.equal(regrasDaAgenda({ diaInteiroValor: "0" }).diaInteiroValor, null);
+});
