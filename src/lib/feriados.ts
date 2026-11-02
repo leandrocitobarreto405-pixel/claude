@@ -92,6 +92,12 @@ export function feriadosPadrao(ano: number): FeriadoPadrao[] {
   return lista.sort((a, b) => a.data.localeCompare(b.data));
 }
 
+/** O feriado cai num dia em que a empresa atende (0 = domingo … 6 = sábado)? Fora disso não há o que decidir. */
+export function caiEmDiaUtil(data: string, diasUteis: number[] | null | undefined): boolean {
+  const dias = diasUteis?.length ? diasUteis.map(Number) : [1, 2, 3, 4, 5, 6];
+  return dias.includes(new Date(`${data}T12:00:00Z`).getUTCDay());
+}
+
 /** Dia bloqueado: feriado sem decisão ou com "não vamos". */
 export function feriadoBloqueia(f: Pick<Feriado, "trabalhamos">): boolean {
   return f.trabalhamos !== true;

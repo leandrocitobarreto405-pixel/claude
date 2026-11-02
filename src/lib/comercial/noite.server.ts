@@ -2155,7 +2155,9 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
   const { rodarFeriadosDaTatiana } = await import("@/lib/feriados.server");
   const feriadosSaida = await rodarFeriadosDaTatiana(
     db,
-    configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+    configs
+      .filter((c) => c.modo !== "desligado")
+      .map((c) => ({ empresa_id: c.empresa_id, dias_uteis: c.dias_uteis ?? null })),
     hoje,
     hora,
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));

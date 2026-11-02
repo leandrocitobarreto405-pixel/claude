@@ -168,13 +168,14 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     const adm = supabaseAdmin as unknown as Db;
     const { data: cfg } = await adm
       .from("comercial_configuracoes")
-      .select("ligado, modo, equipe_unica")
+      .select("ligado, modo, equipe_unica, dias_uteis")
       .eq("empresa_id", emp)
       .maybeSingle();
     const c = cfg as {
       ligado: boolean;
       modo: HojeTatiana["modo"];
       equipe_unica: boolean | null;
+      dias_uteis: number[] | null;
     } | null;
     const modo: HojeTatiana["modo"] = c?.ligado ? c.modo : "desligado";
     const equipeUnica = Boolean(c?.equipe_unica);
@@ -342,10 +343,11 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     const feriados: FeriadoPendente[] = admin
       ? await (async () => {
           const { feriadosNoPeriodo } = await import("@/lib/feriados.server");
-          const { DIAS_PERGUNTA, diasEntre, somarDias } = await import("@/lib/feriados");
+          const { DIAS_PERGUNTA, caiEmDiaUtil, diasEntre, somarDias } =
+            await import("@/lib/feriados");
           const lista = await feriadosNoPeriodo(adm, emp, hoje, somarDias(hoje, DIAS_PERGUNTA));
           return lista
-            .filter((f) => f.trabalhamos === null)
+            .filter((f) => f.trabalhamos === null && caiEmDiaUtil(f.data, c?.dias_uteis))
             .map((f) => ({
               id: f.id,
               data: f.data,

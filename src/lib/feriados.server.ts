@@ -6,6 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  caiEmDiaUtil,
   diasBloqueados,
   etapaDaPergunta,
   somarDias,
@@ -350,20 +351,21 @@ async function pushAdmins(
  */
 export async function rodarFeriadosDaTatiana(
   db: Db,
-  empresas: string[],
+  empresas: Array<{ empresa_id: string; dias_uteis: number[] | null }>,
   hoje: string,
   horaSP: string,
 ): Promise<Record<string, unknown>> {
   if (horaSP < "08:00" || horaSP >= "20:00") return {};
   const saida: Record<string, unknown> = {};
-  for (const emp of empresas) {
+  for (const { empresa_id: emp, dias_uteis: diasUteis } of empresas) {
     try {
       await semearFeriados(db, emp, Number(hoje.slice(0, 4))).catch(() => undefined);
       const lista = await feriadosNoPeriodo(db, emp, hoje, somarDias(hoje, 45));
       const feito: Record<string, EtapaPergunta | "remarcar"> = {};
       let pushes = 0;
       for (const f of lista) {
-        const etapa = etapaDaPergunta(f, hoje);
+        // Feriado num dia em que a empresa não atende (ex.: domingo): nada a perguntar.
+        const etapa = caiEmDiaUtil(f.data, diasUteis) ? etapaDaPergunta(f, hoje) : null;
         if (etapa) {
           if (etapa === "padrao")
             await db

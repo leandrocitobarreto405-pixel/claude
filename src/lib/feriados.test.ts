@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  caiEmDiaUtil,
   diasBloqueados,
   diasEntre,
   etapaDaPergunta,
@@ -73,4 +74,11 @@ test("textos: pergunta, lembrete, padrão e remarcar", () => {
   assert.match(r.motivo, /^OS 1702 marcado em 20\/11, feriado bloqueado/);
   assert.match(r.mensagem, /não vamos atender/);
   assert.doesNotMatch(r.mensagem, /Tatiana/);
+});
+
+test("feriado fora dos dias de atendimento não gera pergunta (15/11/2026 é domingo)", () => {
+  assert.equal(caiEmDiaUtil("2026-11-15", null), false);
+  assert.equal(caiEmDiaUtil("2026-11-20", null), true);
+  assert.equal(caiEmDiaUtil("2026-11-21", [1, 2, 3, 4, 5]), false); // sábado, empresa seg–sex
+  assert.equal(caiEmDiaUtil("2026-11-21", [1, 2, 3, 4, 5, 6]), true);
 });
