@@ -1618,8 +1618,16 @@ async function consultarAgenda(ctx: ContextoFerramenta, input: z.infer<typeof Co
     periodo,
     agora: agoraSP(),
     cliente,
+    regras: agenda.regras,
+    bloqueados: agenda.bloqueados,
   });
-  const texto = textoAgenda(agenda.horarios, dias, periodo);
+  const texto = textoAgenda(
+    agenda.horarios,
+    dias,
+    periodo,
+    8,
+    [...agenda.bloqueados].map(([data, nome]) => ({ data, nome })),
+  );
   return input.cep && !cliente
     ? `${texto}\n(Não consegui localizar o CEP ${input.cep}; a prioridade por proximidade não foi calculada.)`
     : texto;

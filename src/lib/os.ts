@@ -54,6 +54,8 @@ export type VisitInput = {
   scheduled_time: string;
   technician_id: string | null;
   visit_notes?: string | null;
+  /** Ocupa o dia inteiro do técnico (true), nunca (false) ou automático pelo valor (null). */
+  ocupa_dia?: boolean | null;
   items: ServiceItemInput[];
 };
 
@@ -340,6 +342,7 @@ export async function createWorkOrder(args: {
         scheduled_time: v.scheduled_time,
         technician_id: v.technician_id,
         visit_notes: v.visit_notes ?? null,
+        ocupa_dia: v.ocupa_dia ?? null,
         status: "Agendado",
         ...visitLegacyFields(v),
       })
@@ -458,6 +461,7 @@ export async function updateWorkOrder(args: {
       scheduled_time: v.scheduled_time,
       technician_id: v.technician_id,
       visit_notes: v.visit_notes ?? null,
+      ocupa_dia: v.ocupa_dia ?? null,
       ...visitLegacyFields(v),
     };
     if (v.id) {
@@ -776,7 +780,7 @@ export {
 export const VISIT_SELECT = `
   id, scheduled_date, scheduled_time, status, visit_value, final_value, upholstery_description,
   completion_date, completion_time, visit_notes, mileage_cost_allocated, work_order_id,
-  technician_id, service_type_id,
+  technician_id, service_type_id, ocupa_dia,
   reschedule_type, technician_travel_occurred, preserve_original_route, reschedule_reason,
   reschedule_notes, original_scheduled_date, rescheduled_from_visit_id, rescheduled_to_visit_id,
   rescheduled_to:rescheduled_to_visit_id ( id, scheduled_date, scheduled_time, status ),
@@ -813,6 +817,7 @@ export type VisitRow = {
   work_order_id?: string;
   technician_id?: string | null;
   service_type_id?: string | null;
+  ocupa_dia?: boolean | null;
   reschedule_type?: string | null;
   technician_travel_occurred?: boolean | null;
   preserve_original_route?: boolean | null;

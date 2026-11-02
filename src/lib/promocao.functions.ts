@@ -11,6 +11,7 @@ import { chaveTelefone } from "@/lib/avisos";
 import { lerPublico, type PessoaPublico } from "@/lib/listas.functions";
 import {
   horariosLivres,
+  regrasDaAgenda,
   partidasDosHorarios,
   prepararDestinatario,
   previaMensagem,
@@ -46,6 +47,8 @@ async function lerConfig(db: Db, empresaId: string): Promise<ConfigAgenda> {
 
 export type ResumoHorariosLivres = {
   data: string;
+  /** Nome do feriado bloqueado nesse dia (sem atendimento), ou null. */
+  feriado: string | null;
   livres: HorarioLivre[];
   /** Há horários base cadastrados? (sem eles, não dá para saber o que está vago). */
   configurado: boolean;
@@ -53,6 +56,8 @@ export type ResumoHorariosLivres = {
 
 async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
   const data = addDaysISO(todayISO(), cfg.diasAFrente);
+  // Feriado bloqueado: entra na etapa seguinte (calendário de feriados); por ora nenhum.
+  const feriado: string | null = null;
   const [base, tecnicos, visitas] = await Promise.all([
     db
       .from("agenda_horarios_base")
@@ -65,7 +70,7 @@ async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
       .eq("parceiro", false),
     db
       .from("visits")
-      .select("technician_id, scheduled_time, status")
+      .select("technician_id, scheduled_time, status, visit_value, final_value, ocupa_dia")
       .eq("empresa_id", empresaId)
       .eq("scheduled_date", data),
   ]);
@@ -76,20 +81,27 @@ async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
   return {
     data,
     configurado: linhas.length > 0,
-    livres: horariosLivres(
-      linhas.map((b) => ({
-        tecnicoId: b.tecnico_id,
-        tecnico: ativos.get(b.tecnico_id) ?? "",
-        diaSemana: b.dia_semana,
-        hora: b.hora,
-      })),
-      (visitas.data ?? []).map((v) => ({
-        tecnicoId: v.technician_id,
-        hora: v.scheduled_time ?? "",
-        status: v.status,
-      })),
-      data,
-    ),
+    feriado,
+    // Feriado bloqueado: nada a promover nesse dia.
+    livres: feriado
+      ? []
+      : horariosLivres(
+          linhas.map((b) => ({
+            tecnicoId: b.tecnico_id,
+            tecnico: ativos.get(b.tecnico_id) ?? "",
+            diaSemana: b.dia_semana,
+            hora: b.hora,
+          })),
+          (visitas.data ?? []).map((v) => ({
+            tecnicoId: v.technician_id,
+            hora: v.scheduled_time ?? "",
+            status: v.status,
+            valor: Number(v.final_value ?? v.visit_value ?? 0),
+            ocupaDia: v.ocupa_dia ?? null,
+          })),
+          data,
+          regrasDaAgenda({ duracaoMin: cfg.duracaoMin, diaInteiroValor: cfg.diaInteiroValor }),
+        ),
   };
 }
 

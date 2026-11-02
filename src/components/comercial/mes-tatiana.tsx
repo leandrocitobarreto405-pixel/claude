@@ -151,23 +151,29 @@ export function MesTatiana() {
             {m.agenda.dias.slice(0, 15).map((d) => (
               <li
                 key={d.data}
+                title={d.feriado ? `Feriado: ${d.feriado}` : undefined}
                 className={`flex min-w-0 justify-between gap-2 rounded-botao px-2 py-1 ${
-                  d.base > 0 && d.ocupados === 0 ? "bg-atencao text-atencao-foreground" : "bg-muted"
+                  d.feriado
+                    ? "bg-muted text-muted-foreground line-through"
+                    : d.base > 0 && d.ocupados === 0
+                      ? "bg-atencao text-atencao-foreground"
+                      : "bg-muted"
                 }`}
               >
                 <span>
                   {diaSemana(d.data)} {curta(d.data)}
                 </span>
                 <span className="tabular-nums">
-                  {d.ocupados}/{d.base}
+                  {d.feriado ? "feriado" : `${d.ocupados}/${d.base}`}
                 </span>
               </li>
             ))}
           </ul>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          Marcados/horários base por dia (próximos 15 dias úteis). Encaixes fora dos horários base
-          não contam.
+          Ocupados/horários base por dia (próximos 15 dias úteis). Um atendimento ocupa o técnico
+          pela duração configurada; o dia fica inteiro a partir do valor configurado ou quando a
+          visita está marcada "ocupa o dia". Feriado sem "vamos trabalhar" fica fora.
         </p>
       </Card>
 

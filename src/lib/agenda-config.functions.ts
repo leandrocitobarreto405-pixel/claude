@@ -36,6 +36,11 @@ export type ConfigAgenda = {
   /** Custo médio de produto por tipo de serviço (R$). */
   produtoHigienizacao: number;
   produtoImpermeabilizacao: number;
+  /**
+   * Capacidade real (02/11): soma dos atendimentos do técnico no dia a partir deste valor ocupa o
+   * dia inteiro dele (sem horário para a Alice). null = regra do valor desligada.
+   */
+  diaInteiroValor: number | null;
 };
 
 export const CONFIG_AGENDA_PADRAO: ConfigAgenda = {
@@ -58,6 +63,7 @@ export const CONFIG_AGENDA_PADRAO: ConfigAgenda = {
   kmMax: null,
   produtoHigienizacao: 0,
   produtoImpermeabilizacao: 0,
+  diaInteiroValor: 1000,
 };
 
 export type TecnicoAgenda = { id: string; nome: string; ativo: boolean };
@@ -98,6 +104,7 @@ type LinhaConfig = {
   promo_km_max?: number | string | null;
   custo_produto_higienizacao?: number | string;
   custo_produto_impermeabilizacao?: number | string;
+  dia_inteiro_valor?: number | string | null;
 };
 
 const h5 = (h: string) => h.slice(0, 5);
@@ -127,6 +134,12 @@ export function configDaLinha(l: LinhaConfig | null): ConfigAgenda {
     kmMax: l.promo_km_max === null || l.promo_km_max === undefined ? null : Number(l.promo_km_max),
     produtoHigienizacao: Number(l.custo_produto_higienizacao ?? 0),
     produtoImpermeabilizacao: Number(l.custo_produto_impermeabilizacao ?? 0),
+    diaInteiroValor:
+      l.dia_inteiro_valor === undefined
+        ? CONFIG_AGENDA_PADRAO.diaInteiroValor
+        : l.dia_inteiro_valor === null || Number(l.dia_inteiro_valor) <= 0
+          ? null
+          : Number(l.dia_inteiro_valor),
   };
 }
 
@@ -233,6 +246,7 @@ export const salvarAgendaConfig = createServerFn({ method: "POST" })
         valorOuNulo(c.produtoHigienizacao, "Produto da higienização", 10000) ?? 0,
       produtoImpermeabilizacao:
         valorOuNulo(c.produtoImpermeabilizacao, "Produto da impermeabilização", 10000) ?? 0,
+      diaInteiroValor: valorOuNulo(c.diaInteiroValor, "Dia inteiro a partir de", 1000000),
     };
     if (cfg.kmMax === 0) throw new Error("Distância máxima: use mais que 0 km ou deixe em branco.");
     if (cfg.descontoPct < 1) throw new Error("Desconto da promoção: use de 1 a 25%.");
@@ -269,6 +283,8 @@ export const salvarAgendaConfig = createServerFn({ method: "POST" })
       promo_km_max: c.kmMax,
       custo_produto_higienizacao: c.produtoHigienizacao,
       custo_produto_impermeabilizacao: c.produtoImpermeabilizacao,
+      // 0 = regra do valor desligada (a coluna não aceita null).
+      dia_inteiro_valor: c.diaInteiroValor ?? 0,
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(`Não foi possível salvar: ${error.message}`);

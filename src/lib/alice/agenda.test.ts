@@ -100,3 +100,28 @@ test("prioriza o dia em que o técnico já tem serviço perto do cliente", () =>
     /sábado 10\/10 \(2026-10-10\): 14:00 \(Josué Barreto\) · PERTO: o técnico já tem serviço a 1,1 km/,
   );
 });
+
+test("feriado bloqueado e capacidade real (02/11): dia fora da oferta; visita 9h30 ocupa o das 10h", () => {
+  const dias = agendaLivre({
+    inicio: "2026-10-07",
+    dias: 3, // qua, qui, sex
+    base: BASE,
+    ocupacoes: [
+      { tecnicoId: "j", hora: "09:30", status: "Agendado", data: "2026-10-09", coords: null },
+    ],
+    periodo: "qualquer",
+    agora: { data: "2026-10-06", hora: "08:00" },
+    cliente: null,
+    bloqueados: new Map([["2026-10-08", "Feriado de teste"]]),
+  });
+  const mapa = Object.fromEntries(dias.map((d) => [d.data, d.livres.map((h) => h.hora)]));
+  assert.equal(mapa["2026-10-08"], undefined);
+  assert.deepEqual(mapa["2026-10-09"], ["14:00"]);
+  const t = textoAgenda(BASE, dias, "qualquer", 8, [
+    { data: "2026-10-08", nome: "Feriado de teste" },
+  ]);
+  assert.match(
+    t,
+    /Feriado sem atendimento \(não ofereça nem aceite, mesmo que o cliente peça\): 08\/10 \(Feriado de teste\)/,
+  );
+});
