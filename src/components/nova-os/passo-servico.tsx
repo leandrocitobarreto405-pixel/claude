@@ -77,6 +77,19 @@ export function PassoServico({ n }: { n: NovaOs }) {
               ))}
             </Seletor>
           </Campo>
+          <Campo id={`nos-dia-${i}`} rotulo="Ocupa o dia inteiro do técnico?">
+            <Seletor
+              id={`nos-dia-${i}`}
+              value={v.ocupa_dia}
+              onChange={(ev) =>
+                n.mudarVisita(i, { ocupa_dia: ev.target.value as "" | "sim" | "nao" })
+              }
+            >
+              <option value="">Automático (pelo valor do dia)</option>
+              <option value="sim">Sim, o dia inteiro</option>
+              <option value="nao">Não, só o horário</option>
+            </Seletor>
+          </Campo>
           <AlertaRodizio
             data={v.scheduled_date}
             hora={v.scheduled_time}

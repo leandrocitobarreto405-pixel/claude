@@ -4,7 +4,7 @@
  * agenda livre até o fim do mês e os alertas (sem meta, dia vazio, queda de leads por origem,
  * queda de conversão por serviço, objeção mais frequente, agenda vazia).
  */
-import { horariosLivres, type HorarioBase, type Ocupacao } from "@/lib/promocao";
+import { horariosLivres, type HorarioBase, type Ocupacao, type RegrasAgenda } from "@/lib/promocao";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -19,10 +19,19 @@ export function diaDaSemana(iso: string): number {
   return new Date(`${iso}T12:00:00Z`).getUTCDay();
 }
 
-/** Dias de `de` a `ate` (inclusive) que caem nos dias úteis da empresa (0 = domingo … 6 = sábado). */
-export function diasUteisEntre(de: string, ate: string, dias: number[]): string[] {
+/**
+ * Dias de `de` a `ate` (inclusive) que caem nos dias úteis da empresa (0 = domingo … 6 = sábado)
+ * e não estão bloqueados (feriado sem "vamos trabalhar", 02/11).
+ */
+export function diasUteisEntre(
+  de: string,
+  ate: string,
+  dias: number[],
+  bloqueados?: ReadonlyMap<string, unknown> | ReadonlySet<string>,
+): string[] {
   const saida: string[] = [];
-  for (let d = de; d <= ate; d = somarDias(d, 1)) if (dias.includes(diaDaSemana(d))) saida.push(d);
+  for (let d = de; d <= ate; d = somarDias(d, 1))
+    if (dias.includes(diaDaSemana(d)) && !bloqueados?.has(d)) saida.push(d);
   return saida;
 }
 
@@ -52,11 +61,13 @@ export function metaDoMes(o: {
   hoje: string;
   mes: string;
   diasUteis: number[];
+  /** Feriados bloqueados (data → nome): não contam como dia útil. */
+  bloqueados?: ReadonlyMap<string, string>;
 }): MetaDoMes {
   const inicio = `${o.mes}-01`;
   const fim = fimDoMes(o.mes);
-  const restantes = diasUteisEntre(o.hoje, fim, o.diasUteis).length;
-  const passados = diasUteisEntre(inicio, somarDias(o.hoje, -1), o.diasUteis).length;
+  const restantes = diasUteisEntre(o.hoje, fim, o.diasUteis, o.bloqueados).length;
+  const passados = diasUteisEntre(inicio, somarDias(o.hoje, -1), o.diasUteis, o.bloqueados).length;
   const meta = o.meta && o.meta > 0 ? o.meta : null;
   const falta = meta === null ? null : Math.max(0, r2(meta - o.vendidoServico.valor));
   return {
@@ -187,20 +198,35 @@ export function previsaoDosOrcamentos(
 
 // ---------------------------------------------------------------- agenda
 
-export type DiaAgenda = { data: string; base: number; ocupados: number; livres: number };
+export type DiaAgenda = {
+  data: string;
+  base: number;
+  ocupados: number;
+  livres: number;
+  /** Nome do feriado bloqueado (dia sem atendimento: base 0). */
+  feriado?: string;
+};
 
-/** Agenda por dia útil de `de` a `ate`: horários base, ocupados e livres (regra da promoção). */
+/**
+ * Agenda por dia útil de `de` a `ate`: horários base, ocupados e livres pela capacidade real
+ * (sobreposição pela duração e dia inteiro, 02/11). Feriado bloqueado entra na lista com base 0,
+ * só para mostrar; não conta como vazio nem como livre.
+ */
 export function agendaPorDia(o: {
   de: string;
   ate: string;
   diasUteis: number[];
   base: HorarioBase[];
   ocupacoes: Map<string, Ocupacao[]>;
+  regras?: RegrasAgenda;
+  feriados?: ReadonlyMap<string, string>;
 }): DiaAgenda[] {
   return diasUteisEntre(o.de, o.ate, o.diasUteis).map((data) => {
+    const feriado = o.feriados?.get(data);
+    if (feriado) return { data, base: 0, ocupados: 0, livres: 0, feriado };
     const dia = diaDaSemana(data);
     const base = o.base.filter((b) => b.diaSemana === dia).length;
-    const livres = horariosLivres(o.base, o.ocupacoes.get(data) ?? [], data).length;
+    const livres = horariosLivres(o.base, o.ocupacoes.get(data) ?? [], data, o.regras).length;
     return { data, base, ocupados: Math.max(0, base - livres), livres };
   });
 }

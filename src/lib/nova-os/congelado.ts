@@ -137,6 +137,8 @@ export function montagemAtual(
     scheduled_time: v.scheduled_time,
     technician_id: v.technician_id || null,
     visit_notes: v.visit_notes.trim() || null,
+    // Capacidade real (02/11): só vai quando a equipe marcou; automático fica fora do payload.
+    ...(v.ocupa_dia ? { ocupa_dia: v.ocupa_dia === "sim" } : {}),
     items: v.items.map((it, idx) => ({
       id: it.id ?? null,
       upholstery_type_id: it.upholstery_type_id || null,

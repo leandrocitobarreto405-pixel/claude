@@ -171,6 +171,24 @@ export function VisitDialog({
   const cliente = wo?.customer;
   const endereco = cliente?.full_address ?? "";
 
+  /** Capacidade real (02/11): a visita ocupa o dia inteiro do técnico? (null = automático). */
+  async function mudarOcupaDia(v: string) {
+    const ocupa_dia = v === "sim" ? true : v === "nao" ? false : null;
+    const { error } = await supabase.from("visits").update({ ocupa_dia }).eq("id", visit!.id);
+    if (error) {
+      toast.error(`Não foi possível salvar: ${error.message}`);
+      return;
+    }
+    toast.success(
+      ocupa_dia === true
+        ? "Marcado: ocupa o dia inteiro do técnico."
+        : ocupa_dia === false
+          ? "Marcado: ocupa só o horário."
+          : "Automático: ocupa o dia quando o valor do dia chega ao configurado.",
+    );
+    onChanged();
+  }
+
   async function mudarStatus(status: string) {
     const { error } = await supabase.from("visits").update({ status }).eq("id", visit!.id);
     if (error) {
@@ -274,6 +292,20 @@ export function VisitDialog({
                 Valor da visita: {brl(visit.final_value ?? visit.visit_value)}
               </Badge>
             </div>
+            <label className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Ocupa o dia inteiro do técnico?
+              </span>
+              <select
+                className="min-h-9 rounded-md border border-input bg-background px-2 text-sm"
+                value={visit.ocupa_dia === true ? "sim" : visit.ocupa_dia === false ? "nao" : ""}
+                onChange={(e) => void mudarOcupaDia(e.target.value)}
+              >
+                <option value="">Automático (pelo valor do dia)</option>
+                <option value="sim">Sim, o dia inteiro</option>
+                <option value="nao">Não, só o horário</option>
+              </select>
+            </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Info

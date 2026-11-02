@@ -9,6 +9,7 @@ import {
   type HorarioBase,
   type HorarioLivre,
   type Ocupacao,
+  type RegrasAgenda,
 } from "@/lib/promocao";
 
 export type Periodo = "manha" | "tarde" | "qualquer";
@@ -48,6 +49,10 @@ export function agendaLivre(o: {
   cliente: Coordenada | null;
   /** Até quantos km um serviço do dia conta como "perto". */
   pertoAteKm?: number;
+  /** Capacidade real (02/11): duração do atendimento e dia inteiro (Configurações › Agenda). */
+  regras?: RegrasAgenda;
+  /** Dias bloqueados (feriado sem "vamos trabalhar"): data → nome. A Alice não oferece. */
+  bloqueados?: ReadonlyMap<string, string>;
 }): DiaLivre[] {
   const folga = o.antecedenciaMin ?? 180;
   const perto = o.pertoAteKm ?? 10;
@@ -55,8 +60,9 @@ export function agendaLivre(o: {
   for (let i = 0; i < o.dias; i++) {
     const data = somarDias(o.inicio, i);
     if (data < o.agora.data) continue;
+    if (o.bloqueados?.has(data)) continue;
     const doDia = o.ocupacoes.filter((x) => x.data === data);
-    const livres = horariosLivres(o.base, doDia, data).filter((h) => {
+    const livres = horariosLivres(o.base, doDia, data, o.regras).filter((h) => {
       if (o.periodo === "manha" && minutos(h.hora) >= 12 * 60) return false;
       if (o.periodo === "tarde" && minutos(h.hora) < 12 * 60) return false;
       if (data === o.agora.data && minutos(h.hora) < minutos(o.agora.hora) + folga) return false;
@@ -88,6 +94,8 @@ export function textoAgenda(
   dias: DiaLivre[],
   periodo: Periodo,
   limite = 8,
+  /** Feriados bloqueados no período consultado (a Alice não oferece nem aceita). */
+  feriados: Array<{ data: string; nome: string }> = [],
 ): string {
   const atendidos = diasAtendidos(base);
   if (!atendidos.length)
@@ -99,6 +107,12 @@ export function textoAgenda(
       ? `Sem horário (não ofereça nem pergunte): ${semHorario.join(", ")}.`
       : "Todos os dias da semana têm horário.",
   ];
+  if (feriados.length)
+    linhas.push(
+      `Feriado sem atendimento (não ofereça nem aceite, mesmo que o cliente peça): ${feriados
+        .map((f) => `${f.data.slice(8, 10)}/${f.data.slice(5, 7)} (${f.nome})`)
+        .join(", ")}.`,
+    );
   if (periodo !== "qualquer")
     linhas.push(
       `Filtrado pela preferência do cliente: ${periodo === "manha" ? "manhã" : "tarde"}.`,

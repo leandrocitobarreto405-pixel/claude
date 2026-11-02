@@ -325,6 +325,8 @@ export async function horariosParaModelo(
       periodo: "qualquer",
       agora,
       cliente: null,
+      regras: agenda.regras,
+      bloqueados: agenda.bloqueados,
     });
     return doisHorarios(dias);
   } catch {

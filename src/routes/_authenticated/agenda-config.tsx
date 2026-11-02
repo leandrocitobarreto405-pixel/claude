@@ -510,6 +510,7 @@ function Regras({
           <div className="grid grid-cols-2 gap-3">
             {campoNumero("duracaoMin", "Duração do atendimento", "min", 15)}
             {campoNumero("voltaMin", "Tempo de volta", "min", 5)}
+            {campoNumero("diaInteiroValor", "Dia inteiro a partir de", "R$ (0 desliga)", 50)}
           </div>
           <Botao onClick={() => void salvar()} disabled={salvando} className="self-start">
             {salvando ? "Salvando…" : "Salvar"}

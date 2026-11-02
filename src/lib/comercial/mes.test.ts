@@ -122,6 +122,33 @@ describe("mês: agenda e alertas", () => {
     { tecnicoId: "t1", tecnico: "Téc 1", diaSemana: 3, hora: "08:00" },
     { tecnicoId: "t1", tecnico: "Téc 1", diaSemana: 4, hora: "08:00" },
   ];
+  it("capacidade real e feriado (02/11): 9h30 ocupa o das 8h, dia inteiro por valor, feriado fora", () => {
+    const dias = agendaPorDia({
+      de: "2026-11-03",
+      ate: "2026-11-05",
+      diasUteis: SEG_SAB,
+      base,
+      ocupacoes: new Map([
+        ["2026-11-03", [{ tecnicoId: "t1", hora: "09:30", status: "Agendado", valor: 400 }]],
+        ["2026-11-05", [{ tecnicoId: "t1", hora: "11:00", status: "Agendado", valor: 1145.96 }]],
+      ]),
+      feriados: new Map([["2026-11-04", "Feriado de teste"]]),
+    });
+    assert.deepEqual(
+      dias.map((d) => [d.data, d.base, d.ocupados, d.livres, d.feriado ?? null]),
+      [
+        ["2026-11-03", 2, 1, 1, null],
+        ["2026-11-04", 0, 0, 0, "Feriado de teste"],
+        ["2026-11-05", 1, 1, 0, null],
+      ],
+    );
+    // Feriado não é "dia vazio" nem conta como dia útil da meta.
+    assert.deepEqual(diasVazios(dias, "2026-11-02"), []);
+    assert.equal(
+      diasUteisEntre("2026-11-02", "2026-11-08", SEG_SAB, new Map([["2026-11-04", "x"]])).length,
+      5,
+    );
+  });
   it("horários livres por dia e dias vazios nos próximos 3 dias úteis", () => {
     const dias = agendaPorDia({
       de: "2026-11-02",
