@@ -2,9 +2,10 @@
 
 Desde 02/10/2026 o redesign é feito direto na branch principal
 `claude/nexa-os-multi-tenant-dl9c3s` (a que o Cloud Run `nexaos` publica) e cada etapa é
-publicada assim que passa nos testes. A equipe ainda usa no dia a dia o app antigo do Lovable,
-que tem banco próprio no Lovable Cloud (`aainaxrwirzrqmesoidz`), separado deste
-(`avvxapeplhuiruijyyed`).
+publicada assim que passa nos testes. O banco de produção é o projeto do Supabase
+**"Nexa OS Sao Paulo" (`avvxapeplhuiruijyyed`)**; é nele que as migrações do SQL Editor são
+gravadas e que o Cloud Run lê. O `aainaxrwirzrqmesoidz` é o banco antigo do Lovable Cloud, de antes
+da migração (conferido em 02/11: última mensagem, orçamento nº 150 e migrações só no `avvx`).
 
 Endereço oficial do app: **https://app.nexaperformanceos.com.br** (Firebase Hosting → Cloud Run).
 Webhooks, rotinas agendadas e chamadas pesadas continuam no `run.app`
