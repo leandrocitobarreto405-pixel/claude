@@ -93,7 +93,7 @@ async function osDoPeriodo(db: Db, emp: string, de: string, ate: string): Promis
 }
 
 /** OS fechadas no período (data da venda), só da empresa. */
-async function osVendidasNoPeriodo(db: Db, emp: string, de: string, ate: string) {
+export async function osVendidasNoPeriodo(db: Db, emp: string, de: string, ate: string) {
   const { data } = await db
     .from("work_orders")
     .select(SELECT_OS_VENDIDO)
@@ -105,7 +105,7 @@ async function osVendidasNoPeriodo(db: Db, emp: string, de: string, ate: string)
 }
 
 /** Valor líquido de uma OS inteira (todas as visitas, sem o repasse). */
-function liquidoDaOs(os: OsVendido, hoje: string): number {
+export function liquidoDaOs(os: OsVendido, hoje: string): number {
   return r2(visitasComValor(os, hoje).reduce((s, v) => s + liquidoDaVisita(v), 0));
 }
 

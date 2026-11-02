@@ -17,6 +17,7 @@ import {
   type HojeTatiana,
   type TarefaHoje,
 } from "@/lib/tatiana.functions";
+import { textoSemanaEquipe } from "@/lib/comercial/equipe";
 import { NOME_GERENTE } from "@/lib/comercial/tatiana";
 import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
 import { ROTULO_TAREFA } from "@/lib/comercial/furos";
@@ -73,6 +74,11 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
           {d.recado?.frase ?? `Bom dia! Bora fazer acontecer hoje 💙`}
         </p>
         {d.recado?.resumo ? <p className="text-sm">{d.recado.resumo}</p> : null}
+        {d.semana ? (
+          <p className="text-xs text-muted-foreground">
+            Semana da equipe: {textoSemanaEquipe(d.semana)}.
+          </p>
+        ) : null}
         {d.modo === "teste" ? (
           <p className="text-xs text-muted-foreground">
             Em teste: as tarefas são sugestões da {NOME_GERENTE}; você decide o que fazer.

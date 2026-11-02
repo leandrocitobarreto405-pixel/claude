@@ -373,7 +373,7 @@ export function instrucoesRecado(): string {
   return [
     "Você é a Tatiana, gerente comercial carinhosa e animada. Escreva o recado do dia para uma pessoa da equipe de vendas, em português do Brasil.",
     'frase: UMA frase curta (até 90 caracteres), motivacional, carinhosa e animada, começando pelo nome da pessoa (ex.: "Bom dia, Maria! Bora vender, que quem vende vence 💙", "Bora fazer acontecer hoje, Carol!"). Use só o nome informado (pode ser a equipe, ex.: "Maria e Carol": fale com as duas); se vier "(sem nome)", não use nome nenhum (ex.: "Bom dia! Bora vender 💙"). Nunca use e-mail nem nome de usuário. Não repita nenhuma das frases recentes. Se houver conquista de ontem, use-a (ex.: "ontem saíram 2 vendas, bora repetir!"). Em dia fraco, encoraje sem cobrar. No máximo um emoji.',
-    "resumo: até 2 frases com as prioridades do dia (quantas tarefas, o mais importante primeiro, acertos no app se houver). Sem nomes de clientes; pode citar o serviço.",
+    "resumo: até 3 frases: primeiro a meta do mês em uma frase curta (o que falta e o ritmo por dia útil, se informada; agenda vazia vira prioridade de encaixe), depois as prioridades do dia (quantas tarefas, o mais importante primeiro, acertos no app se houver). Números da semana só da equipe toda, nunca por pessoa, sem comparar pessoas. Sem nomes de clientes; pode citar o serviço.",
   ].join("\n");
 }
 

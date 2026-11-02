@@ -1599,6 +1599,20 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     tarefa_tipo: string | null;
   }>;
   const leadsSite = (await leadsSiteParaTarefa(db, emp, dia).catch(() => [])).length;
+  // Meta do dia e semana da equipe (etapa 3): entram no recado como contexto, sem nomes.
+  const { linhaDaMeta, textoSemanaEquipe } = await import("./equipe");
+  const linhaMeta = await (async () => {
+    const { calcularMes } = await import("./mes.server");
+    const m = await calcularMes(db, emp, dia, ctx.horario.dias);
+    return linhaDaMeta(
+      m.meta,
+      m.agenda.vazios.map((d) => d.data),
+    );
+  })().catch(() => null);
+  const linhaSemana = await (async () => {
+    const { semanaDaEquipe } = await import("./equipe.server");
+    return textoSemanaEquipe(await semanaDaEquipe(db, emp, horarioSP(new Date()).data));
+  })().catch(() => null);
   const cs = (cobr ?? []) as Array<{ user_id: string | null }>;
   const rs = (recentes ?? []) as Array<{ user_id: string; frase: string }>;
   let custo = 0;
@@ -1639,6 +1653,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     const fallback = {
       frase: fraseReserva(nome, jaDisse, Date.parse(`${dia}T12:00:00Z`) / 86_400_000 + i),
       resumo:
+        `${linhaMeta ? `${linhaMeta} ` : ""}` +
         `${minhas.length ? `${minhas.length} ${minhas.length === 1 ? "tarefa" : "tarefas"} hoje` : "Nenhuma tarefa marcada hoje"}` +
         `${meusAcertos ? ` e ${meusAcertos} ${meusAcertos === 1 ? "acerto" : "acertos"} no app` : ""}.`,
     };
@@ -1671,6 +1686,8 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
               }.`,
               `Acertos no app pendentes: ${meusAcertos}.`,
               `Vendas (OS criadas) ontem na empresa: ${vendas ?? 0}.`,
+              `Meta do mês: ${linhaMeta ?? "não informada"}`,
+              `Semana da equipe (só como equipe, sem ranking): ${linhaSemana ?? "não informada"}.`,
               `Frases recentes (não repetir): ${jaDisse.join(" | ") || "nenhuma"}.`,
             ].join("\n"),
           },
