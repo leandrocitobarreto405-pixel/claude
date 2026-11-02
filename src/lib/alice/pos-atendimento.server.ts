@@ -8,6 +8,7 @@
  * conversa volta para a Alice (mesmo se a equipe tinha assumido), que trata a resposta.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { primeiroNomeLimpo } from "./nome";
 import { chaveTelefone } from "@/lib/mkt/chatwoot.server";
 import {
   SEM_LINK,
@@ -322,7 +323,8 @@ async function enviarUm(
 
   // Variáveis: nome e janela (confirmação); nome, link, técnico e estofado (pós-venda).
   // Nome confirmado do contato (o cliente disse / perfil aceito); senão, o da OS.
-  const nome = primeiroNome(contato?.nome_confirmado || c.cliente) || "tudo bem";
+  // Nome só quando parece nome de pessoa (nunca "Oi, Cond!"); senão "tudo bem".
+  const nome = primeiroNomeLimpo(contato?.nome_confirmado || c.cliente) || "tudo bem";
   let vars: string[];
   let semLink = false;
   if (tipo === "confirmacao") {

@@ -331,13 +331,14 @@ async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
         .maybeSingle();
       if (contato) {
         const { contextoDoCliente } = await import("./alice/contexto-toque.server");
-        const { ROTULO_CONTEXTO } = await import("./alice/contexto-toque");
+        const { ROTULO_CONTEXTO, bloqueiaToque } = await import("./alice/contexto-toque");
         const lido = await contextoDoCliente(db as never, {
           empresaId: cfg.empresa_id,
           contatoId: contato.id,
           conversaId: null,
         });
-        if (lido && lido.classe !== "segue")
+        // "aguardando" (pediu um tempo) não bloqueia: o cadastro novo no site é um pedido novo.
+        if (lido && bloqueiaToque(lido.classe))
           throw new EnvioPulado(`pulado: contexto (cliente ${ROTULO_CONTEXTO[lido.classe]})`);
       }
       await enviarModeloAoLead(db, { ...l, telefone: l.telefone! }, cfg.envio_modelo, {

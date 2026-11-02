@@ -9,6 +9,7 @@ import {
   MOTIVO_FIM,
   doisHorarios,
   ESPACADA,
+  ETAPAS_ESPERA,
   CADENCIA,
   ancoraDoOrcamento,
   passoDaEtapa,
@@ -18,6 +19,7 @@ import {
   type Passo,
   type Trilha,
 } from "./cadencia";
+import { ehB2B } from "./nome";
 import { proximoHorarioPermitido } from "./regras";
 
 type Db = SupabaseClient<Database>;
@@ -37,6 +39,8 @@ export type DadosCadencia = {
   modelo_retorno?: string;
   /** Toque da Tatiana (trilha G): fora da janela, só pelo modelo de retomada (lead com orçamento). */
   com_orcamento?: boolean;
+  /** Espera (classe "aguardando"): toques W1/W2 em vez da sequência normal. */
+  espera?: boolean;
 };
 
 const SELECT_LEAD =
@@ -66,6 +70,8 @@ export async function seguirCadencia(
     cfg: ConfigIa;
     atual?: DadosCadencia | null;
     agora?: Date;
+    /** O cliente acabou de pedir um tempo (classe "aguardando"): entra na espera (W1 em ~7 dias). */
+    espera?: boolean;
   },
 ): Promise<boolean> {
   if (!o.cfg.cadencia_followup || !o.leadId) return false;
@@ -95,9 +101,12 @@ export async function seguirCadencia(
     .eq("empresa_id", o.empresaId)
     .eq("conversa_id", o.conversaId)
     .neq("status", "Cancelada");
-  const daTrilha = new Set(
-    [...CADENCIA[trilha], ...ESPACADA[trilha]].map((p) => p.etapa as string),
-  );
+  const daTrilha = new Set([
+    ...[...CADENCIA[trilha], ...ESPACADA[trilha]].map((p) => p.etapa as string),
+    ...ETAPAS_ESPERA,
+  ]);
+  // B2B (empresa/condomínio) pelo nome do cadastro: sem oferta com prazo.
+  const b2b = ehB2B((lead as { lead_name?: string | null } | null)?.lead_name);
   const feitoEm = (t: { completed_at: string | null; scheduled_at: string }) =>
     t.completed_at ?? t.scheduled_at;
   const valeu = (t: { status: string | null; canal: string | null }) =>
@@ -146,6 +155,8 @@ export async function seguirCadencia(
     feitos,
     ultimaDoCliente,
     retorno,
+    espera: Boolean(o.espera || o.atual?.espera),
+    b2b,
   });
   if (!plano) return false;
   const { passo } = plano;
@@ -156,13 +167,21 @@ export async function seguirCadencia(
 
   const { cancelarFollowupPendente } = await import("./ferramentas.server");
   await cancelarFollowupPendente(db, o.empresaId, o.conversaId, "substituído pela cadência");
+  const espera = ETAPAS_ESPERA.has(passo.etapa);
   const dados: DadosCadencia = {
     cadencia: true,
     trilha,
     etapa: passo.etapa,
     ancora: ancora.toISOString(),
-    motivo: passo.fim ? `fim da trilha ${trilha}` : `toque ${passo.etapa} (trilha ${trilha})`,
+    motivo: passo.fim
+      ? espera
+        ? "fim da espera"
+        : `fim da trilha ${trilha}`
+      : espera
+        ? `retorno da espera ${passo.etapa} (cliente pediu um tempo)`
+        : `toque ${passo.etapa} (trilha ${trilha})`,
     mensagem_sugerida: passo.guia,
+    ...(espera ? { espera: true } : {}),
   };
   const { data: t, error } = await db
     .from("ia_tarefas")
@@ -187,8 +206,12 @@ export async function seguirCadencia(
     trilha,
     etapa: passo.etapa,
     notes: passo.fim
-      ? `🤖 Fim da trilha ${trilha}: se o cliente não responder, o lead vai para "Orçamentos sem desfecho".`
-      : `🤖 Toque ${passo.etapa} (trilha ${trilha}): ${passo.guia}`,
+      ? espera
+        ? `🤖 Fim da espera: o cliente pediu um tempo e não voltou; o lead vai para "Orçamentos sem desfecho".`
+        : `🤖 Fim da trilha ${trilha}: se o cliente não responder, o lead vai para "Orçamentos sem desfecho".`
+      : espera
+        ? `🤖 Retorno da espera ${passo.etapa} (o cliente pediu um tempo): ${passo.guia}`
+        : `🤖 Toque ${passo.etapa} (trilha ${trilha}): ${passo.guia}`,
   });
   if (!passo.fim)
     await db
@@ -374,12 +397,13 @@ export async function marcarSemDesfecho(
   empresaId: string,
   leadId: string,
   trilha: Trilha,
+  motivo?: string,
 ): Promise<void> {
   await db
     .from("crm_leads")
     .update({
       sem_desfecho_em: new Date().toISOString(),
-      sem_desfecho_motivo: MOTIVO_FIM[trilha],
+      sem_desfecho_motivo: motivo ?? MOTIVO_FIM[trilha],
       next_follow_up_at: null,
     })
     .eq("id", leadId)

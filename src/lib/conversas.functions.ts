@@ -16,6 +16,7 @@ import {
   type GrupoConversa,
   type Passagem,
 } from "@/lib/conversas";
+import type { HistoricoContato } from "@/lib/historico-contato";
 import { requireRecurso } from "@/lib/recurso.middleware";
 
 /** caixa_entrada: recurso do plano (Essencial não tem). */
@@ -83,14 +84,17 @@ export type MensagemConversa = {
 export type ConversaCompleta = ConversaResumo & {
   iaDesligadaNoCliente: boolean;
   mensagens: MensagemConversa[];
+  /** Histórico do contato com a empresa antes desta conversa (null se não deu para ler). */
+  historico: HistoricoContato | null;
 };
 
-const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado,
+const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado, whatsapp_contact_id,
   contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone, normalized_phone, ia_desligada, marketing_optout_em, marketing_optout_origem ),
   lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
 
 type LinhaConversa = {
   id: string;
+  whatsapp_contact_id?: string | null;
   status: string | null;
   aguardando_desde: string | null;
   ultima_atividade_em: string | null;
@@ -368,6 +372,17 @@ export const lerConversa = createServerFn({ method: "GET" })
     ]);
     const nomes = new Map<string, string>();
     if (c.assumida_por && perfil.data?.full_name) nomes.set(c.assumida_por, perfil.data.full_name);
+    // Histórico do contato (02/11): o que a empresa já viveu com este telefone antes desta conversa.
+    const historico = await (async () => {
+      const { historicoDoContato } = await import("@/lib/historico-contato.server");
+      return historicoDoContato(db as never, {
+        empresaId: context.empresaId,
+        telefone: c.contato?.normalized_phone ?? null,
+        contatoId: c.whatsapp_contact_id ?? null,
+        conversaAtualId: c.id,
+        leadAtualId: c.crm_lead_id,
+      });
+    })().catch(() => null);
     const resumo = resumir(
       c,
       lista[lista.length - 1],
@@ -379,6 +394,7 @@ export const lerConversa = createServerFn({ method: "GET" })
     return {
       ...resumo,
       iaDesligadaNoCliente: Boolean(c.contato?.ia_desligada),
+      historico,
       mensagens: lista.map((m) => ({
         id: m.id,
         doCliente: m.direction === "Recebida",

@@ -35,13 +35,168 @@ export function limparNome(texto: string | null | undefined): string {
     .join(" ");
 }
 
-/** Só o primeiro nome, com a primeira letra maiúscula ("ana paula" → "Ana"). */
-export function primeiroNomeLimpo(texto: string | null | undefined): string | null {
-  return limparNome(texto).split(" ")[0] || null;
+const PALAVRAS_DE_EMPRESA =
+  /\b(ltda|me|mei|eireli|epp|s\/?a|loja|store|shop|oficial|comercio|comércio|distribuidora|imoveis|imóveis|imobiliaria|imobiliária|delivery|estetica|estética|studio|stúdio|estudio|estúdio|salao|salão|moveis|móveis|restaurante|pizzaria|clinica|clínica|consultorio|consultório|consultoria|servicos|serviços|vendas|atacado|varejo|empresa|igreja|ministerio|ministério|cond|condominio|condomínio|residencial|edificio|edifício|hotel|pousada|escritorio|escritório|academia|escola|colegio|colégio|hospital|construtora|administradora|sindico|síndico|sindica|síndica|predio|prédio|bloco|apto|apartamento|torre|portaria|zeladoria|hostel|motel|clube|associacao|associação|prefeitura|secretaria|departamento|setor|recepcao|recepção|financeiro|compras|rh)\b/i;
+
+/**
+ * Primeira palavra que não é nome de pessoa (02/11, "Oi, Cond!"): abreviações e palavras de
+ * empresa/condomínio, tratamentos e palavras soltas que entram no cadastro no lugar do nome.
+ */
+const NAO_E_NOME = new Set([
+  "cond",
+  "condominio",
+  "condomínio",
+  "residencial",
+  "edificio",
+  "edifício",
+  "ed",
+  "bloco",
+  "apto",
+  "apartamento",
+  "casa",
+  "loja",
+  "empresa",
+  "ltda",
+  "me",
+  "mei",
+  "eireli",
+  "sa",
+  "hotel",
+  "pousada",
+  "clinica",
+  "clínica",
+  "escritorio",
+  "escritório",
+  "igreja",
+  "academia",
+  "escola",
+  "colegio",
+  "colégio",
+  "hospital",
+  "imobiliaria",
+  "imobiliária",
+  "construtora",
+  "administradora",
+  "consultorio",
+  "consultório",
+  "restaurante",
+  "bar",
+  "salao",
+  "salão",
+  "studio",
+  "estudio",
+  "estúdio",
+  "predio",
+  "prédio",
+  "torre",
+  "portaria",
+  "sindico",
+  "síndico",
+  "sindica",
+  "síndica",
+  "cliente",
+  "contato",
+  "teste",
+  "whatsapp",
+  "lead",
+  "novo",
+  "nova",
+  "sem",
+  "nao",
+  "não",
+  "nome",
+  "sr",
+  "sra",
+  "srta",
+  "dr",
+  "dra",
+  "dona",
+  "seu",
+  "senhor",
+  "senhora",
+  "mae",
+  "mãe",
+  "pai",
+  "vo",
+  "vó",
+  "tia",
+  "tio",
+  "amor",
+  "amigo",
+  "amiga",
+  "turbine",
+  "clean",
+  "nexa",
+  "oi",
+  "ola",
+  "olá",
+  "bom",
+  "boa",
+]);
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** A palavra parece um primeiro nome de pessoa? (regra simples, para não chamar "Oi, Cond!") */
+export function pareceNomeDePessoa(palavra: string | null | undefined): boolean {
+  const p = (palavra ?? "").trim();
+  if (p.length < 2) return false;
+  const chave = semAcento(p.toLowerCase());
+  if (NAO_E_NOME.has(chave) || NAO_E_NOME.has(p.toLowerCase())) return false;
+  // Sem vogal não é nome ("Jh", "Mkt"); só letras (limparNome já tirou o resto).
+  if (!/[aeiouyáéíóúâêôãõ]/i.test(semAcento(p))) return false;
+  return true;
 }
 
-const PALAVRAS_DE_EMPRESA =
-  /\b(ltda|me|eireli|loja|store|shop|oficial|comercio|comércio|distribuidora|imoveis|imóveis|delivery|estetica|estética|studio|stúdio|salao|salão|moveis|móveis|restaurante|pizzaria|clinica|clínica|consultoria|servicos|serviços|vendas|atacado|varejo|empresa|igreja|ministerio|ministério)\b/i;
+/**
+ * Só o primeiro nome, com a primeira letra maiúscula ("ana paula" → "Ana"). Devolve null quando a
+ * primeira palavra não parece nome de pessoa ("Cond. Jardins", "Loja Center", "Sr") ou o texto
+ * inteiro tem cara de empresa/condomínio: melhor "Oi!" do que "Oi, Cond!".
+ */
+export function primeiroNomeLimpo(texto: string | null | undefined): string | null {
+  const limpo = limparNome(texto);
+  const primeiro = limpo.split(" ")[0] || "";
+  if (!primeiro || !pareceNomeDePessoa(primeiro)) return null;
+  if (PALAVRAS_DE_EMPRESA.test(texto ?? "") && !/^[A-ZÀ-Ý][a-zà-ÿ]+$/.test(primeiro)) return null;
+  // "Condomínio Solar" / "Clínica Vida": a palavra de empresa está no texto e o primeiro nome não
+  // tem cara de pessoa conhecida pelo resto do texto; na dúvida com nome + sobrenome de empresa
+  // ("Marcos Imóveis"), fica o primeiro nome.
+  return primeiro;
+}
+
+/** Cliente B2B (empresa, condomínio, loja, clínica…) pelo nome do cadastro/perfil. */
+export function ehB2B(...nomes: Array<string | null | undefined>): boolean {
+  return nomes.some((n) => {
+    const t = (n ?? "").trim();
+    if (!t) return false;
+    if (PALAVRAS_DE_EMPRESA.test(t)) return true;
+    const primeira = semAcento(t.toLowerCase().split(/\s+/)[0] ?? "").replace(/[^a-z]/g, "");
+    return [
+      "cond",
+      "condominio",
+      "residencial",
+      "edificio",
+      "hotel",
+      "pousada",
+      "clinica",
+      "escritorio",
+      "igreja",
+      "academia",
+      "escola",
+      "colegio",
+      "hospital",
+      "imobiliaria",
+      "construtora",
+      "administradora",
+      "consultorio",
+      "restaurante",
+      "loja",
+      "empresa",
+      "predio",
+      "sindico",
+      "sindica",
+    ].includes(primeira);
+  });
+}
 
 export type AvaliacaoPerfil = "nao_parece" | "avaliar";
 

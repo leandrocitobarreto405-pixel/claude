@@ -37,11 +37,11 @@ export async function semanaDaEquipe(db: Db, emp: string, hoje: string): Promise
       osVendidasNoPeriodo(db, emp, desde14, hoje),
       db
         .from("crm_followups")
-        .select("status, pulado_motivo, concluida_em, scheduled_at")
+        .select("status, pulado_motivo, completed_at, updated_at, scheduled_at")
         .eq("empresa_id", emp)
         .eq("origem", "gerente")
         .eq("responsavel", "equipe")
-        .or(`concluida_em.gte.${desde14Iso},status.eq.Pendente`)
+        .or(`completed_at.gte.${desde14Iso},updated_at.gte.${desde14Iso},status.eq.Pendente`)
         .limit(5000),
       db
         .from("comercial_cobrancas")
@@ -63,13 +63,15 @@ export async function semanaDaEquipe(db: Db, emp: string, hoje: string): Promise
       (tarefas ?? []) as Array<{
         status: string;
         pulado_motivo: string | null;
-        concluida_em: string | null;
+        completed_at: string | null;
+        updated_at: string | null;
         scheduled_at: string;
       }>
     ).map((t) => ({
       status: t.status,
       pulada: t.status === "Cancelada" && t.pulado_motivo !== null,
-      quando: t.concluida_em,
+      // Concluída: quando foi feita; pulada: quando a equipe marcou (02/11: a coluna é completed_at).
+      quando: t.completed_at ?? (t.status === "Cancelada" ? t.updated_at : null),
     })),
     acertos: ((acertos ?? []) as Array<{ situacao: string; resolvida_em: string | null }>).map(
       (a) => ({ situacao: a.situacao, resolvidaEm: a.resolvida_em }),

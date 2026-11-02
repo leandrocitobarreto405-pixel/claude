@@ -32,7 +32,10 @@ export type Etapa =
   | "BE"
   | "BE_FIM"
   | "R"
-  | "RC";
+  | "RC"
+  | "W1"
+  | "W2"
+  | "W_FIM";
 
 export type Passo = {
   etapa: Etapa;
@@ -186,6 +189,43 @@ export const ESPACADA: Record<Trilha, Passo[]> = {
   ],
 };
 
+/**
+ * Espera (02/11, classe "aguardando"): o cliente pediu um tempo sem data. Em vez da sequência
+ * normal, UM retorno leve em ~7 dias e mais um 7 dias depois; sem resposta, "sem desfecho".
+ */
+export const MOTIVO_FIM_ESPERA = "Pediu um tempo e não voltou";
+export function passosDeEspera(trilha: Trilha): Passo[] {
+  const guia =
+    "O cliente pediu um tempo para pensar: volte leve, sem cobrar, perguntando se já decidiu e trazendo algo novo e útil (um horário livre da agenda ou um cuidado com o estofado). Uma pergunta só.";
+  return [
+    {
+      etapa: "W1",
+      trilha,
+      quando: { dia: 7, hora: 10 },
+      guia,
+      modelo: MODELO_RETOMADA,
+      horarios: true,
+    },
+    {
+      etapa: "W2",
+      trilha,
+      quando: { dia: 14, hora: 10 },
+      guia,
+      modelo: MODELO_RETOMADA,
+      horarios: true,
+    },
+    {
+      etapa: "W_FIM",
+      trilha,
+      quando: { dia: 21, hora: 10 },
+      guia: MOTIVO_FIM_ESPERA,
+      modelo: null,
+      fim: true,
+    },
+  ];
+}
+export const ETAPAS_ESPERA = new Set(["W1", "W2", "W_FIM"]);
+
 /** Toque da cadência já feito nesta conversa (mandado pela Alice, pelo modelo ou passado à equipe). */
 export type ToqueFeito = { etapa: string; em: string };
 
@@ -200,6 +240,10 @@ export type EntradaPlano = {
   ultimaDoCliente: Date | null;
   /** Retorno combinado (trilha C) feito depois do último toque da cadência e ainda sem resposta. */
   retorno: Date | null;
+  /** O cliente pediu um tempo (classe "aguardando") ou a espera já começou: só os toques W. */
+  espera?: boolean;
+  /** Cliente B2B (empresa/condomínio): nunca recebe oferta com prazo. */
+  b2b?: boolean;
 };
 
 const HORA = 3_600_000;
@@ -236,6 +280,15 @@ export function ancoraDoOrcamento(
 export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } | null {
   const { trilha, agora } = e;
   const feitas = new Set(e.feitos.map((f) => f.etapa));
+  // Espera: W1 ~7 dias depois do pedido (ou do último toque), W2 mais 7, fim mais 7.
+  const feitosW = e.feitos.filter((f) => ETAPAS_ESPERA.has(f.etapa));
+  if (e.espera || feitosW.length) {
+    const passo = passosDeEspera(trilha).find((p) => !feitas.has(p.etapa));
+    if (!passo) return null;
+    const base = feitosW.length ? new Date(feitosW[feitosW.length - 1]!.em) : agora;
+    const quando = maior(instanteSP(diaSP(base), 7, 10), new Date(agora.getTime() + 5 * 60_000));
+    return { passo, quando };
+  }
   const emDe = (etapa: string) => {
     const f = e.feitos.find((x) => x.etapa === etapa);
     return f ? new Date(f.em) : null;
@@ -266,7 +319,8 @@ export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } |
   if (ultimoEspacado) {
     candidatos = espacada.slice(espacada.indexOf(ultimoEspacado) + 1);
   } else {
-    const lista = CADENCIA[trilha].filter((p) => !p.oferta || e.oferta);
+    // Oferta com prazo só com a oferta ligada e nunca para cliente B2B (empresa/condomínio).
+    const lista = CADENCIA[trilha].filter((p) => !p.oferta || (e.oferta && !e.b2b));
     const idx = Math.max(-1, ...lista.map((p, i) => (feitas.has(p.etapa) ? i : -1)));
     candidatos = lista.slice(idx + 1).filter((p) => !feitas.has(p.etapa));
     if (falouDepois || e.retorno) candidatos = candidatos.filter((p) => !ehMinutos(p));
@@ -351,6 +405,7 @@ export const PASSO_RETOMADA: Passo = {
 export function passoDaEtapa(etapa: string | null | undefined): Passo | null {
   if (!etapa) return null;
   if (etapa === "R") return PASSO_RETOMADA;
+  if (ETAPAS_ESPERA.has(etapa)) return passosDeEspera("A").find((p) => p.etapa === etapa) ?? null;
   for (const t of ["A", "B"] as const) {
     const p =
       CADENCIA[t].find((x) => x.etapa === etapa) ?? ESPACADA[t].find((x) => x.etapa === etapa);

@@ -281,3 +281,71 @@ test("toque do dia seguinte em áudio: só D1, ligado, com voz, sem 'só texto' 
   assert.equal(toqueEmAudio({ ...base, etapa: "A3", soTexto: true }), false);
   assert.equal(toqueEmAudio({ ...base, etapa: "A3", audioSemResposta: true }), false);
 });
+
+test("espera (aguardando): W1 ~7 dias depois, W2 mais 7, fim mais 7; sem a sequência normal", () => {
+  const agora = new Date("2026-11-02T13:00:00-03:00");
+  const w1 = planejarToque({
+    trilha: "A",
+    oferta: true,
+    agora,
+    ancoraOrcamento: new Date("2026-11-01T10:00:00-03:00"),
+    feitos: [{ etapa: "A1", em: "2026-11-01T10:10:00-03:00" }],
+    ultimaDoCliente: new Date("2026-11-02T12:00:00-03:00"),
+    retorno: null,
+    espera: true,
+  });
+  assert.equal(w1?.passo.etapa, "W1");
+  assert.equal(w1?.quando.toISOString(), "2026-11-09T13:00:00.000Z");
+  const w2 = planejarToque({
+    trilha: "A",
+    oferta: true,
+    agora: new Date("2026-11-09T13:05:00-03:00"),
+    ancoraOrcamento: new Date("2026-11-01T10:00:00-03:00"),
+    feitos: [
+      { etapa: "A1", em: "2026-11-01T10:10:00-03:00" },
+      { etapa: "W1", em: "2026-11-09T13:00:00-03:00" },
+    ],
+    ultimaDoCliente: new Date("2026-11-02T12:00:00-03:00"),
+    retorno: null,
+  });
+  assert.equal(w2?.passo.etapa, "W2");
+  assert.equal(w2?.quando.toISOString(), "2026-11-16T13:00:00.000Z");
+  const fim = planejarToque({
+    trilha: "A",
+    oferta: true,
+    agora: new Date("2026-11-16T13:05:00-03:00"),
+    ancoraOrcamento: new Date("2026-11-01T10:00:00-03:00"),
+    feitos: [
+      { etapa: "W1", em: "2026-11-09T13:00:00-03:00" },
+      { etapa: "W2", em: "2026-11-16T13:00:00-03:00" },
+    ],
+    ultimaDoCliente: null,
+    retorno: null,
+  });
+  assert.equal(fim?.passo.etapa, "W_FIM");
+  assert.equal(fim?.passo.fim, true);
+});
+
+test("B2B nunca recebe a oferta com prazo (A5), mesmo com a oferta ligada", () => {
+  const base = {
+    trilha: "A" as const,
+    oferta: true,
+    agora: new Date("2026-11-03T15:00:00-03:00"),
+    ancoraOrcamento: new Date("2026-11-01T10:00:00-03:00"),
+    feitos: [
+      { etapa: "A1", em: "2026-11-01T10:10:00-03:00" },
+      { etapa: "A2", em: "2026-11-01T10:40:00-03:00" },
+      { etapa: "A3", em: "2026-11-02T10:00:00-03:00" },
+      { etapa: "A4", em: "2026-11-02T14:00:00-03:00" },
+    ],
+    ultimaDoCliente: null,
+    retorno: null,
+  };
+  assert.equal(planejarToque(base)?.passo.etapa, "A5");
+  assert.equal(planejarToque({ ...base, b2b: true })?.passo.etapa, "A_FIM");
+});
+
+test("passoDaEtapa conhece os toques da espera (fora da janela usam o modelo de retomada)", () => {
+  assert.equal(passoDaEtapa("W1")?.modelo, "fu_retomada_horarios");
+  assert.equal(passoDaEtapa("W_FIM")?.fim, true);
+});

@@ -5,6 +5,7 @@
  * para a equipe; qualquer outro assunto é transferido.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { primeiroNomeLimpo } from "./nome";
 import { z } from "zod";
 import { podeRemarcar } from "./agendamento";
 import { decidirResposta, primeiroNome, textoAvaliacao, type TipoPos } from "./pos-atendimento";
@@ -216,7 +217,7 @@ export async function respostaPosAtendimento(
     );
     const texto = textoAvaliacao(
       cfg.avaliacao_texto,
-      primeiroNome(confirmado || lead?.lead_name) || "",
+      primeiroNomeLimpo(confirmado || lead?.lead_name) || "",
       empresa?.nome ?? "",
       cfg.avaliacao_link,
     ).replace(/^Que bom, !/, "Que bom!");

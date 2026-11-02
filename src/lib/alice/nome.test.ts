@@ -1,6 +1,6 @@
-import { test } from "node:test";
+import { describe, it, test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarPerfil, limparNome, linhaDoNome, primeiroNomeLimpo } from "./nome";
+import { avaliarPerfil, ehB2B, limparNome, linhaDoNome, primeiroNomeLimpo } from "./nome";
 
 test("limpa o nome: maiúscula, partículas, sem emoji e número", () => {
   assert.equal(limparNome("  bEATRIZ   souza "), "Beatriz Souza");
@@ -53,4 +53,35 @@ test("linha do nome para a Alice: confirmado, a perguntar, perguntar de novo, pa
     linhaDoNome({ confirmado: null, origem: null, perfil: "Cacau", perguntas: 2 }),
     /NÃO pergunte mais e siga sem nome/,
   );
+});
+
+describe("nome: primeiro nome só quando parece nome de pessoa (02/11)", () => {
+  it("abreviação e palavra de empresa/condomínio viram null, nunca 'Oi, Cond!'", () => {
+    for (const n of [
+      "Cond. Residencial Jardins",
+      "Condomínio Solar",
+      "Clínica Vida",
+      "Loja Center Móveis",
+      "Sr. José",
+      "Residencial Parque",
+      "Jhn",
+      "Apto 32",
+      "Cliente WhatsApp",
+    ])
+      assert.equal(primeiroNomeLimpo(n), null, n);
+  });
+  it("nomes de pessoa continuam", () => {
+    assert.equal(primeiroNomeLimpo("maria clara"), "Maria");
+    assert.equal(primeiroNomeLimpo("José da Silva"), "José");
+    assert.equal(primeiroNomeLimpo("Ana"), "Ana");
+    assert.equal(primeiroNomeLimpo("Marcos Imóveis"), "Marcos");
+  });
+  it("B2B pelo nome do cadastro", () => {
+    assert.equal(ehB2B("Cond. Residencial Jardins"), true);
+    assert.equal(ehB2B("Hotel Praia Ltda"), true);
+    assert.equal(ehB2B("Escola Pequeno Príncipe"), true);
+    assert.equal(ehB2B("Maria Clara"), false);
+    assert.equal(ehB2B(null, "Clínica Vida"), true);
+    assert.equal(ehB2B("Marcos Imóveis"), true);
+  });
 });
