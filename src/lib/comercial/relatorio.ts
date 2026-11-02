@@ -57,10 +57,10 @@ export const CORTE_DEFEITO: Record<DefeitoAlice, string | null> = {
   orcou_sem_cep: "2026-11-01T03:00:00Z",
   nome_junto_outros_pedidos: "2026-11-01T03:00:00Z",
   foto_tecnico_antes_agendar: "2026-11-01T03:00:00Z",
-  // Nome nos toques, retorno combinado e um toque por dia: correção ainda não publicada.
-  nome_errado_toque: null,
-  toque_apos_retorno_combinado: null,
-  dois_toques_mesmo_dia: null,
+  // Nome nos toques, espera do "aguardando" e um toque por dia: código de 02/11, conta a partir de 03/11.
+  nome_errado_toque: "2026-11-03T03:00:00Z",
+  toque_apos_retorno_combinado: "2026-11-03T03:00:00Z",
+  dois_toques_mesmo_dia: "2026-11-03T03:00:00Z",
   outro: CORTE_ALICE,
 };
 

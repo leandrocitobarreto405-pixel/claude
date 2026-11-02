@@ -24,6 +24,7 @@ import {
   type HorarioUtil,
   type MotivoEntrada,
 } from "./furos";
+import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { MODELO_FICHA, MODELO_HAIKU, PRECO_HAIKU, custoUsd } from "./ficha";
 import {
   ESQUEMA_DECISAO,
@@ -1358,7 +1359,7 @@ async function tarefasDiretas(
       .eq("id", v.work_order_id)
       .maybeSingle();
     const t = textoPosVenda({
-      nome: (lead.lead_name ?? "").split(" ")[0] ?? "",
+      nome: primeiroNomeLimpo(lead.lead_name) ?? "",
       servico: v.service_type?.name ?? null,
       osNumero:
         (os as { os_number?: string | number | null } | null)?.os_number?.toString() ?? null,
@@ -1408,7 +1409,7 @@ async function tarefasDiretas(
   for (const [osId, osNumero] of osCanceladas) {
     const lead = await leadDaOs(osId);
     if (!lead || lead.perdido_em || (await leadBloqueado(db, emp, lead.id))) continue;
-    const t = textoRemarcar({ nome: (lead.lead_name ?? "").split(" ")[0] ?? "", osNumero });
+    const t = textoRemarcar({ nome: primeiroNomeLimpo(lead.lead_name) ?? "", osNumero });
     const ok = await criarTarefaDireta(
       db,
       emp,

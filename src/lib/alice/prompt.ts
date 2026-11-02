@@ -3,7 +3,7 @@
  * Funções puras (sem banco nem rede) para poderem ser testadas.
  */
 import type Anthropic from "@anthropic-ai/sdk";
-import { linhaDoNome, type SituacaoNome } from "./nome";
+import { linhaDoNome, type SituacaoNome, primeiroNomeLimpo } from "./nome";
 import { aplicarCamposDoRoteiro, type CamposRoteiro } from "./campos-roteiro";
 import { blocoDosModulos, linhaDosModulos, type ModuloRoteiro } from "./modulos";
 
@@ -178,6 +178,10 @@ export type ContextoLead = {
   cupomCitado?: string | null;
   /** Nome confirmado x perfil (com a regra do nome ligada). */
   nomeCliente?: SituacaoNome | null;
+  /** Histórico do contato com a empresa antes desta conversa (uma frase por item, sem nomes). */
+  historico?: string | null;
+  /** Cliente B2B (empresa/condomínio): sem oferta com prazo. */
+  b2b?: boolean;
 };
 
 const reais = (v: number) =>
@@ -282,9 +286,15 @@ export function instrucoesDoMomento(
       lead.nomeCliente
         ? linhaDoNome(lead.nomeCliente)
         : lead.nome
-          ? `nome no WhatsApp/cadastro: ${lead.nome}`
+          ? primeiroNomeLimpo(lead.nome)
+            ? `nome no WhatsApp/cadastro: ${lead.nome}`
+            : `o cadastro está em nome de empresa/condomínio ("${lead.nome}"): NÃO chame por ele; pergunte com quem você fala`
           : null,
+      lead.b2b
+        ? "cliente B2B (empresa/condomínio): nunca ofereça desconto com prazo nem condição por urgência; trate como compra institucional"
+        : null,
       lead.clienteExistente ? "já é cliente da empresa (veja consultar_cliente)" : "cliente novo",
+      lead.historico ? `histórico com a empresa antes desta conversa: ${lead.historico}` : null,
       lead.etapa ? `etapa no CRM: ${lead.etapa}` : null,
       `origem: ${lead.origem ?? "não identificada"}`,
       lead.campanha ? `campanha: ${lead.campanha}` : null,

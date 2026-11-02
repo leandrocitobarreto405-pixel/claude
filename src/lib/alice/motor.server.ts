@@ -49,9 +49,13 @@ import {
 } from "./regras";
 import { primeiroNomeLimpo } from "./nome";
 import {
+  ETAPAS_ESPERA,
   GUIA_TOQUE_AUDIO,
+  MOTIVO_FIM_ESPERA,
   PASSO_RETOMADA,
   PASSO_RETORNO_COMBINADO,
+  diaSP,
+  instanteSP,
   passoDaEtapa,
   toqueEmAudio,
   type Passo,
@@ -59,9 +63,12 @@ import {
 import {
   MOTIVO_DO_CONTEXTO,
   ROTULO_CONTEXTO,
+  bloqueiaToque,
   ehConcorrencia,
-  type ClasseContexto,
+  type ClasseBloqueio,
 } from "./contexto-toque";
+import { ehB2B } from "./nome";
+import { textoHistorico } from "@/lib/historico-contato";
 import type { DadosCadencia } from "./cadencia.server";
 import { causaDaParadaVoz, notaParadaConversa } from "./parada-ia";
 import { ParadaIa, chamarIa, encerrarParadas, registrarParada } from "./parada-ia.server";
@@ -481,6 +488,16 @@ async function contextoLead(
     cuponsAtivos(db, empresaId),
   ]);
   const cupomCitado = cupomNoTexto(primeira?.text_content, cupons)?.codigo ?? null;
+  // Histórico do contato (02/11): serviços, orçamentos, conversas e campanhas anteriores do telefone.
+  const historico = await (async () => {
+    const { historicoDoContato } = await import("@/lib/historico-contato.server");
+    const h = await historicoDoContato(db as never, {
+      empresaId,
+      telefone: (data as { phone?: string | null }).phone ?? null,
+      leadAtualId: leadId,
+    });
+    return textoHistorico(h);
+  })().catch(() => null);
   const l = data as unknown as {
     lead_name: string | null;
     phone: string | null;
@@ -507,6 +524,8 @@ async function contextoLead(
       clienteId: l.customer_id,
       semPosVenda,
       cupomCitado,
+      historico,
+      b2b: ehB2B(l.lead_name),
     } satisfies ContextoLead,
     salesperson: l.salesperson_id,
   };
@@ -752,7 +771,7 @@ async function bloquearPorContexto(
   db: Admin,
   tarefa: Tarefa,
   d: DadosConversa,
-  lido: { classe: Exclude<ClasseContexto, "segue">; trecho: string },
+  lido: { classe: ClasseBloqueio; trecho: string },
 ): Promise<ResultadoTarefa> {
   const motivo = `contexto: cliente ${ROTULO_CONTEXTO[lido.classe]}${lido.trecho ? ` ("${lido.trecho}")` : ""}`;
   await cancelarToque(db, tarefa, motivo);
@@ -844,14 +863,49 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       conversaId: d.conversa.id,
     });
     const classe = lido?.classe ?? "segue";
-    if (lido && classe !== "segue")
+    if (lido && bloqueiaToque(classe))
       return bloquearPorContexto(db, tarefa, d, { classe, trecho: lido.trecho });
+    // Aguardando (02/11): o cliente pediu um tempo sem data. A sequência normal para e entra a
+    // espera: UM retorno leve em ~7 dias e mais um 7 dias depois. Os toques da espera, o retorno
+    // combinado (C) e os da Tatiana (G) não caem de novo aqui.
+    if (
+      lido &&
+      classe === "aguardando" &&
+      dados.cadencia &&
+      !ETAPAS_ESPERA.has(dados.etapa ?? "") &&
+      !dados.espera
+    ) {
+      await cancelarToque(db, tarefa, "cliente pediu um tempo: retorno leve em ~7 dias (espera)");
+      const { seguirCadencia } = await import("./cadencia.server");
+      const agendou = await seguirCadencia(db, {
+        empresaId: tarefa.empresa_id,
+        conversaId: d.conversa.id,
+        leadId: d.conversa.crm_lead_id,
+        cfg,
+        atual: dados,
+        espera: true,
+      }).catch((e) => {
+        console.error("Alice: espera não agendada", e instanceof Error ? e.message : e);
+        return false;
+      });
+      if (agendou) {
+        const { enfileirarPendentes } = await import("./fila.server");
+        await enfileirarPendentes(db);
+      }
+      return { situacao: "ignorada", detalhe: "cliente pediu um tempo: espera de ~7 dias" };
+    }
   }
   // Fim da trilha sem resposta: o lead vai para "Orçamentos sem desfecho".
   if (passo?.fim) {
     if (d.conversa.crm_lead_id) {
       const { marcarSemDesfecho } = await import("./cadencia.server");
-      await marcarSemDesfecho(db, tarefa.empresa_id, d.conversa.crm_lead_id, passo.trilha);
+      await marcarSemDesfecho(
+        db,
+        tarefa.empresa_id,
+        d.conversa.crm_lead_id,
+        passo.trilha,
+        ETAPAS_ESPERA.has(passo.etapa) ? MOTIVO_FIM_ESPERA : undefined,
+      );
     }
     await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
     return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
@@ -869,6 +923,49 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     .maybeSingle();
   const ultimaDoCliente = ultima ? new Date(ultima.message_timestamp) : null;
   const agora = new Date();
+
+  // Um toque por dia (02/11): se a empresa já mandou mensagem hoje nesta conversa (Alice, equipe
+  // ou campanha) e o cliente não respondeu depois, o toque fica para amanhã. O retorno combinado
+  // (C) sai na hora que o cliente pediu.
+  if (!passo?.fim && dados.trilha !== "C") {
+    const inicioDoDia = instanteSP(diaSP(agora), 0, 0);
+    const { data: hojeEnviada } = await db
+      .from("whatsapp_messages")
+      .select("message_timestamp")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("conversa_id", d.conversa.id)
+      .eq("direction", "Enviada")
+      .eq("privada", false)
+      .gte("message_timestamp", inicioDoDia.toISOString())
+      .order("message_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (
+      hojeEnviada &&
+      (!ultimaDoCliente || ultimaDoCliente.getTime() < Date.parse(hojeEnviada.message_timestamp))
+    ) {
+      const amanha = proximoHorarioPermitido(
+        instanteSP(diaSP(agora), 1, 10),
+        cfg.hora_inicio,
+        cfg.hora_fim,
+      );
+      await db
+        .from("ia_tarefas")
+        .update({ situacao: "pendente", executar_apos: amanha.toISOString(), enfileirada: false })
+        .eq("id", tarefa.id);
+      await db
+        .from("crm_followups")
+        .update({ scheduled_at: amanha.toISOString() })
+        .eq("empresa_id", tarefa.empresa_id)
+        .eq("ia_tarefa_id", tarefa.id);
+      const { enfileirarPendentes } = await import("./fila.server");
+      await enfileirarPendentes(db);
+      return {
+        situacao: "adiada",
+        detalhe: `um toque por dia: a empresa já escreveu hoje; adiado para ${amanha.toISOString()}`,
+      };
+    }
+  }
 
   if (!dentroDoHorario(agora, cfg.hora_inicio, cfg.hora_fim)) {
     const depois = proximoHorarioPermitido(agora, cfg.hora_inicio, cfg.hora_fim);

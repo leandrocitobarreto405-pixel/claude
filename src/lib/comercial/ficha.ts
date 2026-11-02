@@ -249,12 +249,25 @@ export function lerFicha(json: string): Ficha {
 }
 
 /** O que vai para a IA além das instruções: fatos, lista de motivos e a conversa. */
-export function pedidoDaFicha(o: { fatos: Fatos; motivos: string[]; conversa: string }): string {
+export function pedidoDaFicha(o: {
+  fatos: Fatos;
+  motivos: string[];
+  conversa: string;
+  /** Histórico do contato com a empresa antes deste atendimento (uma frase por item). */
+  historico?: string | null;
+}): string {
   const { fatos } = o;
   return [
     "FATOS DO SISTEMA (verdade para números e datas):",
     JSON.stringify(fatos, null, 1),
     "",
+    ...(o.historico
+      ? [
+          "HISTÓRICO DO CONTATO ANTES DESTE ATENDIMENTO (do sistema; cliente antigo pesa na leitura):",
+          o.historico,
+          "",
+        ]
+      : []),
     "MOTIVOS DE PERDA DA EMPRESA (escolha exatamente um nome, se não vendeu):",
     o.motivos.map((m) => `- ${m}`).join("\n"),
     "",

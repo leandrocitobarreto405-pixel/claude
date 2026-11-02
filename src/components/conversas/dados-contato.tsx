@@ -19,6 +19,7 @@ import { alterarMarketingFn } from "@/lib/descadastro.functions";
 import { ROTULO_ORIGEM_DESCADASTRO, type OrigemDescadastro } from "@/lib/descadastro";
 import { Avatar, EtiquetasConversa } from "@/components/conversas/cartao-conversa";
 import type { ConversaCompleta } from "@/lib/conversas.functions";
+import { STATUS_ORCAMENTO, tituloHistorico, type HistoricoContato } from "@/lib/historico-contato";
 
 export function DadosContato({
   c,
@@ -50,6 +51,7 @@ export function DadosContato({
             <EtiquetasConversa c={c} />
           </div>
           <RecebeMarketing c={c} />
+          {c.historico ? <Historico h={c.historico} /> : null}
           {c.passagem?.resumo ? (
             <div className="rounded-botao bg-atencao px-3 py-2.5 text-sm text-atencao-foreground">
               <p className="font-bold">A Alice passou para a equipe: {c.passagem.motivo}</p>
@@ -122,6 +124,117 @@ function RecebeMarketing({ c }: { c: ConversaCompleta }) {
         disabled={ocupado}
         onCheckedChange={(v) => void mudar(v)}
       />
+    </div>
+  );
+}
+
+const dataCurta = (iso: string | null | undefined) =>
+  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—";
+const brl0 = (v: number) =>
+  `R$ ${Math.round(v).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+
+/** Histórico completo do contato com a empresa (antes desta conversa). */
+function Historico({ h }: { h: HistoricoContato }) {
+  return (
+    <div className="rounded-botao border px-3 py-2.5 text-sm">
+      <p className="font-bold">{tituloHistorico(h)}</p>
+      {h.vazio ? (
+        <p className="mt-0.5 text-muted-foreground">
+          Nenhuma conversa, orçamento, serviço ou campanha anterior com este telefone.
+        </p>
+      ) : (
+        <div className="mt-1.5 grid gap-2">
+          {h.primeiroContato ? (
+            <p className="text-xs text-muted-foreground">
+              Primeiro contato em {dataCurta(h.primeiroContato)}.
+            </p>
+          ) : null}
+          {h.servicos.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Serviços ({h.servicos.length})
+              </p>
+              <ul className="mt-0.5 space-y-0.5">
+                {h.servicos.slice(0, 5).map((s, i) => (
+                  <li key={i} className="flex justify-between gap-2">
+                    <span className="min-w-0 truncate">
+                      {dataCurta(s.data)}
+                      {s.servico ? ` · ${s.servico}` : ""}
+                      {s.osNumero ? ` · OS ${s.osNumero}` : ""}
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      {brl0(s.total)}
+                      {s.status ? ` · ${s.status}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {h.orcamentos.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Orçamentos ({h.orcamentos.length})
+              </p>
+              <ul className="mt-0.5 space-y-0.5">
+                {h.orcamentos.slice(0, 5).map((o, i) => (
+                  <li key={i} className="flex justify-between gap-2">
+                    <span className="min-w-0 truncate">
+                      {dataCurta(o.data)}
+                      {o.numero ? ` · nº ${o.numero}` : ""}
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      {brl0(o.total)} ·{" "}
+                      {o.fechou ? "virou OS" : (STATUS_ORCAMENTO[o.status] ?? o.status)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {h.conversas.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Conversas anteriores ({h.conversas.length})
+              </p>
+              <ul className="mt-0.5 space-y-0.5">
+                {h.conversas.slice(0, 5).map((cv) => (
+                  <li key={cv.id} className="flex justify-between gap-2">
+                    <Link
+                      to="/conversas/$conversaId"
+                      params={{ conversaId: cv.id }}
+                      className="min-w-0 truncate text-marca underline-offset-2 hover:underline"
+                    >
+                      {dataCurta(cv.inicio)}
+                      {cv.fim ? ` a ${dataCurta(cv.fim)}` : ""}
+                    </Link>
+                    <span className="shrink-0 text-muted-foreground">{cv.resumo ?? ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {h.campanhas.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Campanhas recebidas ({h.campanhas.length})
+              </p>
+              <ul className="mt-0.5 space-y-0.5">
+                {h.campanhas.map((k, i) => (
+                  <li key={i} className="flex justify-between gap-2">
+                    <span className="min-w-0 truncate">
+                      {dataCurta(k.data)} · {k.nome}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {k.respondeu ? "respondeu" : "sem resposta"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

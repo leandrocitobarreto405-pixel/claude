@@ -6,6 +6,7 @@
  */
 export const CLASSES_CONTEXTO = [
   "segue",
+  "aguardando",
   "fechou_outra",
   "mais_barato",
   "ja_fez",
@@ -13,8 +14,14 @@ export const CLASSES_CONTEXTO = [
   "pediu_parar",
 ] as const;
 export type ClasseContexto = (typeof CLASSES_CONTEXTO)[number];
+/** Classes que cancelam o toque (aguardando não cancela: muda a cadência para a espera). */
+export type ClasseBloqueio = Exclude<ClasseContexto, "segue" | "aguardando">;
 
-export const ROTULO_CONTEXTO: Record<Exclude<ClasseContexto, "segue">, string> = {
+export function bloqueiaToque(c: ClasseContexto): c is ClasseBloqueio {
+  return c !== "segue" && c !== "aguardando";
+}
+
+export const ROTULO_CONTEXTO: Record<ClasseBloqueio, string> = {
   fechou_outra: "fechou ou vai fechar com outra empresa",
   mais_barato: "achou mais barato em outro lugar",
   ja_fez: "já fez o serviço",
@@ -23,7 +30,7 @@ export const ROTULO_CONTEXTO: Record<Exclude<ClasseContexto, "segue">, string> =
 };
 
 /** Motivo sugerido na aba "Sem desfecho" (nomes da migração 20261228150000). */
-export const MOTIVO_DO_CONTEXTO: Record<Exclude<ClasseContexto, "segue">, string> = {
+export const MOTIVO_DO_CONTEXTO: Record<ClasseBloqueio, string> = {
   fechou_outra: "Fechou com outra empresa (motivo não informado)",
   mais_barato: "Preço alto – fechou com outra empresa",
   ja_fez: "Fechou com outra empresa (motivo não informado)",
@@ -44,7 +51,8 @@ Classes:
 - "ja_fez": disse que já fez/resolveu o serviço.
 - "nao_quer": disse que não quer/não precisa mais, desistiu ou não vai fazer.
 - "pediu_parar": pediu para não receber mais mensagens.
-- "segue": nada disso (inclui "vou pensar", "depois eu vejo", "agora não dá", "vou ver com meu marido", dúvidas, sem resposta).
+- "aguardando": pediu um tempo sem data certa: "vou pensar", "depois eu vejo", "agora não dá", "vou ver com meu marido", "mês que vem eu falo", "me chama depois" (sem dizer quando).
+- "segue": nada disso (dúvidas, sem resposta, ou o cliente combinou uma data certa de retorno).
 Só conta o que o CLIENTE escreveu (linhas "cliente:"), e só se ele não voltou atrás depois (ex.: disse que fechou com outra e depois pediu orçamento de novo → "segue").
 Formato: {"classe": "<classe>", "trecho": "<até 120 caracteres do que o cliente disse, ou vazio>"}`;
 

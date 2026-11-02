@@ -363,10 +363,28 @@ export async function analisarLead(
     const r = await entradaDoLead(db, o.empresaId, o.leadId);
     transcritos = r.transcritos;
     const fatos = calcularFatos(r.entrada);
+    // Histórico do contato (02/11): serviços, orçamentos e conversas anteriores do mesmo telefone.
+    const historico = await (async () => {
+      const { historicoDoContato } = await import("@/lib/historico-contato.server");
+      const { textoHistorico } = await import("@/lib/historico-contato");
+      const { data: tel } = await db
+        .from("crm_leads")
+        .select("normalized_phone")
+        .eq("id", o.leadId)
+        .eq("empresa_id", o.empresaId)
+        .maybeSingle();
+      const h = await historicoDoContato(db, {
+        empresaId: o.empresaId,
+        telefone: (tel as { normalized_phone?: string | null } | null)?.normalized_phone ?? null,
+        leadAtualId: o.leadId,
+      });
+      return textoHistorico(h);
+    })().catch(() => null);
     const pedido = pedidoDaFicha({
       fatos,
       motivos: o.contexto.motivos.map((m) => m.nome),
       conversa: conversaEmTexto(r.entrada.mensagens),
+      historico,
     });
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("@/lib/alice/parada-ia.server");
