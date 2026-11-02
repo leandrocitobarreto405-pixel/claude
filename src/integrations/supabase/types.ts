@@ -781,6 +781,7 @@ export type Database = {
           custo_produto_impermeabilizacao: number;
           deslocamento_volta_min: number;
           duracao_atendimento_min: number;
+          dia_inteiro_valor: number;
           empresa_id: string;
           promo_conversas_novas: boolean;
           promo_desconto_pct: number;
@@ -807,6 +808,7 @@ export type Database = {
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
           duracao_atendimento_min?: number;
+          dia_inteiro_valor?: number;
           empresa_id: string;
           promo_conversas_novas?: boolean;
           promo_desconto_pct?: number;
@@ -833,6 +835,7 @@ export type Database = {
           custo_produto_impermeabilizacao?: number;
           deslocamento_volta_min?: number;
           duracao_atendimento_min?: number;
+          dia_inteiro_valor?: number;
           empresa_id?: string;
           promo_conversas_novas?: boolean;
           promo_desconto_pct?: number;
@@ -6704,6 +6707,7 @@ export type Database = {
       visits: {
         Row: {
           repasse_parceiro: number;
+          ocupa_dia: boolean | null;
           completion_date: string | null;
           completion_time: string | null;
           created_at: string;
@@ -6745,6 +6749,7 @@ export type Database = {
         };
         Insert: {
           repasse_parceiro?: number;
+          ocupa_dia?: boolean | null;
           completion_date?: string | null;
           completion_time?: string | null;
           created_at?: string;
@@ -6786,6 +6791,7 @@ export type Database = {
         };
         Update: {
           repasse_parceiro?: number;
+          ocupa_dia?: boolean | null;
           completion_date?: string | null;
           completion_time?: string | null;
           created_at?: string;

@@ -171,3 +171,16 @@ test("textos das tarefas sem IA", () => {
   assert.match(ls.motivo, /lp-sofa/);
   assert.match(ls.mensagem, /impermeabilização/);
 });
+
+test("feriado bloqueado não é dia útil: a tarefa vai para o próximo dia útil (02/11)", () => {
+  // 20/11/2026 (sexta) bloqueado; 21/11 sábado é útil no padrão.
+  const h = horarioDaConfig(null, ["2026-11-20"]);
+  assert.equal(emHorarioUtil("2026-11-20T13:00:00Z", h), false);
+  assert.equal(emHorarioUtil("2026-11-19T13:00:00Z", h), true);
+  assert.equal(proximoHorarioUtil("2026-11-20T13:00:00Z", h), "2026-11-21T11:00:00.000Z");
+  // Feriado emendado com domingo: pula os dois.
+  const h2 = horarioDaConfig({ dias_uteis: [1, 2, 3, 4, 5] }, ["2026-11-20"]);
+  assert.equal(proximoHorarioUtil("2026-11-20T13:00:00Z", h2), "2026-11-23T11:00:00.000Z");
+  // Sem bloqueio, nada muda.
+  assert.equal(proximoHorarioUtil("2026-11-20T13:00:00Z", horarioDaConfig(null)), "2026-11-20T13:00:00Z");
+});

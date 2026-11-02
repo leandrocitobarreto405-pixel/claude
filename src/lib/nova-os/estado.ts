@@ -40,6 +40,8 @@ export type VisitForm = {
   scheduled_time: string;
   technician_id: string;
   visit_notes: string;
+  /** "" = automático pelo valor; "sim" = ocupa o dia inteiro do técnico; "nao" = nunca. */
+  ocupa_dia: "" | "sim" | "nao";
   items: ItemForm[];
 };
 
@@ -118,6 +120,7 @@ export function novaVisita(tecnicoId = "", hoje = todayISO()): VisitForm {
     scheduled_time: "09:00",
     technician_id: tecnicoId,
     visit_notes: "",
+    ocupa_dia: "",
     items: [novoItem()],
   };
 }

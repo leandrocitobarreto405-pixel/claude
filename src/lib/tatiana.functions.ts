@@ -135,9 +135,14 @@ async function tarefasLeadSite(db: Db, emp: string, hoje: string): Promise<Taref
   });
 }
 
+/** Feriado dos próximos dias ainda sem decisão (só o admin vê; botões em Tatiana › Hoje). */
+export type FeriadoPendente = { id: string; data: string; nome: string; diasAte: number };
+
 export type HojeTatiana = {
   modo: "desligado" | "teste" | "ativo";
   admin: boolean;
+  /** Feriados para decidir "vamos trabalhar?" (02/11). */
+  feriados: FeriadoPendente[];
   /** Equipe única: lista e recado da equipe, sem separar por pessoa. */
   equipeUnica: boolean;
   recado: { frase: string; resumo: string | null } | null;
@@ -178,6 +183,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     const vazio: HojeTatiana = {
       modo,
       admin,
+      feriados: [],
       equipeUnica,
       recado: null,
       semana: null,
@@ -332,9 +338,26 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       const t = id ? ls.get(id)?.normalized_phone : null;
       return t ? t.slice(-4) : null;
     };
+    // Feriados sem decisão nas próximas 3 semanas (admin decide com um toque).
+    const feriados: FeriadoPendente[] = admin
+      ? await (async () => {
+          const { feriadosNoPeriodo } = await import("@/lib/feriados.server");
+          const { DIAS_PERGUNTA, diasEntre, somarDias } = await import("@/lib/feriados");
+          const lista = await feriadosNoPeriodo(adm, emp, hoje, somarDias(hoje, DIAS_PERGUNTA));
+          return lista
+            .filter((f) => f.trabalhamos === null)
+            .map((f) => ({
+              id: f.id,
+              data: f.data,
+              nome: f.nome,
+              diasAte: diasEntre(hoje, f.data),
+            }));
+        })().catch(() => [])
+      : [];
     return {
       modo,
       admin,
+      feriados,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
       semana,

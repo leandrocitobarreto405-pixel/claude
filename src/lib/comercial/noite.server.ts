@@ -1756,7 +1756,7 @@ async function gastoDoMes(db: Db, empresaId: string, agora: Date): Promise<numbe
 
 async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
   const { contextoDaEmpresa } = await import("./analise.server");
-  const [ctx, { data: ia }, pessoas, { data: cfg }] = await Promise.all([
+  const [ctx, { data: ia }, pessoas, { data: cfg }, bloqueados] = await Promise.all([
     contextoDaEmpresa(db, noite.empresa_id),
     db.from("ia_configuracoes").select("ativo").eq("empresa_id", noite.empresa_id).maybeSingle(),
     pessoasDaEmpresa(db, noite.empresa_id),
@@ -1765,6 +1765,11 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       .select("equipe_unica, dias_uteis, hora_inicio, hora_fim")
       .eq("empresa_id", noite.empresa_id)
       .maybeSingle(),
+    // Feriados bloqueados (02/11): tarefa nenhuma cai neles; vai para o próximo dia útil.
+    (async () => {
+      const { diasBloqueadosLista } = await import("@/lib/feriados.server");
+      return diasBloqueadosLista(db, noite.empresa_id, noite.noite, 45);
+    })(),
   ]);
   const config = cfg as
     | (Pick<Config, "dias_uteis" | "hora_inicio" | "hora_fim"> & {
@@ -1784,7 +1789,7 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
     motivos: ctx.motivos,
     pessoas,
     equipeUnica: Boolean(config?.equipe_unica),
-    horario: horarioDaConfig(config),
+    horario: horarioDaConfig(config, bloqueados),
     modoAtivo: noite.modo === "ativo",
     especiais: {
       esquecidos:
@@ -2013,7 +2018,8 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
         if (gasto >= teto) {
           saida[`teto_${emp.slice(0, 8)}`] = gasto;
         } else {
-          const horario = horarioDaConfig(cfg);
+          const { diasBloqueadosLista } = await import("@/lib/feriados.server");
+          const horario = horarioDaConfig(cfg, await diasBloqueadosLista(db, emp, hoje, 45));
           const amanha = somarDias(hoje, 1);
           // Antes de montar a lista: tarefas de ontem que ninguém fez e as tarefas sem IA.
           const naoFeitas = await tarefasNaoFeitas(db, emp, hoje, amanha, horario).catch((e) => ({
@@ -2143,6 +2149,17 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     hora,
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
   if (Object.keys(planoSaida).length) saida["plano"] = planoSaida;
+
+  // 4f. Feriados (8h–20h): calendário semeado, pergunta "vamos trabalhar?", lembrete, padrão na
+  // véspera e tarefas "remarcar" dos atendimentos marcados em feriado bloqueado.
+  const { rodarFeriadosDaTatiana } = await import("@/lib/feriados.server");
+  const feriadosSaida = await rodarFeriadosDaTatiana(
+    db,
+    configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+    hoje,
+    hora,
+  ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+  if (Object.keys(feriadosSaida).length) saida["feriados"] = feriadosSaida;
 
   // 5. Pushes.
   saida["pushes"] = await pushesDaTatiana(db, configs, agora).catch((e) => ({

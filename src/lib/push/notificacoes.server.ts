@@ -301,7 +301,17 @@ async function eventosDaEmpresa(
         .eq("empresa_id", empresaId)
         .maybeSingle();
       const { horarioDaConfig, minutosUteis } = await import("@/lib/comercial/furos");
-      const horario = horarioDaConfig(cfg as never);
+      const { diasBloqueadosLista } = await import("@/lib/feriados.server");
+      const hojeSP = new Date(agora.getTime() - 3 * 3_600_000).toISOString().slice(0, 10);
+      const horario = horarioDaConfig(
+        cfg as never,
+        await diasBloqueadosLista(
+          db as unknown as import("@supabase/supabase-js").SupabaseClient,
+          empresaId,
+          hojeSP.slice(0, 8) + "01",
+          60,
+        ).catch(() => []),
+      );
       const desde = new Date(agora.getTime() - 24 * 3600_000).toISOString();
       const { data: ja } = await db
         .from("push_envios")

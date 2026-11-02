@@ -18,6 +18,8 @@ import {
   type TarefaHoje,
 } from "@/lib/tatiana.functions";
 import { textoSemanaEquipe } from "@/lib/comercial/equipe";
+import { decidirFeriadoFn } from "@/lib/feriados.functions";
+import type { FeriadoPendente } from "@/lib/tatiana.functions";
 import { NOME_GERENTE } from "@/lib/comercial/tatiana";
 import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
 import { ROTULO_TAREFA } from "@/lib/comercial/furos";
@@ -86,6 +88,8 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
         ) : null}
         {acertos.length ? <AcertosNoApp acertos={acertos} admin={d.admin} /> : null}
       </Card>
+
+      {d.admin && d.feriados.length ? <FeriadosParaDecidir feriados={d.feriados} /> : null}
 
       {d.admin && d.pessoas.length ? (
         <div
@@ -456,5 +460,73 @@ function ItemAcerto({ a, admin }: { a: Acerto; admin: boolean }) {
         </div>
       )}
     </li>
+  );
+}
+
+/** Feriados dos próximos dias sem decisão: "Vamos trabalhar" (dia normal) ou "Não vamos" (bloqueado). */
+function FeriadosParaDecidir({ feriados }: { feriados: FeriadoPendente[] }) {
+  const fn = useServerFn(decidirFeriadoFn);
+  const qc = useQueryClient();
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const curta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const diaSemana = (iso: string) =>
+    ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"][new Date(`${iso}T12:00:00Z`).getUTCDay()];
+  async function decidir(f: FeriadoPendente, trabalhamos: boolean) {
+    setSalvando(f.id);
+    try {
+      const r = await fn({ data: { id: f.id, trabalhamos } });
+      toast.success(
+        trabalhamos
+          ? `${curta(f.data)}: dia normal na agenda.`
+          : `${curta(f.data)}: bloqueado${r.remarcar ? ` · ${r.remarcar} ${r.remarcar === 1 ? "atendimento vira tarefa de remarcar" : "atendimentos viram tarefas de remarcar"}` : ""}.`,
+      );
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível gravar.");
+    } finally {
+      setSalvando(null);
+    }
+  }
+  return (
+    <Card className="min-w-0 gap-2">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        Feriados: vamos trabalhar?
+      </p>
+      <ul className="flex min-w-0 flex-col gap-2">
+        {feriados.map((f) => (
+          <li
+            key={f.id}
+            className="flex min-w-0 flex-col gap-2 rounded-card bg-secondary/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-bold">
+                {diaSemana(f.data)} {curta(f.data)} · {f.nome}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {f.diasAte === 0
+                  ? "É hoje."
+                  : f.diasAte === 1
+                    ? "É amanhã."
+                    : `Faltam ${f.diasAte} dias.`}{" "}
+                Sem resposta até a véspera, o dia fica bloqueado (sem horário para a Alice e sem
+                tarefas).
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Botao
+                variante="contorno"
+                disabled={salvando === f.id}
+                onClick={() => void decidir(f, true)}
+              >
+                Vamos trabalhar
+              </Botao>
+              <Botao disabled={salvando === f.id} onClick={() => void decidir(f, false)}>
+                Não vamos
+              </Botao>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

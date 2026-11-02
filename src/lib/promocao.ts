@@ -2,8 +2,27 @@
 import { chaveTelefone } from "@/lib/avisos";
 
 export type HorarioBase = { tecnicoId: string; tecnico: string; diaSemana: number; hora: string };
-export type Ocupacao = { tecnicoId: string | null; hora: string; status: string };
+export type Ocupacao = {
+  tecnicoId: string | null;
+  hora: string;
+  status: string;
+  /** Minutos que o atendimento ocupa (sem valor: a duração padrão da empresa). */
+  duracaoMin?: number | null;
+  /** Valor do atendimento (regra do dia inteiro: soma do dia do técnico). */
+  valor?: number | null;
+  /** Marcado à mão na visita: ocupa o dia inteiro (true), nunca (false) ou automático (null). */
+  ocupaDia?: boolean | null;
+};
 export type HorarioLivre = { tecnicoId: string; tecnico: string; hora: string };
+
+/**
+ * Regras de capacidade da agenda (02/11/2026): cada atendimento ocupa o técnico por `duracaoMin`
+ * a partir da hora marcada, e o dia do técnico fica inteiro quando a soma dos atendimentos chega a
+ * `diaInteiroValor` (null ou 0 = regra do valor desligada) ou quando uma visita está marcada
+ * "ocupa o dia". Padrão: 180 min e R$ 1.000 (Configurações › Agenda).
+ */
+export type RegrasAgenda = { duracaoMin: number; diaInteiroValor: number | null };
+export const REGRAS_PADRAO: RegrasAgenda = { duracaoMin: 180, diaInteiroValor: 1000 };
 
 /** Atendimentos que não ocupam mais o horário. */
 const NAO_OCUPAM = ["Cancelado", "Reagendado", "Reagendado com deslocamento"];
@@ -15,26 +34,84 @@ export function diaDaSemana(data: string): number {
 
 const hhmm = (h: string) => h.slice(0, 5);
 
+const minutosDe = (h: string) => {
+  const t = hhmm(h);
+  return /^\d{2}:\d{2}$/.test(t) ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null;
+};
+
+/** Regras com os padrões no lugar do que vier vazio ou inválido. */
+export function regrasDaAgenda(
+  r: { duracaoMin?: number | string | null; diaInteiroValor?: number | string | null } | null,
+): RegrasAgenda {
+  const dur = Number(r?.duracaoMin ?? REGRAS_PADRAO.duracaoMin);
+  const valor =
+    r?.diaInteiroValor === undefined ? REGRAS_PADRAO.diaInteiroValor : r.diaInteiroValor;
+  const v = valor === null ? null : Number(valor);
+  return {
+    duracaoMin: Number.isFinite(dur) && dur > 0 ? dur : REGRAS_PADRAO.duracaoMin,
+    diaInteiroValor: v === null || !Number.isFinite(v) || v <= 0 ? null : v,
+  };
+}
+
+/** Atendimento do técnico (ou sem técnico, que vale para todos). */
+const doTecnico = (o: Ocupacao, tecnicoId: string) =>
+  o.tecnicoId === null || o.tecnicoId === tecnicoId;
+
 /**
- * Horários base livres de um dia: o horário do técnico está livre quando não há atendimento
- * marcado nele (do próprio técnico ou sem técnico). Encaixes em outros horários não contam.
+ * O dia do técnico está tomado? Uma visita marcada "ocupa o dia" (do técnico ou sem técnico), ou
+ * a soma dos atendimentos ativos do dia chega ao valor do dia inteiro (as marcadas "não ocupa"
+ * ficam fora da soma).
+ */
+export function diaInteiroDoTecnico(
+  ativas: Ocupacao[],
+  tecnicoId: string,
+  regras: RegrasAgenda = REGRAS_PADRAO,
+): boolean {
+  const suas = ativas.filter((o) => doTecnico(o, tecnicoId));
+  if (suas.some((o) => o.ocupaDia === true)) return true;
+  if (!regras.diaInteiroValor) return false;
+  const soma = suas
+    .filter((o) => o.ocupaDia !== false)
+    .reduce((s, o) => s + Number(o.valor ?? 0), 0);
+  return soma >= regras.diaInteiroValor;
+}
+
+/**
+ * Horários base livres de um dia. O horário do técnico (janela de `duracaoMin` a partir da hora
+ * base) está ocupado quando um atendimento ativo dele, ou sem técnico, sobrepõe essa janela: a
+ * visita das 9h30 ocupa o horário das 9h; a das 16h ocupa o das 14h. Com o dia inteiro tomado
+ * (visita "ocupa o dia" ou soma do dia no valor da regra), nenhum horário do técnico fica livre.
  */
 export function horariosLivres(
   base: HorarioBase[],
   ocupacoes: Ocupacao[],
   data: string,
+  regras: RegrasAgenda = REGRAS_PADRAO,
 ): HorarioLivre[] {
   const dia = diaDaSemana(data);
   const ativas = ocupacoes.filter((o) => !NAO_OCUPAM.includes(o.status));
+  const dur = regras.duracaoMin;
+  const ocupado = (b: HorarioBase) => {
+    const ini = minutosDe(b.hora);
+    if (ini === null) return false;
+    const fim = ini + dur;
+    return ativas.some((o) => {
+      if (!doTecnico(o, b.tecnicoId)) return false;
+      const oIni = minutosDe(o.hora);
+      if (oIni === null) return false;
+      const oFim = oIni + Number(o.duracaoMin ?? dur);
+      return oIni < fim && ini < oFim;
+    });
+  };
+  const diaInteiro = new Map<string, boolean>();
+  const tomado = (tecnicoId: string) => {
+    if (!diaInteiro.has(tecnicoId))
+      diaInteiro.set(tecnicoId, diaInteiroDoTecnico(ativas, tecnicoId, regras));
+    return diaInteiro.get(tecnicoId) ?? false;
+  };
   return base
     .filter((b) => b.diaSemana === dia)
-    .filter(
-      (b) =>
-        !ativas.some(
-          (o) =>
-            hhmm(o.hora) === hhmm(b.hora) && (o.tecnicoId === null || o.tecnicoId === b.tecnicoId),
-        ),
-    )
+    .filter((b) => !tomado(b.tecnicoId) && !ocupado(b))
     .map((b) => ({ tecnicoId: b.tecnicoId, tecnico: b.tecnico, hora: hhmm(b.hora) }))
     .sort((a, b) => a.hora.localeCompare(b.hora) || a.tecnico.localeCompare(b.tecnico));
 }

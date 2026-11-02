@@ -42,6 +42,8 @@ export type PlanoTatiana = {
     taxasHistoricas: boolean;
     limitePct: number;
     travaDias: number;
+    /** O plano do dia não saiu: motivo técnico gravado para a tela e para o chat (02/11). */
+    erro?: string;
   };
   custoUsd: number;
   criadoEm: string;
@@ -158,7 +160,8 @@ export async function gerarPlano(
     .eq("empresa_id", emp)
     .eq("dia", hoje)
     .maybeSingle();
-  if (ja) return { plano: paraTela(ja as Linha), novo: false };
+  // Linha gravada com erro (tentativa anterior falhou): tenta de novo.
+  if (ja && !(ja as Linha).contexto?.erro) return { plano: paraTela(ja as Linha), novo: false };
 
   const m = mesPronto ?? (await calcularMes(db, emp, hoje, diasUteis));
   const [{ data: cfg }, { data: ag }, { data: ia }, { data: empresa }, cont, abertas, ticket] =
@@ -191,7 +194,7 @@ export async function gerarPlano(
     hora_disparo?: number;
   } | null;
   const custoMsg = Number(c?.custo_msg_estimado ?? 0.32);
-  const diasDisparo = (c?.dias_disparo ?? [2, 3, 4]).map(Number);
+  const diasDisparo = (c?.dias_disparo?.length ? c.dias_disparo : [2, 3, 4]).map(Number);
   const travaDias = Number(c?.limite_marketing_dias ?? 30);
   const iaCfg = ia as {
     oferta_followup_ligada?: boolean;
@@ -415,10 +418,45 @@ export async function rodarPlanoDaTatiana(
         pushes,
       };
     } catch (e) {
-      saida[`plano_${emp.slice(0, 8)}`] = { erro: e instanceof Error ? e.message : String(e) };
+      const erro = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+      saida[`plano_${emp.slice(0, 8)}`] = { erro };
+      // Grava o motivo na linha do dia (a tela mostra; a próxima passada tenta de novo).
+      await gravarErroDoPlano(db, emp, hojeSP, erro).catch(() => undefined);
     }
   }
   return saida;
+}
+
+async function gravarErroDoPlano(db: Db, emp: string, dia: string, erro: string) {
+  const { data: ja } = await db
+    .from("comercial_planos")
+    .select("id, contexto")
+    .eq("empresa_id", emp)
+    .eq("dia", dia)
+    .maybeSingle();
+  const atual = (ja as { contexto?: { erro?: string } } | null)?.contexto;
+  if (ja && !atual?.erro) return; // plano válido: não mexe
+  await db.from("comercial_planos").upsert(
+    {
+      empresa_id: emp,
+      dia,
+      contexto: {
+        falta: null,
+        diasUteisRestantes: 0,
+        ritmoNecessario: null,
+        diasVazios: [],
+        alertas: 0,
+        taxasHistoricas: false,
+        limitePct: 0,
+        travaDias: 0,
+        erro,
+      },
+      acoes: [],
+      leitura: null,
+      atualizado_em: new Date().toISOString(),
+    },
+    { onConflict: "empresa_id,dia" },
+  );
 }
 
 // ---------------------------------------------------------------- decisões do admin

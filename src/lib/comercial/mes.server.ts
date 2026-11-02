@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SELECT_OS_VENDIDO } from "@/lib/consultas";
-import type { HorarioBase, Ocupacao } from "@/lib/promocao";
+import { regrasDaAgenda, type HorarioBase, type Ocupacao } from "@/lib/promocao";
 import {
   liquidoDaVisita,
   osConta,
@@ -55,7 +55,14 @@ export type MesTatiana = {
     chegaA: number;
     pctDaMeta: number | null;
   };
-  agenda: { livres: number; base: number; dias: DiaAgenda[]; vazios: DiaAgenda[] };
+  agenda: {
+    livres: number;
+    base: number;
+    dias: DiaAgenda[];
+    vazios: DiaAgenda[];
+    /** Feriados bloqueados até o fim do mês (sem atendimento). */
+    feriados?: Array<{ data: string; nome: string }>;
+  };
   leadsPorOrigem: LeadsOrigem[];
   conversaoPorServico: ConversaoServicoPeriodo[];
   objecoes: Objecao[];
@@ -282,22 +289,40 @@ async function agendaAteFimDoMes(
   fim: string,
   diasUteis: number[],
 ) {
-  const [{ data: tecs }, { data: base }, { data: vis }] = await Promise.all([
-    db
-      .from("technicians")
-      .select("id, name")
-      .eq("empresa_id", emp)
-      .eq("active", true)
-      .eq("parceiro", false),
-    db.from("agenda_horarios_base").select("tecnico_id, dia_semana, hora").eq("empresa_id", emp),
-    db
-      .from("visits")
-      .select("scheduled_date, scheduled_time, technician_id, status")
-      .eq("empresa_id", emp)
-      .gte("scheduled_date", hoje)
-      .lte("scheduled_date", fim)
-      .limit(5000),
-  ]);
+  const [{ data: tecs }, { data: base }, { data: vis }, { data: cfgAgenda }, feriados] =
+    await Promise.all([
+      db
+        .from("technicians")
+        .select("id, name")
+        .eq("empresa_id", emp)
+        .eq("active", true)
+        .eq("parceiro", false),
+      db.from("agenda_horarios_base").select("tecnico_id, dia_semana, hora").eq("empresa_id", emp),
+      db
+        .from("visits")
+        .select("scheduled_date, scheduled_time, technician_id, status, visit_value, final_value, ocupa_dia")
+        .eq("empresa_id", emp)
+        .gte("scheduled_date", hoje)
+        .lte("scheduled_date", fim)
+        .limit(5000),
+      db
+        .from("agenda_configuracoes")
+        .select("duracao_atendimento_min, dia_inteiro_valor")
+        .eq("empresa_id", emp)
+        .maybeSingle(),
+      (async () => {
+        const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+        return bloqueadosNoPeriodo(db, emp, hoje, fim);
+      })(),
+    ]);
+  const c = cfgAgenda as {
+    duracao_atendimento_min?: number | null;
+    dia_inteiro_valor?: number | string | null;
+  } | null;
+  const regras = regrasDaAgenda({
+    duracaoMin: c?.duracao_atendimento_min ?? null,
+    diaInteiroValor: c?.dia_inteiro_valor ?? null,
+  });
   const nomes = new Map(
     ((tecs ?? []) as Array<{ id: string; name: string }>).map((t) => [t.id, t.name]),
   );
@@ -321,17 +346,35 @@ async function agendaAteFimDoMes(
     scheduled_time: string;
     technician_id: string | null;
     status: string;
+    visit_value: number | string | null;
+    final_value: number | string | null;
+    ocupa_dia: boolean | null;
   }>)
     ocupacoes.set(v.scheduled_date, [
       ...(ocupacoes.get(v.scheduled_date) ?? []),
-      { tecnicoId: v.technician_id, hora: v.scheduled_time, status: v.status },
+      {
+        tecnicoId: v.technician_id,
+        hora: v.scheduled_time,
+        status: v.status,
+        valor: Number(v.final_value ?? v.visit_value ?? 0),
+        ocupaDia: v.ocupa_dia ?? null,
+      },
     ]);
-  const dias = agendaPorDia({ de: hoje, ate: fim, diasUteis, base: horarios, ocupacoes });
+  const dias = agendaPorDia({
+    de: hoje,
+    ate: fim,
+    diasUteis,
+    base: horarios,
+    ocupacoes,
+    regras,
+    feriados,
+  });
   return {
     livres: dias.reduce((s, d) => s + d.livres, 0),
     base: dias.reduce((s, d) => s + d.base, 0),
     dias,
     vazios: diasVazios(dias, hoje),
+    bloqueados: feriados,
   };
 }
 
@@ -367,6 +410,7 @@ export async function calcularMes(
     hoje,
     mes,
     diasUteis,
+    bloqueados: agenda.bloqueados,
   });
   const previsao = previsaoDosOrcamentos(abertos, conversaoPorServico(fichas));
   const chegaA = r2(servico.valor + previsao.total);

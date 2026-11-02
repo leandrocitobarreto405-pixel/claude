@@ -38,24 +38,45 @@ type Ctx = ContextoFerramenta;
 
 // ---------------------------------------------------------------- agenda
 export async function carregarAgenda(ctx: Ctx, inicio: string, ate: string) {
-  const [{ data: base, error: e1 }, { data: visitas, error: e2 }] = await Promise.all([
-    ctx.admin
-      .from("agenda_horarios_base")
-      .select("tecnico_id, dia_semana, hora, technicians!inner(name, active, parceiro)")
-      .eq("empresa_id", ctx.empresaId)
-      .eq("technicians.active", true)
-      // Parceiro terceirizado: a equipe marca os horários dele à mão.
-      .eq("technicians.parceiro", false),
-    ctx.admin
-      .from("visits")
-      .select(
-        "scheduled_date, scheduled_time, status, technician_id, work_order:work_order_id(customer:customer_id(latitude, longitude))",
-      )
-      .eq("empresa_id", ctx.empresaId)
-      .gte("scheduled_date", inicio)
-      .lte("scheduled_date", ate),
-  ]);
+  const [{ data: base, error: e1 }, { data: visitas, error: e2 }, { data: cfgAgenda }, feriados] =
+    await Promise.all([
+      ctx.admin
+        .from("agenda_horarios_base")
+        .select("tecnico_id, dia_semana, hora, technicians!inner(name, active, parceiro)")
+        .eq("empresa_id", ctx.empresaId)
+        .eq("technicians.active", true)
+        // Parceiro terceirizado: a equipe marca os horários dele à mão.
+        .eq("technicians.parceiro", false),
+      ctx.admin
+        .from("visits")
+        .select(
+          "scheduled_date, scheduled_time, status, technician_id, visit_value, final_value, ocupa_dia, work_order:work_order_id(customer:customer_id(latitude, longitude))",
+        )
+        .eq("empresa_id", ctx.empresaId)
+        .gte("scheduled_date", inicio)
+        .lte("scheduled_date", ate),
+      // Capacidade real (02/11): duração do atendimento e valor do dia inteiro.
+      ctx.admin
+        .from("agenda_configuracoes")
+        .select("duracao_atendimento_min, dia_inteiro_valor")
+        .eq("empresa_id", ctx.empresaId)
+        .maybeSingle(),
+      // Feriados bloqueados no período: a Alice não oferece nem agenda.
+      (async () => {
+        const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+        return bloqueadosNoPeriodo(ctx.admin as never, ctx.empresaId, inicio, ate);
+      })(),
+    ]);
   if (e1 || e2) return { erro: (e1 ?? e2)!.message } as const;
+  const { regrasDaAgenda } = await import("@/lib/promocao");
+  const c = cfgAgenda as {
+    duracao_atendimento_min?: number | null;
+    dia_inteiro_valor?: number | string | null;
+  } | null;
+  const regras = regrasDaAgenda({
+    duracaoMin: c?.duracao_atendimento_min ?? null,
+    diaInteiroValor: c?.dia_inteiro_valor ?? null,
+  });
   const horarios = (base ?? []).map((b) => ({
     tecnicoId: b.tecnico_id as string,
     tecnico: (b as unknown as { technicians: { name: string } }).technicians.name,
@@ -67,6 +88,9 @@ export async function carregarAgenda(ctx: Ctx, inicio: string, ate: string) {
     scheduled_time: string | null;
     status: string;
     technician_id: string | null;
+    visit_value: number | string | null;
+    final_value: number | string | null;
+    ocupa_dia: boolean | null;
     work_order: { customer: { latitude: number | null; longitude: number | null } | null } | null;
   };
   const ocupacoes = ((visitas ?? []) as unknown as Visita[])
@@ -78,13 +102,15 @@ export async function carregarAgenda(ctx: Ctx, inicio: string, ate: string) {
         hora: String(v.scheduled_time).slice(0, 5),
         status: v.status,
         tecnicoId: v.technician_id,
+        valor: Number(v.final_value ?? v.visit_value ?? 0),
+        ocupaDia: v.ocupa_dia ?? null,
         coords:
           c && c.latitude !== null && c.longitude !== null
             ? { lat: Number(c.latitude), lon: Number(c.longitude) }
             : null,
       };
     });
-  return { horarios, ocupacoes } as const;
+  return { horarios, ocupacoes, regras, bloqueados: feriados } as const;
 }
 
 export function agoraSP() {
@@ -142,6 +168,9 @@ async function horarioLivre(
 ): Promise<{ tecnicoId: string; tecnico: string } | string> {
   const agenda = await carregarAgenda(ctx, data, data);
   if ("erro" in agenda) return `Não foi possível conferir a agenda: ${agenda.erro}`;
+  const feriado = agenda.bloqueados.get(data);
+  if (feriado)
+    return `${diaCurto(data)} é feriado (${feriado}) e a empresa não atende nesse dia: não reserve nem prometa. Ofereça outro dia (consultar_agenda).`;
   const { agendaLivre } = await import("./agenda");
   const [dia] = agendaLivre({
     inicio: data,
@@ -151,6 +180,8 @@ async function horarioLivre(
     periodo: "qualquer",
     agora: agoraSP(),
     cliente: null,
+    regras: agenda.regras,
+    bloqueados: agenda.bloqueados,
   });
   const livres = (dia?.livres ?? []).filter((h) => h.hora === hora);
   const pedido = tecnico ? norm(tecnico) : "";

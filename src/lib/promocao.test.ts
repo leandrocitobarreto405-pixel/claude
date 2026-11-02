@@ -5,6 +5,7 @@ import {
   diaDaSemana,
   horariosLivres,
   montarDestinatarios,
+  regrasDaAgenda,
   pct,
   previaMensagem,
   type HorarioBase,
@@ -44,7 +45,8 @@ test("dia da semana", () => {
 });
 
 test("horários livres: só os horários base sem atendimento", () => {
-  // Terça: 11h e 14h. Atendimento às 11h ocupa; encaixe às 16h não conta.
+  // Terça: 11h e 14h. Atendimento às 11h ocupa o das 11h; o das 16h (16h–19h) sobrepõe o das 14h
+  // (14h–17h) e também ocupa (02/11: capacidade real, não só o minuto exato).
   assert.deepEqual(
     horariosLivres(
       BASE,
@@ -54,6 +56,11 @@ test("horários livres: só os horários base sem atendimento", () => {
       ],
       "2026-10-06",
     ),
+    [],
+  );
+  // Só o das 11h: o das 14h continua livre (11h–14h não sobrepõe 14h–17h).
+  assert.deepEqual(
+    horariosLivres(BASE, [{ tecnicoId: "j", hora: "11:00:00", status: "Agendado" }], "2026-10-06"),
     [{ tecnicoId: "j", tecnico: "Josué", hora: "14:00" }],
   );
   // Cancelado não ocupa; atendimento sem técnico ocupa.
@@ -284,4 +291,91 @@ test("destinatário da promoção: só a ida, margem no Pix, limites e avisos", 
   const semNome = prepararDestinatario({ ...e, nome: " " }, cfg, custos);
   assert.equal(semNome.podeEnviar, false);
   assert.equal(semNome.marcado, false);
+});
+
+test("capacidade real (02/11): sobreposição pela duração, dia inteiro por valor e por marcação", () => {
+  // Segunda: 10h e 14h. Visita 9h30 (9h30–12h30) ocupa o das 10h; o das 14h fica.
+  assert.deepEqual(
+    horariosLivres(BASE, [{ tecnicoId: "j", hora: "09:30", status: "Agendado" }], "2026-10-05").map(
+      (h) => h.hora,
+    ),
+    ["14:00"],
+  );
+  // Duração própria da empresa (120 min): 9h30–11h30 ainda pega o das 10h; 12h não pega.
+  assert.deepEqual(
+    horariosLivres(BASE, [{ tecnicoId: "j", hora: "12:00", status: "Agendado" }], "2026-10-05", {
+      duracaoMin: 120,
+      diaInteiroValor: null,
+    }).map((h) => h.hora),
+    ["10:00", "14:00"],
+  );
+  // Soma do dia chega a R$ 1.000: dia inteiro do técnico, nada livre.
+  assert.deepEqual(
+    horariosLivres(
+      BASE,
+      [
+        { tecnicoId: "j", hora: "09:00", status: "Agendado", valor: 600 },
+        { tecnicoId: "j", hora: "09:00", status: "Agendado", valor: 545.96 },
+      ],
+      "2026-10-05",
+    ),
+    [],
+  );
+  // Abaixo do valor: só o horário sobreposto some.
+  assert.equal(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: "j", hora: "09:00", status: "Agendado", valor: 900 }],
+      "2026-10-05",
+    ).length,
+    1,
+  );
+  // Marcada "ocupa o dia" (mesmo barata) toma o dia; marcada "não ocupa" fica fora da soma.
+  assert.deepEqual(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: "j", hora: "14:00", status: "Agendado", valor: 300, ocupaDia: true }],
+      "2026-10-05",
+    ),
+    [],
+  );
+  assert.equal(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: "j", hora: "14:00", status: "Agendado", valor: 1500, ocupaDia: false }],
+      "2026-10-05",
+    ).length,
+    1,
+  );
+  // Sem técnico vale para todos; cancelada não conta para o dia inteiro; outro técnico não interfere.
+  assert.deepEqual(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: null, hora: "09:00", status: "Agendado", valor: 1000 }],
+      "2026-10-05",
+    ),
+    [],
+  );
+  assert.equal(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: "j", hora: "09:00", status: "Cancelado", valor: 5000 }],
+      "2026-10-05",
+    ).length,
+    2,
+  );
+  assert.equal(
+    horariosLivres(
+      BASE,
+      [{ tecnicoId: "outro", hora: "10:00", status: "Agendado", valor: 5000 }],
+      "2026-10-05",
+    ).length,
+    2,
+  );
+  // Regras da configuração: vazio ou inválido volta ao padrão; 0 desliga a regra do valor.
+  assert.deepEqual(regrasDaAgenda(null), { duracaoMin: 180, diaInteiroValor: 1000 });
+  assert.deepEqual(regrasDaAgenda({ duracaoMin: "120", diaInteiroValor: 0 }), {
+    duracaoMin: 120,
+    diaInteiroValor: null,
+  });
 });
