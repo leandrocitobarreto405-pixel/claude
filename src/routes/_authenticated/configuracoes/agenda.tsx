@@ -4,6 +4,7 @@ import { LinkDeConfig, PaginaGrupo, SecaoConfig } from "@/components/configuraco
 import { GoogleAgenda } from "@/components/configuracoes/google-agenda";
 import { ContaGoogle } from "@/components/conta-google";
 import { AgendaTecnicos } from "@/components/configuracoes/agenda-tecnicos";
+import { FeriadosConfig } from "@/components/configuracoes/feriados-config";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/agenda")({
   head: () => ({ meta: [{ title: "Configurações: agenda — Nexa OS" }] }),
@@ -15,6 +16,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes/agenda")({
         descricao="Horários dos técnicos, veículos, rodízio e contatos internos"
         icone={CalendarCog}
       />
+      <SecaoConfig titulo="Feriados" aberta>
+        <FeriadosConfig />
+      </SecaoConfig>
       <SecaoConfig titulo="Agenda dos técnicos no WhatsApp">
         <AgendaTecnicos />
       </SecaoConfig>

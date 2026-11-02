@@ -312,8 +312,10 @@ async function agendaAteFimDoMes(
         .select("duracao_atendimento_min, dia_inteiro_valor")
         .eq("empresa_id", emp)
         .maybeSingle(),
-      // Dias bloqueados (feriados): entram na etapa seguinte; por ora nenhum.
-      Promise.resolve(new Map<string, string>()),
+      (async () => {
+        const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+        return bloqueadosNoPeriodo(db, emp, hoje, fim);
+      })(),
     ]);
   const c = cfgAgenda as {
     duracao_atendimento_min?: number | null;

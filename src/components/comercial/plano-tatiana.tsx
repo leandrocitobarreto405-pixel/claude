@@ -50,6 +50,12 @@ export function PlanoTatiana() {
         <h2 className="font-titulo text-xl">Plano de ação de {dateBR(p.dia)}</h2>
         {pendentes ? <Chip tom="atencao">{pendentes} para aprovar</Chip> : null}
       </div>
+      {p.contexto.erro ? (
+        <p className="rounded-botao bg-atencao px-3 py-2 text-sm text-atencao-foreground">
+          Não consegui montar o plano de hoje (motivo técnico: {p.contexto.erro}). Tento de novo na
+          próxima passada da manhã.
+        </p>
+      ) : null}
       {p.leitura ? <p className="text-sm">{p.leitura}</p> : null}
       {!p.acoes.length ? (
         <p className="text-sm text-muted-foreground">Nenhuma ação proposta hoje.</p>

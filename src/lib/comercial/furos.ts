@@ -33,8 +33,11 @@ export function tipoTarefa(v: string | null | undefined): TipoTarefa {
 
 // ---------------------------------------------------------------- horário de atendimento
 
-/** Dias da semana (0 = domingo … 6 = sábado) e horas "HH:MM", em São Paulo. */
-export type HorarioUtil = { dias: number[]; inicio: string; fim: string };
+/**
+ * Dias da semana (0 = domingo … 6 = sábado) e horas "HH:MM", em São Paulo. `bloqueados`: dias
+ * (AAAA-MM-DD) que não contam como úteis (feriado sem "vamos trabalhar", 02/11).
+ */
+export type HorarioUtil = { dias: number[]; inicio: string; fim: string; bloqueados?: string[] };
 export const HORARIO_PADRAO: HorarioUtil = {
   dias: [1, 2, 3, 4, 5, 6],
   inicio: "08:00",
@@ -64,30 +67,37 @@ const somarDias = (dia: string, n: number) =>
 /** Horário de atendimento da empresa (sem configuração: seg–sáb 8h–19h). */
 export function horarioDaConfig(
   c: { dias_uteis?: number[] | null; hora_inicio?: string | null; hora_fim?: string | null } | null,
+  bloqueados?: string[] | null,
 ): HorarioUtil {
   return {
     dias: c?.dias_uteis?.length ? c.dias_uteis.map(Number) : HORARIO_PADRAO.dias,
     inicio: (c?.hora_inicio ?? HORARIO_PADRAO.inicio).slice(0, 5),
     fim: (c?.hora_fim ?? HORARIO_PADRAO.fim).slice(0, 5),
+    ...(bloqueados?.length ? { bloqueados } : {}),
   };
 }
 
-export function emHorarioUtil(iso: string | Date, h: HorarioUtil = HORARIO_PADRAO): boolean {
-  const { hm, diaSemana } = partesSP(iso);
-  return h.dias.includes(diaSemana) && hm >= h.inicio && hm < h.fim;
+/** O dia conta como útil: cai nos dias da empresa e não está bloqueado (feriado). */
+export function diaUtil(h: HorarioUtil, dia: string): boolean {
+  const dias = h.dias.length ? h.dias : HORARIO_PADRAO.dias;
+  return dias.includes(partesSP(`${dia}T12:00:00-03:00`).diaSemana) && !h.bloqueados?.includes(dia);
 }
 
-/** O mesmo instante, se for útil; senão o começo do próximo horário útil (até 8 dias à frente). */
+export function emHorarioUtil(iso: string | Date, h: HorarioUtil = HORARIO_PADRAO): boolean {
+  const { dia, hm } = partesSP(iso);
+  return diaUtil(h, dia) && hm >= h.inicio && hm < h.fim;
+}
+
+/** O mesmo instante, se for útil; senão o começo do próximo horário útil (até 15 dias à frente). */
 export function proximoHorarioUtil(iso: string, h: HorarioUtil = HORARIO_PADRAO): string {
-  const { dia, hm, diaSemana } = partesSP(iso);
-  const dias = h.dias.length ? h.dias : HORARIO_PADRAO.dias;
-  if (dias.includes(diaSemana)) {
+  const { dia, hm } = partesSP(iso);
+  if (diaUtil(h, dia)) {
     if (hm >= h.inicio && hm < h.fim) return iso;
     if (hm < h.inicio) return isoSP(dia, h.inicio);
   }
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= 15; i++) {
     const d = somarDias(dia, i);
-    if (dias.includes(partesSP(`${d}T12:00:00-03:00`).diaSemana)) return isoSP(d, h.inicio);
+    if (diaUtil(h, d)) return isoSP(d, h.inicio);
   }
   return iso;
 }
@@ -105,7 +115,7 @@ export function minutosUteis(
   const { dia } = partesSP(desdeIso);
   for (let i = 0; i <= 7; i++) {
     const d = somarDias(dia, i);
-    if (!h.dias.includes(partesSP(`${d}T12:00:00-03:00`).diaSemana)) continue;
+    if (!diaUtil(h, d)) continue;
     const a = Math.max(ini, Date.parse(isoSP(d, h.inicio)));
     const b = Math.min(fim, Date.parse(isoSP(d, h.fim)));
     if (b > a) total += (b - a) / 60_000;

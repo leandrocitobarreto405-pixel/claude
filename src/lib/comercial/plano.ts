@@ -113,6 +113,8 @@ export function proximaDataDisparo(
 ): string {
   let d = somarDias(hoje, Math.max(1, Math.min(14, Math.round(diasAFrente || 1))));
   if (horaPropria) return d;
+  // Sem dias de disparo configurados, vale a data pedida (02/11: evita laço sem saída).
+  if (!diasDisparo.length) return d;
   for (let i = 0; i < 14; i++) {
     if (diasDisparo.includes(isodow(d))) return d;
     d = somarDias(d, 1);

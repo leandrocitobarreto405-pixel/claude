@@ -56,8 +56,8 @@ export type ResumoHorariosLivres = {
 
 async function calcularLivres(db: Db, empresaId: string, cfg: ConfigAgenda) {
   const data = addDaysISO(todayISO(), cfg.diasAFrente);
-  // Feriado bloqueado: entra na etapa seguinte (calendário de feriados); por ora nenhum.
-  const feriado: string | null = null;
+  const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+  const feriado = (await bloqueadosNoPeriodo(db as never, empresaId, data, data)).get(data) ?? null;
   const [base, tecnicos, visitas] = await Promise.all([
     db
       .from("agenda_horarios_base")

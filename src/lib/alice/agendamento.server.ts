@@ -61,8 +61,11 @@ export async function carregarAgenda(ctx: Ctx, inicio: string, ate: string) {
         .select("duracao_atendimento_min, dia_inteiro_valor")
         .eq("empresa_id", ctx.empresaId)
         .maybeSingle(),
-      // Dias bloqueados (feriados): entram na etapa seguinte; por ora nenhum.
-      Promise.resolve(new Map<string, string>()),
+      // Feriados bloqueados no período: a Alice não oferece nem agenda.
+      (async () => {
+        const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+        return bloqueadosNoPeriodo(ctx.admin as never, ctx.empresaId, inicio, ate);
+      })(),
     ]);
   if (e1 || e2) return { erro: (e1 ?? e2)!.message } as const;
   const { regrasDaAgenda } = await import("@/lib/promocao");
