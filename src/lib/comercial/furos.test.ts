@@ -182,5 +182,8 @@ test("feriado bloqueado não é dia útil: a tarefa vai para o próximo dia úti
   const h2 = horarioDaConfig({ dias_uteis: [1, 2, 3, 4, 5] }, ["2026-11-20"]);
   assert.equal(proximoHorarioUtil("2026-11-20T13:00:00Z", h2), "2026-11-23T11:00:00.000Z");
   // Sem bloqueio, nada muda.
-  assert.equal(proximoHorarioUtil("2026-11-20T13:00:00Z", horarioDaConfig(null)), "2026-11-20T13:00:00Z");
+  assert.equal(
+    proximoHorarioUtil("2026-11-20T13:00:00Z", horarioDaConfig(null)),
+    "2026-11-20T13:00:00Z",
+  );
 });

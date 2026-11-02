@@ -300,7 +300,9 @@ async function agendaAteFimDoMes(
       db.from("agenda_horarios_base").select("tecnico_id, dia_semana, hora").eq("empresa_id", emp),
       db
         .from("visits")
-        .select("scheduled_date, scheduled_time, technician_id, status, visit_value, final_value, ocupa_dia")
+        .select(
+          "scheduled_date, scheduled_time, technician_id, status, visit_value, final_value, ocupa_dia",
+        )
         .eq("empresa_id", emp)
         .gte("scheduled_date", hoje)
         .lte("scheduled_date", fim)
