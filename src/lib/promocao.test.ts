@@ -425,3 +425,11 @@ test("casos reais de 03 a 06/11/2026 (Turbine): a Alice não pode mais oferecer 
   );
   // Regra antiga (só o minuto exato) deixava 04/11 inteiro livre; a nova não.
 });
+
+test("empresa sem configuração de agenda usa os padrões (180 min, R$ 1.000); 0 desliga o valor", () => {
+  assert.deepEqual(regrasDaAgenda({ duracaoMin: null, diaInteiroValor: null }), {
+    duracaoMin: 180,
+    diaInteiroValor: 1000,
+  });
+  assert.equal(regrasDaAgenda({ diaInteiroValor: "0" }).diaInteiroValor, null);
+});
