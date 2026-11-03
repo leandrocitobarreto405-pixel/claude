@@ -187,6 +187,12 @@ export type DecisaoIA = {
     data: string;
     /** Preço ainda não passado: o que a equipe deve fazer (ex.: pedir a medida do tapete). */
     proximo_passo: string;
+    /** Só em pagamento: forma, parcelas e valor combinados na conversa (vazio/null se não disse). */
+    pagamento: {
+      forma: "" | "pix" | "cartao" | "debito" | "dinheiro" | "boleto" | "transferencia";
+      parcelas: number | null;
+      valor: number | null;
+    };
   }>;
 };
 export type AcertoIA = DecisaoIA["acertos"][number];
@@ -237,7 +243,7 @@ export const ESQUEMA_DECISAO = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["tipo", "texto", "itens", "cadastro", "data", "proximo_passo"],
+        required: ["tipo", "texto", "itens", "cadastro", "data", "proximo_passo", "pagamento"],
         properties: {
           tipo: {
             type: "string",
@@ -253,6 +259,19 @@ export const ESQUEMA_DECISAO = {
           texto: s,
           data: s,
           proximo_passo: s,
+          pagamento: {
+            type: "object",
+            additionalProperties: false,
+            required: ["forma", "parcelas", "valor"],
+            properties: {
+              forma: {
+                type: "string",
+                enum: ["", "pix", "cartao", "debito", "dinheiro", "boleto", "transferencia"],
+              },
+              parcelas: { type: ["integer", "null"] },
+              valor: { type: ["number", "null"] },
+            },
+          },
           itens: {
             type: "array",
             items: {
@@ -311,7 +330,7 @@ export function instrucoesDecisao(o: {
     '   fechou_sem_os: o cliente confirmou que quer fazer E deu ou aceitou uma data (data = AAAA-MM-DD), e não há OS. "Vou aprovar e volto para agendar" NÃO é fechou: é aguardando (acao agendar, retorno em 2 dias), sem acerto;',
     "   remarcar: o cliente pediu outra data (data = a data nova, AAAA-MM-DD) e a visita no app continua na data antiga;",
     "   concluir_os: o serviço foi feito (conversa diz) e a visita não está concluída;",
-    "   pagamento: o cliente pagou ou combinou o pagamento e não há pagamento lançado;",
+    "   pagamento: o cliente pagou ou combinou o pagamento e não há pagamento lançado (pagamento.forma = pix, cartao, debito, dinheiro, boleto ou transferencia; parcelas e valor só se a conversa disser; senão vazio/null);",
     "   data: só em fechou_sem_os e remarcar; senão vazio. proximo_passo: só quando faltou o preço; senão vazio.",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
   ].join("\n");
@@ -514,6 +533,8 @@ export type AcertoLido = {
   data: string | null;
   /** Tipos juntados neste acerto (uma cobrança por lead e assunto). */
   juntou: AcertoIA["tipo"][];
+  /** Pagamento combinado lido na conversa (só em pagamento). */
+  pagamento: AcertoIA["pagamento"] | null;
 };
 
 export type AcertosSaneados = {
@@ -577,9 +598,18 @@ export function saneaAcertos(
       igual.itens = [...igual.itens, ...itens];
       igual.cadastro = [...igual.cadastro, ...(a.cadastro ?? [])];
       igual.data = igual.data ?? data;
+      igual.pagamento = igual.pagamento ?? (a.tipo === "pagamento" ? (a.pagamento ?? null) : null);
       continue;
     }
-    lidos.push({ tipo: a.tipo, texto, itens, cadastro: a.cadastro ?? [], data, juntou: [] });
+    lidos.push({
+      tipo: a.tipo,
+      texto,
+      itens,
+      cadastro: a.cadastro ?? [],
+      data,
+      juntou: [],
+      pagamento: a.tipo === "pagamento" && a.pagamento ? a.pagamento : null,
+    });
   }
   // Fechou + orçamento sem app são a mesma venda: uma cobrança só (fechou, com os itens do orçamento).
   const fechou = lidos.find((l) => l.tipo === "fechou_sem_os");

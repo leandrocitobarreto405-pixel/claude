@@ -10,13 +10,18 @@ import { toast } from "sonner";
 import { Botao, Card, Chip, Recolhido } from "@/components/nexa";
 import {
   concluirTarefaFn,
+  desfazerAcaoFn,
   hojeTatianaFn,
   pularTarefaFn,
   resolverAcertoFn,
+  type AcaoFeita,
   type Acerto,
   type HojeTatiana,
   type TarefaHoje,
 } from "@/lib/tatiana.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { completeVisit } from "@/lib/os";
+import { todayISO } from "@/lib/format";
 import { textoSemanaEquipe } from "@/lib/comercial/equipe";
 import { decidirFeriadoFn } from "@/lib/feriados.functions";
 import type { FeriadoPendente } from "@/lib/tatiana.functions";
@@ -87,6 +92,7 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
           </p>
         ) : null}
         {acertos.length ? <AcertosNoApp acertos={acertos} admin={d.admin} /> : null}
+        {d.feitas.length ? <FeitoPelaTatiana feitas={d.feitas} modo={d.modo} /> : null}
       </Card>
 
       {d.admin && d.feriados.length ? <FeriadosParaDecidir feriados={d.feriados} /> : null}
@@ -385,12 +391,167 @@ function AcertosNoApp({ acertos, admin }: { acertos: Acerto[]; admin: boolean })
   );
 }
 
+/** O que a Tatiana fez sozinha no app (modo ativo) ou faria (teste), com Desfazer em cada item. */
+function FeitoPelaTatiana({ feitas, modo }: { feitas: AcaoFeita[]; modo: HojeTatiana["modo"] }) {
+  const feitasMesmo = feitas.filter((f) => f.situacao !== "faria");
+  const faria = feitas.filter((f) => f.situacao === "faria");
+  return (
+    <div className="mt-1 flex min-w-0 flex-col gap-2 border-t border-marca/20 pt-2">
+      <p className="text-sm font-bold">
+        {modo === "ativo" ? `Feito pela ${NOME_GERENTE}` : `A ${NOME_GERENTE} faria (modo teste)`} (
+        {feitas.length})
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {modo === "ativo"
+          ? "Ela fez sozinha pelo que leu na conversa. Nada foi enviado ao cliente. Se algo estiver errado, Desfazer volta como estava."
+          : "Em modo ativo ela faria isto sozinha e avisaria aqui."}
+      </p>
+      <ul className="flex min-w-0 flex-col gap-2">
+        {[...feitasMesmo, ...faria].map((f) => (
+          <ItemFeito key={f.id} f={f} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ItemFeito({ f }: { f: AcaoFeita }) {
+  const qc = useQueryClient();
+  const desfazer = useServerFn(desfazerAcaoFn);
+  const [aberto, setAberto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+  const tom =
+    f.situacao === "feita"
+      ? "sucesso"
+      : f.situacao === "falhou"
+        ? "problema"
+        : f.situacao === "desfeita"
+          ? "neutro"
+          : "atencao";
+  const rotulo =
+    f.situacao === "feita"
+      ? "Feito"
+      : f.situacao === "falhou"
+        ? "Não deu"
+        : f.situacao === "desfeita"
+          ? "Desfeito"
+          : "Faria";
+  const confirmar = async () => {
+    setOcupado(true);
+    try {
+      await desfazer({ data: { id: f.id, motivo } });
+      toast.success("Desfeito. A cobrança voltou para a lista da equipe.");
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível desfazer.");
+    } finally {
+      setOcupado(false);
+      setAberto(false);
+    }
+  };
+  return (
+    <li className="flex min-w-0 flex-col gap-1.5 rounded-botao bg-card p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Chip tom={tom}>{rotulo}</Chip>
+        <span className="text-xs text-muted-foreground">
+          {f.nome} · {dateTimeBR(f.feitaEm)}
+        </span>
+      </div>
+      <p>{f.titulo}</p>
+      {f.frase ? <p className="text-xs text-muted-foreground">Na conversa: {f.frase}</p> : null}
+      {f.erro ? <p className="text-xs text-muted-foreground">Motivo: {f.erro}</p> : null}
+      {f.situacao === "feita" ? (
+        aberto ? (
+          <div className="flex flex-col gap-2">
+            <label htmlFor={`feito-${f.id}`} className="text-xs font-semibold">
+              Por que desfazer? (opcional)
+            </label>
+            <textarea
+              id={`feito-${f.id}`}
+              value={motivo}
+              maxLength={300}
+              onChange={(e) => setMotivo(e.target.value)}
+              className="min-h-16 w-full rounded-botao border border-border bg-background p-2 text-sm"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Botao onClick={() => void confirmar()} disabled={ocupado}>
+                Desfazer agora
+              </Botao>
+              <Botao variante="neutro" onClick={() => setAberto(false)}>
+                Cancelar
+              </Botao>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Botao variante="contorno" onClick={() => setAberto(true)}>
+              Desfazer
+            </Botao>
+          </div>
+        )
+      ) : null}
+    </li>
+  );
+}
+
+/** Conclusão de visita (item 10): nunca sozinha; a equipe confirma com um toque, com a frase da conversa. */
+async function concluirVisitaDoAcerto(a: Acerto): Promise<string> {
+  if (!a.osId) throw new Error("Esse lead não tem OS ligada: conclua pela OS.");
+  const { data, error } = await supabase
+    .from("visits")
+    .select("id, scheduled_date, scheduled_time, visit_value, final_value, status")
+    .eq("work_order_id", a.osId)
+    .neq("status", "Cancelado");
+  if (error) throw error;
+  const abertas = (data ?? []).filter((v) => v.status !== "Concluído");
+  if (abertas.length !== 1)
+    throw new Error(
+      abertas.length
+        ? "Essa OS tem mais de uma visita em aberto: conclua pela OS."
+        : "Não há visita em aberto nessa OS.",
+    );
+  const v = abertas[0]!;
+  const valor = Number(v.final_value ?? v.visit_value ?? 0);
+  await completeVisit({
+    visitId: v.id,
+    workOrderId: a.osId,
+    finalValue: valor,
+    changeReason: null,
+    completionDate: v.scheduled_date ?? todayISO(),
+    completionTime: v.scheduled_time ?? "12:00",
+    finalNotes: `Conclusão confirmada pela equipe no acerto da ${NOME_GERENTE}.`,
+    payments: [],
+    invoiceNeeded: false,
+    invoiceIssued: false,
+    invoiceNumber: null,
+    userId: null,
+  });
+  return `${v.scheduled_date ? dateTimeBR(`${v.scheduled_date}T12:00:00-03:00`).slice(0, 5) : "visita"} · R$ ${valor.toLocaleString("pt-BR")}`;
+}
+
 function ItemAcerto({ a, admin }: { a: Acerto; admin: boolean }) {
   const qc = useQueryClient();
   const resolver = useServerFn(resolverAcertoFn);
   const [motivoAberto, setMotivoAberto] = useState(false);
   const [motivo, setMotivo] = useState("");
+  const [concluirAberto, setConcluirAberto] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
   const link = linkDoAcerto(a);
+  const confirmarConclusao = async () => {
+    setOcupado(true);
+    try {
+      const resumo = await concluirVisitaDoAcerto(a);
+      await resolver({ data: { id: a.id, situacao: "resolvida", motivo: "" } });
+      toast.success(`Visita concluída (${resumo}) 💙`);
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
+    } finally {
+      setOcupado(false);
+      setConcluirAberto(false);
+    }
+  };
   const enviar = async (situacao: "resolvida" | "ja_certo") => {
     try {
       await resolver({ data: { id: a.id, situacao, motivo } });
@@ -435,8 +596,26 @@ function ItemAcerto({ a, admin }: { a: Acerto; admin: boolean }) {
             </Botao>
           </div>
         </div>
+      ) : concluirAberto ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs">
+            Concluir a visita dessa OS com o valor combinado, sem lançar pagamento? A conversa diz:
+            "{a.texto}"
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Botao onClick={() => void confirmarConclusao()} disabled={ocupado}>
+              Confirmar conclusão
+            </Botao>
+            <Botao variante="neutro" onClick={() => setConcluirAberto(false)}>
+              Cancelar
+            </Botao>
+          </div>
+        </div>
       ) : (
         <div className="flex flex-wrap gap-2">
+          {a.tipo === "concluir_os" && a.osId ? (
+            <Botao onClick={() => setConcluirAberto(true)}>Confirmar conclusão</Botao>
+          ) : null}
           {link ? (
             <Link
               to={link.to as never}

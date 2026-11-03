@@ -284,7 +284,13 @@ test("acertos (02/11): fechou só com data, orçamento só com preço, sem texto
     livresDepois: (d: string) =>
       d === "2026-11-02" ? ["terça 03/11 (2 horários)", "quarta 04/11 (3 horários)"] : [],
   };
-  const base = { itens: [], cadastro: [], data: "", proximo_passo: "" };
+  const base = {
+    itens: [],
+    cadastro: [],
+    data: "",
+    proximo_passo: "",
+    pagamento: { forma: "" as const, parcelas: null, valor: null },
+  };
   // "Vou aprovar e volto para agendar" não é fechou: aguardando, sem cobrança.
   let r = saneaAcertos(
     [{ ...base, tipo: "fechou_sem_os", texto: "Disse que aprova e volta para agendar." }],
