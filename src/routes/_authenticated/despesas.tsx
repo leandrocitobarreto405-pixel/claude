@@ -44,10 +44,13 @@ import {
   type ExpenseStatus,
 } from "@/lib/expenses";
 import {
+  fimDaRepeticao,
   planRecurringMonth,
   syncRecurringMonth,
+  type FimDaRepeticao,
   type RecurringTemplate,
 } from "@/lib/recurring-core";
+import { CHAVE_DESPESAS_FIXAS, DespesasFixas } from "@/components/financeiro/despesas-fixas";
 import {
   brl,
   currentMonth,
@@ -160,6 +163,11 @@ function Despesas() {
   const [beneficiario, setBeneficiario] = useState("");
   const [valor, setValor] = useState("0,00");
   const [vencimento, setVencimento] = useState(todayISO());
+  // Despesa fixa (03/11): repetir todo mês, com fim opcional.
+  const [fixa, setFixa] = useState(false);
+  const [fimModo, setFimModo] = useState<FimDaRepeticao["modo"]>("sem_fim");
+  const [fimMes, setFimMes] = useState("");
+  const [fimMeses, setFimMeses] = useState("12");
 
   const [pagando, setPagando] = useState<ExpenseFull | null>(null);
   const [valorPago, setValorPago] = useState("0,00");
@@ -318,6 +326,56 @@ function Despesas() {
     }
   }
 
+  /** Despesa fixa: cria o modelo e gera o lançamento do mês do vencimento (sem duplicar). */
+  async function criarDespesaFixa() {
+    const inicio = vencimento.slice(0, 7);
+    let fim: string | null;
+    try {
+      fim = fimDaRepeticao(
+        inicio,
+        fimModo === "ate_mes"
+          ? { modo: "ate_mes", mes: fimMes }
+          : fimModo === "meses"
+            ? { modo: "meses", n: Number(fimMeses) }
+            : { modo: "sem_fim" },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Confira até quando repetir.");
+      return;
+    }
+    const { error } = await supabase.from("recurring_expenses").insert({
+      name: descricao.trim(),
+      category: categoria,
+      beneficiary: beneficiario.trim() || null,
+      default_amount: parseNumberBR(valor),
+      recurrence: "monthly",
+      due_day: Number(vencimento.slice(8, 10)),
+      start_date: `${inicio}-01`,
+      end_date: fim,
+      active: true,
+    } as never);
+    if (error) {
+      toast.error(`Não foi possível salvar a despesa fixa: ${error.message}`);
+      return;
+    }
+    try {
+      await syncRecurringMonth(supabase, inicio);
+      if (inicio !== mes) await syncRecurringMonth(supabase, mes);
+    } catch {
+      toast.error("Despesa fixa salva, mas o lançamento do mês não saiu agora. Use Sincronizar.");
+    }
+    toast.success("Despesa fixa criada: aparece todo mês com o mesmo valor, categoria e dia.");
+    setNova(false);
+    setFixa(false);
+    setFimModo("sem_fim");
+    setDescricao("");
+    setBeneficiario("");
+    setValor("0,00");
+    query.refetch();
+    void queryClient.invalidateQueries({ queryKey: CHAVE_DESPESAS_FIXAS });
+    invalidateFinanceQueries(queryClient);
+  }
+
   async function criarDespesa() {
     if (descricao.trim().length < 3) {
       toast.error("Informe a descrição da despesa.");
@@ -325,6 +383,10 @@ function Despesas() {
     }
     if (parseNumberBR(valor) <= 0) {
       toast.error("Informe um valor maior que zero.");
+      return;
+    }
+    if (fixa) {
+      await criarDespesaFixa();
       return;
     }
     const { error } = await supabase.from("expenses").insert({
@@ -509,6 +571,16 @@ function Despesas() {
         className="mb-6"
       />
 
+      <Recolhido titulo="Despesas fixas" className="mb-6">
+        <DespesasFixas
+          categorias={CATEGORIAS}
+          aoMudar={() => {
+            query.refetch();
+            invalidateFinanceQueries(queryClient);
+          }}
+        />
+      </Recolhido>
+
       <Recolhido
         titulo="Despesas recorrentes do mês"
         contagem={faltantes.length + semVencimento.length}
@@ -652,7 +724,7 @@ function Despesas() {
           <DialogHeader>
             <DialogTitle>Nova despesa</DialogTitle>
             <DialogDescription>
-              Cadastre uma despesa avulsa para o mês selecionado.
+              Cadastre uma despesa do mês, ou marque "Repetir todo mês" para uma despesa fixa.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -690,6 +762,52 @@ function Despesas() {
                 onChange={(e) => setVencimento(e.target.value)}
               />
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={fixa}
+                onChange={(e) => setFixa(e.target.checked)}
+              />
+              <span>
+                <span className="font-semibold">Repetir todo mês (despesa fixa)</span>
+                <span className="block text-xs text-muted-foreground">
+                  Aparece sozinha nos próximos meses, com o mesmo valor, categoria e dia{" "}
+                  {vencimento ? Number(vencimento.slice(8, 10)) : ""}.
+                </span>
+              </span>
+            </label>
+            {fixa ? (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <Label htmlFor="fim-modo">Até quando repetir</Label>
+                <NativeSelect
+                  id="fim-modo"
+                  value={fimModo}
+                  onChange={(v) => setFimModo(v as FimDaRepeticao["modo"])}
+                  options={[
+                    { value: "sem_fim", label: "Sem fim" },
+                    { value: "ate_mes", label: "Até um mês escolhido" },
+                    { value: "meses", label: "Por um número de meses" },
+                  ]}
+                />
+                {fimModo === "ate_mes" ? (
+                  <Input
+                    aria-label="Último mês"
+                    type="month"
+                    value={fimMes}
+                    onChange={(e) => setFimMes(e.target.value)}
+                  />
+                ) : null}
+                {fimModo === "meses" ? (
+                  <Input
+                    aria-label="Quantos meses"
+                    inputMode="numeric"
+                    value={fimMeses}
+                    onChange={(e) => setFimMeses(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setNova(false)}>

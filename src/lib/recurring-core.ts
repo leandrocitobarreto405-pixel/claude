@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { daysInMonth, monthEnd, monthStart, weekdayDatesOfMonth } from "@/lib/format";
+import { daysInMonth, monthEnd, monthStart, shiftMonth, weekdayDatesOfMonth } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
 
@@ -28,6 +28,8 @@ export type PlannedExpense = {
   dueDate: string | null;
   referenceKey: string;
   missingDueDay: boolean;
+  /** Semanal: um lançamento por data; mensal: um por mês. */
+  semanal?: boolean;
 };
 
 /** Monta a lista de despesas esperadas do mês a partir dos modelos ativos. */
@@ -61,6 +63,7 @@ export function planRecurringMonth(
           dueDate: iso,
           referenceKey: `recurring:${t.id}:${iso}`,
           missingDueDay: false,
+          semanal: true,
         });
       }
       continue;
@@ -99,6 +102,51 @@ export function planRecurringMonth(
   return out;
 }
 
+/** Até quando a despesa fixa se repete (03/11): sem fim, até um mês ou por N meses. */
+export type FimDaRepeticao =
+  { modo: "sem_fim" } | { modo: "ate_mes"; mes: string } | { modo: "meses"; n: number };
+
+/** end_date do modelo: último dia do mês final, ou null sem fim. `inicio` = AAAA-MM do 1º mês. */
+export function fimDaRepeticao(inicio: string, f: FimDaRepeticao): string | null {
+  if (f.modo === "sem_fim") return null;
+  if (f.modo === "ate_mes") {
+    const mes = f.mes.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(mes) || mes < inicio.slice(0, 7))
+      throw new Error("O mês final precisa ser igual ou depois do primeiro mês.");
+    return monthEnd(mes);
+  }
+  const n = Math.floor(f.n);
+  if (!Number.isFinite(n) || n < 1 || n > 120) throw new Error("Informe de 1 a 120 meses.");
+  return monthEnd(shiftMonth(inicio, n - 1));
+}
+
+/** Encerrar a despesa fixa (03/11): para de gerar a partir do mês seguinte; nada lançado muda. */
+export function fimAoEncerrar(mesAtual: string, endDateAtual: string | null): string {
+  const fim = monthEnd(mesAtual);
+  return endDateAtual && endDateAtual < fim ? endDateAtual : fim;
+}
+
+type LinhaExistente = {
+  recurring_expense_id: string | null;
+  reference_key: string | null;
+  due_date: string | null;
+  competence_date: string;
+};
+
+/**
+ * Já existe lançamento desta despesa fixa no período? Mensal: uma por modelo e mês (mesmo que o dia
+ * de vencimento tenha mudado ou que o lançamento do mês tenha sido excluído só naquele mês, 03/11).
+ * Semanal: uma por data.
+ */
+export function jaLancada(p: PlannedExpense, existentes: LinhaExistente[]): boolean {
+  const semanal = Boolean(p.semanal);
+  return existentes.some((e) => {
+    if (e.recurring_expense_id !== p.templateId) return e.reference_key === p.referenceKey;
+    if (semanal) return e.due_date === p.dueDate || e.reference_key === p.referenceKey;
+    return String(e.competence_date).slice(0, 7) === p.competenceDate.slice(0, 7);
+  });
+}
+
 export type SyncResult = {
   checked: number;
   created: number;
@@ -131,28 +179,16 @@ export async function syncRecurringMonth(db: DB, month: string): Promise<SyncRes
     };
   }
 
+  // Inclui as excluídas: excluir o lançamento de um mês não faz ele voltar (03/11).
   const { data: existingRows, error: existingError } = await db
     .from("expenses")
     .select("id, reference_key, recurring_expense_id, due_date, competence_date")
-    .is("deleted_at", null)
     .gte("competence_date", monthStart(month))
     .lte("competence_date", monthEnd(month))
     .not("recurring_expense_id", "is", null);
   if (existingError) throw existingError;
 
-  const existingKeys = new Set<string>();
-  for (const row of existingRows ?? []) {
-    if (row.reference_key) existingKeys.add(row.reference_key);
-    if (row.recurring_expense_id) {
-      existingKeys.add(
-        row.due_date
-          ? `recurring:${row.recurring_expense_id}:${row.due_date}`
-          : `recurring:${row.recurring_expense_id}:${String(row.competence_date).slice(0, 7)}`,
-      );
-    }
-  }
-
-  const toCreate = planned.filter((p) => !existingKeys.has(p.referenceKey));
+  const toCreate = planned.filter((p) => !jaLancada(p, (existingRows ?? []) as LinhaExistente[]));
 
   if (toCreate.length) {
     const { error: insertError } = await db.from("expenses").insert(
