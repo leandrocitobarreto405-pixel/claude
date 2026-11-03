@@ -1260,6 +1260,10 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         hoje: noite.noite,
         acoes: planejadas,
         cobrancas: cobrancasDaNoite,
+        quandoTarefa: proximoHorarioUtil(
+          new Date(`${ctx.amanha}T09:00:00-03:00`).toISOString(),
+          ctx.horario,
+        ),
       }).catch((e) => {
         console.error("Tatiana: ações da noite", e instanceof Error ? e.message : e);
         return { feitas: 0, faria: 0, falhou: planejadas.length };

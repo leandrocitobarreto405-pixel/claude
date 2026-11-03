@@ -303,3 +303,26 @@ export function textoFeitoPelaTatiana(
         corpo: `${lista}. Em modo ativo ela faz sozinha e avisa; veja em Follow-ups.`,
       };
 }
+
+const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+/**
+ * B7 (03/11): a conversa só disse o período e a Tatiana escolheu o horário. O cliente ainda não
+ * sabe: tarefa para a equipe confirmar, com a mensagem pronta (a pessoa decide e manda).
+ */
+export function textoConfirmarHorario(o: {
+  osNumero: string;
+  data: string;
+  hora: string;
+  nome: string;
+}): { motivo: string; mensagem: string } {
+  const dia = `${o.data.slice(8, 10)}/${o.data.slice(5, 7)}`;
+  const h = o.hora.slice(0, 5);
+  const horaTexto = h.endsWith(":00") ? `${Number(h.slice(0, 2))}h` : h.replace(":", "h");
+  const semana = DIAS_SEMANA[new Date(`${o.data}T12:00:00Z`).getUTCDay()] ?? "";
+  const primeiro = o.nome.trim().split(/\s+/)[0] ?? "";
+  return {
+    motivo: `Confirmar o horário com o cliente: OS nº ${o.osNumero}, ${dia} às ${horaTexto}`,
+    mensagem: `Oi${primeiro ? `, ${primeiro}` : ""}! Tudo certo com o seu atendimento: reservei ${semana} ${dia} às ${horaTexto}. Esse horário fica bom pra você? Se precisar, vejo outro.`,
+  };
+}

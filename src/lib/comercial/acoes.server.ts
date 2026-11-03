@@ -6,7 +6,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dataCurta } from "@/lib/feriados";
-import { NOME_ACAO, type AcaoPlanejada, type SituacaoAcao, type TipoAcao } from "./acoes";
+import {
+  NOME_ACAO,
+  textoConfirmarHorario,
+  type AcaoPlanejada,
+  type SituacaoAcao,
+  type TipoAcao,
+} from "./acoes";
 import { NOME_GERENTE, type TipoCobranca } from "./tatiana";
 
 type Db = SupabaseClient;
@@ -61,7 +67,13 @@ type Feito = { referencia: Record<string, unknown>; antes: unknown; depois: unkn
 
 async function executar(
   db: Db,
-  o: { empresaId: string; leadId: string | null; hoje: string; conversaId?: string | null },
+  o: {
+    empresaId: string;
+    leadId: string | null;
+    hoje: string;
+    conversaId?: string | null;
+    quandoTarefa?: string;
+  },
   acao: AcaoPlanejada,
 ): Promise<Feito> {
   if (acao.tipo === "previsao_pagamento") {
@@ -168,7 +180,13 @@ async function executar(
 /** B7: vira o orçamento em OS pelo mesmo caminho da reserva da Alice (agenda real, feriado, cliente). */
 async function virarOs(
   db: Db,
-  o: { empresaId: string; leadId: string | null; hoje: string; conversaId?: string | null },
+  o: {
+    empresaId: string;
+    leadId: string | null;
+    hoje: string;
+    conversaId?: string | null;
+    quandoTarefa?: string;
+  },
   d: import("./acoes").DadosVirarOs,
 ): Promise<Feito> {
   if (!o.leadId) throw new Error("sem lead");
@@ -236,10 +254,56 @@ async function virarOs(
   });
   const os = (ctx as { osReservada?: { id: string; os_number: string } }).osReservada;
   if (r.erro || !os) throw new Error(r.texto.slice(0, 280));
+  // Vendedora que ficou na OS (vale para a comissão): aparece no "Feito pela Tatiana".
+  const { data: wo } = await db
+    .from("work_orders")
+    .select("salespeople(name)")
+    .eq("id", os.id)
+    .maybeSingle();
+  const vendedora =
+    (wo as { salespeople?: { name?: string | null } | null } | null)?.salespeople?.name ?? null;
+  // Horário escolhido pela Tatiana (a conversa só disse o período): o cliente ainda não sabe.
+  let followupId: string | null = null;
+  if (!d.hora) {
+    const t = textoConfirmarHorario({ osNumero: os.os_number, data: d.data, hora, nome: d.nome });
+    const { data: fu } = await db
+      .from("crm_followups")
+      .insert({
+        empresa_id: o.empresaId,
+        crm_lead_id: o.leadId,
+        conversa_id: o.conversaId,
+        scheduled_at: o.quandoTarefa ?? new Date(`${o.hoje}T21:00:00-03:00`).toISOString(),
+        status: "Pendente",
+        responsavel: "equipe",
+        trilha: "G",
+        etapa: "G1",
+        canal: "equipe",
+        origem: "gerente",
+        mensagem: t.mensagem,
+        motivo: t.motivo,
+        prioridade: 1,
+        tarefa_tipo: "mensagem",
+        notes: `${NOME_GERENTE}: ${t.motivo}`,
+      })
+      .select("id")
+      .single();
+    followupId = (fu as { id: string } | null)?.id ?? null;
+  }
   return {
-    referencia: { work_order_id: os.id, os_number: os.os_number },
+    referencia: {
+      work_order_id: os.id,
+      os_number: os.os_number,
+      ...(followupId ? { followup_id: followupId } : {}),
+    },
     antes: { lead, quotes: quotes ?? [] },
-    depois: { work_order_id: os.id, os_number: os.os_number, data: d.data, hora },
+    depois: {
+      work_order_id: os.id,
+      os_number: os.os_number,
+      data: d.data,
+      hora,
+      vendedora,
+      horario_escolhido: !d.hora,
+    },
   };
 }
 
@@ -294,6 +358,14 @@ async function desfazerVirarOs(
       .eq("id", a.crm_lead_id)
       .eq("empresa_id", empresaId)
       .eq("linked_work_order_id", osId);
+  const fu = String(a.referencia["followup_id"] ?? "");
+  if (/^[0-9a-f-]{36}$/i.test(fu))
+    await db
+      .from("crm_followups")
+      .update({ status: "Cancelada", result: "OS desfeita", completed_at: agora })
+      .eq("id", fu)
+      .eq("empresa_id", empresaId)
+      .eq("status", "Pendente");
   await db.from("work_order_history").insert({
     empresa_id: empresaId,
     work_order_id: osId,
@@ -323,6 +395,8 @@ export async function executarAcoesDaNoite(
     hoje: string;
     acoes: AcaoPlanejada[];
     cobrancas: ReadonlyMap<TipoCobranca, string>;
+    /** Hora da tarefa "confirmar o horário" (próximo horário útil da manhã). */
+    quandoTarefa?: string;
   },
 ): Promise<{ feitas: number; faria: number; falhou: number }> {
   const saida = { feitas: 0, faria: 0, falhou: 0 };
@@ -525,6 +599,9 @@ export type AcaoFeita = {
   feitaEm: string;
   leadId: string | null;
   erro: string | null;
+  /** B7: OS criada e quem ficou como vendedora (vale para a comissão). */
+  osNumero: string | null;
+  vendedora: string | null;
 };
 
 /** Ações desde `desdeIso` (feitas, "faria", desfeitas e falhas), as mais novas primeiro. */
@@ -535,15 +612,13 @@ export async function acoesDesde(
 ): Promise<AcaoFeita[]> {
   const { data } = await db
     .from("comercial_acoes")
-    .select("id, tipo, situacao, titulo, frase, feita_em, crm_lead_id, erro")
+    .select("id, tipo, situacao, titulo, frase, feita_em, crm_lead_id, erro, depois")
     .eq("empresa_id", empresaId)
     .gte("feita_em", desdeIso)
     .order("feita_em", { ascending: false })
     .limit(50);
   return (
-    (data ?? []) as Array<
-      Omit<LinhaAcao, "empresa_id" | "cobranca_id" | "referencia" | "antes" | "depois">
-    >
+    (data ?? []) as Array<Omit<LinhaAcao, "empresa_id" | "cobranca_id" | "referencia" | "antes">>
   ).map((a) => ({
     id: a.id,
     tipo: a.tipo,
@@ -554,5 +629,15 @@ export async function acoesDesde(
     feitaEm: a.feita_em,
     leadId: a.crm_lead_id,
     erro: a.erro,
+    ...(() => {
+      const dep = (typeof a.depois === "string" ? JSON.parse(a.depois) : a.depois) as {
+        os_number?: string;
+        vendedora?: string | null;
+      } | null;
+      return {
+        osNumero: a.tipo === "virar_os" ? (dep?.os_number ?? null) : null,
+        vendedora: a.tipo === "virar_os" ? (dep?.vendedora ?? null) : null,
+      };
+    })(),
   }));
 }

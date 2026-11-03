@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarVirarOs, formaParaOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
+import {
+  avaliarVirarOs,
+  formaParaOs,
+  planejarAcoes,
+  textoConfirmarHorario,
+  textoFeitoPelaTatiana,
+} from "./acoes";
 import type { AcertoLido } from "./tatiana";
 
 const base = (a: Partial<AcertoLido> & Pick<AcertoLido, "tipo" | "texto">): AcertoLido => ({
@@ -170,4 +176,22 @@ test("B7: vira OS só com data futura, hora ou período, nome, CEP, número, pag
   assert.equal(avaliarVirarOs(base({ ...acerto, data: "2026-11-03" }), e).ok, false);
   assert.equal(avaliarVirarOs(acerto, { ...e, orcamentosAbertos: [] }).ok, false);
   assert.equal(avaliarVirarOs(acerto, { ...e, osId: "os-1" }).ok, false);
+});
+
+test("B7: tarefa para confirmar o horário que a Tatiana escolheu", () => {
+  const t = textoConfirmarHorario({
+    osNumero: "1755",
+    data: "2026-11-16",
+    hora: "10:00",
+    nome: "Cliente Fictícia da Silva",
+  });
+  assert.equal(t.motivo, "Confirmar o horário com o cliente: OS nº 1755, 16/11 às 10h");
+  assert.equal(
+    t.mensagem,
+    "Oi, Cliente! Tudo certo com o seu atendimento: reservei segunda 16/11 às 10h. Esse horário fica bom pra você? Se precisar, vejo outro.",
+  );
+  assert.match(
+    textoConfirmarHorario({ osNumero: "1", data: "2026-11-17", hora: "14:30", nome: "" }).motivo,
+    /17\/11 às 14h30$/,
+  );
 });
