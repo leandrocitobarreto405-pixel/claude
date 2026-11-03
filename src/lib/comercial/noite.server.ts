@@ -26,7 +26,7 @@ import {
 } from "./furos";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { dataCurta, diaSemanaDe } from "@/lib/feriados";
-import { planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
+import { avaliarVirarOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
 import { MODELO_FICHA, MODELO_HAIKU, PRECO_HAIKU, custoUsd } from "./ficha";
 import {
   ESQUEMA_DECISAO,
@@ -408,6 +408,12 @@ type EstadoLead = {
   cliente: Record<"nome" | "cpf" | "endereco" | "email" | "cep", string | null> | null;
   /** Há orçamento no app (do lead ou solto do mesmo telefone). */
   temOrcamento: boolean;
+  /** Orçamentos abertos do lead, o mais novo primeiro (B7). */
+  orcamentosAbertos: Array<{
+    numero: number | null;
+    distanciaKm: number | null;
+    foraDaArea: boolean;
+  }>;
   aberto: boolean;
   anuncio: boolean;
   conversaId: string | null;
@@ -469,7 +475,7 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
   ] = await Promise.all([
     db
       .from("quotes")
-      .select("numero, status, total, created_at")
+      .select("numero, status, total, created_at, distancia_km, fora_da_area")
       .eq("empresa_id", empresaId)
       .eq("crm_lead_id", leadId)
       .order("created_at"),
@@ -583,6 +589,8 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
     status: string;
     total: number | null;
     created_at: string;
+    distancia_km?: number | string | null;
+    fora_da_area?: boolean | null;
   }>;
   const vs = (visitas ?? []) as Array<{
     scheduled_date: string | null;
@@ -684,6 +692,15 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
         }
       : null,
     temOrcamento: qs.length > 0 || orcSoltos.length > 0,
+    orcamentosAbertos: qs
+      .filter((q) => q.status !== "convertido" && q.status !== "recusado")
+      .reverse()
+      .map((q) => ({
+        numero: q.numero,
+        distanciaKm:
+          q.distancia_km === null || q.distancia_km === undefined ? null : Number(q.distancia_km),
+        foraDaArea: Boolean(q.fora_da_area),
+      })),
     aberto: lead["is_open"] !== false && !lead["perdido_em"],
     anuncio: Boolean(lead["gclid"] || lead["gbraid"] || lead["lp_origem"]),
     conversaId: convRow?.id ?? null,
@@ -1205,7 +1222,33 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       cliente: est.cliente,
       leadNome: est.nome || null,
       telefone: est.telefone,
+      orcamentosAbertos: est.orcamentosAbertos,
+      hoje: noite.noite,
     });
+    // B7: fechou sem OS que a Tatiana não pode virar sozinha: o motivo vai para o acerto da equipe.
+    const idFechou = cobrancasDaNoite.get("fechou_sem_os");
+    const fechou = saneado.acertos.find((x) => x.tipo === "fechou_sem_os");
+    if (idFechou && fechou && !planejadas.some((p) => p.tipo === "virar_os")) {
+      const v = avaliarVirarOs(fechou, {
+        osId: est.osId,
+        osNumero: est.osNumero,
+        pagamentoLancado: est.estado.pagamentoLancado,
+        temOrcamento: est.temOrcamento,
+        clienteId: est.clienteId,
+        cliente: est.cliente,
+        leadNome: est.nome || null,
+        telefone: est.telefone,
+        orcamentosAbertos: est.orcamentosAbertos,
+        hoje: noite.noite,
+      });
+      if (!v.ok && v.motivo !== "não se aplica")
+        await db
+          .from("comercial_cobrancas")
+          .update({
+            texto: `${fechou.texto} A ${NOME_GERENTE} não criou a OS: ${v.motivo}.`.slice(0, 600),
+          })
+          .eq("id", idFechou);
+    }
     if (planejadas.length) {
       const { executarAcoesDaNoite } = await import("./acoes.server");
       const r = await executarAcoesDaNoite(db, {

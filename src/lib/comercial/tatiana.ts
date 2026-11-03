@@ -187,6 +187,20 @@ export type DecisaoIA = {
     data: string;
     /** Preço ainda não passado: o que a equipe deve fazer (ex.: pedir a medida do tapete). */
     proximo_passo: string;
+    /**
+     * Só em fechou_sem_os (B7, 03/11): o que a conversa diz para a OS (vazio se não disse). A
+     * Tatiana só cria a OS com data, hora ou período, nome, CEP e número; senão vira tarefa.
+     */
+    agendamento: {
+      hora: string;
+      periodo: "" | "manha" | "tarde";
+      nome_completo: string;
+      cep: string;
+      numero: string;
+      complemento: string;
+      pagamento: "" | "pix" | "cartao";
+      parcelas: number | null;
+    };
     /** Só em pagamento: forma, parcelas e valor combinados na conversa (vazio/null se não disse). */
     pagamento: {
       forma: "" | "pix" | "cartao" | "debito" | "dinheiro" | "boleto" | "transferencia";
@@ -243,7 +257,16 @@ export const ESQUEMA_DECISAO = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["tipo", "texto", "itens", "cadastro", "data", "proximo_passo", "pagamento"],
+        required: [
+          "tipo",
+          "texto",
+          "itens",
+          "cadastro",
+          "data",
+          "proximo_passo",
+          "pagamento",
+          "agendamento",
+        ],
         properties: {
           tipo: {
             type: "string",
@@ -259,6 +282,30 @@ export const ESQUEMA_DECISAO = {
           texto: s,
           data: s,
           proximo_passo: s,
+          agendamento: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "hora",
+              "periodo",
+              "nome_completo",
+              "cep",
+              "numero",
+              "complemento",
+              "pagamento",
+              "parcelas",
+            ],
+            properties: {
+              hora: s,
+              periodo: { type: "string", enum: ["", "manha", "tarde"] },
+              nome_completo: s,
+              cep: s,
+              numero: s,
+              complemento: s,
+              pagamento: { type: "string", enum: ["", "pix", "cartao"] },
+              parcelas: { type: ["integer", "null"] },
+            },
+          },
           pagamento: {
             type: "object",
             additionalProperties: false,
@@ -332,6 +379,7 @@ export function instrucoesDecisao(o: {
     "   concluir_os: o serviço foi feito (conversa diz) e a visita não está concluída;",
     "   pagamento: o cliente pagou ou combinou o pagamento e não há pagamento lançado (pagamento.forma = pix, cartao, debito, dinheiro, boleto ou transferencia; parcelas e valor só se a conversa disser; senão vazio/null);",
     "   data: só em fechou_sem_os e remarcar; senão vazio. proximo_passo: só quando faltou o preço; senão vazio.",
+    "   agendamento (só em fechou_sem_os; senão tudo vazio/null): hora combinada (HH:MM) ou periodo (manha/tarde) se só disse o período; nome_completo, cep, numero e complemento do endereço como o cliente escreveu; pagamento pix ou cartao e parcelas se disse. Nunca invente: o que a conversa não disse fica vazio.",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
   ].join("\n");
 }
@@ -535,6 +583,8 @@ export type AcertoLido = {
   juntou: AcertoIA["tipo"][];
   /** Pagamento combinado lido na conversa (só em pagamento). */
   pagamento: AcertoIA["pagamento"] | null;
+  /** Dados da OS lidos na conversa (só em fechou_sem_os, B7). */
+  agendamento?: AcertoIA["agendamento"] | null;
 };
 
 export type AcertosSaneados = {
@@ -609,6 +659,7 @@ export function saneaAcertos(
       data,
       juntou: [],
       pagamento: a.tipo === "pagamento" && a.pagamento ? a.pagamento : null,
+      agendamento: a.tipo === "fechou_sem_os" && a.agendamento ? a.agendamento : null,
     });
   }
   // Fechou + orçamento sem app são a mesma venda: uma cobrança só (fechou, com os itens do orçamento).

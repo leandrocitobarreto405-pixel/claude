@@ -194,6 +194,32 @@ async function horarioLivre(
   return { tecnicoId: slot.tecnicoId, tecnico: slot.tecnico };
 }
 
+/**
+ * Primeiro horário livre do dia no período (B7 da Tatiana, 03/11): mesma regra de consultar_agenda,
+ * com feriado bloqueado. Null quando não há horário livre no período.
+ */
+export async function horaLivreNoPeriodo(
+  ctx: Ctx,
+  data: string,
+  periodo: "manha" | "tarde",
+): Promise<string | null> {
+  const agenda = await carregarAgenda(ctx, data, data);
+  if ("erro" in agenda || agenda.bloqueados.get(data)) return null;
+  const { agendaLivre } = await import("./agenda");
+  const [dia] = agendaLivre({
+    inicio: data,
+    dias: 1,
+    base: agenda.horarios,
+    ocupacoes: agenda.ocupacoes,
+    periodo,
+    agora: agoraSP(),
+    cliente: null,
+    regras: agenda.regras,
+    bloqueados: agenda.bloqueados,
+  });
+  return dia?.livres[0]?.hora ?? null;
+}
+
 type Resultado = { erro: boolean; texto: string };
 
 // ---------------------------------------------------------------- leituras

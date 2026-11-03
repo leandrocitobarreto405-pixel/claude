@@ -70,7 +70,81 @@ export type EstadoParaAcoes = {
   cliente: Record<CampoCadastro["campo"], string | null> | null;
   leadNome: string | null;
   telefone: string | null;
+  /** B7: orçamentos abertos do lead (o mais novo primeiro) e o dia de hoje (AAAA-MM-DD). */
+  orcamentosAbertos?: Array<{
+    numero: number | null;
+    distanciaKm: number | null;
+    foraDaArea: boolean;
+  }>;
+  hoje?: string;
 };
+
+/** Limite da área de atendimento (02/11): acima disso a Tatiana nunca cria OS. */
+export const LIMITE_AREA_KM = 35;
+
+export type DadosVirarOs = {
+  data: string;
+  hora: string | null;
+  periodo: "manha" | "tarde" | null;
+  nome: string;
+  cep: string;
+  numero: string;
+  complemento: string;
+  pagamento: "pix" | "cartao";
+  parcelas: number | null;
+  orcamento: string | null;
+};
+
+/**
+ * B7 (aprovado em 03/11): a Tatiana só vira o orçamento em OS com data futura, hora ou período,
+ * nome, CEP e número do endereço, forma de pagamento e dentro da área (até 35 km). Faltou algo ou
+ * passou da área: não cria; o motivo vai para o acerto da equipe. Agenda real e feriado são
+ * conferidos na hora de criar (conflito também vira tarefa).
+ */
+export function avaliarVirarOs(
+  a: AcertoLido,
+  e: EstadoParaAcoes,
+): { ok: true; dados: DadosVirarOs } | { ok: false; motivo: string } {
+  if (a.tipo !== "fechou_sem_os" || e.osId) return { ok: false, motivo: "não se aplica" };
+  const orc = e.orcamentosAbertos?.[0];
+  if (!orc) return { ok: false, motivo: "não há orçamento aberto no app" };
+  if (!a.data) return { ok: false, motivo: "faltou a data combinada" };
+  if (e.hoje && a.data <= e.hoje)
+    return { ok: false, motivo: "a data combinada já passou ou é hoje" };
+  if (orc.foraDaArea || (orc.distanciaKm !== null && orc.distanciaKm > LIMITE_AREA_KM))
+    return {
+      ok: false,
+      motivo: `fora da área (${orc.distanciaKm !== null ? `${String(Math.round(orc.distanciaKm)).replace(".", ",")} km` : "fora da área no orçamento"}, limite ${LIMITE_AREA_KM} km): a equipe decide`,
+    };
+  const g = a.agendamento;
+  const hora = g && /^\d{2}:\d{2}$/.test(g.hora.trim()) ? g.hora.trim() : null;
+  const periodo = g?.periodo ? g.periodo : null;
+  const nome = (g?.nome_completo.trim() || e.cliente?.nome?.trim() || "").slice(0, 120);
+  const cep = (g?.cep ?? "").replace(/\D/g, "");
+  const numero = (g?.numero ?? "").trim().slice(0, 20);
+  const faltou: string[] = [];
+  if (!hora && !periodo) faltou.push("o horário ou o período");
+  if (nome.length < 3) faltou.push("o nome completo");
+  if (cep.length !== 8) faltou.push("o CEP");
+  if (!numero) faltou.push("o número do endereço");
+  if (!g?.pagamento) faltou.push("a forma de pagamento");
+  if (faltou.length) return { ok: false, motivo: `faltou ${faltou.join(", ")} na conversa` };
+  return {
+    ok: true,
+    dados: {
+      data: a.data,
+      hora,
+      periodo: hora ? null : periodo,
+      nome,
+      cep,
+      numero,
+      complemento: (g?.complemento ?? "").trim().slice(0, 80),
+      pagamento: g!.pagamento as "pix" | "cartao",
+      parcelas: g?.parcelas && g.parcelas > 1 ? Math.min(g.parcelas, 24) : null,
+      orcamento: orc.numero !== null ? String(orc.numero).padStart(4, "0") : null,
+    },
+  };
+}
 
 export type AcaoPlanejada =
   | {
@@ -86,6 +160,13 @@ export type AcaoPlanejada =
       titulo: string;
       frase: string;
       dados: { itens: ItemLido[]; total: number; clienteNome: string; telefone: string | null };
+    }
+  | {
+      tipo: "virar_os";
+      cobrancaTipo: TipoCobranca;
+      titulo: string;
+      frase: string;
+      dados: DadosVirarOs;
     }
   | {
       tipo: "cadastro";
@@ -130,6 +211,22 @@ export function planejarAcoes(acertos: AcertoLido[], e: EstadoParaAcoes): AcaoPl
   const saida: AcaoPlanejada[] = [];
   const os = e.osNumero ? `OS ${e.osNumero}` : "a OS";
   for (const a of acertos) {
+    if (a.tipo === "fechou_sem_os") {
+      const v = avaliarVirarOs(a, e);
+      if (v.ok) {
+        const d = v.dados;
+        const quando = d.hora
+          ? `${d.data.slice(8, 10)}/${d.data.slice(5, 7)} às ${d.hora}`
+          : `${d.data.slice(8, 10)}/${d.data.slice(5, 7)} de ${d.periodo === "manha" ? "manhã" : "tarde"}`;
+        saida.push({
+          tipo: "virar_os",
+          cobrancaTipo: "fechou_sem_os",
+          titulo: `Orçamento${d.orcamento ? ` Nº ${d.orcamento}` : ""} virou OS, agendada para ${quando}`,
+          frase: a.texto,
+          dados: d,
+        });
+      }
+    }
     if (a.tipo === "pagamento" && e.osId && !e.pagamentoLancado && a.pagamento) {
       const forma = formaParaOs(a.pagamento);
       const valor = valorCombinado(a);

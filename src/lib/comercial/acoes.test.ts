@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formaParaOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
+import { avaliarVirarOs, formaParaOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
 import type { AcertoLido } from "./tatiana";
 
 const base = (a: Partial<AcertoLido> & Pick<AcertoLido, "tipo" | "texto">): AcertoLido => ({
@@ -116,4 +116,58 @@ test("texto do aviso da manhã", () => {
   assert.equal(t.titulo, "Tatiana: 3 coisas feitas no app ontem à noite");
   assert.match(t.corpo, /^1 previsão de pagamento na os, 2 cadastro do cliente\./);
   assert.match(textoFeitoPelaTatiana([{ tipo: "cadastro" }], "teste").titulo, /faria 1 coisa/);
+});
+
+test("B7: vira OS só com data futura, hora ou período, nome, CEP, número, pagamento e dentro da área", () => {
+  const agendamento = {
+    hora: "",
+    periodo: "manha" as const,
+    nome_completo: "Cliente Fictício da Silva",
+    cep: "01420-006",
+    numero: "120",
+    complemento: "ap 42",
+    pagamento: "pix" as const,
+    parcelas: null,
+  };
+  const acerto = base({
+    tipo: "fechou_sem_os",
+    texto: "Fechou para 16/11 de manhã.",
+    data: "2026-11-16",
+    agendamento,
+  });
+  const e = {
+    ...estado,
+    osId: null,
+    osNumero: null,
+    hoje: "2026-11-03",
+    orcamentosAbertos: [{ numero: 153, distanciaKm: 12, foraDaArea: false }],
+  };
+  const [a] = planejarAcoes([acerto], e);
+  assert.equal(a?.tipo, "virar_os");
+  assert.equal(a?.titulo, "Orçamento Nº 0153 virou OS, agendada para 16/11 de manhã");
+  assert.deepEqual(a?.tipo === "virar_os" && [a.dados.cep, a.dados.periodo, a.dados.hora], [
+    "01420006",
+    "manha",
+    null,
+  ]);
+  // Acima de 35 km: nunca cria (caso de 45 km).
+  const longe = avaliarVirarOs(acerto, {
+    ...e,
+    orcamentosAbertos: [{ numero: 153, distanciaKm: 45, foraDaArea: false }],
+  });
+  assert.equal(longe.ok, false);
+  assert.match(!longe.ok ? longe.motivo : "", /fora da área \(45 km, limite 35 km\)/);
+  // Faltou dado: diz o que faltou.
+  const falta = avaliarVirarOs(
+    base({ ...acerto, agendamento: { ...agendamento, periodo: "", cep: "", pagamento: "" } }),
+    e,
+  );
+  assert.equal(
+    !falta.ok && falta.motivo,
+    "faltou o horário ou o período, o CEP, a forma de pagamento na conversa",
+  );
+  // Data de hoje ou passada, sem orçamento ou já com OS: não cria.
+  assert.equal(avaliarVirarOs(base({ ...acerto, data: "2026-11-03" }), e).ok, false);
+  assert.equal(avaliarVirarOs(acerto, { ...e, orcamentosAbertos: [] }).ok, false);
+  assert.equal(avaliarVirarOs(acerto, { ...e, osId: "os-1" }).ok, false);
 });
