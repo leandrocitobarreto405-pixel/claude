@@ -217,6 +217,15 @@ export type AcaoIA = {
 
 export type Contagem = { total: number; podem: number };
 
+/**
+ * Texto da contagem de um público para o plano. Sem contagem (o banco não respondeu a tempo, 03/11),
+ * o plano sai mesmo assim e a IA é avisada em vez de ler "0 pessoas".
+ */
+export function descricaoDaContagem(n: Contagem | null | undefined): string {
+  if (!n) return "contagem indisponível hoje";
+  return `${n.total} pessoas, ${n.podem} podem receber agora`;
+}
+
 export type AcaoPlano = {
   indice: number;
   tipo: TipoAcao;

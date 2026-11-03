@@ -56,6 +56,11 @@ export function PlanoTatiana() {
           próxima passada da manhã.
         </p>
       ) : null}
+      {p.contexto.avisos?.length ? (
+        <p className="text-sm text-muted-foreground">
+          Plano montado sem uma parte: {p.contexto.avisos.join("; ")}.
+        </p>
+      ) : null}
       {p.leitura ? <p className="text-sm">{p.leitura}</p> : null}
       {!p.acoes.length ? (
         <p className="text-sm text-muted-foreground">Nenhuma ação proposta hoje.</p>

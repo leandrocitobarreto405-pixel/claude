@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   chaveDaLista,
+  descricaoDaContagem,
   entradaDaAcao,
   limiteDeDesconto,
   montarAcao,
@@ -22,6 +23,14 @@ describe("plano: listas e contagem", () => {
     assert.equal(rotuloDaLista("N1", "30"), "Orçamento sem agendamento · recentes (até 30 dias)");
     assert.equal(rotuloDaLista("N1", "90"), "Orçamento sem agendamento · recentes");
     assert.equal(rotuloDaLista("C4", null), "Clientes · 91 dias a 1 ano");
+  });
+  it("contagem indisponível vira aviso para a IA, não '0 pessoas' (03/11)", () => {
+    assert.equal(
+      descricaoDaContagem({ total: 120, podem: 37 }),
+      "120 pessoas, 37 podem receber agora",
+    );
+    assert.equal(descricaoDaContagem(null), "contagem indisponível hoje");
+    assert.equal(descricaoDaContagem(undefined), "contagem indisponível hoje");
   });
   it("opções de contagem cobrem todas as faixas", () => {
     const o = opcoesDeContagem();
