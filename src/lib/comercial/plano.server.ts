@@ -23,6 +23,7 @@ import {
   type AcaoIA,
   type AcaoPlano,
   type Contagem,
+  descricaoDaContagem,
 } from "./plano";
 import { OPCOES_LISTAS, modeloSugerido } from "@/lib/campanha-nova";
 
@@ -44,6 +45,8 @@ export type PlanoTatiana = {
     travaDias: number;
     /** O plano do dia não saiu: motivo técnico gravado para a tela e para o chat (02/11). */
     erro?: string;
+    /** O plano saiu, mas com uma parte faltando (ex.: listas sem contagem). */
+    avisos?: string[];
   };
   custoUsd: number;
   criadoEm: string;
@@ -83,13 +86,21 @@ export async function planoAtual(db: Db, emp: string): Promise<PlanoTatiana | nu
   return data ? paraTela(data as Linha) : null;
 }
 
-async function contagens(db: Db, emp: string): Promise<Record<string, Contagem>> {
+/**
+ * Contagem dos públicos. Se o banco não responder a tempo (Turbine, 02 e 03/11: 13 s contra o
+ * limite de 8 s), o plano sai sem campanha de lista e o aviso fica no contexto: um defeito de
+ * contagem não pode deixar a empresa sem plano do dia.
+ */
+async function contagens(
+  db: Db,
+  emp: string,
+): Promise<{ cont: Record<string, Contagem> | null; aviso: string | null }> {
   const { data, error } = await db.rpc("comercial_listas_contagem", {
     _empresa: emp,
     _opcoes: opcoesDeContagem(),
   });
-  if (error) throw new Error(`contar as listas: ${error.message}`);
-  return (data ?? {}) as Record<string, Contagem>;
+  if (error) return { cont: null, aviso: `Listas do Marketing sem contagem: ${error.message}` };
+  return { cont: (data ?? {}) as Record<string, Contagem>, aviso: null };
 }
 
 async function textoDosModelos(db: Db, emp: string, nomes: string[]): Promise<Map<string, string>> {
@@ -164,7 +175,7 @@ export async function gerarPlano(
   if (ja && !(ja as Linha).contexto?.erro) return { plano: paraTela(ja as Linha), novo: false };
 
   const m = mesPronto ?? (await calcularMes(db, emp, hoje, diasUteis));
-  const [{ data: cfg }, { data: ag }, { data: ia }, { data: empresa }, cont, abertas, ticket] =
+  const [{ data: cfg }, { data: ag }, { data: ia }, { data: empresa }, contagem, abertas, ticket] =
     await Promise.all([
       db
         .from("mkt_configuracoes")
@@ -193,6 +204,7 @@ export async function gerarPlano(
     limite_marketing_dias?: number;
     hora_disparo?: number;
   } | null;
+  const cont = contagem.cont;
   const custoMsg = Number(c?.custo_msg_estimado ?? 0.32);
   const diasDisparo = (c?.dias_disparo?.length ? c.dias_disparo : [2, 3, 4]).map(Number);
   const travaDias = Number(c?.limite_marketing_dias ?? 30);
@@ -239,9 +251,9 @@ export async function gerarPlano(
     const faixas = o.faixas ? o.faixas.map((f) => f.valor) : [null];
     return faixas.map((f) => {
       const chave = f === null ? o.grupo : `${o.grupo}:${f}`;
-      const n = cont[chave] ?? { total: 0, podem: 0 };
+      const n = cont ? (cont[chave] ?? { total: 0, podem: 0 }) : null;
       const modelo = modeloSugerido(o.grupo, c?.modelos);
-      return `- ${o.grupo}${f ? ` faixa ${f}` : ""} = ${rotuloDaLista(o.grupo, f)}: ${n.total} pessoas, ${n.podem} podem receber agora; modelo ${modelo}${textos.get(modelo) ? ` ("${textos.get(modelo)}")` : ""}`;
+      return `- ${o.grupo}${f ? ` faixa ${f}` : ""} = ${rotuloDaLista(o.grupo, f)}: ${descricaoDaContagem(n)}; modelo ${modelo}${textos.get(modelo) ? ` ("${textos.get(modelo)}")` : ""}`;
     });
   });
 
@@ -258,6 +270,11 @@ export async function gerarPlano(
     "",
     "PÚBLICOS (listas do Marketing):",
     ...publicos,
+    ...(cont
+      ? []
+      : [
+          "(As listas não foram contadas hoje: não proponha campanha de lista; use os outros tipos.)",
+        ]),
     "",
     `CAMPANHAS ABERTAS NO MARKETING (não repetir a lista): ${abertas.map((k) => `${k.nome} [${k.grupos.join(",")}]`).join("; ") || "nenhuma"}.`,
     `HISTÓRICO: taxa de resposta ${Math.round(taxas.resposta * 100)}%, taxa de venda ${(taxas.venda * 100).toFixed(1)}%, ticket ${brl(taxas.ticket)}${taxas.historicas ? " (campanhas da empresa)" : " (padrão, poucas campanhas acompanhadas)"}.`,
@@ -301,7 +318,7 @@ export async function gerarPlano(
   for (const a of (r.acoes ?? []).slice(0, 3)) {
     const feita = montarAcao(a, acoes.length, {
       hoje,
-      contagens: cont,
+      contagens: cont ?? {},
       modelosDaEmpresa: c?.modelos,
       custoMsg,
       taxas,
@@ -319,6 +336,7 @@ export async function gerarPlano(
     taxasHistoricas: taxas.historicas,
     limitePct,
     travaDias,
+    ...(contagem.aviso ? { avisos: [contagem.aviso] } : {}),
   };
   const custo = custoUsd(resp.usage);
   const { data: salvo, error } = await db
@@ -357,7 +375,9 @@ export async function rodarPlanoDaTatiana(
   hojeSP: string,
   horaSP: string,
 ): Promise<Record<string, unknown>> {
-  if (horaSP < "08:20" || horaSP >= "08:40") return {};
+  // 08:20 é a hora do plano; até 11:00 só repesca quem ficou sem plano ou com erro (gerarPlano
+  // devolve o plano válido do dia sem chamar a IA).
+  if (horaSP < "08:20" || horaSP >= "11:00") return {};
   const saida: Record<string, unknown> = {};
   for (const cfg of configs) {
     const emp = cfg.empresa_id;
