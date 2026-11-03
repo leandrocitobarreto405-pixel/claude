@@ -198,6 +198,7 @@ export function instrucoesSugestoes(empresa: string): string {
     "- leitura: 1 ou 2 frases sobre o resultado (foi bem ou mal em relação às anteriores, e por quê, pelas respostas).",
     "- sugestoes: 2 ou 3 sugestões concretas para a PRÓXIMA campanha, cada uma com um tipo: texto (como escrever), oferta (desconto/condição, sem passar do que a empresa permite), publico (quem receber ou quem tirar), horario (dia/hora do envio) ou modelo (o modelo da Meta: botões, pergunta, variável). Nada é aplicado sem o dono aprovar.",
     "- Não invente números: use os informados. Se a campanha ainda não vendeu, diga o que testar, não prometa resultado.",
+    `- Descadastro (pediram para parar) acima de ${LIMITE_DESCADASTRO_PCT}%: a primeira sugestão é reduzir isso (texto mais curto e pessoal, oferta mais clara, menos frequência ou tirar quem não respondeu duas vezes). Nunca sugira mandar de novo para a mesma lista sem mudar algo.`,
   ].join("\n");
 }
 
@@ -213,8 +214,23 @@ export type CampanhaRelatorio = {
 };
 
 /** Texto curto para o relatório e a tela: "120 enviados · 18 responderam · 3 vendas (R$ 1.200)". */
+/** Descadastro (pediram para parar) acima deste % numa campanha pede revisão antes de repetir (02/11). */
+export const LIMITE_DESCADASTRO_PCT = 5;
+
+/** Descadastros ÷ enviados, em % com uma casa (null sem envio). */
+export function pctDescadastro(
+  n: Pick<NumerosCampanha, "enviados" | "descadastros">,
+): number | null {
+  return n.enviados > 0 ? Math.round((n.descadastros / n.enviados) * 1000) / 10 : null;
+}
+
 export function resumoCurto(n: NumerosCampanha): string {
   const brl = (v: number) =>
     `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  return `${n.enviados} enviados · ${n.responderam} responderam · ${n.orcamentos} pediram orçamento · ${n.fecharam} ${n.fecharam === 1 ? "venda" : "vendas"} (${brl(n.vendido)})${n.retorno !== null ? ` · retorno ${String(n.retorno).replace(".", ",")}x` : ""}`;
+  const pct = pctDescadastro(n);
+  const descadastro =
+    n.descadastros > 0 && pct !== null
+      ? ` · descadastro ${String(pct).replace(".", ",")}%${pct > LIMITE_DESCADASTRO_PCT ? ` (acima de ${LIMITE_DESCADASTRO_PCT}%)` : ""}`
+      : "";
+  return `${n.enviados} enviados · ${n.responderam} responderam · ${n.orcamentos} pediram orçamento · ${n.fecharam} ${n.fecharam === 1 ? "venda" : "vendas"} (${brl(n.vendido)})${n.retorno !== null ? ` · retorno ${String(n.retorno).replace(".", ",")}x` : ""}${descadastro}`;
 }

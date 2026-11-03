@@ -17,6 +17,8 @@ import { horarioDaConfig, textoLeadSite, tipoTarefa, type TipoTarefa } from "@/l
 import type { MesTatiana as MesTatianaTela } from "@/lib/comercial/mes.server";
 import type { PlanoTatiana } from "@/lib/comercial/plano.server";
 import type { SemanaEquipe } from "@/lib/comercial/equipe";
+import type { AcaoFeita } from "@/lib/comercial/acoes.server";
+export type { AcaoFeita } from "@/lib/comercial/acoes.server";
 import { requireRecurso } from "@/lib/recurso.middleware";
 import {
   JANELA_DIAS,
@@ -100,6 +102,8 @@ export type Acerto = {
   leadNome: string;
   telefoneFinal: string | null;
   osNumero: string | null;
+  /** OS ligada ao lead (botão "Confirmar conclusão" de um toque, 03/11). */
+  osId: string | null;
   responsavelNome: string | null;
   anuncio: boolean;
   criadaEm: string;
@@ -151,6 +155,8 @@ export type HojeTatiana = {
   tarefas: TarefaHoje[];
   alice: TarefaAlice[];
   acertos: Acerto[];
+  /** Feito pela Tatiana (03/11): o que ela fez, ou faria em teste, nos últimos 3 dias; com Desfazer. */
+  feitas: AcaoFeita[];
   pessoas: Array<{ id: string; nome: string }>;
 };
 
@@ -191,6 +197,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       tarefas: [],
       alice: [],
       acertos: [],
+      feitas: [],
       pessoas: [],
     };
     if (modo === "desligado") return vazio;
@@ -410,14 +417,41 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
           leadNome: l?.lead_name || "Cliente",
           telefoneFinal: l?.normalized_phone ? l.normalized_phone.slice(-4) : null,
           osNumero: l?.linked_work_order_id ? (numeroOs.get(l.linked_work_order_id) ?? null) : null,
+          osId: l?.linked_work_order_id ?? null,
           responsavelNome: !equipeUnica && x.user_id ? (nomes.get(x.user_id) ?? null) : null,
           anuncio: x.anuncio,
           criadaEm: x.criada_em,
         };
       }),
+      feitas: await (async () => {
+        const { acoesDesde } = await import("@/lib/comercial/acoes.server");
+        const desde = new Date(Date.parse(`${hoje}T00:00:00-03:00`) - 3 * 86_400_000).toISOString();
+        return acoesDesde(adm, emp, desde);
+      })().catch(() => []),
       pessoas:
         admin && !equipeUnica ? [...nomes.entries()].map(([id, nome]) => ({ id, nome })) : [],
     };
+  });
+
+/** Desfazer uma ação feita pela Tatiana (quem é da empresa pode; fica registrado quem e quando). */
+export const desfazerAcaoFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((d: { id: string; motivo?: string | null }) => ({
+    id: uuid(d.id, "Ação"),
+    motivo:
+      String(d.motivo ?? "")
+        .trim()
+        .slice(0, 300) || null,
+  }))
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { desfazerAcao } = await import("@/lib/comercial/acoes.server");
+    return desfazerAcao(supabaseAdmin as unknown as Db, {
+      empresaId: context.empresaId as string,
+      acaoId: data.id,
+      userId: (context.userId as string) ?? null,
+      motivo: data.motivo,
+    });
   });
 
 export const concluirTarefaFn = createServerFn({ method: "POST" })

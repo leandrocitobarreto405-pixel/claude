@@ -25,6 +25,8 @@ import {
   type MotivoEntrada,
 } from "./furos";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
+import { dataCurta, diaSemanaDe } from "@/lib/feriados";
+import { planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
 import { MODELO_FICHA, MODELO_HAIKU, PRECO_HAIKU, custoUsd } from "./ficha";
 import {
   ESQUEMA_DECISAO,
@@ -49,6 +51,7 @@ import {
   type DecisaoIA,
   type EstadoApp,
   type TipoCobranca,
+  saneaAcertos,
 } from "./tatiana";
 
 type Db = SupabaseClient;
@@ -397,6 +400,14 @@ type EstadoLead = {
   texto: string;
   estado: EstadoApp;
   temOs: boolean;
+  /** OS ligada ao lead (id e número) para as ações da Tatiana (03/11). */
+  osId: string | null;
+  osNumero: string | null;
+  clienteId: string | null;
+  /** Campos do cadastro do cliente (null = vazio); sem cadastro: null. */
+  cliente: Record<"nome" | "cpf" | "endereco" | "email" | "cep", string | null> | null;
+  /** Há orçamento no app (do lead ou solto do mesmo telefone). */
+  temOrcamento: boolean;
   aberto: boolean;
   anuncio: boolean;
   conversaId: string | null;
@@ -428,16 +439,20 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
   const lead = (l ?? {}) as Record<string, string | boolean | null>;
   const os = lead["linked_work_order_id"] as string | null;
   // Cliente: o do lead ou, sem ele, o da OS (o cadastro nasce do orçamento ao virar OS).
-  let clienteId = (lead["customer_id"] as string | null) ?? null;
-  if (!clienteId && os) {
-    const { data: w } = await db
-      .from("work_orders")
-      .select("customer_id")
-      .eq("id", os)
-      .eq("empresa_id", empresaId)
-      .maybeSingle();
-    clienteId = (w as { customer_id?: string | null } | null)?.customer_id ?? null;
-  }
+  const { data: woRow } = os
+    ? await db
+        .from("work_orders")
+        .select("customer_id, os_number, negotiated_payment_method")
+        .eq("id", os)
+        .eq("empresa_id", empresaId)
+        .maybeSingle()
+    : { data: null };
+  const wo = woRow as {
+    customer_id?: string | null;
+    os_number?: string | number | null;
+    negotiated_payment_method?: string | null;
+  } | null;
+  const clienteId = (lead["customer_id"] as string | null) ?? wo?.customer_id ?? null;
   const fim = finalDoTelefone(
     (lead["normalized_phone"] as string | null) ?? (lead["phone"] as string | null),
   );
@@ -613,6 +628,9 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
     os
       ? `Pagamentos lançados: ${ps.length ? ps.map((p) => `${p.payment_status} R$ ${p.gross_amount ?? "?"}`).join("; ") : "nenhum"}.`
       : null,
+    os && wo?.negotiated_payment_method
+      ? `Pagamento combinado na OS: ${wo.negotiated_payment_method}.`
+      : null,
     `Cadastro do cliente: ${
       c
         ? ["nome", "cpf", "email", "endereco", "cep"]
@@ -648,10 +666,24 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
         status: v.status,
         atualizadaEm: v.updated_at,
       })),
-      // Qualquer pagamento ativo lançado na OS conta (pago, a receber ou parcial).
-      pagamentoLancado: ps.length > 0,
+      // Qualquer pagamento ativo lançado na OS conta (pago, a receber ou parcial), e também a
+      // previsão combinada na OS (03/11).
+      pagamentoLancado: ps.length > 0 || Boolean(wo?.negotiated_payment_method),
     },
     temOs: Boolean(os),
+    osId: os,
+    osNumero: wo?.os_number === null || wo?.os_number === undefined ? null : String(wo.os_number),
+    clienteId,
+    cliente: c
+      ? {
+          nome: c["full_name"] ?? null,
+          cpf: c["document_number"] ?? null,
+          email: c["email"] ?? null,
+          endereco: c["full_address"] ?? null,
+          cep: c["postal_code"] ?? null,
+        }
+      : null,
+    temOrcamento: qs.length > 0 || orcSoltos.length > 0,
     aberto: lead["is_open"] !== false && !lead["perdido_em"],
     anuncio: Boolean(lead["gclid"] || lead["gbraid"] || lead["lp_origem"]),
     conversaId: convRow?.id ?? null,
@@ -762,6 +794,10 @@ type ContextoNoite = {
   /** Modo ativo: os toques da Alice decididos pela noite são executados pela fila. */
   modoAtivo: boolean;
   especiais: EspeciaisDaNoite;
+  /** Feriados bloqueados nos próximos 30 dias (data → nome), para os acertos com data. */
+  bloqueados: ReadonlyMap<string, string>;
+  /** Próximos dias com horário livre depois de uma data (até 3), pela agenda real. */
+  livresDepois: (data: string) => string[];
 };
 
 async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<number> {
@@ -803,12 +839,51 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         anuncio: est.anuncio,
       })
     : [];
+  // Regras das cobranças (02/11): fechou só com data combinada (senão aguardando), orçamento sem
+  // app só com preço (senão próximo passo), nada sem texto, uma por assunto, feriado vira remarcar.
+  const saneado = saneaAcertos(decisao.acertos, {
+    bloqueados: ctx.bloqueados,
+    livresDepois: ctx.livresDepois,
+  });
+  {
+    const r = (noite.resumo ?? {}) as {
+      acertosDescartados?: Record<string, number>;
+      acertosJuntados?: number;
+    };
+    const acertosDescartados = { ...(r.acertosDescartados ?? {}) };
+    for (const d of saneado.descartes)
+      acertosDescartados[d.motivo] = (acertosDescartados[d.motivo] ?? 0) + 1;
+    noite.resumo = {
+      ...r,
+      acertosDescartados,
+      acertosJuntados:
+        (r.acertosJuntados ?? 0) + saneado.acertos.filter((a) => a.juntou.length).length,
+    };
+  }
+  if (est.aberto && !est.bloqueado && saneado.proximoPasso) {
+    if (decisao.acao === "esperar") {
+      decisao.acao = "chamar";
+      decisao.quando = "";
+      decisao.responsavel = "equipe";
+    }
+    if (decisao.acao === "chamar" || decisao.acao === "agendar")
+      decisao.motivo = `Próximo passo: ${saneado.proximoPasso} · ${decisao.motivo}`.slice(0, 300);
+  } else if (est.aberto && !est.bloqueado && saneado.aguardando && decisao.acao === "esperar") {
+    decisao.acao = "agendar";
+    decisao.quando = `${somarDias(noite.noite, 2)}T09:00`;
+    decisao.responsavel = "equipe";
+    decisao.motivo =
+      `Aguardando: o cliente disse que aprova e volta para agendar; confirmar · ${decisao.motivo}`.slice(
+        0,
+        300,
+      );
+  }
   // Acertos (31/10): só de conversa com o cliente nos últimos 7 dias; cadastro só o do sistema (OS
   // agendada sem endereço ou CEP); pagamento só com OS; o que o app já mostra certo não entra.
   const conversaRecente =
     est.ultimaDoCliente !== null && Date.now() - Date.parse(est.ultimaDoCliente) <= 7 * 86_400_000;
   const acertos: Array<{ tipo: TipoCobranca; texto: string; dados: Record<string, unknown> }> = [
-    ...(conversaRecente ? decisao.acertos : [])
+    ...(conversaRecente ? saneado.acertos : [])
       .filter((a) => a.tipo !== "cadastro")
       .filter((a) => !(a.tipo === "orcamento_sem_app" && est.estado.orcamentos.length))
       .filter((a) => !(a.tipo === "fechou_sem_os" && est.temOs))
@@ -816,7 +891,12 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       .map((a) => ({
         tipo: a.tipo as TipoCobranca,
         texto: a.texto.slice(0, 400),
-        dados: { itens: a.itens, prioridade: decisao.prioridade },
+        dados: {
+          itens: a.itens,
+          prioridade: decisao.prioridade,
+          ...(a.data ? { data: a.data } : {}),
+          ...(a.juntou.length ? { juntou: a.juntou } : {}),
+        },
       })),
     ...(est.osSemEndereco
       ? [
@@ -1088,23 +1168,65 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     .eq("crm_lead_id", leadId)
     .gte("criada_em", new Date(Date.now() - 7 * 86_400_000).toISOString());
   const jaTem = new Set(((recentes ?? []) as Array<{ tipo: string }>).map((r) => r.tipo));
+  const cobrancasDaNoite = new Map<TipoCobranca, string>();
   for (const a of acertos) {
     if (jaTem.has(a.tipo)) continue;
     jaTem.add(a.tipo);
-    const { error } = await db.from("comercial_cobrancas").insert({
-      empresa_id: emp,
-      noite_id: noite.id,
-      crm_lead_id: leadId,
-      conversa_id: est.conversaId,
-      user_id: dono,
-      tipo: a.tipo,
-      texto: a.texto,
-      dados: a.dados,
-      anuncio: est.anuncio,
-      visivel_equipe: false,
-    });
+    const { data: nova, error } = await db
+      .from("comercial_cobrancas")
+      .insert({
+        empresa_id: emp,
+        noite_id: noite.id,
+        crm_lead_id: leadId,
+        conversa_id: est.conversaId,
+        user_id: dono,
+        tipo: a.tipo,
+        texto: a.texto,
+        dados: a.dados,
+        anuncio: est.anuncio,
+        visivel_equipe: false,
+      })
+      .select("id")
+      .maybeSingle();
     // Já existe uma pendente do mesmo tipo para o lead: fica a que está.
     if (error && error.code !== "23505") throw new Error(`cobrança: ${error.message}`);
+    if ((nova as { id?: string } | null)?.id)
+      cobrancasDaNoite.set(a.tipo, (nova as { id: string }).id);
+  }
+  // A Tatiana faz e informa (03/11): previsão de pagamento na OS, orçamento em rascunho e
+  // cadastro, só em modo ativo (em teste registra "faria"); cada ação tem Desfazer no app.
+  if (conversaRecente && !est.bloqueado) {
+    const planejadas = planejarAcoes(saneado.acertos, {
+      osId: est.osId,
+      osNumero: est.osNumero,
+      pagamentoLancado: est.estado.pagamentoLancado,
+      temOrcamento: est.temOrcamento,
+      clienteId: est.clienteId,
+      cliente: est.cliente,
+      leadNome: est.nome || null,
+      telefone: est.telefone,
+    });
+    if (planejadas.length) {
+      const { executarAcoesDaNoite } = await import("./acoes.server");
+      const r = await executarAcoesDaNoite(db, {
+        empresaId: emp,
+        noiteId: noite.id,
+        leadId,
+        conversaId: est.conversaId,
+        modoAtivo: ctx.modoAtivo,
+        hoje: noite.noite,
+        acoes: planejadas,
+        cobrancas: cobrancasDaNoite,
+      }).catch((e) => {
+        console.error("Tatiana: ações da noite", e instanceof Error ? e.message : e);
+        return { feitas: 0, faria: 0, falhou: planejadas.length };
+      });
+      const rs = (noite.resumo ?? {}) as { acoes?: Record<string, number> };
+      const acoesResumo = { ...(rs.acoes ?? {}) };
+      for (const k of ["feitas", "faria", "falhou"] as const)
+        acoesResumo[k] = (acoesResumo[k] ?? 0) + r[k];
+      noite.resumo = { ...rs, acoes: acoesResumo };
+    }
   }
   return custo;
 }
@@ -1756,7 +1878,7 @@ async function gastoDoMes(db: Db, empresaId: string, agora: Date): Promise<numbe
 
 async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
   const { contextoDaEmpresa } = await import("./analise.server");
-  const [ctx, { data: ia }, pessoas, { data: cfg }, bloqueados] = await Promise.all([
+  const [ctx, { data: ia }, pessoas, { data: cfg }, bloqueadosMapa] = await Promise.all([
     contextoDaEmpresa(db, noite.empresa_id),
     db.from("ia_configuracoes").select("ativo").eq("empresa_id", noite.empresa_id).maybeSingle(),
     pessoasDaEmpresa(db, noite.empresa_id),
@@ -1767,10 +1889,24 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       .maybeSingle(),
     // Feriados bloqueados (02/11): tarefa nenhuma cai neles; vai para o próximo dia útil.
     (async () => {
-      const { diasBloqueadosLista } = await import("@/lib/feriados.server");
-      return diasBloqueadosLista(db, noite.empresa_id, noite.noite, 45);
+      const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+      return bloqueadosNoPeriodo(db, noite.empresa_id, noite.noite, somarDias(noite.noite, 45));
     })(),
   ]);
+  // Agenda real dos próximos 30 dias (03/11): os acertos com data em dia bloqueado sugerem os
+  // próximos horários livres. Se falhar, segue sem sugestão.
+  const agenda = await (async () => {
+    const { agendaAteFimDoMes } = await import("./mes.server");
+    const a = await agendaAteFimDoMes(
+      db,
+      noite.empresa_id,
+      noite.noite,
+      somarDias(noite.noite, 30),
+      (cfg as { dias_uteis?: number[] | null } | null)?.dias_uteis ?? [1, 2, 3, 4, 5, 6],
+    );
+    return a.dias;
+  })().catch(() => [] as Array<{ data: string; livres: number; feriado?: string }>);
+  const bloqueados = [...bloqueadosMapa.keys()];
   const config = cfg as
     | (Pick<Config, "dias_uteis" | "hora_inicio" | "hora_fim"> & {
         equipe_unica?: boolean;
@@ -1795,6 +1931,15 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       esquecidos:
         (noite.resumo as { especiais?: EspeciaisDaNoite } | null)?.especiais?.esquecidos ?? {},
     },
+    bloqueados: bloqueadosMapa,
+    livresDepois: (data: string) =>
+      agenda
+        .filter((d) => d.data > data && d.livres > 0 && !d.feriado)
+        .slice(0, 3)
+        .map(
+          (d) =>
+            `${diaSemanaDe(d.data)} ${dataCurta(d.data)} (${d.livres} ${d.livres === 1 ? "horário" : "horários"})`,
+        ),
     nomesAtendentes: (
       (vendedoras ?? []) as Array<{ name: string; user_id: string | null; eh_ia: boolean | null }>
     )
@@ -2230,6 +2375,37 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
           tag: `tatiana-${hoje}`,
         });
         enviados += r.enviados;
+      }
+      // Feito pela Tatiana (03/11): o que ela fez (ou faria, em teste) desde ontem à noite.
+      // Só para o admin, no app e por push; cada item tem Desfazer em Follow-ups.
+      if (cfg.modo === "ativo" || cfg.modo === "teste") {
+        const { acoesDesde } = await import("./acoes.server");
+        const feitas = (
+          await acoesDesde(db, emp, new Date(`${somarDias(hoje, -1)}T18:00:00-03:00`).toISOString())
+        ).filter((a) => a.situacao === (cfg.modo === "ativo" ? "feita" : "faria"));
+        if (feitas.length) {
+          const t = textoFeitoPelaTatiana(feitas, cfg.modo);
+          await avisarUmaVez(db, emp, "gerente_feito", t.titulo, t.corpo, `gerente_feito:${hoje}`);
+          for (const p of pessoas) {
+            if (p.papel !== "admin" || !querReceber("alerta_gerente", p.papel, p.pref)) continue;
+            const id = await registrarUmaVez(
+              db as never,
+              emp,
+              p.userId,
+              "alerta_gerente",
+              `feito:${hoje}`,
+              t.titulo,
+            );
+            if (!id) continue;
+            const r = await enviarParaPessoa(db as never, p.celulares, {
+              titulo: t.titulo,
+              corpo: t.corpo,
+              url: "/crm/follow-ups",
+              tag: `tatiana-feito-${hoje}`,
+            });
+            enviados += r.enviados;
+          }
+        }
       }
     }
     if (dez) {

@@ -4,6 +4,7 @@ import {
   classePeloSistema,
   janelaDaCampanha,
   numerosDaCampanha,
+  pctDescadastro,
   resumoCurto,
   resumoDasClasses,
   type EnvioCampanha,
@@ -73,10 +74,14 @@ describe("campanhas: números", () => {
     assert.equal(numerosDaCampanha(envios, 0, fim).retorno, null);
     assert.equal(numerosDaCampanha([], 0.32, fim).pctResposta, null);
   });
+  it("descadastro em % (02/11): 14 de 151 = 9,3%; sem envio, null", () => {
+    assert.equal(pctDescadastro({ enviados: 151, descadastros: 14 }), 9.3);
+    assert.equal(pctDescadastro({ enviados: 0, descadastros: 0 }), null);
+  });
   it("resumo curto", () => {
     assert.equal(
       resumoCurto(numerosDaCampanha(envios, 0.32, fim)),
-      "6 enviados · 2 responderam · 1 pediram orçamento · 1 venda (R$ 450) · retorno 234,4x",
+      "6 enviados · 2 responderam · 1 pediram orçamento · 1 venda (R$ 450) · retorno 234,4x · descadastro 16,7% (acima de 5%)",
     );
   });
 });

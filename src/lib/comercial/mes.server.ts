@@ -282,7 +282,7 @@ async function leadsPorOrigem(db: Db, emp: string, hoje: string): Promise<LeadsO
   ];
 }
 
-async function agendaAteFimDoMes(
+export async function agendaAteFimDoMes(
   db: Db,
   emp: string,
   hoje: string,
@@ -389,20 +389,38 @@ export async function calcularMes(
   const mes = hoje.slice(0, 7);
   const inicio = `${mes}-01`;
   const fim = fimDoMes(mes);
-  const [{ data: metaRow }, oss, vendidas, abertos, fichas, origens, agenda] = await Promise.all([
-    db
-      .from("monthly_goals")
-      .select("goal_amount")
-      .eq("empresa_id", emp)
-      .eq("month", inicio)
-      .maybeSingle(),
-    osDoPeriodo(db, emp, inicio, fim),
-    osVendidasNoPeriodo(db, emp, inicio, fim),
-    orcamentosAbertos(db, emp, hoje),
-    fichas90d(db, emp, hoje),
-    leadsPorOrigem(db, emp, hoje),
-    agendaAteFimDoMes(db, emp, hoje, fim, diasUteis),
-  ]);
+  const [{ data: metaRow }, oss, vendidas, abertos, fichas, origens, agenda, { data: camps }] =
+    await Promise.all([
+      db
+        .from("monthly_goals")
+        .select("goal_amount")
+        .eq("empresa_id", emp)
+        .eq("month", inicio)
+        .maybeSingle(),
+      osDoPeriodo(db, emp, inicio, fim),
+      osVendidasNoPeriodo(db, emp, inicio, fim),
+      orcamentosAbertos(db, emp, hoje),
+      fichas90d(db, emp, hoje),
+      leadsPorOrigem(db, emp, hoje),
+      agendaAteFimDoMes(db, emp, hoje, fim, diasUteis),
+      db
+        .from("comercial_campanhas")
+        .select("campanha_id, numeros, mkt_campanhas(nome)")
+        .eq("empresa_id", emp)
+        .gte("janela_inicio", somarDias(hoje, -45)),
+    ]);
+  const campanhas = (
+    (camps ?? []) as Array<{
+      campanha_id: string;
+      numeros: { enviados?: number; descadastros?: number } | null;
+      mkt_campanhas: { nome?: string } | null;
+    }>
+  ).map((k) => ({
+    id: k.campanha_id,
+    nome: k.mkt_campanhas?.nome ?? "campanha",
+    enviados: Number(k.numeros?.enviados ?? 0),
+    descadastros: Number(k.numeros?.descadastros ?? 0),
+  }));
   const servico = vendidoNoPeriodo(oss, { de: inicio, ate: fim }, hoje);
   const vendidoVenda = r2(vendidas.filter(osConta).reduce((s, os) => s + liquidoDaOs(os, hoje), 0));
   const meta = metaDoMes({
@@ -427,6 +445,7 @@ export async function calcularMes(
     conversaoPorServico: conv,
     objecoes,
     perdidos14d: perdidos,
+    campanhas,
   });
   return {
     hoje,

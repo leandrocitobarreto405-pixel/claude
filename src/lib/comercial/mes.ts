@@ -4,6 +4,7 @@
  * agenda livre até o fim do mês e os alertas (sem meta, dia vazio, queda de leads por origem,
  * queda de conversão por serviço, objeção mais frequente, agenda vazia).
  */
+import { LIMITE_DESCADASTRO_PCT, pctDescadastro } from "./campanhas";
 import { horariosLivres, type HorarioBase, type Ocupacao, type RegrasAgenda } from "@/lib/promocao";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -242,7 +243,13 @@ export function diasVazios(dias: DiaAgenda[], hoje: string, n = 3): DiaAgenda[] 
 // ---------------------------------------------------------------- alertas
 
 export type TipoAlerta =
-  "sem_meta" | "dia_vazio" | "queda_leads" | "queda_conversao" | "objecao" | "agenda_vazia";
+  | "sem_meta"
+  | "dia_vazio"
+  | "queda_leads"
+  | "queda_conversao"
+  | "objecao"
+  | "agenda_vazia"
+  | "descadastro";
 export type Alerta = {
   tipo: TipoAlerta;
   /** Única por semana/dia: o aviso e o push saem uma vez por chave. */
@@ -282,6 +289,8 @@ export function alertasDoMes(o: {
   /** Objeções/motivos de perda dos últimos 14 dias, em ordem de frequência. */
   objecoes: Objecao[];
   perdidos14d: number;
+  /** Campanhas acompanhadas nos últimos 45 dias (descadastro acima de 5% vira alerta, 02/11). */
+  campanhas?: Array<{ id: string; nome: string; enviados: number; descadastros: number }>;
 }): Alerta[] {
   const semana = semanaDe(o.hoje);
   const alertas: Alerta[] = [];
@@ -343,6 +352,17 @@ export function alertasDoMes(o: {
       texto: `${livres} de ${base} horários livres nos próximos ${proximos.length} dias úteis.`,
       gravidade: "alta",
     });
+  for (const k of o.campanhas ?? []) {
+    const pct = pctDescadastro(k);
+    if (k.enviados >= 20 && pct !== null && pct > LIMITE_DESCADASTRO_PCT)
+      alertas.push({
+        tipo: "descadastro",
+        chave: `descadastro:${k.id}`,
+        titulo: `Descadastro de ${String(pct).replace(".", ",")}% na campanha ${k.nome}`,
+        texto: `${k.descadastros} de ${k.enviados} pediram para parar (limite ${LIMITE_DESCADASTRO_PCT}%). Antes de mandar de novo para essa lista, rever texto, oferta e frequência.`,
+        gravidade: "alta",
+      });
+  }
   return alertas;
 }
 
