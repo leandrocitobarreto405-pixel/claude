@@ -290,6 +290,16 @@ test("acertos (02/11): fechou só com data, orçamento só com preço, sem texto
     data: "",
     proximo_passo: "",
     pagamento: { forma: "" as const, parcelas: null, valor: null },
+    agendamento: {
+      hora: "",
+      periodo: "" as const,
+      nome_completo: "",
+      cep: "",
+      numero: "",
+      complemento: "",
+      pagamento: "" as const,
+      parcelas: null,
+    },
   };
   // "Vou aprovar e volto para agendar" não é fechou: aguardando, sem cobrança.
   let r = saneaAcertos(

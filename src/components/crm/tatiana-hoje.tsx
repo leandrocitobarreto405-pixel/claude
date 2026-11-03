@@ -461,6 +461,19 @@ function ItemFeito({ f }: { f: AcaoFeita }) {
       <p>{f.titulo}</p>
       {f.frase ? <p className="text-xs text-muted-foreground">Na conversa: {f.frase}</p> : null}
       {f.erro ? <p className="text-xs text-muted-foreground">Motivo: {f.erro}</p> : null}
+      {f.osNumero && f.situacao === "feita" ? (
+        <p className="text-xs">
+          Vendedora na OS: <span className="font-semibold">{f.vendedora ?? "não definida"}</span>{" "}
+          (vale para a comissão).{" "}
+          <Link
+            to="/os/$osNumber"
+            params={{ osNumber: f.osNumero }}
+            className="font-semibold text-marca underline underline-offset-2"
+          >
+            Trocar na OS {f.osNumero}
+          </Link>
+        </p>
+      ) : null}
       {f.situacao === "feita" ? (
         aberto ? (
           <div className="flex flex-col gap-2">

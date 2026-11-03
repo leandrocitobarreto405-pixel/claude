@@ -6,7 +6,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dataCurta } from "@/lib/feriados";
-import { NOME_ACAO, type AcaoPlanejada, type SituacaoAcao, type TipoAcao } from "./acoes";
+import {
+  NOME_ACAO,
+  textoConfirmarHorario,
+  type AcaoPlanejada,
+  type SituacaoAcao,
+  type TipoAcao,
+} from "./acoes";
 import { NOME_GERENTE, type TipoCobranca } from "./tatiana";
 
 type Db = SupabaseClient;
@@ -61,7 +67,13 @@ type Feito = { referencia: Record<string, unknown>; antes: unknown; depois: unkn
 
 async function executar(
   db: Db,
-  o: { empresaId: string; leadId: string | null; hoje: string },
+  o: {
+    empresaId: string;
+    leadId: string | null;
+    hoje: string;
+    conversaId?: string | null;
+    quandoTarefa?: string;
+  },
   acao: AcaoPlanejada,
 ): Promise<Feito> {
   if (acao.tipo === "previsao_pagamento") {
@@ -137,6 +149,7 @@ async function executar(
       depois: { itens: acao.dados.itens, total: acao.dados.total },
     };
   }
+  if (acao.tipo === "virar_os") return virarOs(db, o, acao.dados);
   // cadastro
   const { data: c } = await db
     .from("customers")
@@ -164,6 +177,209 @@ async function executar(
   return { referencia: { customer_id: acao.dados.clienteId }, antes, depois };
 }
 
+/** B7: vira o orçamento em OS pelo mesmo caminho da reserva da Alice (agenda real, feriado, cliente). */
+async function virarOs(
+  db: Db,
+  o: {
+    empresaId: string;
+    leadId: string | null;
+    hoje: string;
+    conversaId?: string | null;
+    quandoTarefa?: string;
+  },
+  d: import("./acoes").DadosVirarOs,
+): Promise<Feito> {
+  if (!o.leadId) throw new Error("sem lead");
+  if (!o.conversaId) throw new Error("sem conversa do cliente");
+  const [{ data: cfg }, { data: conv }, { data: lead }, { data: quotes }] = await Promise.all([
+    db.from("ia_configuracoes").select("*").eq("empresa_id", o.empresaId).maybeSingle(),
+    db
+      .from("conversas")
+      .select("whatsapp_contact_id")
+      .eq("id", o.conversaId)
+      .eq("empresa_id", o.empresaId)
+      .maybeSingle(),
+    db
+      .from("crm_leads")
+      .select(
+        "is_open, closed_at, linked_work_order_id, status_id, next_follow_up_at, sales_origin_id",
+      )
+      .eq("id", o.leadId)
+      .eq("empresa_id", o.empresaId)
+      .maybeSingle(),
+    db
+      .from("quotes")
+      .select("id, status, generated_work_order_id")
+      .eq("empresa_id", o.empresaId)
+      .eq("crm_lead_id", o.leadId)
+      .neq("status", "convertido"),
+  ]);
+  if (!cfg) throw new Error("configuração da Alice não encontrada");
+  if ((lead as { linked_work_order_id?: string | null } | null)?.linked_work_order_id)
+    throw new Error("o lead já tem OS");
+  const { horaLivreNoPeriodo, reservarHorario } = await import("@/lib/alice/agendamento.server");
+  const ctx = {
+    admin: db,
+    empresaId: o.empresaId,
+    // Notas e histórico da OS dizem "Tatiana (IA)"; nada é enviado ao cliente (sem processador).
+    cfg: { ...(cfg as Record<string, unknown>), nome: NOME_GERENTE },
+    conversaId: o.conversaId,
+    leadId: o.leadId,
+    contatoId:
+      (conv as { whatsapp_contact_id?: string | null } | null)?.whatsapp_contact_id ?? null,
+    agora: new Date(),
+    ultimaDoCliente: null,
+    etapas: [],
+    passagem: null,
+    saida: [],
+    agendouFollowup: false,
+    notas: [],
+    midias: new Set<string>(),
+  } as unknown as Parameters<typeof reservarHorario>[0];
+  const hora = d.hora ?? (d.periodo ? await horaLivreNoPeriodo(ctx, d.data, d.periodo) : null);
+  if (!hora)
+    throw new Error(
+      `sem horário livre em ${dataCurta(d.data)}${d.periodo ? ` de ${d.periodo === "manha" ? "manhã" : "tarde"}` : ""}`,
+    );
+  const r = await reservarHorario(ctx, {
+    data: d.data,
+    hora,
+    ...(d.orcamento ? { orcamentos: [d.orcamento] } : {}),
+    pagamento: d.pagamento,
+    ...(d.parcelas ? { parcelas: d.parcelas } : {}),
+    nome_completo: d.nome,
+    cep: d.cep,
+    numero: d.numero,
+    ...(d.complemento ? { complemento: d.complemento } : {}),
+  });
+  const os = (ctx as { osReservada?: { id: string; os_number: string } }).osReservada;
+  if (r.erro || !os) throw new Error(r.texto.slice(0, 280));
+  // Vendedora que ficou na OS (vale para a comissão): aparece no "Feito pela Tatiana".
+  const { data: wo } = await db
+    .from("work_orders")
+    .select("salespeople(name)")
+    .eq("id", os.id)
+    .maybeSingle();
+  const vendedora =
+    (wo as { salespeople?: { name?: string | null } | null } | null)?.salespeople?.name ?? null;
+  // Horário escolhido pela Tatiana (a conversa só disse o período): o cliente ainda não sabe.
+  let followupId: string | null = null;
+  if (!d.hora) {
+    const t = textoConfirmarHorario({ osNumero: os.os_number, data: d.data, hora, nome: d.nome });
+    const { data: fu } = await db
+      .from("crm_followups")
+      .insert({
+        empresa_id: o.empresaId,
+        crm_lead_id: o.leadId,
+        conversa_id: o.conversaId,
+        scheduled_at: o.quandoTarefa ?? new Date(`${o.hoje}T21:00:00-03:00`).toISOString(),
+        status: "Pendente",
+        responsavel: "equipe",
+        trilha: "G",
+        etapa: "G1",
+        canal: "equipe",
+        origem: "gerente",
+        mensagem: t.mensagem,
+        motivo: t.motivo,
+        prioridade: 1,
+        tarefa_tipo: "mensagem",
+        notes: `${NOME_GERENTE}: ${t.motivo}`,
+      })
+      .select("id")
+      .single();
+    followupId = (fu as { id: string } | null)?.id ?? null;
+  }
+  return {
+    referencia: {
+      work_order_id: os.id,
+      os_number: os.os_number,
+      ...(followupId ? { followup_id: followupId } : {}),
+    },
+    antes: { lead, quotes: quotes ?? [] },
+    depois: {
+      work_order_id: os.id,
+      os_number: os.os_number,
+      data: d.data,
+      hora,
+      vendedora,
+      horario_escolhido: !d.hora,
+    },
+  };
+}
+
+/** Desfazer do B7: cancela a OS (sem visita concluída nem pagamento) e devolve orçamento e lead. */
+async function desfazerVirarOs(
+  db: Db,
+  empresaId: string,
+  a: LinhaAcao,
+  osId: string,
+): Promise<void> {
+  const [{ data: visitas }, { data: pags }] = await Promise.all([
+    db.from("visits").select("id, status").eq("work_order_id", osId).eq("empresa_id", empresaId),
+    db
+      .from("payments")
+      .select("id")
+      .eq("work_order_id", osId)
+      .eq("empresa_id", empresaId)
+      .eq("is_active", true)
+      .limit(1),
+  ]);
+  const vs = (visitas ?? []) as Array<{ id: string; status: string | null }>;
+  if (vs.some((v) => v.status === "Concluído") || (pags ?? []).length)
+    throw new Error("A OS já tem visita concluída ou pagamento: cancele pela própria OS.");
+  const agora = new Date().toISOString();
+  const motivo = `Desfeito no app (OS criada pela ${NOME_GERENTE})`;
+  const { error } = await db
+    .from("work_orders")
+    .update({ status: "Cancelada", cancelled_at: agora, cancellation_reason: motivo })
+    .eq("id", osId)
+    .eq("empresa_id", empresaId);
+  if (error) throw new Error(error.message);
+  await db
+    .from("visits")
+    .update({ status: "Cancelado" })
+    .eq("work_order_id", osId)
+    .eq("empresa_id", empresaId);
+  const antes = (a.antes ?? {}) as {
+    lead?: Record<string, unknown> | null;
+    quotes?: Array<{ id: string; status: string; generated_work_order_id: string | null }>;
+  };
+  for (const q of antes.quotes ?? [])
+    await db
+      .from("quotes")
+      .update({ status: q.status, generated_work_order_id: q.generated_work_order_id } as never)
+      .eq("id", q.id)
+      .eq("empresa_id", empresaId)
+      .eq("generated_work_order_id", osId);
+  if (antes.lead && a.crm_lead_id)
+    await db
+      .from("crm_leads")
+      .update(antes.lead as never)
+      .eq("id", a.crm_lead_id)
+      .eq("empresa_id", empresaId)
+      .eq("linked_work_order_id", osId);
+  const fu = String(a.referencia["followup_id"] ?? "");
+  if (/^[0-9a-f-]{36}$/i.test(fu))
+    await db
+      .from("crm_followups")
+      .update({ status: "Cancelada", result: "OS desfeita", completed_at: agora })
+      .eq("id", fu)
+      .eq("empresa_id", empresaId)
+      .eq("status", "Pendente");
+  await db.from("work_order_history").insert({
+    empresa_id: empresaId,
+    work_order_id: osId,
+    event_type: "Cancelamento",
+    description: `OS cancelada. Motivo: ${motivo}`,
+  });
+  // Google Agenda: as visitas canceladas saem da agenda (se a empresa usa).
+  const { executarNaEmpresa } = await import("@/lib/request-db.server");
+  await executarNaEmpresa({ db, empresaId, userId: "" }, async () => {
+    const { syncEvent } = await import("@/lib/calendar.server");
+    for (const v of vs) await syncEvent("visit", v.id);
+  }).catch((e) => console.error("Tatiana: agenda Google não sincronizada ao desfazer", e));
+}
+
 /**
  * Executa (modo ativo) ou registra "faria" (modo teste) as ações de um lead da noite. Cada ação
  * feita resolve a cobrança do mesmo tipo criada nesta noite, com o motivo "Feito pela Tatiana".
@@ -179,6 +395,8 @@ export async function executarAcoesDaNoite(
     hoje: string;
     acoes: AcaoPlanejada[];
     cobrancas: ReadonlyMap<TipoCobranca, string>;
+    /** Hora da tarefa "confirmar o horário" (próximo horário útil da manhã). */
+    quandoTarefa?: string;
   },
 ): Promise<{ feitas: number; faria: number; falhou: number }> {
   const saida = { feitas: 0, faria: 0, falhou: 0 };
@@ -269,11 +487,25 @@ export async function desfazerAcao(
     .eq("id", o.acaoId)
     .eq("empresa_id", o.empresaId)
     .maybeSingle();
-  const a = data as LinhaAcao | null;
-  if (!a) throw new Error("Ação não encontrada.");
+  const bruto = data as LinhaAcao | null;
+  if (!bruto) throw new Error("Ação não encontrada.");
+  // JSON pode chegar como texto (cliente sem conversão de jsonb): normaliza antes de usar.
+  const objeto = <T>(v: unknown): T => (typeof v === "string" ? (JSON.parse(v) as T) : (v as T));
+  const a: LinhaAcao = {
+    ...bruto,
+    referencia: objeto<LinhaAcao["referencia"]>(bruto.referencia) ?? {},
+    antes: objeto<LinhaAcao["antes"]>(bruto.antes),
+    depois: objeto<LinhaAcao["depois"]>(bruto.depois),
+  };
+  const idDe = (chave: string) => {
+    const v = String(a.referencia[chave] ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(v))
+      throw new Error("Registro da ação incompleto: desfaça pelo app.");
+    return v;
+  };
   if (a.situacao !== "feita") throw new Error("Essa ação não está feita (nada a desfazer).");
   if (a.tipo === "previsao_pagamento") {
-    const osId = String(a.referencia["work_order_id"] ?? "");
+    const osId = idDe("work_order_id");
     const { data: wo } = await db
       .from("work_orders")
       .select("negotiated_payment_method")
@@ -297,7 +529,7 @@ export async function desfazerAcao(
       .eq("empresa_id", o.empresaId);
     if (error) throw new Error(error.message);
   } else if (a.tipo === "orcamento_rascunho") {
-    const quoteId = String(a.referencia["quote_id"] ?? "");
+    const quoteId = idDe("quote_id");
     const { data: q } = await db
       .from("quotes")
       .select("status, generated_work_order_id")
@@ -312,7 +544,7 @@ export async function desfazerAcao(
       if (error) throw new Error(error.message);
     }
   } else if (a.tipo === "cadastro") {
-    const clienteId = String(a.referencia["customer_id"] ?? "");
+    const clienteId = idDe("customer_id");
     const depois = (a.depois ?? {}) as Record<string, string>;
     const antes = (a.antes ?? {}) as Record<string, string | null>;
     const { data: c } = await db
@@ -333,6 +565,8 @@ export async function desfazerAcao(
         .eq("empresa_id", o.empresaId);
       if (error) throw new Error(error.message);
     }
+  } else if (a.tipo === "virar_os") {
+    await desfazerVirarOs(db, o.empresaId, a, idDe("work_order_id"));
   } else {
     throw new Error("Essa ação não tem Desfazer automático.");
   }
@@ -365,6 +599,9 @@ export type AcaoFeita = {
   feitaEm: string;
   leadId: string | null;
   erro: string | null;
+  /** B7: OS criada e quem ficou como vendedora (vale para a comissão). */
+  osNumero: string | null;
+  vendedora: string | null;
 };
 
 /** Ações desde `desdeIso` (feitas, "faria", desfeitas e falhas), as mais novas primeiro. */
@@ -375,15 +612,13 @@ export async function acoesDesde(
 ): Promise<AcaoFeita[]> {
   const { data } = await db
     .from("comercial_acoes")
-    .select("id, tipo, situacao, titulo, frase, feita_em, crm_lead_id, erro")
+    .select("id, tipo, situacao, titulo, frase, feita_em, crm_lead_id, erro, depois")
     .eq("empresa_id", empresaId)
     .gte("feita_em", desdeIso)
     .order("feita_em", { ascending: false })
     .limit(50);
   return (
-    (data ?? []) as Array<
-      Omit<LinhaAcao, "empresa_id" | "cobranca_id" | "referencia" | "antes" | "depois">
-    >
+    (data ?? []) as Array<Omit<LinhaAcao, "empresa_id" | "cobranca_id" | "referencia" | "antes">>
   ).map((a) => ({
     id: a.id,
     tipo: a.tipo,
@@ -394,5 +629,15 @@ export async function acoesDesde(
     feitaEm: a.feita_em,
     leadId: a.crm_lead_id,
     erro: a.erro,
+    ...(() => {
+      const dep = (typeof a.depois === "string" ? JSON.parse(a.depois) : a.depois) as {
+        os_number?: string;
+        vendedora?: string | null;
+      } | null;
+      return {
+        osNumero: a.tipo === "virar_os" ? (dep?.os_number ?? null) : null,
+        vendedora: a.tipo === "virar_os" ? (dep?.vendedora ?? null) : null,
+      };
+    })(),
   }));
 }
