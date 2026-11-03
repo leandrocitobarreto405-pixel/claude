@@ -21,6 +21,7 @@ import {
   tempoTexto,
   textoPushCobrancas,
   textoPushTarefas,
+  saneaAcertos,
 } from "./tatiana";
 
 test("tempoTexto: minutos, horas e dias", () => {
@@ -275,4 +276,85 @@ test("equipe única: nomes no recado e push para a equipe", () => {
     textoPushTarefas(5, null, true).titulo,
     "A Tatiana separou 5 tarefas pra equipe hoje",
   );
+});
+
+test("acertos (02/11): fechou só com data, orçamento só com preço, sem texto não entra, um por assunto, feriado vira remarcar", () => {
+  const o = {
+    bloqueados: new Map([["2026-11-02", "Finados"]]),
+    livresDepois: (d: string) =>
+      d === "2026-11-02" ? ["terça 03/11 (2 horários)", "quarta 04/11 (3 horários)"] : [],
+  };
+  const base = { itens: [], cadastro: [], data: "", proximo_passo: "" };
+  // "Vou aprovar e volto para agendar" não é fechou: aguardando, sem cobrança.
+  let r = saneaAcertos(
+    [{ ...base, tipo: "fechou_sem_os", texto: "Disse que aprova e volta para agendar." }],
+    o,
+  );
+  assert.equal(r.acertos.length, 0);
+  assert.equal(r.aguardando, true);
+  assert.deepEqual(
+    r.descartes.map((d) => d.motivo),
+    ["fechou sem data combinada: aguardando"],
+  );
+  // Sem texto não grava.
+  r = saneaAcertos([{ ...base, tipo: "fechou_sem_os", texto: " ", data: "2026-11-10" }], o);
+  assert.equal(r.acertos.length, 0);
+  assert.equal(r.aguardando, false);
+  assert.deepEqual(
+    r.descartes.map((d) => d.motivo),
+    ["sem texto"],
+  );
+  // Sem preço na conversa não é "orçamento sem app": é o próximo passo.
+  r = saneaAcertos(
+    [
+      {
+        ...base,
+        tipo: "orcamento_sem_app",
+        texto: "Falta o orçamento do tapete no app.",
+        itens: [{ descricao: "tapete", quantidade: 1, valor: null }],
+        proximo_passo: "Pedir a medida do tapete",
+      },
+    ],
+    o,
+  );
+  assert.equal(r.acertos.length, 0);
+  assert.equal(r.proximoPasso, "Pedir a medida do tapete");
+  // Fechou + orçamento sem app: uma cobrança só, com os itens do orçamento.
+  r = saneaAcertos(
+    [
+      { ...base, tipo: "fechou_sem_os", texto: "Fechou para 10/11.", data: "2026-11-10" },
+      {
+        ...base,
+        tipo: "orcamento_sem_app",
+        texto: "O preço de R$ 320 foi passado na conversa.",
+        itens: [{ descricao: "sofá 3 lugares", quantidade: 1, valor: 320 }],
+      },
+    ],
+    o,
+  );
+  assert.equal(r.acertos.length, 1);
+  assert.equal(r.acertos[0]!.tipo, "fechou_sem_os");
+  assert.equal(r.acertos[0]!.data, "2026-11-10");
+  assert.deepEqual(r.acertos[0]!.juntou, ["orcamento_sem_app"]);
+  assert.equal(r.acertos[0]!.itens[0]!.valor, 320);
+  assert.match(r.acertos[0]!.texto, /Fechou para 10\/11\. O preço de R\$ 320/);
+  // Data em feriado bloqueado: vira "remarcar" com os próximos horários livres.
+  r = saneaAcertos(
+    [{ ...base, tipo: "fechou_sem_os", texto: "Fechou para 02/11.", data: "2026-11-02" }],
+    o,
+  );
+  assert.equal(r.acertos[0]!.tipo, "remarcar");
+  assert.match(r.acertos[0]!.texto, /02\/11, Finados, sem atendimento/);
+  assert.match(r.acertos[0]!.texto, /terça 03\/11 \(2 horários\), quarta 04\/11/);
+  assert.deepEqual(r.acertos[0]!.juntou, ["fechou_sem_os"]);
+  // Data livre fica como está; dois do mesmo tipo viram um.
+  r = saneaAcertos(
+    [
+      { ...base, tipo: "pagamento", texto: "Combinou 5x no cartão.", data: "" },
+      { ...base, tipo: "pagamento", texto: "R$ 240.", data: "" },
+    ],
+    o,
+  );
+  assert.equal(r.acertos.length, 1);
+  assert.equal(r.acertos[0]!.texto, "Combinou 5x no cartão. R$ 240.");
 });

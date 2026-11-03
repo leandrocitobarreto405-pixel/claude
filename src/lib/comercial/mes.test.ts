@@ -212,6 +212,11 @@ describe("mês: agenda e alertas", () => {
         { nome: "Sumiu", n: 2 },
       ],
       perdidos14d: 8,
+      campanhas: [
+        { id: "k1", nome: "Retomada 60 dias", enviados: 151, descadastros: 14 },
+        { id: "k2", nome: "Calendário", enviados: 50, descadastros: 2 },
+        { id: "k3", nome: "Teste pequeno", enviados: 10, descadastros: 3 },
+      ],
     });
     assert.deepEqual(
       alertas.map((a) => a.chave),
@@ -223,8 +228,11 @@ describe("mês: agenda e alertas", () => {
         "queda_conversao:higienizacao:2026-11-02",
         "objecao:2026-11-02",
         "agenda_vazia:2026-11-02",
+        "descadastro:k1",
       ],
     );
+    assert.equal(alertas[7]!.titulo, "Descadastro de 9,3% na campanha Retomada 60 dias");
+    assert.match(alertas[7]!.texto, /^14 de 151 pediram para parar \(limite 5%\)/);
     assert.equal(
       alertas[3]!.texto,
       "3 nos últimos 7 dias contra uma média de 10 por semana nas 4 anteriores.",
@@ -234,7 +242,7 @@ describe("mês: agenda e alertas", () => {
       "10% de quem recebeu orçamento fechou nos últimos 28 dias, contra 30% nos 28 anteriores.",
     );
     const push = textoPushAlertas(alertas);
-    assert.equal(push.titulo, "Tatiana: 7 alertas do mês");
+    assert.equal(push.titulo, "Tatiana: 8 alertas do mês");
     assert.equal(textoPushAlertas([alertas[1]!]).titulo, "Tatiana: Agenda vazia em 03/11");
   });
   it("sem sinal, sem alerta", () => {

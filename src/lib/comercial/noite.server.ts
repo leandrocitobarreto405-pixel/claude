@@ -25,6 +25,7 @@ import {
   type MotivoEntrada,
 } from "./furos";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
+import { dataCurta, diaSemanaDe } from "@/lib/feriados";
 import { MODELO_FICHA, MODELO_HAIKU, PRECO_HAIKU, custoUsd } from "./ficha";
 import {
   ESQUEMA_DECISAO,
@@ -49,6 +50,7 @@ import {
   type DecisaoIA,
   type EstadoApp,
   type TipoCobranca,
+  saneaAcertos,
 } from "./tatiana";
 
 type Db = SupabaseClient;
@@ -762,6 +764,10 @@ type ContextoNoite = {
   /** Modo ativo: os toques da Alice decididos pela noite são executados pela fila. */
   modoAtivo: boolean;
   especiais: EspeciaisDaNoite;
+  /** Feriados bloqueados nos próximos 30 dias (data → nome), para os acertos com data. */
+  bloqueados: ReadonlyMap<string, string>;
+  /** Próximos dias com horário livre depois de uma data (até 3), pela agenda real. */
+  livresDepois: (data: string) => string[];
 };
 
 async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<number> {
@@ -803,12 +809,51 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         anuncio: est.anuncio,
       })
     : [];
+  // Regras das cobranças (02/11): fechou só com data combinada (senão aguardando), orçamento sem
+  // app só com preço (senão próximo passo), nada sem texto, uma por assunto, feriado vira remarcar.
+  const saneado = saneaAcertos(decisao.acertos, {
+    bloqueados: ctx.bloqueados,
+    livresDepois: ctx.livresDepois,
+  });
+  {
+    const r = (noite.resumo ?? {}) as {
+      acertosDescartados?: Record<string, number>;
+      acertosJuntados?: number;
+    };
+    const acertosDescartados = { ...(r.acertosDescartados ?? {}) };
+    for (const d of saneado.descartes)
+      acertosDescartados[d.motivo] = (acertosDescartados[d.motivo] ?? 0) + 1;
+    noite.resumo = {
+      ...r,
+      acertosDescartados,
+      acertosJuntados:
+        (r.acertosJuntados ?? 0) + saneado.acertos.filter((a) => a.juntou.length).length,
+    };
+  }
+  if (est.aberto && !est.bloqueado && saneado.proximoPasso) {
+    if (decisao.acao === "esperar") {
+      decisao.acao = "chamar";
+      decisao.quando = "";
+      decisao.responsavel = "equipe";
+    }
+    if (decisao.acao === "chamar" || decisao.acao === "agendar")
+      decisao.motivo = `Próximo passo: ${saneado.proximoPasso} · ${decisao.motivo}`.slice(0, 300);
+  } else if (est.aberto && !est.bloqueado && saneado.aguardando && decisao.acao === "esperar") {
+    decisao.acao = "agendar";
+    decisao.quando = `${somarDias(noite.noite, 2)}T09:00`;
+    decisao.responsavel = "equipe";
+    decisao.motivo =
+      `Aguardando: o cliente disse que aprova e volta para agendar; confirmar · ${decisao.motivo}`.slice(
+        0,
+        300,
+      );
+  }
   // Acertos (31/10): só de conversa com o cliente nos últimos 7 dias; cadastro só o do sistema (OS
   // agendada sem endereço ou CEP); pagamento só com OS; o que o app já mostra certo não entra.
   const conversaRecente =
     est.ultimaDoCliente !== null && Date.now() - Date.parse(est.ultimaDoCliente) <= 7 * 86_400_000;
   const acertos: Array<{ tipo: TipoCobranca; texto: string; dados: Record<string, unknown> }> = [
-    ...(conversaRecente ? decisao.acertos : [])
+    ...(conversaRecente ? saneado.acertos : [])
       .filter((a) => a.tipo !== "cadastro")
       .filter((a) => !(a.tipo === "orcamento_sem_app" && est.estado.orcamentos.length))
       .filter((a) => !(a.tipo === "fechou_sem_os" && est.temOs))
@@ -816,7 +861,12 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       .map((a) => ({
         tipo: a.tipo as TipoCobranca,
         texto: a.texto.slice(0, 400),
-        dados: { itens: a.itens, prioridade: decisao.prioridade },
+        dados: {
+          itens: a.itens,
+          prioridade: decisao.prioridade,
+          ...(a.data ? { data: a.data } : {}),
+          ...(a.juntou.length ? { juntou: a.juntou } : {}),
+        },
       })),
     ...(est.osSemEndereco
       ? [
@@ -1756,7 +1806,7 @@ async function gastoDoMes(db: Db, empresaId: string, agora: Date): Promise<numbe
 
 async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
   const { contextoDaEmpresa } = await import("./analise.server");
-  const [ctx, { data: ia }, pessoas, { data: cfg }, bloqueados] = await Promise.all([
+  const [ctx, { data: ia }, pessoas, { data: cfg }, bloqueadosMapa] = await Promise.all([
     contextoDaEmpresa(db, noite.empresa_id),
     db.from("ia_configuracoes").select("ativo").eq("empresa_id", noite.empresa_id).maybeSingle(),
     pessoasDaEmpresa(db, noite.empresa_id),
@@ -1767,10 +1817,24 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       .maybeSingle(),
     // Feriados bloqueados (02/11): tarefa nenhuma cai neles; vai para o próximo dia útil.
     (async () => {
-      const { diasBloqueadosLista } = await import("@/lib/feriados.server");
-      return diasBloqueadosLista(db, noite.empresa_id, noite.noite, 45);
+      const { bloqueadosNoPeriodo } = await import("@/lib/feriados.server");
+      return bloqueadosNoPeriodo(db, noite.empresa_id, noite.noite, somarDias(noite.noite, 45));
     })(),
   ]);
+  // Agenda real dos próximos 30 dias (03/11): os acertos com data em dia bloqueado sugerem os
+  // próximos horários livres. Se falhar, segue sem sugestão.
+  const agenda = await (async () => {
+    const { agendaAteFimDoMes } = await import("./mes.server");
+    const a = await agendaAteFimDoMes(
+      db,
+      noite.empresa_id,
+      noite.noite,
+      somarDias(noite.noite, 30),
+      (cfg as { dias_uteis?: number[] | null } | null)?.dias_uteis ?? [1, 2, 3, 4, 5, 6],
+    );
+    return a.dias;
+  })().catch(() => [] as Array<{ data: string; livres: number; feriado?: string }>);
+  const bloqueados = [...bloqueadosMapa.keys()];
   const config = cfg as
     | (Pick<Config, "dias_uteis" | "hora_inicio" | "hora_fim"> & {
         equipe_unica?: boolean;
@@ -1795,6 +1859,15 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       esquecidos:
         (noite.resumo as { especiais?: EspeciaisDaNoite } | null)?.especiais?.esquecidos ?? {},
     },
+    bloqueados: bloqueadosMapa,
+    livresDepois: (data: string) =>
+      agenda
+        .filter((d) => d.data > data && d.livres > 0 && !d.feriado)
+        .slice(0, 3)
+        .map(
+          (d) =>
+            `${diaSemanaDe(d.data)} ${dataCurta(d.data)} (${d.livres} ${d.livres === 1 ? "horário" : "horários"})`,
+        ),
     nomesAtendentes: (
       (vendedoras ?? []) as Array<{ name: string; user_id: string | null; eh_ia: boolean | null }>
     )

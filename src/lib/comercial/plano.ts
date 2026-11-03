@@ -5,7 +5,7 @@
  * "Aprovar" só monta um rascunho no Marketing.
  */
 import { OPCOES_LISTAS, modeloSugerido, type EntradaNovaCampanha } from "@/lib/campanha-nova";
-import type { NumerosCampanha } from "./campanhas";
+import { LIMITE_DESCADASTRO_PCT, type NumerosCampanha } from "./campanhas";
 
 export const TIPOS_ACAO = ["oferta_prazo", "encaixe", "outro_servico", "reativacao"] as const;
 export type TipoAcao = (typeof TIPOS_ACAO)[number];
@@ -193,7 +193,7 @@ export function instrucoesPlano(empresa: string, limitePct: number, travaDias: n
     "- encaixe: dia vazio na agenda; orçamento recente (N1, faixa 10) ou conversou e não pediu orçamento (CV, faixa 30), com data certa.",
     "- outro_servico: clientes de 91 dias a 1 ano (C4): quem higienizou, oferecer impermeabilização, e vice-versa.",
     "- reativacao: clientes de 6 a 12 meses (C4) ou mais de 1 ano (C5).",
-    `Regras: desconto em % nunca acima de ${String(limitePct).replace(".", ",")}%; quem recebeu mensagem nos últimos ${travaDias} dias e quem pediu para parar ficam de fora pelo sistema (use o número "podem" como tamanho); uma lista por ação; não repita uma lista que já tem campanha aberta; proponha só o que faz diferença para a meta ou para a agenda. Sem motivo real, proponha menos ações (até nenhuma).`,
+    `Regras: desconto em % nunca acima de ${String(limitePct).replace(".", ",")}%; quem recebeu mensagem nos últimos ${travaDias} dias e quem pediu para parar ficam de fora pelo sistema (use o número "podem" como tamanho); uma lista por ação; não repita uma lista que já tem campanha aberta; proponha só o que faz diferença para a meta ou para a agenda. Sem motivo real, proponha menos ações (até nenhuma). Lista cuja última campanha teve descadastro acima de ${LIMITE_DESCADASTRO_PCT}% (pediram para parar) não recebe campanha nova até rever texto e frequência; se for o caso, diga isso no porque.`,
     "Campos: titulo curto; porque = o número que justifica (falta da meta, dia vazio, lista parada); texto = a oferta em uma frase, como o dono explicaria à equipe (o modelo da Meta é fixo; a condição entra na variável do modelo); condicao_texto = a condição que vai na mensagem (ex.: '10% até sexta', 'encaixe quinta à tarde com 15%'); condicao_pct = o desconto em % (0 se a condição não for desconto); dias_a_frente = quantos dias até o envio (1 a 7); hora_inicio só quando a hora importa (encaixe), senão ''.",
     "Escreva em português do Brasil, direto, sem nomes de clientes e sem inventar números: use os informados.",
   ].join("\n");

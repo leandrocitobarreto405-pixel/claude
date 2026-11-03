@@ -4,6 +4,7 @@
  * certo, recado do dia por pessoa e os textos dos pushes. A leitura do banco e as chamadas à IA
  * ficam em noite.server.ts. Nada aqui envia mensagem a cliente.
  */
+import { dataCurta } from "@/lib/feriados";
 
 /** Nome que a equipe vê (no código e no banco continua "comercial"/"gerente"). */
 export const NOME_GERENTE = "Tatiana";
@@ -182,8 +183,13 @@ export type DecisaoIA = {
     texto: string;
     itens: ItemLido[];
     cadastro: CampoCadastro[];
+    /** fechou_sem_os: a data combinada; remarcar: a data nova pedida (AAAA-MM-DD). Senão vazio. */
+    data: string;
+    /** Preço ainda não passado: o que a equipe deve fazer (ex.: pedir a medida do tapete). */
+    proximo_passo: string;
   }>;
 };
+export type AcertoIA = DecisaoIA["acertos"][number];
 
 const s = { type: "string" } as const;
 
@@ -231,7 +237,7 @@ export const ESQUEMA_DECISAO = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["tipo", "texto", "itens", "cadastro"],
+        required: ["tipo", "texto", "itens", "cadastro", "data", "proximo_passo"],
         properties: {
           tipo: {
             type: "string",
@@ -245,6 +251,8 @@ export const ESQUEMA_DECISAO = {
             ],
           },
           texto: s,
+          data: s,
+          proximo_passo: s,
           itens: {
             type: "array",
             items: {
@@ -298,12 +306,13 @@ export function instrucoesDecisao(o: {
     '   motivo: 1 frase curta, para a equipe, do porquê (ex.: "pediu para falar amanhã depois das 18h").',
     "   prioridade: 1 (mais urgente: cliente quente, data próxima, dinheiro alto) a 5.",
     `4. mensagem (só para chamar ou agendar; senão vazio): o que dizer, pronto para copiar. Cite algo desta conversa, empatia primeiro se o cliente contou um problema, traga algo novo e útil (um horário, um resumo para quem decide, um cuidado), termine com UMA pergunta. Até 3 frases curtas. Pode usar o primeiro nome do cliente. Proibido: "ficou alguma dúvida", "passando para saber", "conseguiu decidir", "está aí?". Ao falar de preço, cite o Pix (${pix}). Nunca invente desconto ou horário exato que não esteja na conversa.`,
-    "5. acertos: compare a conversa com o app e liste só o que está faltando no app (lista vazia se nada):",
-    "   orcamento_sem_app: alguém passou preço na conversa e não há orçamento no app (itens = o que foi orçado, com quantidade e valor lidos da conversa);",
-    "   fechou_sem_os: o cliente fechou (aceitou e combinou data) e não há OS;",
-    "   remarcar: o cliente pediu outra data e a visita no app continua na data antiga;",
+    "5. acertos: compare a conversa com o app e liste só o que está faltando no app (lista vazia se nada). Um acerto por assunto: nunca dois para a mesma venda. texto nunca vazio.",
+    "   orcamento_sem_app: alguém passou um valor em R$ na conversa e não há orçamento no app (itens = o que foi orçado, com quantidade e valor lidos da conversa; o valor é obrigatório). Se NÃO saiu valor, não é orcamento_sem_app: preencha proximo_passo com o que a equipe deve fazer (ex.: pedir a medida do tapete), use acao chamar e escreva a mensagem pronta;",
+    '   fechou_sem_os: o cliente confirmou que quer fazer E deu ou aceitou uma data (data = AAAA-MM-DD), e não há OS. "Vou aprovar e volto para agendar" NÃO é fechou: é aguardando (acao agendar, retorno em 2 dias), sem acerto;',
+    "   remarcar: o cliente pediu outra data (data = a data nova, AAAA-MM-DD) e a visita no app continua na data antiga;",
     "   concluir_os: o serviço foi feito (conversa diz) e a visita não está concluída;",
     "   pagamento: o cliente pagou ou combinou o pagamento e não há pagamento lançado;",
+    "   data: só em fechou_sem_os e remarcar; senão vazio. proximo_passo: só quando faltou o preço; senão vazio.",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
   ].join("\n");
 }
@@ -492,6 +501,116 @@ export function cobrancasVisiveis<T extends { id: string; tipo: TipoCobranca; pr
     )
     .slice(0, limite)
     .map((c) => c.id);
+}
+
+// ---------------------------------------------------------------- acertos (regras de 02/11)
+
+export type AcertoLido = {
+  tipo: AcertoIA["tipo"];
+  texto: string;
+  itens: ItemLido[];
+  cadastro: CampoCadastro[];
+  /** Data combinada (fechou_sem_os) ou pedida (remarcar), AAAA-MM-DD, se veio. */
+  data: string | null;
+  /** Tipos juntados neste acerto (uma cobrança por lead e assunto). */
+  juntou: AcertoIA["tipo"][];
+};
+
+export type AcertosSaneados = {
+  acertos: AcertoLido[];
+  /** O que não virou cobrança, com o motivo (vai para o resumo da noite). */
+  descartes: Array<{ tipo: AcertoIA["tipo"]; motivo: string }>;
+  /** "Fechou" sem data combinada é aguardando: a noite garante um retorno em 2 dias. */
+  aguardando: boolean;
+  /** Preço ainda não passado: a tarefa da equipe é o próximo passo, com a mensagem pronta. */
+  proximoPasso: string | null;
+};
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const temPreco = (itens: ItemLido[]) =>
+  itens.some((i) => typeof i.valor === "number" && i.valor > 0);
+
+/**
+ * Regras das cobranças (pedido de 02/11): fechou_sem_os só com data combinada (senão é aguardando),
+ * orcamento_sem_app só com preço passado (senão é o próximo passo), nada sem texto, uma cobrança
+ * por lead e assunto (fechou + orçamento viram uma), e data em dia bloqueado vira "remarcar" com os
+ * próximos horários livres.
+ */
+export function saneaAcertos(
+  acertos: AcertoIA[],
+  o: {
+    /** Dias sem atendimento (feriado bloqueado): data → nome. */
+    bloqueados: ReadonlyMap<string, string>;
+    /** Próximos dias com horário livre depois da data (texto curto por dia). */
+    livresDepois: (data: string) => string[];
+  },
+): AcertosSaneados {
+  const saida: AcertosSaneados = {
+    acertos: [],
+    descartes: [],
+    aguardando: false,
+    proximoPasso: null,
+  };
+  const lidos: AcertoLido[] = [];
+  for (const a of acertos) {
+    const texto = (a.texto ?? "").trim();
+    const itens = (a.itens ?? []).filter((i) => i && String(i.descricao ?? "").trim());
+    const data = DATA_ISO.test((a.data ?? "").trim()) ? a.data.trim() : null;
+    if (!texto) {
+      saida.descartes.push({ tipo: a.tipo, motivo: "sem texto" });
+      continue;
+    }
+    if (a.tipo === "fechou_sem_os" && !data) {
+      saida.descartes.push({ tipo: a.tipo, motivo: "fechou sem data combinada: aguardando" });
+      saida.aguardando = true;
+      continue;
+    }
+    if (a.tipo === "orcamento_sem_app" && !temPreco(itens)) {
+      saida.descartes.push({ tipo: a.tipo, motivo: "sem preço na conversa: próximo passo" });
+      const passo = (a.proximo_passo ?? "").trim();
+      if (passo && !saida.proximoPasso) saida.proximoPasso = passo.slice(0, 200);
+      continue;
+    }
+    const igual = lidos.find((l) => l.tipo === a.tipo);
+    if (igual) {
+      igual.texto = `${igual.texto} ${texto}`.slice(0, 400);
+      igual.itens = [...igual.itens, ...itens];
+      igual.cadastro = [...igual.cadastro, ...(a.cadastro ?? [])];
+      igual.data = igual.data ?? data;
+      continue;
+    }
+    lidos.push({ tipo: a.tipo, texto, itens, cadastro: a.cadastro ?? [], data, juntou: [] });
+  }
+  // Fechou + orçamento sem app são a mesma venda: uma cobrança só (fechou, com os itens do orçamento).
+  const fechou = lidos.find((l) => l.tipo === "fechou_sem_os");
+  const orc = lidos.find((l) => l.tipo === "orcamento_sem_app");
+  if (fechou && orc) {
+    fechou.texto = `${fechou.texto} ${orc.texto}`.slice(0, 400);
+    fechou.itens = fechou.itens.length ? fechou.itens : orc.itens;
+    fechou.juntou.push("orcamento_sem_app");
+    lidos.splice(lidos.indexOf(orc), 1);
+  }
+  // Data em dia bloqueado: vira "remarcar" com os próximos horários livres.
+  for (const l of lidos) {
+    if (!l.data || (l.tipo !== "fechou_sem_os" && l.tipo !== "remarcar")) continue;
+    const nome = o.bloqueados.get(l.data);
+    if (!nome) continue;
+    const livres = o.livresDepois(l.data);
+    const sugestao = livres.length
+      ? `Próximos horários livres: ${livres.join(", ")}.`
+      : "Sem horário livre nos próximos dias: ver a agenda.";
+    l.texto =
+      `O cliente pediu ${dataCurta(l.data)}, ${nome}, sem atendimento: combinar outra data. ${sugestao} ${l.texto}`.slice(
+        0,
+        400,
+      );
+    if (l.tipo === "fechou_sem_os") {
+      l.juntou.push("fechou_sem_os");
+      l.tipo = "remarcar";
+    }
+  }
+  saida.acertos = lidos;
+  return saida;
 }
 
 /** Últimos 8 dígitos do telefone (para achar orçamento solto do mesmo cliente). */
