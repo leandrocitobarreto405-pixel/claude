@@ -182,6 +182,10 @@ export async function executarAcoesDaNoite(
   },
 ): Promise<{ feitas: number; faria: number; falhou: number }> {
   const saida = { feitas: 0, faria: 0, falhou: 0 };
+  // Sem o registro (tabela ainda não criada ou fora do ar), nada é feito: toda ação precisa do
+  // seu Desfazer antes de mexer na OS, no orçamento ou no cadastro.
+  const { error: semRegistro } = await db.from("comercial_acoes").select("id").limit(1);
+  if (semRegistro) return { ...saida, falhou: o.acoes.length };
   for (const acao of o.acoes) {
     const onde: Onde = {
       empresaId: o.empresaId,
