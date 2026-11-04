@@ -198,6 +198,37 @@ export function campanhaSemResposta(l: {
   return l.entrada === "ativo" && !l.respondeuEm && l.recebeuDisparo;
 }
 
+/** Lacuna para preencher na mensagem ("R$ ___", "[nome]", "{{1}}", "R$ X"): nunca sai pronta. */
+const LACUNA = /_{2,}|R\$\s*(?:[_?]|x{1,3}\b|\.{2,})|\[[^\]\n]{1,60}\]|\{\{[^}]*\}\}|\bX{2,}\b/i;
+export function temLacuna(texto: string | null | undefined): boolean {
+  return Boolean(texto && LACUNA.test(texto));
+}
+export const MOTIVO_LACUNA = "Montar o orçamento e mandar o valor";
+
+/** Caixinhas finalizadas (comprou, fechou com outra, fora da área, descartado): fora da leitura. */
+export const CAIXINHAS_FINALIZADAS = new Set([1, 7, 8, 9]);
+
+/**
+ * Finalizado entra na noite? Nunca (04/11). Única exceção: comprou (1) com OS e mensagem nova,
+ * só para os acertos da OS (visita, pagamento), sem tarefa de venda.
+ */
+export function finalizadoFora(l: {
+  caixinha: number | null;
+  temOs: boolean;
+  mensagemNoDia: boolean;
+}): boolean {
+  if (l.caixinha === null || !CAIXINHAS_FINALIZADAS.has(l.caixinha)) return false;
+  return !(l.caixinha === 1 && l.temOs && l.mensagemNoDia);
+}
+
+/**
+ * Guardado para campanha (04/11): sai da leitura e fica nas listas. Volta quando o cliente manda
+ * mensagem depois de guardado.
+ */
+export function guardadoFora(l: { guardadoEm: string | null; clienteFalouDepois: boolean }) {
+  return Boolean(l.guardadoEm) && !l.clienteFalouDepois;
+}
+
 /** Toque (de qualquer um) vencido há mais de 12 h que ninguém fez: follow-up esquecido. */
 export function followUpEsquecido(
   toquesVencidos: Array<{ scheduledAt: string; status: string }>,

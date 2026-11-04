@@ -13,7 +13,12 @@ import {
   adiarTarefa,
   bloqueadaParaVenda,
   diaDeRever,
+  CAIXINHAS_FINALIZADAS,
+  MOTIVO_LACUNA,
   campanhaSemResposta,
+  finalizadoFora,
+  guardadoFora,
+  temLacuna,
   followUpEsquecido,
   horarioDaConfig,
   motivosDeEntrada,
@@ -107,8 +112,6 @@ type Config = {
 /** Leitura completa no Opus (mais recurso, item 1): todo lead sem desfecho, toda noite. */
 export const usaLeituraCompleta = (modelo: string | null | undefined) =>
   Boolean(modelo && modelo.startsWith("claude-opus"));
-/** Caixinhas finalizadas: comprou, fechou com outra, fora da área, descartado. */
-const CAIXINHAS_FINALIZADAS = new Set([1, 7, 8, 9]);
 /** Acima disso, o push da manhã avisa que a lista está grande (03/11). */
 const LISTA_GRANDE = 30;
 
@@ -236,7 +239,13 @@ export type EscopoDaNoite = {
   ids: string[];
   /** Quantos entraram por motivo (um lead pode ter mais de um; resposta a campanha é parte de "mensagem"). */
   entrada: Record<
-    MotivoEntrada | "esquecido" | "resposta_campanha" | "completa" | "campanha_sem_resposta",
+    | MotivoEntrada
+    | "esquecido"
+    | "resposta_campanha"
+    | "completa"
+    | "campanha_sem_resposta"
+    | "finalizado"
+    | "guardado",
     number
   >;
   especiais: EspeciaisDaNoite;
@@ -299,7 +308,7 @@ async function escopoDaNoite(
       .limit(5000),
     db
       .from("comercial_analises")
-      .select("crm_lead_id, caixinha, rever_em")
+      .select("crm_lead_id, caixinha, rever_em, etiquetas")
       .eq("empresa_id", empresaId)
       .limit(5000),
     // Resposta do cliente a uma campanha conta sempre (e é contada à parte).
@@ -350,6 +359,7 @@ async function escopoDaNoite(
         crm_lead_id: string;
         caixinha: number | null;
         rever_em: string | null;
+        etiquetas: { guardado_em?: string | null } | null;
       }>
     ).map((f) => [f.crm_lead_id, f]),
   );
@@ -397,6 +407,8 @@ async function escopoDaNoite(
       esquecido: 0,
       completa: 0,
       campanha_sem_resposta: 0,
+      finalizado: 0,
+      guardado: 0,
     },
     especiais: { esquecidos: {} },
   };
@@ -433,7 +445,48 @@ async function escopoDaNoite(
       for (const e of (envs ?? []) as Array<{ normalized_phone: string }>)
         comDisparo.add(e.normalized_phone);
     }
+    // Guardado para campanha (04/11): volta só se o cliente falou depois de guardado.
+    const guardados = lote
+      .map((l) => ({ id: l.id, em: ficha.get(l.id)?.etiquetas?.guardado_em ?? null }))
+      .filter((g): g is { id: string; em: string } => Boolean(g.em));
+    const falouDepois = new Set<string>();
+    if (guardados.length) {
+      const desdeG = guardados.map((g) => g.em).sort()[0] as string;
+      const { data: resp } = await db
+        .from("whatsapp_messages")
+        .select("crm_lead_id, message_timestamp")
+        .eq("empresa_id", empresaId)
+        .eq("direction", "Recebida")
+        .in(
+          "crm_lead_id",
+          guardados.map((g) => g.id),
+        )
+        .gt("message_timestamp", desdeG)
+        .limit(2000);
+      const em = new Map(guardados.map((g) => [g.id, g.em]));
+      for (const r of (resp ?? []) as Array<{ crm_lead_id: string; message_timestamp: string }>)
+        if (r.message_timestamp > (em.get(r.crm_lead_id) ?? "")) falouDepois.add(r.crm_lead_id);
+    }
     for (const l of lote) {
+      if (
+        finalizadoFora({
+          caixinha: ficha.get(l.id)?.caixinha ?? null,
+          temOs: Boolean(l.linked_work_order_id),
+          mensagemNoDia: mensagem.has(l.id),
+        })
+      ) {
+        saida.entrada.finalizado++;
+        continue;
+      }
+      if (
+        guardadoFora({
+          guardadoEm: ficha.get(l.id)?.etiquetas?.guardado_em ?? null,
+          clienteFalouDepois: falouDepois.has(l.id),
+        })
+      ) {
+        saida.entrada.guardado++;
+        continue;
+      }
       if (
         campanhaSemResposta({
           entrada: l.entrada,
@@ -1100,7 +1153,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     decisao.motivo = textoFollowUpEsquecido(esquecidoEm);
   }
   const ligar = Boolean(decisao.pediu_ligacao) && !est.bloqueado;
-  const responsavel: "alice" | "equipe" =
+  let responsavel: "alice" | "equipe" =
     !ctx.temAlice || decisao.negociacao || ligar || Boolean(esquecidoEm)
       ? "equipe"
       : decisao.responsavel;
@@ -1120,6 +1173,14 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     if (m) {
       mensagem = m.mensagem;
       custo += m.custo;
+    }
+  }
+  // Lacuna ("R$ ___", "[nome]"): a mensagem nunca sai pronta; vira tarefa da equipe (04/11).
+  if (temLacuna(mensagem)) {
+    mensagem = "";
+    if (decisao.acao === "chamar" || decisao.acao === "agendar") {
+      responsavel = "equipe";
+      decisao.motivo = `${MOTIVO_LACUNA} · ${decisao.motivo}`;
     }
   }
   const quandoPedido =
