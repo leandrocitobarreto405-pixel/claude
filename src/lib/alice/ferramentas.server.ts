@@ -1499,7 +1499,60 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   };
 }
 
-function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: Servico) {
+/** Atendimento só de tapete/persiana (texto do cliente, descrição do lead e itens dos orçamentos). */
+async function atendimentoSoTapeteOuPersiana(ctx: ContextoFerramenta): Promise<boolean> {
+  const { pedidoSoTapeteOuPersiana } = await import("./video");
+  const [{ data: msgs }, lead, cats] = await Promise.all([
+    ctx.admin
+      .from("whatsapp_messages")
+      .select("text_content, transcricao")
+      .eq("empresa_id", ctx.empresaId)
+      .eq("conversa_id", ctx.conversaId)
+      .eq("direction", "Recebida")
+      // Só o atendimento atual (30 dias): um sofá de meses atrás não faz o pedido de hoje misto.
+      .gte("message_timestamp", new Date(ctx.agora.getTime() - 30 * 86_400_000).toISOString())
+      .order("message_timestamp", { ascending: false })
+      .limit(60),
+    ctx.leadId
+      ? ctx.admin
+          .from("crm_leads")
+          .select("upholstery_description")
+          .eq("id", ctx.leadId)
+          .eq("empresa_id", ctx.empresaId)
+          .maybeSingle()
+          .then((r) => (r.data as { upholstery_description: string | null } | null) ?? null)
+      : Promise.resolve(null),
+    ctx.leadId
+      ? ctx.admin
+          .from("quotes")
+          .select("quote_items(categoria)")
+          .eq("empresa_id", ctx.empresaId)
+          .eq("crm_lead_id", ctx.leadId)
+          .then((r) =>
+            ((r.data ?? []) as Array<{ quote_items: Array<{ categoria: string | null }> | null }>)
+              .flatMap((q) => q.quote_items ?? [])
+              .map((i) => i.categoria),
+          )
+      : Promise.resolve([] as Array<string | null>),
+  ]);
+  const textos = (
+    (msgs ?? []) as Array<{ text_content: string | null; transcricao: string | null }>
+  ).flatMap((m) => [m.text_content, m.transcricao]);
+  return pedidoSoTapeteOuPersiana({
+    textos: [...textos, lead?.upholstery_description ?? null],
+    categorias: cats,
+  });
+}
+
+async function enviarMidia(ctx: ContextoFerramenta, tipo: "video" | "audio", servico: Servico) {
+  // Trava (04/11): o vídeo é de estofado; atendimento só de tapete/persiana não recebe.
+  if (tipo === "video" && (await atendimentoSoTapeteOuPersiana(ctx))) {
+    const { TEXTO_SEM_VIDEO_TAPETE, avisoDoVideo } = await import("./video");
+    // O aviso "vou te mandar um vídeo" desta resposta também não sai.
+    const i = avisoDoVideo(ctx.saida);
+    if (i >= 0) ctx.saida.splice(i, 1);
+    return { erro: true, texto: TEXTO_SEM_VIDEO_TAPETE };
+  }
   const caminho =
     tipo === "video"
       ? servico === "higienizacao"
@@ -2110,7 +2163,7 @@ export async function executarFerramenta(
       case "enviar_audio_padrao": {
         const p = EnviarMidia.safeParse(entrada);
         return p.success
-          ? r(enviarMidia(ctx, nome === "enviar_video" ? "video" : "audio", p.data.servico))
+          ? r(await enviarMidia(ctx, nome === "enviar_video" ? "video" : "audio", p.data.servico))
           : invalida(p.error);
       }
       case "enviar_dados_tecnico": {
