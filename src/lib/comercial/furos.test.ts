@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   adiarTarefa,
   bloqueadaParaVenda,
+  campanhaSemResposta,
   diaDeRever,
   emHorarioUtil,
   followUpEsquecido,
@@ -101,6 +102,15 @@ test("quem entra na noite: mensagem, próxima olhada, rede de segurança; fechad
   assert.deepEqual(motivosDeEntrada({ ...base, aberto: false, mensagemNoDia: true }), ["mensagem"]);
   assert.deepEqual(motivosDeEntrada({ ...base, aberto: false }), []);
   assert.deepEqual(motivosDeEntrada({ ...base, perdido: true, mensagemNoDia: true }), []);
+});
+
+test("campanha sem resposta: disparo que nunca respondeu fica fora da leitura", () => {
+  const b = { entrada: "ativo", respondeuEm: null, recebeuDisparo: true };
+  assert.equal(campanhaSemResposta(b), true);
+  assert.equal(campanhaSemResposta({ ...b, respondeuEm: "2026-11-02T13:00:00Z" }), false);
+  assert.equal(campanhaSemResposta({ ...b, recebeuDisparo: false }), false);
+  assert.equal(campanhaSemResposta({ ...b, entrada: "receptivo" }), false);
+  assert.equal(campanhaSemResposta({ ...b, entrada: null }), false);
 });
 
 test("follow-up esquecido: toque pendente vencido há mais de 12 h", () => {

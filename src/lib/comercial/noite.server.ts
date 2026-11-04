@@ -13,6 +13,7 @@ import {
   adiarTarefa,
   bloqueadaParaVenda,
   diaDeRever,
+  campanhaSemResposta,
   followUpEsquecido,
   horarioDaConfig,
   motivosDeEntrada,
@@ -234,7 +235,10 @@ async function donoDoLead(
 export type EscopoDaNoite = {
   ids: string[];
   /** Quantos entraram por motivo (um lead pode ter mais de um; resposta a campanha é parte de "mensagem"). */
-  entrada: Record<MotivoEntrada | "esquecido" | "resposta_campanha" | "completa", number>;
+  entrada: Record<
+    MotivoEntrada | "esquecido" | "resposta_campanha" | "completa" | "campanha_sem_resposta",
+    number
+  >;
   especiais: EspeciaisDaNoite;
 };
 
@@ -243,6 +247,7 @@ export type EscopoDaNoite = {
  * qualquer lado (os disparos de campanha não contam); (b) próxima olhada (rever_em) chegou;
  * (c) rede de segurança: aberto nas caixinhas 2–5 sem toque futuro e sem próxima olhada; se havia
  * toque vencido que ninguém fez, vira "follow-up esquecido". Lead fechado/perdido só por mensagem.
+ * Lead criado por campanha/disparo que nunca respondeu não entra (04/11): fica nas listas de campanha.
  */
 async function escopoDaNoite(
   db: Db,
@@ -391,6 +396,7 @@ async function escopoDaNoite(
       seguranca: 0,
       esquecido: 0,
       completa: 0,
+      campanha_sem_resposta: 0,
     },
     especiais: { esquecidos: {} },
   };
@@ -398,16 +404,46 @@ async function escopoDaNoite(
     const parte = ids.slice(i, i + 200);
     const { data: leads } = await db
       .from("crm_leads")
-      .select("id, is_open, perdido_em, linked_work_order_id, normalized_phone")
+      .select(
+        "id, is_open, perdido_em, linked_work_order_id, normalized_phone, entrada, respondeu_em",
+      )
       .eq("empresa_id", empresaId)
       .in("id", parte);
-    for (const l of (leads ?? []) as Array<{
+    const lote = (leads ?? []) as Array<{
       id: string;
       is_open: boolean | null;
       perdido_em: string | null;
       linked_work_order_id: string | null;
       normalized_phone: string | null;
-    }>) {
+      entrada: string | null;
+      respondeu_em: string | null;
+    }>;
+    // Criado por campanha/disparo e nunca respondeu (04/11): fica nas listas de campanha.
+    const semResposta = lote
+      .filter((l) => l.entrada === "ativo" && !l.respondeu_em && l.normalized_phone)
+      .map((l) => l.normalized_phone as string);
+    const comDisparo = new Set<string>();
+    if (semResposta.length) {
+      const { data: envs } = await db
+        .from("mkt_envios")
+        .select("normalized_phone")
+        .eq("empresa_id", empresaId)
+        .not("enviado_em", "is", null)
+        .in("normalized_phone", semResposta);
+      for (const e of (envs ?? []) as Array<{ normalized_phone: string }>)
+        comDisparo.add(e.normalized_phone);
+    }
+    for (const l of lote) {
+      if (
+        campanhaSemResposta({
+          entrada: l.entrada,
+          respondeuEm: l.respondeu_em,
+          recebeuDisparo: Boolean(l.normalized_phone && comDisparo.has(l.normalized_phone)),
+        })
+      ) {
+        saida.entrada.campanha_sem_resposta++;
+        continue;
+      }
       const f = ficha.get(l.id);
       const motivos = motivosDeEntrada({
         // Lead com OS também entra (acertos de visita e pagamento), se tiver novidade.
