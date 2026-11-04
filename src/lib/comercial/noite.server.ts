@@ -2502,6 +2502,21 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
     hora,
   ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
 
+  // 4b2. Base parada (04/11): na janela da revisão semanal, um recado por empresa só para o admin.
+  {
+    const { horaDaRevisao } = await import("./revisao-semanal");
+    const diaSemana = new Date(`${hoje}T12:00:00Z`).getUTCDay();
+    if (horaDaRevisao(diaSemana, hora, hoje)) {
+      const { rodarBasesParadas } = await import("./base-parada.server");
+      saida["base_parada"] = await rodarBasesParadas(
+        db,
+        configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+        agora,
+        hoje,
+      ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+    }
+  }
+
   // 4c. Desempenho de campanha (22h): números dos 7 dias, classe das respostas e sugestões.
   const { rodarAcompanhamentoCampanhas } = await import("./campanhas.server");
   const campanhas = await rodarAcompanhamentoCampanhas(

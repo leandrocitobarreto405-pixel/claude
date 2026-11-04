@@ -209,7 +209,7 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
         criado_em: string;
         dados: Omit<RelatorioTela, "id" | "periodo" | "criadoEm" | "custoUsd">;
       }>
-    )[0];
+    ).find((r) => (r.dados as { tipo?: string } | null)?.tipo !== "base_parada");
     const { defeitosDoSistema } = await import("@/lib/comercial/defeitos-sistema.server");
     const defeitosSistema = await defeitosDoSistema(db, empresaId).catch((e) => {
       console.error("Defeitos do sistema", e instanceof Error ? e.message : String(e));
