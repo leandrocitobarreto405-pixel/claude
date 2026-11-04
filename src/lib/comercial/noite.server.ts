@@ -13,6 +13,7 @@ import {
   adiarTarefa,
   bloqueadaParaVenda,
   diaDeRever,
+  campanhaSemResposta,
   followUpEsquecido,
   horarioDaConfig,
   motivosDeEntrada,
@@ -27,7 +28,14 @@ import {
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { dataCurta, diaSemanaDe } from "@/lib/feriados";
 import { avaliarVirarOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
-import { MODELO_FICHA, MODELO_HAIKU, PRECO_HAIKU, custoUsd } from "./ficha";
+import {
+  MODELO_FICHA,
+  MODELO_HAIKU,
+  MODELO_OPUS,
+  PRECO_HAIKU,
+  PRECO_OPUS,
+  custoUsd,
+} from "./ficha";
 import {
   ESQUEMA_DECISAO,
   ESQUEMA_RECADO,
@@ -92,7 +100,17 @@ type Config = {
   dias_uteis?: number[] | null;
   hora_inicio?: string | null;
   hora_fim?: string | null;
+  /** Mais recurso (03/11): "claude-opus-5-5" liga a leitura completa no Opus. */
+  modelo?: string | null;
 };
+
+/** Leitura completa no Opus (mais recurso, item 1): todo lead sem desfecho, toda noite. */
+export const usaLeituraCompleta = (modelo: string | null | undefined) =>
+  Boolean(modelo && modelo.startsWith("claude-opus"));
+/** Caixinhas finalizadas: comprou, fechou com outra, fora da área, descartado. */
+const CAIXINHAS_FINALIZADAS = new Set([1, 7, 8, 9]);
+/** Acima disso, o push da manhã avisa que a lista está grande (03/11). */
+const LISTA_GRANDE = 30;
 
 /** O que a noite guarda no resumo sobre quem entrou e por quê (furos, 01/11). */
 type EspeciaisDaNoite = {
@@ -217,7 +235,10 @@ async function donoDoLead(
 export type EscopoDaNoite = {
   ids: string[];
   /** Quantos entraram por motivo (um lead pode ter mais de um; resposta a campanha é parte de "mensagem"). */
-  entrada: Record<MotivoEntrada | "esquecido" | "resposta_campanha", number>;
+  entrada: Record<
+    MotivoEntrada | "esquecido" | "resposta_campanha" | "completa" | "campanha_sem_resposta",
+    number
+  >;
   especiais: EspeciaisDaNoite;
 };
 
@@ -226,12 +247,14 @@ export type EscopoDaNoite = {
  * qualquer lado (os disparos de campanha não contam); (b) próxima olhada (rever_em) chegou;
  * (c) rede de segurança: aberto nas caixinhas 2–5 sem toque futuro e sem próxima olhada; se havia
  * toque vencido que ninguém fez, vira "follow-up esquecido". Lead fechado/perdido só por mensagem.
+ * Lead criado por campanha/disparo que nunca respondeu não entra (04/11): fica nas listas de campanha.
  */
 async function escopoDaNoite(
   db: Db,
   empresaId: string,
   agora: Date,
   hoje: string,
+  completo = false,
 ): Promise<EscopoDaNoite> {
   const { data: anterior } = await db
     .from("comercial_noites")
@@ -342,26 +365,85 @@ async function escopoDaNoite(
     )
       candidatos.add(id);
   }
+  // Leitura completa (mais recurso, 03/11): todo lead aberto sem desfecho entra, sem limite.
+  const semDesfecho = new Set<string>();
+  if (completo) {
+    for (let de = 0; ; de += 1000) {
+      const { data: abertos } = await db
+        .from("crm_leads")
+        .select("id")
+        .eq("empresa_id", empresaId)
+        .eq("is_open", true)
+        .is("perdido_em", null)
+        .range(de, de + 999);
+      const lista = (abertos ?? []) as Array<{ id: string }>;
+      for (const l of lista) {
+        const cx = ficha.get(l.id)?.caixinha ?? null;
+        if (cx !== null && CAIXINHAS_FINALIZADAS.has(cx)) continue;
+        semDesfecho.add(l.id);
+        candidatos.add(l.id);
+      }
+      if (lista.length < 1000) break;
+    }
+  }
   const ids = [...candidatos];
   const saida: EscopoDaNoite = {
     ids: [],
-    entrada: { mensagem: 0, resposta_campanha: 0, rever: 0, seguranca: 0, esquecido: 0 },
+    entrada: {
+      mensagem: 0,
+      resposta_campanha: 0,
+      rever: 0,
+      seguranca: 0,
+      esquecido: 0,
+      completa: 0,
+      campanha_sem_resposta: 0,
+    },
     especiais: { esquecidos: {} },
   };
   for (let i = 0; i < ids.length; i += 200) {
     const parte = ids.slice(i, i + 200);
     const { data: leads } = await db
       .from("crm_leads")
-      .select("id, is_open, perdido_em, linked_work_order_id, normalized_phone")
+      .select(
+        "id, is_open, perdido_em, linked_work_order_id, normalized_phone, entrada, respondeu_em",
+      )
       .eq("empresa_id", empresaId)
       .in("id", parte);
-    for (const l of (leads ?? []) as Array<{
+    const lote = (leads ?? []) as Array<{
       id: string;
       is_open: boolean | null;
       perdido_em: string | null;
       linked_work_order_id: string | null;
       normalized_phone: string | null;
-    }>) {
+      entrada: string | null;
+      respondeu_em: string | null;
+    }>;
+    // Criado por campanha/disparo e nunca respondeu (04/11): fica nas listas de campanha.
+    const semResposta = lote
+      .filter((l) => l.entrada === "ativo" && !l.respondeu_em && l.normalized_phone)
+      .map((l) => l.normalized_phone as string);
+    const comDisparo = new Set<string>();
+    if (semResposta.length) {
+      const { data: envs } = await db
+        .from("mkt_envios")
+        .select("normalized_phone")
+        .eq("empresa_id", empresaId)
+        .not("enviado_em", "is", null)
+        .in("normalized_phone", semResposta);
+      for (const e of (envs ?? []) as Array<{ normalized_phone: string }>)
+        comDisparo.add(e.normalized_phone);
+    }
+    for (const l of lote) {
+      if (
+        campanhaSemResposta({
+          entrada: l.entrada,
+          respondeuEm: l.respondeu_em,
+          recebeuDisparo: Boolean(l.normalized_phone && comDisparo.has(l.normalized_phone)),
+        })
+      ) {
+        saida.entrada.campanha_sem_resposta++;
+        continue;
+      }
       const f = ficha.get(l.id);
       const motivos = motivosDeEntrada({
         // Lead com OS também entra (acertos de visita e pagamento), se tiver novidade.
@@ -377,7 +459,10 @@ async function escopoDaNoite(
         !l.perdido_em && l.is_open !== false
           ? followUpEsquecido(vencidos.get(l.id) ?? [], agora)
           : null;
-      if (!motivos.length && !esquecido) continue;
+      if (!motivos.length && !esquecido) {
+        if (!semDesfecho.has(l.id)) continue;
+        saida.entrada.completa++;
+      }
       saida.ids.push(l.id);
       for (const m of motivos) saida.entrada[m]++;
       if (
@@ -724,15 +809,16 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
 async function pedirDecisao(
   sistema: string,
   conteudo: string,
+  opus = false,
 ): Promise<{ decisao: DecisaoIA; custo: number }> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
   const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 90_000, maxRetries: 1 }).messages.create({
-      model: MODELO_HAIKU,
-      max_tokens: 4_000,
+    new Anthropic({ timeout: opus ? 300_000 : 90_000, maxRetries: 1 }).messages.create({
+      model: opus ? MODELO_OPUS : MODELO_HAIKU,
+      max_tokens: opus ? 16_000 : 4_000,
       output_config: {
-        effort: "low",
+        effort: opus ? "medium" : "low",
         format: {
           type: "json_schema",
           schema: ESQUEMA_DECISAO as unknown as Record<string, unknown>,
@@ -745,7 +831,10 @@ async function pedirDecisao(
   if (resp.stop_reason === "refusal") throw new Error("a IA recusou a decisão");
   if (resp.stop_reason === "max_tokens") throw new Error("decisão cortada (limite de tokens)");
   const texto = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  return { decisao: JSON.parse(texto) as DecisaoIA, custo: custoUsd(resp.usage, PRECO_HAIKU) };
+  return {
+    decisao: JSON.parse(texto) as DecisaoIA,
+    custo: custoUsd(resp.usage, opus ? PRECO_OPUS : PRECO_HAIKU),
+  };
 }
 
 /** Mensagem da equipe (negociação ou toque humano) reescrita pelo Sonnet, para ficar no roteiro. */
@@ -754,13 +843,15 @@ async function melhorarMensagem(
   motivo: string,
   rascunho: string,
   pixPct: number | null,
+  opus = false,
 ): Promise<{ mensagem: string; custo: number }> {
+  const preco = opus ? PRECO_OPUS : undefined;
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
   const resp = await chamarIa(() =>
     new Anthropic({ timeout: 90_000, maxRetries: 1 }).messages.create({
-      model: MODELO_FICHA,
-      max_tokens: 2_000,
+      model: opus ? MODELO_OPUS : MODELO_FICHA,
+      max_tokens: opus ? 8_000 : 2_000,
       output_config: {
         effort: "low",
         format: {
@@ -787,10 +878,11 @@ async function melhorarMensagem(
       ],
     }),
   );
-  if (resp.stop_reason !== "end_turn") return { mensagem: rascunho, custo: custoUsd(resp.usage) };
+  if (resp.stop_reason !== "end_turn")
+    return { mensagem: rascunho, custo: custoUsd(resp.usage, preco) };
   const texto = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   const m = (JSON.parse(texto) as { mensagem?: string }).mensagem?.trim();
-  return { mensagem: m || rascunho, custo: custoUsd(resp.usage) };
+  return { mensagem: m || rascunho, custo: custoUsd(resp.usage, preco) };
 }
 
 // ---------------------------------------------------------------- um lead
@@ -811,6 +903,10 @@ type ContextoNoite = {
   /** Modo ativo: os toques da Alice decididos pela noite são executados pela fila. */
   modoAtivo: boolean;
   especiais: EspeciaisDaNoite;
+  /** Leitura no Opus 5.5 (mais recurso): decisão e mensagem pronta. */
+  opus: boolean;
+  /** Leitura completa: o limite de 15 vale só para tarefas extras (negociação). */
+  leituraCompleta: boolean;
   /** Feriados bloqueados nos próximos 30 dias (data → nome), para os acertos com data. */
   bloqueados: ReadonlyMap<string, string>;
   /** Próximos dias com horário livre depois de uma data (até 3), pela agenda real. */
@@ -841,6 +937,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       "CONVERSA:",
       conversa || "(sem mensagens)",
     ].join("\n"),
+    ctx.opus,
   );
   let custo = c1;
 
@@ -927,8 +1024,28 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     ...demoras.map((d) => ({ tipo: d.tipo as TipoCobranca, texto: d.texto, dados: {} })),
   ];
 
-  // Conferência: só conta (por tipo e por pessoa), nada visível.
+  // Conferência: só conta (por tipo e por pessoa), nada visível. A decisão crua fica gravada
+  // (sem tarefa, toque, cobrança nem ação) para comparar e medir o custo (noite de medição, 03/11).
   if (noite.modo === "conferencia") {
+    await db.from("comercial_decisoes").upsert(
+      {
+        empresa_id: emp,
+        noite_id: noite.id,
+        crm_lead_id: leadId,
+        conversa_id: est.conversaId,
+        caixinha: decisao.caixinha,
+        acao: decisao.acao,
+        quando: quandoParaIso(decisao.quando),
+        responsavel: decisao.responsavel,
+        motivo: decisao.motivo.slice(0, 300),
+        mensagem: decisao.mensagem.slice(0, 1000) || null,
+        padrao_faria: padraoFaria(est.pendente),
+        executada: false,
+        modelo: ctx.opus ? MODELO_OPUS : MODELO_HAIKU,
+        custo_usd: custo,
+      },
+      { onConflict: "noite_id,crm_lead_id" },
+    );
     const r = (noite.resumo ?? {}) as {
       porTipo?: Record<string, number>;
       porPessoa?: Record<string, number>;
@@ -993,9 +1110,13 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     responsavel === "equipe" &&
     (decisao.acao === "chamar" || decisao.acao === "agendar")
   ) {
-    const m = await melhorarMensagem(conversa, decisao.motivo, mensagem, ctx.pixPct).catch(
-      () => null,
-    );
+    const m = await melhorarMensagem(
+      conversa,
+      decisao.motivo,
+      mensagem,
+      ctx.pixPct,
+      ctx.opus,
+    ).catch(() => null);
     if (m) {
       mensagem = m.mensagem;
       custo += m.custo;
@@ -1098,7 +1219,8 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         responsavel: "equipe",
         assigned_to: dono,
         trilha: "G",
-        etapa: "G1",
+        // GX = tarefa extra (negociação): só ela conta no limite de 15 na leitura completa.
+        etapa: decisao.negociacao || decisao.caixinha === 2 ? "GX" : "G1",
         canal: "equipe",
         origem: "gerente",
         mensagem: mensagem.slice(0, 1000) || null,
@@ -1156,7 +1278,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       rever_em: reverEm,
       // No teste, a ação da Alice não é executada (a cadência padrão segue valendo).
       executada: Boolean(followupId),
-      modelo: MODELO_HAIKU,
+      modelo: ctx.opus ? MODELO_OPUS : MODELO_HAIKU,
       custo_usd: custo,
     },
     { onConflict: "noite_id,crm_lead_id" },
@@ -1978,6 +2100,10 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
       esquecidos:
         (noite.resumo as { especiais?: EspeciaisDaNoite } | null)?.especiais?.esquecidos ?? {},
     },
+    opus: (noite.resumo as { modelo?: string } | null)?.modelo === "opus",
+    leituraCompleta: Boolean(
+      (noite.resumo as { leituraCompleta?: boolean } | null)?.leituraCompleta,
+    ),
     bloqueados: bloqueadosMapa,
     livresDepois: (data: string) =>
       agenda
@@ -2087,6 +2213,9 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
  * as outras são canceladas e a decisão vira "esperar") e até 10 acertos novos na lista da equipe.
  */
 async function limitesDaNoite(db: Db, noite: Noite) {
+  const leituraCompleta = Boolean(
+    (noite.resumo as { leituraCompleta?: boolean } | null)?.leituraCompleta,
+  );
   const { data: decs } = await db
     .from("comercial_decisoes")
     .select("id, followup_id, motivo")
@@ -2099,7 +2228,7 @@ async function limitesDaNoite(db: Db, noite: Noite) {
   for (let i = 0; i < ds.length; i += 200) {
     const { data: fus } = await db
       .from("crm_followups")
-      .select("id, prioridade, tarefa_tipo")
+      .select("id, prioridade, tarefa_tipo, etapa")
       .in(
         "id",
         ds.slice(i, i + 200).map((d) => d.followup_id),
@@ -2109,10 +2238,13 @@ async function limitesDaNoite(db: Db, noite: Noite) {
       id: string;
       prioridade: number | null;
       tarefa_tipo: string | null;
+      etapa: string | null;
     }>) {
       prioridade.set(f.id, f.tarefa_tipo === "follow_up_esquecido" ? 0 : (f.prioridade ?? 5));
       if (f.tarefa_tipo === "follow_up_esquecido" || f.tarefa_tipo === "ligar")
         foraDoLimite.add(f.id);
+      // Leitura completa: toque da sequência nunca fica "esperar por limite"; só extra conta.
+      if (leituraCompleta && f.etapa !== "GX") foraDoLimite.add(f.id);
     }
   }
   const lista = [...ds]
@@ -2179,7 +2311,7 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
   const { data: cfgs } = await db
     .from("comercial_configuracoes")
     .select(
-      "empresa_id, modo, equipe_unica, teto_mensal_usd, hora_noite, alerta_teto_mes, dias_uteis, hora_inicio, hora_fim",
+      "empresa_id, modo, equipe_unica, teto_mensal_usd, hora_noite, alerta_teto_mes, dias_uteis, hora_inicio, hora_fim, modelo",
     )
     .eq("ligado", true);
   const configs = (cfgs ?? []) as Config[];
@@ -2235,7 +2367,8 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
             await pessoasDaEmpresa(db, emp),
             desde,
           ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
-          const escopo = await escopoDaNoite(db, emp, agora, hoje);
+          const completo = usaLeituraCompleta(cfg.modelo);
+          const escopo = await escopoDaNoite(db, emp, agora, hoje, completo);
           const leads = escopo.ids;
           await db.from("comercial_noites").insert({
             empresa_id: emp,
@@ -2246,6 +2379,7 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
             concluida_em: leads.length ? null : agora.toISOString(),
             resumo: {
               entrada: escopo.entrada,
+              ...(completo ? { leituraCompleta: true, modelo: "opus" } : {}),
               diretas,
               naoFeitas,
               especiais: escopo.especiais,
@@ -2406,6 +2540,8 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
             (r) => r.user_id === p.userId,
           )?.frase ?? null;
         const t = textoPushTarefas(n, frase, Boolean(cfg.equipe_unica) && p.papel !== "admin");
+        if (n > LISTA_GRANDE)
+          t.corpo = `Lista grande hoje (${n} tarefas): comece pelas de prioridade alta. ${t.corpo}`;
         const id = await registrarUmaVez(
           db as never,
           emp,

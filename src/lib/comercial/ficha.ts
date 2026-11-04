@@ -23,6 +23,11 @@ export type Precos = { entrada: number; cacheGravar: number; cacheLer: number; s
 export const PRECO_HAIKU: Precos = { entrada: 0.1, cacheGravar: 0.125, cacheLer: 0.01, saida: 0.5 };
 export const MODELO_HAIKU = "claude-haiku-5-5";
 
+/** Opus 5.5 (mais recurso, 03/11): leitura da noite e mensagens prontas da Tatiana. */
+export const MODELO_OPUS = "claude-opus-5-5";
+/** Preço do Opus 5.5 por milhão de tokens (US$): entrada, gravação e leitura do cache, saída. */
+export const PRECO_OPUS: Precos = { entrada: 4, cacheGravar: 5, cacheLer: 0.2, saida: 20 };
+
 export function custoUsd(u: Uso, p: Precos = PRECO_SONNET): number {
   const v =
     (u.input_tokens * p.entrada +

@@ -185,6 +185,19 @@ export function motivosDeEntrada(l: {
   return m;
 }
 
+/**
+ * Lead criado por campanha/disparo que nunca respondeu (04/11): não é "lead sem desfecho" e não
+ * entra na leitura da noite; fica nas listas de campanha. Respondeu (respondeu_em gravado pela
+ * primeira mensagem recebida): vira lead normal. Contato iniciado à mão pela equipe não conta.
+ */
+export function campanhaSemResposta(l: {
+  entrada: string | null;
+  respondeuEm: string | null;
+  recebeuDisparo: boolean;
+}): boolean {
+  return l.entrada === "ativo" && !l.respondeuEm && l.recebeuDisparo;
+}
+
 /** Toque (de qualquer um) vencido há mais de 12 h que ninguém fez: follow-up esquecido. */
 export function followUpEsquecido(
   toquesVencidos: Array<{ scheduledAt: string; status: string }>,
