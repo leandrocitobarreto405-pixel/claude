@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Check, Copy, MessageCircle, Phone, SkipForward } from "lucide-react";
+import { Archive, Bot, Check, Copy, MessageCircle, Phone, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 import { Botao, Card, Chip, Recolhido } from "@/components/nexa";
 import {
@@ -28,6 +28,12 @@ import type { FeriadoPendente } from "@/lib/tatiana.functions";
 import { NOME_GERENTE } from "@/lib/comercial/tatiana";
 import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
 import { ROTULO_TAREFA } from "@/lib/comercial/furos";
+import {
+  NOME_GRUPO_BASE,
+  NOME_RECOMENDACAO,
+  type DadosBaseParada,
+  type Recomendacao,
+} from "@/lib/comercial/base-parada";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +100,8 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
         {acertos.length ? <AcertosNoApp acertos={acertos} admin={d.admin} /> : null}
         {d.feitas.length ? <FeitoPelaTatiana feitas={d.feitas} modo={d.modo} /> : null}
       </Card>
+
+      {d.admin && d.baseParada ? <BaseParada b={d.baseParada} /> : null}
 
       {d.admin && d.feriados.length ? <FeriadosParaDecidir feriados={d.feriados} /> : null}
 
@@ -720,5 +728,73 @@ function FeriadosParaDecidir({ feriados }: { feriados: FeriadoPendente[] }) {
         ))}
       </ul>
     </Card>
+  );
+}
+
+const TOM_RECOMENDACAO: Record<Recomendacao, "neutro" | "sucesso" | "atencao" | "problema"> = {
+  guardar: "neutro",
+  encerrar: "problema",
+  tarefa: "sucesso",
+  misto: "atencao",
+};
+
+/** Recado semanal da base parada (04/11): só leitura, sem botão de encerrar nem de enviar. */
+function BaseParada({ b }: { b: DadosBaseParada & { criadoEm: string } }) {
+  return (
+    <Recolhido
+      titulo={`Recado da ${NOME_GERENTE} · base parada (${b.total} leads)`}
+      icone={<Archive aria-hidden className="size-5" />}
+    >
+      <div className="flex min-w-0 flex-col gap-3 px-4 pb-4 text-sm">
+        <p className="text-xs text-muted-foreground">
+          {dateTimeBR(b.criadoEm)} · {b.total} leads parados (sem mensagem há mais de 7 dias, sem
+          toque, sem orçamento aberto e sem OS) · ela leu {b.lidos} conversas. São recomendações:
+          nada foi encerrado nem enviado.
+        </p>
+        {b.resumo ? <p>{b.resumo}</p> : null}
+        <ul className="flex min-w-0 flex-col gap-2">
+          {b.grupos.map((g) => (
+            <li
+              key={g.grupo}
+              className="flex min-w-0 flex-col gap-1 rounded-botao border border-border p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">
+                  {NOME_GRUPO_BASE[g.grupo]}{" "}
+                  <span className="font-normal text-muted-foreground">({g.leads})</span>
+                </p>
+                <Chip tom={TOM_RECOMENDACAO[g.recomendacao]}>
+                  {NOME_RECOMENDACAO[g.recomendacao]}
+                </Chip>
+              </div>
+              <p>{g.texto}</p>
+              {g.exemplos.length ? (
+                <p className="text-xs text-muted-foreground">
+                  Exemplos: {g.exemplos.map((e) => `final ${e}`).join(", ")}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        <div className="flex min-w-0 flex-col gap-1 rounded-botao bg-marca-claro p-3">
+          <p className="font-semibold">
+            Campanha nova: {b.campanha.vale ? "vale a pena" : "não agora"}
+          </p>
+          {b.campanha.vale ? (
+            <>
+              {b.campanha.publico ? <p>Para quem: {b.campanha.publico}</p> : null}
+              {b.campanha.oferta ? <p>Oferta: {b.campanha.oferta}</p> : null}
+              {b.campanha.quando ? <p>Quando: {b.campanha.quando}</p> : null}
+            </>
+          ) : null}
+          {b.campanha.porque ? (
+            <p className="text-xs text-muted-foreground">{b.campanha.porque}</p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            A campanha só existe depois do seu Aprovar e Ativar no Marketing.
+          </p>
+        </div>
+      </div>
+    </Recolhido>
   );
 }

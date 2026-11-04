@@ -157,6 +157,8 @@ export type HojeTatiana = {
   acertos: Acerto[];
   /** Feito pela Tatiana (03/11): o que ela fez, ou faria em teste, nos últimos 3 dias; com Desfazer. */
   feitas: AcaoFeita[];
+  /** Recado da base parada (04/11): o mais recente dos últimos 8 dias, só para o admin. */
+  baseParada: (import("@/lib/comercial/base-parada").DadosBaseParada & { criadoEm: string }) | null;
   pessoas: Array<{ id: string; nome: string }>;
 };
 
@@ -198,6 +200,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       alice: [],
       acertos: [],
       feitas: [],
+      baseParada: null,
       pessoas: [],
     };
     if (modo === "desligado") return vazio;
@@ -428,6 +431,24 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
         const desde = new Date(Date.parse(`${hoje}T00:00:00-03:00`) - 3 * 86_400_000).toISOString();
         return acoesDesde(adm, emp, desde);
       })().catch(() => []),
+      baseParada: admin
+        ? await (async () => {
+            const { data: rel } = await adm
+              .from("comercial_relatorios")
+              .select("dados, criado_em")
+              .eq("empresa_id", emp)
+              .eq("dados->>tipo", "base_parada")
+              .gte("criado_em", new Date(Date.now() - 8 * 86_400_000).toISOString())
+              .order("criado_em", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const r = rel as {
+              dados: import("@/lib/comercial/base-parada").DadosBaseParada;
+              criado_em: string;
+            } | null;
+            return r ? { ...r.dados, criadoEm: r.criado_em } : null;
+          })().catch(() => null)
+        : null,
       pessoas:
         admin && !equipeUnica ? [...nomes.entries()].map(([id, nome]) => ({ id, nome })) : [],
     };
