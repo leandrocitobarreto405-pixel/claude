@@ -4,6 +4,9 @@ import {
   adiarTarefa,
   bloqueadaParaVenda,
   campanhaSemResposta,
+  finalizadoFora,
+  guardadoFora,
+  temLacuna,
   diaDeRever,
   emHorarioUtil,
   followUpEsquecido,
@@ -196,4 +199,40 @@ test("feriado bloqueado não é dia útil: a tarefa vai para o próximo dia úti
     proximoHorarioUtil("2026-11-20T13:00:00Z", horarioDaConfig(null)),
     "2026-11-20T13:00:00Z",
   );
+});
+
+test("lacuna: mensagem com espaço em branco nunca sai pronta", () => {
+  assert.equal(temLacuna("fica R$ ___, e no Pix tem 5%"), true);
+  assert.equal(temLacuna("Oi [nome], tudo bem?"), true);
+  assert.equal(temLacuna("Oi {{1}}"), true);
+  assert.equal(temLacuna("fica R$ X no Pix"), true);
+  assert.equal(temLacuna("fica R$ ? no Pix"), true);
+  assert.equal(temLacuna("fica R$ 364 em até 5x sem juros, ou R$ 345,80 no Pix"), false);
+  assert.equal(temLacuna("Oi, Marina! Tudo certo?"), false);
+  assert.equal(temLacuna(""), false);
+  assert.equal(temLacuna(null), false);
+});
+
+test("finalizado fica fora da leitura; comprou com OS só por mensagem nova", () => {
+  const b = { caixinha: 7, temOs: false, mensagemNoDia: true };
+  assert.equal(finalizadoFora(b), true);
+  assert.equal(finalizadoFora({ ...b, caixinha: 9 }), true);
+  assert.equal(finalizadoFora({ ...b, caixinha: 8 }), true);
+  assert.equal(finalizadoFora({ ...b, caixinha: 1 }), true);
+  assert.equal(finalizadoFora({ ...b, caixinha: 1, temOs: true }), false);
+  assert.equal(finalizadoFora({ ...b, caixinha: 1, temOs: true, mensagemNoDia: false }), true);
+  assert.equal(finalizadoFora({ ...b, caixinha: 5 }), false);
+  assert.equal(finalizadoFora({ ...b, caixinha: null }), false);
+});
+
+test("guardado para campanha: fora até o cliente falar de novo", () => {
+  assert.equal(
+    guardadoFora({ guardadoEm: "2026-11-04T15:00:00Z", clienteFalouDepois: false }),
+    true,
+  );
+  assert.equal(
+    guardadoFora({ guardadoEm: "2026-11-04T15:00:00Z", clienteFalouDepois: true }),
+    false,
+  );
+  assert.equal(guardadoFora({ guardadoEm: null, clienteFalouDepois: false }), false);
 });
