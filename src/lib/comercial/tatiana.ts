@@ -174,6 +174,11 @@ export type DecisaoIA = {
   mensagem: string;
   negociacao: boolean;
   motivo_perda: string;
+  /**
+   * Frase exata do cliente que justifica tirar o lead da leitura (caixinha 7 ou 9, ou parar). Sem
+   * frase clara do cliente, o código devolve o lead para a sequência normal (05/11).
+   */
+  frase_cliente: string;
   /** O cliente pediu ligação ("me liga", "pode ligar às 18h"): a tarefa vira "ligar". */
   pediu_ligacao: boolean;
   /** Horário pedido para a ligação (AAAA-MM-DDTHH:MM) ou vazio. */
@@ -231,6 +236,7 @@ export const ESQUEMA_DECISAO = {
     "mensagem",
     "negociacao",
     "motivo_perda",
+    "frase_cliente",
     "pediu_ligacao",
     "ligar_quando",
     "acertos",
@@ -250,6 +256,7 @@ export const ESQUEMA_DECISAO = {
     mensagem: s,
     negociacao: { type: "boolean" },
     motivo_perda: s,
+    frase_cliente: s,
     pediu_ligacao: { type: "boolean" },
     ligar_quando: s,
     acertos: {
@@ -363,6 +370,7 @@ export function instrucoesDecisao(o: {
     'Responda em português do Brasil. Use os dados do sistema como verdade (datas, valores, se há orçamento, OS, visita, pagamento). Linhas "Campanha" na conversa são envios em massa do Marketing.',
     "",
     "1. caixinha (uma só, lendo a conversa): 1 Comprou · 2 Em negociação (conversa viva, cliente decidindo) · 3 Retorno com data (cliente deu ou aceitou uma data) · 4 Achou caro · 5 Sumiu depois do orçamento · 6 Não chegou a pedir orçamento · 7 Fechou com outra empresa · 8 Fora da área (preencha cidade e bairro se a conversa disser) · 9 Descartado (spam, parceria, engano, fornecedor).",
+    '   Caixinha 7 ou 9, ou acao parar, só quando o CLIENTE disser isso claramente na conversa (ex.: "já fechei com outra empresa", "não preciso mais", "não quero mais ofertas"; ou a mensagem dele mostrar que não é cliente: spam, resposta automática de outra empresa, fornecedor). frase_cliente: copie exatamente essa frase do cliente (curta). "No momento não", "por enquanto", "vou ver" ou silêncio NÃO tiram o lead: na dúvida, ele continua aberto (caixinha 2 a 6) na sequência normal. Fora desses casos, frase_cliente vazio.',
     "   servico: o serviço orçado ou feito (curto). data_evento: AAAA-MM-DD se o cliente citou uma data importante (mudança, visita, festa), senão vazio. valor_orcado: o valor do orçamento, se houver.",
     "   Caixinha 1 (comprou): nunca chamar para venda. Caixinha 6 (não pediu orçamento): acao esperar (o lead vai para a campanha da semana, não para tarefa). Tarefa do dia só para as caixinhas 2 a 5.",
     "2. acao (UMA): chamar (alguém deve escrever amanhã), agendar (retomar numa data que faz sentido: quando = AAAA-MM-DDTHH:MM), esperar (não fazer nada agora: o cliente pediu tempo ou já há toque/retorno marcado; se ele deu uma data, quando = essa data) ou parar (o cliente recusou ou não é cliente: sugira motivo_perda exatamente com um nome da lista).",
@@ -382,6 +390,45 @@ export function instrucoesDecisao(o: {
     "   agendamento (só em fechou_sem_os; senão tudo vazio/null): hora combinada (HH:MM) ou periodo (manha/tarde) se só disse o período; nome_completo, cep, numero e complemento do endereço como o cliente escreveu; pagamento pix ou cartao e parcelas se disse. Nunca invente: o que a conversa não disse fica vazio.",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
   ].join("\n");
+}
+
+// ---------------------------------------------------------------- desfecho só com frase do cliente
+
+const normalizar = (t: string) =>
+  t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** A frase está nas mensagens do cliente (sem acento, pontuação nem caixa; basta o começo dela). */
+export function fraseDoCliente(frase: string, textosCliente: string[]): boolean {
+  const f = normalizar(frase);
+  if (f.length < 4) return false;
+  const todo = normalizar(textosCliente.join(" "));
+  return todo.includes(f) || (f.length > 30 && todo.includes(f.slice(0, 30)));
+}
+
+/**
+ * Desfecho que tira o lead da leitura (caixinha 7 ou 9, ou parar) só com frase clara do cliente
+ * (05/11). Sem ela, o lead volta para a sequência normal: caixinha 5 (com orçamento) ou 6, e
+ * "parar" vira "esperar".
+ */
+export function confereDesfecho(
+  d: { caixinha: Caixinha; acao: DecisaoIA["acao"]; frase_cliente: string },
+  textosCliente: string[],
+  temOrcamento: boolean,
+): { caixinha: Caixinha; acao: DecisaoIA["acao"]; rebaixado: boolean } {
+  const tira = d.caixinha === 7 || d.caixinha === 9 || d.acao === "parar";
+  if (!tira || fraseDoCliente(d.frase_cliente ?? "", textosCliente))
+    return { caixinha: d.caixinha, acao: d.acao, rebaixado: false };
+  return {
+    caixinha: d.caixinha === 7 || d.caixinha === 9 ? (temOrcamento ? 5 : 6) : d.caixinha,
+    acao: d.acao === "parar" ? "esperar" : d.acao,
+    rebaixado: true,
+  };
 }
 
 // ---------------------------------------------------------------- recado do dia

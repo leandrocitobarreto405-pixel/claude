@@ -229,6 +229,17 @@ export function guardadoFora(l: { guardadoEm: string | null; clienteFalouDepois:
   return Boolean(l.guardadoEm) && !l.clienteFalouDepois;
 }
 
+/** Caixinha 6 (frio) sem novidade é relida a cada 3 dias na leitura completa (05/11, custo). */
+export const DIAS_RELEITURA_FRIO = 3;
+export function frioAindaRecente(
+  caixinha: number | null,
+  caixinhaEm: string | null,
+  agora: Date,
+): boolean {
+  if (caixinha !== 6 || !caixinhaEm) return false;
+  return agora.getTime() - Date.parse(caixinhaEm) < DIAS_RELEITURA_FRIO * 86_400_000 - 3_600_000;
+}
+
 /** Toque (de qualquer um) vencido há mais de 12 h que ninguém fez: follow-up esquecido. */
 export function followUpEsquecido(
   toquesVencidos: Array<{ scheduledAt: string; status: string }>,
