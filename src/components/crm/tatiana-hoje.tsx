@@ -232,6 +232,7 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
           <span className="text-xs text-muted-foreground">final {t.telefoneFinal}</span>
         ) : null}
         <span className="ml-auto flex flex-wrap gap-1">
+          {t.rotulo ? <Chip tom="sucesso">{t.rotulo}</Chip> : null}
           {t.tipo !== "mensagem" ? (
             <Chip tom={t.tipo === "follow_up_esquecido" ? "problema" : "sucesso"}>
               {t.tipo === "ligar" ? <Phone aria-hidden className="size-3.5" /> : null}

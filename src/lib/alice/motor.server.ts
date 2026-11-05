@@ -57,6 +57,8 @@ import {
   diaSP,
   instanteSP,
   passoDaEtapa,
+  primeiraAtendente,
+  rotuloDoToque,
   toqueEmAudio,
   type Passo,
 } from "./cadencia";
@@ -808,7 +810,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   }
   const d = await dadosConversa(db, tarefa);
   const dados = (tarefa.dados ?? {}) as DadosCadencia;
-  const passo = dados.cadencia ? passoDaEtapa(dados.etapa) : null;
+  let passo = dados.cadencia ? passoDaEtapa(dados.etapa) : null;
   // Contato interno da equipe (marcado pelo admin) não recebe follow-up de cliente.
   const chave = chaveTelefone(d.contato?.normalized_phone);
   if (chave) {
@@ -910,6 +912,9 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
     return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
   }
+  // Toque da equipe (05/11, trilha A 3 e 4): a Alice não manda; vira tarefa da atendente com a
+  // mensagem pronta e a sequência segue para o próximo toque.
+  if (passo?.equipe) return toqueDaEquipe(db, tarefa, cfg, d, passo, dados);
 
   const { data: ultima } = await db
     .from("whatsapp_messages")
@@ -989,6 +994,16 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     await followupParaEquipe(db, tarefa, "fora do horário e da janela de 24 h do WhatsApp");
     return { situacao: "ignorada", detalhe: "fora do horário e da janela de 24 h" };
   }
+  // Toque de desconto (5 de 5) numa conversa que já teve desconto (05/11): sem oferta nova; só
+  // lembra o valor com desconto já passado (fora da janela, vira tarefa da equipe, sem o modelo).
+  if (passo?.oferta && (await conversaJaTeveDesconto(db, tarefa.empresa_id, d.conversa))) {
+    passo = {
+      ...passo,
+      oferta: false,
+      modelo: null,
+      guia: "Lembre o valor com desconto que já foi passado nesta conversa (o valor exato que está na conversa), sem oferecer outro desconto nem condição, e pergunte se pode já reservar um horário.",
+    };
+  }
   if (!dentroDaJanela(ultimaDoCliente, agora)) {
     if (passo) return toqueForaDaJanela(db, tarefa, cfg, d, passo, dados);
     // Retorno combinado fora da janela: o modelo fu_retorno_combinado (ou a equipe, sem ele).
@@ -1048,6 +1063,57 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   return conversar(db, tarefa, cfg, d, aviso, undefined, { toqueAudio });
 }
 
+/**
+ * A conversa já teve desconto? (05/11) Orçamento do lead com desconto (fora o Pix padrão), item com
+ * motivo de desconto ou preço abaixo da tabela, ou mensagem da Alice/equipe com desconto.
+ */
+async function conversaJaTeveDesconto(
+  db: Admin,
+  empresaId: string,
+  conversa: { id: string; crm_lead_id: string | null },
+): Promise<boolean> {
+  const { textoComDesconto } = await import("@/lib/comercial/furos");
+  const { data: msgs } = await db
+    .from("whatsapp_messages")
+    .select("text_content")
+    .eq("empresa_id", empresaId)
+    .eq("conversa_id", conversa.id)
+    .eq("direction", "Enviada")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(60);
+  if ((msgs ?? []).some((m) => textoComDesconto(m.text_content))) return true;
+  if (!conversa.crm_lead_id) return false;
+  const { data: qs } = await db
+    .from("quotes")
+    .select("id, desconto, cupom")
+    .eq("empresa_id", empresaId)
+    .eq("crm_lead_id", conversa.crm_lead_id);
+  const quotes = (qs ?? []) as Array<{ id: string; desconto: number | null; cupom: string | null }>;
+  if (quotes.some((q) => Number(q.desconto ?? 0) > 0 || q.cupom)) return true;
+  if (!quotes.length) return false;
+  const { data: itens } = await db
+    .from("quote_items")
+    .select("preco_aplicado, preco_tabela, motivo_desconto, desconto_regra_valor")
+    .in(
+      "quote_id",
+      quotes.map((q) => q.id),
+    );
+  return (
+    (itens ?? []) as Array<{
+      preco_aplicado: number;
+      preco_tabela: number;
+      motivo_desconto: string | null;
+      desconto_regra_valor: number | null;
+    }>
+  ).some(
+    (i) =>
+      Boolean(i.motivo_desconto) ||
+      Number(i.desconto_regra_valor ?? 0) > 0 ||
+      Number(i.preco_aplicado) < Number(i.preco_tabela) - 0.009,
+  );
+}
+
 /** Instrução do toque da cadência dentro da janela de 24 h (a Alice escreve, adaptando o guia). */
 function avisoDoToque(
   passo: Passo,
@@ -1066,7 +1132,10 @@ function avisoDoToque(
       ? `A condição é ${condicao} de desconto sobre o valor do orçamento, válida até amanhã. Não diga o valor da condição nesta mensagem; se o cliente quiser ver, refaça o orçamento com criar_orcamento e desconto "oferta_followup".`
       : null,
     toqueAudio ? GUIA_TOQUE_AUDIO : null,
-    'Uma pergunta só, nunca "está aí?" nem só o nome com interrogação.',
+    'Use o contexto da conversa e termine com UMA pergunta simples para o cliente responder (ex.: "Conseguiu ver um dia bom para agendarmos?", "Quer que eu já reserve um horário pra você?", "Tem alguma coisa te impedindo de decidir que eu possa ajudar?"). Nunca "ficou alguma dúvida?", "está aí?" nem só o nome com interrogação.',
+    passo.oferta
+      ? null
+      : "Não ofereça desconto nem condição especial: isso só existe no toque de desconto, e só quando ainda não houve desconto nesta conversa.",
     `Se não fizer sentido mandar (atendimento encerrado, cliente já decidiu), responda exatamente ${NADA}.`,
     "Não agende o próximo toque: o sistema agenda sozinho.",
   ]
@@ -1167,6 +1236,73 @@ async function toqueForaDaJanela(
     await enfileirarPendentes(db);
   }
   return resultado;
+}
+
+/**
+ * Toque da equipe (05/11): o follow-up da cadência vira tarefa da atendente (origem gerente, como as
+ * da Tatiana), com a numeração e a mensagem pronta; a nota fica na conversa e o próximo toque já
+ * fica agendado.
+ */
+async function toqueDaEquipe(
+  db: Admin,
+  tarefa: Tarefa,
+  cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
+  d: DadosConversa,
+  passo: Passo,
+  dados: DadosCadencia,
+): Promise<ResultadoTarefa> {
+  const atendente = primeiraAtendente(cfg.nomes_atendentes);
+  const rotulo = rotuloDoToque(passo.etapa, { atendente }) ?? `Toque ${passo.etapa}`;
+  const nomeCliente = await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id);
+  const { data: emp } = await db
+    .from("empresas")
+    .select("nome")
+    .eq("id", tarefa.empresa_id)
+    .maybeSingle();
+  const { mensagemDoToqueEquipe } = await import("./toque-equipe.server");
+  const escrita = await mensagemDoToqueEquipe(db as never, {
+    etapa: passo.etapa === "A4" ? "A4" : "A3",
+    nomeCliente,
+    atendente,
+    empresa: (emp as { nome?: string } | null)?.nome ?? "empresa",
+    empresaId: tarefa.empresa_id,
+    conversaId: d.conversa.id,
+  });
+  await db
+    .from("crm_followups")
+    .update({
+      responsavel: "equipe",
+      canal: "equipe",
+      origem: "gerente",
+      prioridade: 2,
+      mensagem: escrita.mensagem.slice(0, 1000),
+      motivo: "O cliente não respondeu depois do orçamento.",
+      notes: `${rotulo}. Tarefa da equipe com a mensagem pronta (a Alice não manda este toque).`,
+    })
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("ia_tarefa_id", tarefa.id)
+    .eq("status", "Pendente");
+  await enviarNota(
+    d,
+    `🤖 ${rotulo}: virou tarefa ${atendente ? `da ${atendente}` : "da equipe"} com a mensagem pronta (a Alice não manda este toque).`,
+  ).catch(() => undefined);
+  const { seguirCadencia } = await import("./cadencia.server");
+  if (
+    await seguirCadencia(db, {
+      empresaId: tarefa.empresa_id,
+      conversaId: d.conversa.id,
+      leadId: d.conversa.crm_lead_id,
+      cfg,
+      atual: dados,
+    })
+  ) {
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+  }
+  return {
+    situacao: "concluida",
+    detalhe: `toque ${passo.etapa} para a equipe${escrita.reserva ? " (mensagem reserva)" : ""}`,
+  };
 }
 
 /**

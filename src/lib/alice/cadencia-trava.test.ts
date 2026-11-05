@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { travaDoToque } from "./cadencia.server";
 
 /** Banco falso: mensagens da equipe e lead conforme o teste; o resto vazio. */
-function banco(o: { equipeEscreveu?: boolean }) {
+function banco(o: {
+  equipeEscreveu?: boolean;
+  /** Tarefas do toque da equipe (trilha A 3 e 4) nesta conversa. */
+  toquesEquipe?: Array<Record<string, unknown>>;
+}) {
   const consulta = (tabela: string) => {
     const q: Record<string, unknown> = {};
     const fim = () =>
@@ -11,14 +15,17 @@ function banco(o: { equipeEscreveu?: boolean }) {
         data:
           tabela === "whatsapp_messages"
             ? o.equipeEscreveu
-              ? [{ id: "m1" }]
+              ? [{ id: "m1", message_timestamp: "2026-10-28T13:30:00Z" }]
               : []
             : tabela === "crm_leads"
               ? { id: "l1", is_open: true, customer_id: null }
-              : [],
+              : tabela === "crm_followups"
+                ? (o.toquesEquipe ?? [])
+                : [],
         error: null,
       });
-    for (const m of ["select", "eq", "gt", "gte", "neq", "limit", "order", "is"]) q[m] = () => q;
+    for (const m of ["select", "eq", "gt", "gte", "neq", "limit", "order", "is", "in"])
+      q[m] = () => q;
     q["maybeSingle"] = fim;
     q["then"] = (r: (v: unknown) => unknown, j: (e: unknown) => unknown) => fim().then(r, j);
     return q;
@@ -115,5 +122,48 @@ test("as outras travas seguem iguais", async () => {
   assert.equal(
     await travaDoToque(banco({}), { ...base, conversa: { ...comAlice, crm_lead_id: null } }),
     "sem lead",
+  );
+});
+
+test("mensagem da equipe pela tarefa do follow-up 3/4 não trava a sequência (05/11)", async () => {
+  const conversa = { id: "c1", status: "resolved", crm_lead_id: "l1", assumida_por: null };
+  const tarefa = {
+    etapa: "A3",
+    scheduled_at: "2026-10-28T13:00:00Z",
+    completed_at: "2026-10-28T13:35:00Z",
+    status: "Concluída",
+  };
+  assert.equal(
+    await travaDoToque(banco({ equipeEscreveu: true, toquesEquipe: [tarefa] }), {
+      ...base,
+      conversa,
+    }),
+    null,
+  );
+  // Fora da janela da tarefa: a equipe entrou no meio.
+  assert.equal(
+    await travaDoToque(
+      banco({
+        equipeEscreveu: true,
+        toquesEquipe: [{ ...tarefa, scheduled_at: "2026-10-29T13:00:00Z", completed_at: null }],
+      }),
+      { ...base, conversa },
+    ),
+    "equipe escreveu para o cliente",
+  );
+});
+
+test("na sequência da equipe, a atendente responsável no Chatwoot não trava o 5 (05/11)", async () => {
+  const aberta = { id: "c1", status: "open", crm_lead_id: "l1", responsavel_id: 3 };
+  const recente = new Date(Date.now() - 86_400_000).toISOString();
+  const tarefa = { etapa: "A4", scheduled_at: recente, completed_at: recente, status: "Concluída" };
+  assert.equal(
+    await travaDoToque(banco({ toquesEquipe: [tarefa] }), { ...base, conversa: aberta, botId: 7 }),
+    null,
+  );
+  // Sem toque da equipe na conversa: pessoa responsável trava, como antes.
+  assert.equal(
+    await travaDoToque(banco({}), { ...base, conversa: aberta, botId: 7 }),
+    "equipe assumiu a conversa",
   );
 });
