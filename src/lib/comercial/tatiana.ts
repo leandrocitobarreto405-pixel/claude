@@ -183,6 +183,11 @@ export type DecisaoIA = {
   pediu_ligacao: boolean;
   /** Horário pedido para a ligação (AAAA-MM-DDTHH:MM) ou vazio. */
   ligar_quando: string;
+  /**
+   * O cliente prometeu responder ou decidir numa data ("respondo amanhã", "até sexta te falo"):
+   * AAAA-MM-DD; senão vazio. Sem resposta até o meio da tarde desse dia, vira tarefa P1 (05/11).
+   */
+  retorno_prometido: string;
   acertos: Array<{
     tipo: Exclude<TipoCobranca, "demora_resposta" | "demora_preco">;
     texto: string;
@@ -239,6 +244,7 @@ export const ESQUEMA_DECISAO = {
     "frase_cliente",
     "pediu_ligacao",
     "ligar_quando",
+    "retorno_prometido",
     "acertos",
   ],
   properties: {
@@ -252,13 +258,14 @@ export const ESQUEMA_DECISAO = {
     quando: s,
     responsavel: { type: "string", enum: ["alice", "equipe"] },
     motivo: s,
-    prioridade: { type: "integer", enum: [1, 2, 3, 4, 5] },
+    prioridade: { type: "integer", enum: [1, 2, 3] },
     mensagem: s,
     negociacao: { type: "boolean" },
     motivo_perda: s,
     frase_cliente: s,
     pediu_ligacao: { type: "boolean" },
     ligar_quando: s,
+    retorno_prometido: s,
     acertos: {
       type: "array",
       items: {
@@ -371,16 +378,19 @@ export function instrucoesDecisao(o: {
     "",
     "1. caixinha (uma só, lendo a conversa): 1 Comprou · 2 Em negociação (conversa viva, cliente decidindo) · 3 Retorno com data (cliente deu ou aceitou uma data) · 4 Achou caro · 5 Sumiu depois do orçamento · 6 Não chegou a pedir orçamento · 7 Fechou com outra empresa · 8 Fora da área (preencha cidade e bairro se a conversa disser) · 9 Descartado (spam, parceria, engano, fornecedor).",
     '   Caixinha 7 ou 9, ou acao parar, só quando o CLIENTE disser isso claramente na conversa (ex.: "já fechei com outra empresa", "não preciso mais", "não quero mais ofertas"; ou a mensagem dele mostrar que não é cliente: spam, resposta automática de outra empresa, fornecedor). frase_cliente: copie exatamente essa frase do cliente (curta). "No momento não", "por enquanto", "vou ver" ou silêncio NÃO tiram o lead: na dúvida, ele continua aberto (caixinha 2 a 6) na sequência normal. Fora desses casos, frase_cliente vazio.',
+    '   retorno_prometido: AAAA-MM-DD se o cliente prometeu responder ou decidir numa data ("respondo amanhã", "até sexta te falo", "vejo com meu marido hoje à noite e te falo"); senão vazio.',
     "   servico: o serviço orçado ou feito (curto). data_evento: AAAA-MM-DD se o cliente citou uma data importante (mudança, visita, festa), senão vazio. valor_orcado: o valor do orçamento, se houver.",
     "   Caixinha 1 (comprou): nunca chamar para venda. Caixinha 6 (não pediu orçamento): acao esperar (o lead vai para a campanha da semana, não para tarefa). Tarefa do dia só para as caixinhas 2 a 5.",
     "2. acao (UMA): chamar (alguém deve escrever amanhã), agendar (retomar numa data que faz sentido: quando = AAAA-MM-DDTHH:MM), esperar (não fazer nada agora: o cliente pediu tempo ou já há toque/retorno marcado; se ele deu uma data, quando = essa data) ou parar (o cliente recusou ou não é cliente: sugira motivo_perda exatamente com um nome da lista).",
     '   pediu_ligacao: true se o cliente pediu para ligar ("me liga", "pode ligar", "prefiro por telefone"); ligar_quando = o horário pedido (AAAA-MM-DDTHH:MM, o próximo que faça sentido) ou vazio. Com pediu_ligacao, a tarefa é ligar, não mandar mensagem.',
     `   Para chamar, quando = amanhã (AAAA-MM-DDTHH:MM) só se o horário importar (ex.: cliente disse que fala depois das 18h); senão vazio. Motivos da lista: ${o.motivos.join("; ")}.`,
-    `3. responsavel: ${o.temAlice ? "alice para toque simples (lembrar, oferecer horário, mandar resumo); equipe para negociação, desconto, reclamação, pedido especial, ou se a equipe já estava conduzindo a conversa. negociacao = true quando envolver preço, desconto ou condição." : "sempre equipe (esta empresa não tem Alice)."}`,
+    `3. responsavel: ${o.temAlice ? "alice para toque simples (lembrar, oferecer horário, mandar resumo); equipe para negociação, desconto, reclamação, pedido especial, ou se a equipe já estava conduzindo a conversa." : "sempre equipe (esta empresa não tem Alice)."} negociacao = true quando envolver preço, desconto, condição ou concorrente (o cliente achou caro, pediu desconto, comparou com outra empresa).`,
     '   motivo: 1 frase curta, para a equipe, do porquê (ex.: "pediu para falar amanhã depois das 18h").',
-    "   prioridade: 1 (mais urgente: cliente quente, data próxima, dinheiro alto) a 5.",
+    "   prioridade (P1, P2 ou P3; a equipe faz na ordem e nada é cortado): 1 = URGENTE, fazer de manhã: quase fechado; cliente comparando com concorrente, achou caro ou negociando preço; aprovou ou fechou e falta OS ou dados; quer encaixe para hoje ou amanhã; retorno combinado que já venceu; cliente esperando resposta nossa (pergunta ou pedido sem resposta). 2 = HOJE: pediu preço e ainda não recebeu (a tarefa é retomar pedindo o que falta: foto, CEP, medida); orçamento que vence hoje; orçamento de valor alto sem resposta. 3 = no dia marcado: o resto da sequência (sumiu depois do orçamento sem sinal de compra), pós-venda, base parada.",
+    "   Respeite o que o cliente disse: se ele amarrou a decisão a um acontecimento (resolver um vazamento, terminar uma obra, mudança, viagem, falar com alguém numa data), isso NÃO é urgente: use esperar com quando = a data em que faz sentido voltar (a que ele disse ou, sem data, uns 7 a 14 dias) e só cobre depois disso.",
     `4. mensagem (só para chamar ou agendar; senão vazio): o que dizer, pronto para copiar. Use o contexto desta conversa (cite algo que o cliente disse), empatia primeiro se ele contou um problema, e termine com UMA pergunta simples para o cliente responder, como "Conseguiu ver um dia bom para agendarmos?", "Quer que eu já reserve um horário pra você?" ou "Tem alguma coisa te impedindo de decidir que eu possa ajudar?". Até 3 frases curtas. Pode usar o primeiro nome do cliente. Proibido: "ficou alguma dúvida", "passando para saber", "conseguiu decidir", "está aí?". Nunca ofereça nem prometa desconto, condição melhor ou "ver com a equipe/gestor uma condição": desconto só existe no toque de desconto da sequência da Alice. Se a conversa já teve desconto (da Alice ou da equipe), lembre o valor com desconto que já foi passado, sem prometer outro. Ao falar de preço, use o valor que está na conversa ou no orçamento, com o Pix (${pix}) quando for o caso. Nunca invente desconto, condição ou horário exato.`,
     "5. acertos: compare a conversa com o app e liste só o que está faltando no app (lista vazia se nada). Um acerto por assunto: nunca dois para a mesma venda. texto nunca vazio.",
+    '   Se o cliente já tem orçamento no app (inclusive convertido em OS ou solto com o mesmo telefone), nunca peça outro: quando a equipe negociou um valor novo ou o cliente pediu mais um item, escreva em proximo_passo "Atualizar o orçamento existente: <valor novo ou item a mais>" e use acao chamar.',
     "   orcamento_sem_app: alguém passou um valor em R$ na conversa e não há orçamento no app (itens = o que foi orçado, com quantidade e valor lidos da conversa; o valor é obrigatório). Se NÃO saiu valor, não é orcamento_sem_app: preencha proximo_passo com o que a equipe deve fazer (ex.: pedir a medida do tapete), use acao chamar e escreva a mensagem pronta;",
     '   fechou_sem_os: o cliente confirmou que quer fazer E deu ou aceitou uma data (data = AAAA-MM-DD), e não há OS. "Vou aprovar e volto para agendar" NÃO é fechou: é aguardando (acao agendar, retorno em 2 dias), sem acerto;',
     "   remarcar: o cliente pediu outra data (data = a data nova, AAAA-MM-DD) e a visita no app continua na data antiga;",
