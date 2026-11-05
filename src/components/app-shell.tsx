@@ -73,13 +73,16 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const comercial = useQuery({
     queryKey: ["gerente-comercial-ligado", ctx?.ativa?.empresa.id],
     queryFn: async () => {
+      // Filtra pela empresa aberta: o admin da Nexa enxerga a configuração de todas as empresas, e
+      // com duas ligadas o maybeSingle falhava e a aba sumia (05/11).
       const { data } = await supabase
         .from("comercial_configuracoes" as never)
         .select("ligado")
+        .eq("empresa_id" as never, ctx?.ativa?.empresa.id as never)
         .maybeSingle();
       return Boolean((data as { ligado?: boolean } | null)?.ligado);
     },
-    enabled: papel === "admin" && !ctx?.painelNexa,
+    enabled: papel === "admin" && !ctx?.painelNexa && Boolean(ctx?.ativa?.empresa.id),
     staleTime: 10 * 60_000,
   });
   const grupos = menuDoPapel(
