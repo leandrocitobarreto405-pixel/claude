@@ -49,7 +49,6 @@ import {
   confereDesfecho,
   ESQUEMA_RECADO,
   NOME_GERENTE,
-  LIMITE_TAREFAS_DIA,
   aplicarTravas,
   cobrancasVisiveis,
   demorasDaEquipe,
@@ -2314,102 +2313,16 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
 }
 
 /**
- * Fim da noite (31/10): até LIMITE_TAREFAS_DIA tarefas novas por empresa (as de maior prioridade;
- * as outras são canceladas e a decisão vira "esperar") e até 10 acertos novos na lista da equipe.
+ * Fim da noite: SEM limite de tarefas (05/11, decisão do dono: toda tarefa que precisa ser feita é
+ * criada e aparece; o que organiza é a prioridade e o prazo). Antes eram até 15 extras por dia e as
+ * outras viravam "esperar"; um lead quase fechado (concorrente) chegou a ser cortado.
  */
 async function limitesDaNoite(db: Db, noite: Noite) {
-  const leituraCompleta = Boolean(
-    (noite.resumo as { leituraCompleta?: boolean } | null)?.leituraCompleta,
-  );
-  const { data: decs } = await db
+  const { count: tarefas } = await db
     .from("comercial_decisoes")
-    .select("id, followup_id, motivo, crm_lead_id")
+    .select("id", { count: "exact", head: true })
     .eq("noite_id", noite.id)
     .not("followup_id", "is", null);
-  const ds = (decs ?? []) as Array<{
-    id: string;
-    followup_id: string;
-    motivo: string | null;
-    crm_lead_id: string;
-  }>;
-  // Cortado pelo limite na noite anterior (05/11): entra na frente e não é cortado de novo.
-  const { data: anterior } = await db
-    .from("comercial_noites")
-    .select("id")
-    .eq("empresa_id", noite.empresa_id)
-    .neq("modo", "conferencia")
-    .lt("noite", noite.noite)
-    .order("noite", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const cortadosOntem = new Set<string>();
-  if (anterior) {
-    const { data: cortes } = await db
-      .from("comercial_decisoes")
-      .select("crm_lead_id")
-      .eq("noite_id", (anterior as { id: string }).id)
-      .like("motivo", "limite do dia%");
-    for (const c of (cortes ?? []) as Array<{ crm_lead_id: string }>)
-      cortadosOntem.add(c.crm_lead_id);
-  }
-  const prioridade = new Map<string, number>();
-  // Fora do limite de 15: ligar (o cliente pediu) e follow-up esquecido (repõe um toque devido).
-  const foraDoLimite = new Set<string>();
-  for (const d of ds)
-    if (cortadosOntem.has(d.crm_lead_id)) {
-      foraDoLimite.add(d.followup_id);
-      await db
-        .from("crm_followups")
-        .update({ prioridade: 1 })
-        .eq("id", d.followup_id)
-        .eq("status", "Pendente");
-    }
-  for (let i = 0; i < ds.length; i += 200) {
-    const { data: fus } = await db
-      .from("crm_followups")
-      .select("id, prioridade, tarefa_tipo, etapa")
-      .in(
-        "id",
-        ds.slice(i, i + 200).map((d) => d.followup_id),
-      );
-    // "Follow-up esquecido" passa na frente de tudo (prioridade 0).
-    for (const f of (fus ?? []) as Array<{
-      id: string;
-      prioridade: number | null;
-      tarefa_tipo: string | null;
-      etapa: string | null;
-    }>) {
-      prioridade.set(f.id, f.tarefa_tipo === "follow_up_esquecido" ? 0 : (f.prioridade ?? 5));
-      if (f.tarefa_tipo === "follow_up_esquecido" || f.tarefa_tipo === "ligar")
-        foraDoLimite.add(f.id);
-      // Leitura completa: toque da sequência nunca fica "esperar por limite"; só extra conta.
-      if (leituraCompleta && f.etapa !== "GX") foraDoLimite.add(f.id);
-    }
-  }
-  const lista = [...ds]
-    .filter((d) => !foraDoLimite.has(d.followup_id))
-    .sort((a, b) => (prioridade.get(a.followup_id) ?? 5) - (prioridade.get(b.followup_id) ?? 5));
-  const sobra = lista.slice(LIMITE_TAREFAS_DIA);
-  if (sobra.length) {
-    await db
-      .from("crm_followups")
-      .update({ status: "Cancelada", notes: `${NOME_GERENTE}: limite do dia (esperar)` })
-      .in(
-        "id",
-        sobra.map((d) => d.followup_id),
-      )
-      .eq("status", "Pendente");
-    for (const d of sobra)
-      await db
-        .from("comercial_decisoes")
-        .update({
-          acao: "esperar",
-          executada: false,
-          followup_id: null,
-          motivo: `limite do dia · ${d.motivo ?? ""}`.slice(0, 300),
-        })
-        .eq("id", d.id);
-  }
   const { data: novas } = await db
     .from("comercial_cobrancas")
     .select("id, tipo, dados")
@@ -2424,9 +2337,7 @@ async function limitesDaNoite(db: Db, noite: Noite) {
     await db.from("comercial_cobrancas").update({ visivel_equipe: true }).in("id", visiveis);
   noite.resumo = {
     ...(noite.resumo ?? {}),
-    tarefasNoLimite: Math.min(lista.length, LIMITE_TAREFAS_DIA),
-    tarefasEsperar: sobra.length,
-    voltaramDoLimite: ds.filter((d) => cortadosOntem.has(d.crm_lead_id)).length,
+    tarefas: tarefas ?? 0,
     acertosNaLista: visiveis.length,
     acertosSoNaAba: Math.max(0, (novas ?? []).length - visiveis.length),
   };
