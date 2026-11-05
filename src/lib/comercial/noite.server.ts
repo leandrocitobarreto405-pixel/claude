@@ -679,7 +679,7 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
           .eq("empresa_id", empresaId)
           .is("crm_lead_id", null)
           .ilike("cliente_telefone", `%${fim.slice(-4)}%`)
-          .gte("created_at", new Date(Date.now() - 30 * 86_400_000).toISOString())
+          .gte("created_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
           .limit(20)
       : Promise.resolve({ data: [] }),
     // Campanha ou promoção recebida nos últimos 30 dias (trava da tarefa).
@@ -1189,6 +1189,10 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     decisao.quando = "";
     decisao.motivo = textoFollowUpEsquecido(esquecidoEm);
   }
+  // Negociação, preço ou concorrência é sempre P1 (05/11); prioridade fora de 1 a 3 vira P3.
+  if (decisao.negociacao && (decisao.acao === "chamar" || decisao.acao === "agendar"))
+    decisao.prioridade = 1;
+  decisao.prioridade = Math.min(3, Math.max(1, Math.round(Number(decisao.prioridade) || 3)));
   const ligar = Boolean(decisao.pediu_ligacao) && !est.bloqueado;
   let responsavel: "alice" | "equipe" =
     !ctx.temAlice || decisao.negociacao || ligar || Boolean(esquecidoEm)
@@ -1263,6 +1267,10 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     servico: decisao.servico || null,
     data_evento: /^\d{4}-\d{2}-\d{2}$/.test(decisao.data_evento) ? decisao.data_evento : null,
     valor_orcado: decisao.valor_orcado,
+    // Retorno prometido pelo cliente (05/11): sem resposta até o meio da tarde do dia, vira P1.
+    retorno_prometido_em: /^\d{4}-\d{2}-\d{2}$/.test(decisao.retorno_prometido ?? "")
+      ? decisao.retorno_prometido
+      : null,
   };
   const foraArea =
     decisao.caixinha === 8
@@ -2452,6 +2460,15 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
           saida[`nova_${emp.slice(0, 8)}`] = { leads: leads.length, ...escopo.entrada };
         }
       }
+    }
+    // 2b. Tempo real (05/11), durante o dia: concorrência citada na conversa e retorno prometido
+    // sem resposta até as 15h viram tarefa P1 na hora.
+    if (hora >= "08:00" && hora < "20:00") {
+      const { concorrenciaNaConversa, retornosVencidos } = await import("./tempo-real.server");
+      const conc = await concorrenciaNaConversa(db, emp, agora).catch(() => 0);
+      const ret = await retornosVencidos(db, emp, { hoje, hora }).catch(() => 0);
+      if (conc || ret)
+        saida[`tempo_real_${emp.slice(0, 8)}`] = { concorrencia: conc, retornos: ret };
     }
     // 3. Aviso de 80% do teto mensal (uma vez por mês, só no app, para o admin).
     const mes = hoje.slice(0, 7);

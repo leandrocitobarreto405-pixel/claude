@@ -291,7 +291,8 @@ export function adiarTarefa(t: { prioridade: number | null; adiamentos: number }
 } {
   const adiamentos = Math.min(30, t.adiamentos + 1);
   return {
-    prioridade: Math.max(1, (t.prioridade ?? 3) - 1),
+    // Atraso não vira urgência sozinho (05/11): P3 sobe no máximo para P2; P1 continua P1.
+    prioridade: (t.prioridade ?? 3) <= 1 ? 1 : 2,
     adiamentos,
     avisarAdmin: adiamentos === 2,
   };
