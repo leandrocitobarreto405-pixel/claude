@@ -5,7 +5,16 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Archive, Bot, Check, Copy, MessageCircle, Phone, SkipForward } from "lucide-react";
+import {
+  Archive,
+  Bot,
+  Check,
+  Copy,
+  GraduationCap,
+  MessageCircle,
+  Phone,
+  SkipForward,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Botao, Card, Chip, Recolhido } from "@/components/nexa";
 import {
@@ -34,6 +43,7 @@ import {
   type DadosBaseParada,
   type Recomendacao,
 } from "@/lib/comercial/base-parada";
+import type { DadosNaoSoube } from "@/lib/comercial/alice-nao-soube";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +112,8 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
       </Card>
 
       {d.admin && d.baseParada ? <BaseParada b={d.baseParada} /> : null}
+
+      {d.admin && d.aliceNaoSoube ? <AliceNaoSoube r={d.aliceNaoSoube} /> : null}
 
       {d.admin && d.feriados.length ? <FeriadosParaDecidir feriados={d.feriados} /> : null}
 
@@ -794,6 +806,74 @@ function BaseParada({ b }: { b: DadosBaseParada & { criadoEm: string } }) {
             A campanha só existe depois do seu Aprovar e Ativar no Marketing.
           </p>
         </div>
+      </div>
+    </Recolhido>
+  );
+}
+
+/** O que a Alice não soube (05/11): lista semanal para ensinar a Alice. Só leitura, só o admin. */
+function AliceNaoSoube({ r }: { r: DadosNaoSoube & { criadoEm: string } }) {
+  return (
+    <Recolhido
+      titulo={`O que a Alice não soube (${r.total} ${r.total === 1 ? "caso" : "casos"})`}
+      icone={<GraduationCap aria-hidden className="size-5" />}
+    >
+      <div className="flex min-w-0 flex-col gap-3 px-4 pb-4 text-sm">
+        <p className="text-xs text-muted-foreground">
+          {dateTimeBR(r.criadoEm)} · casos dos últimos 7 dias em que a Alice passou a conversa por
+          não saber, ou disse que a equipe confirmaria. Nada foi salvo no roteiro da Alice: cada
+          texto só entra depois do seu OK no antes e depois.
+        </p>
+        {r.resumo ? <p>{r.resumo}</p> : null}
+        <ul className="flex min-w-0 flex-col gap-2">
+          {r.grupos.map((g, i) => (
+            <li
+              key={`${g.assunto}-${i}`}
+              className="flex min-w-0 flex-col gap-2 rounded-botao border border-border p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">
+                  {g.assunto}{" "}
+                  <span className="font-normal text-muted-foreground">({g.casos.length})</span>
+                </p>
+                {g.onde ? <Chip tom="neutro">{g.onde}</Chip> : null}
+              </div>
+              <ul className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+                {g.casos.slice(0, 3).map((c, j) => (
+                  <li key={j} className="min-w-0 break-words">
+                    <span className="font-medium text-foreground">
+                      final {c.fim || "?"} · {c.dia}:
+                    </span>{" "}
+                    {c.pergunta || "-"}
+                    {c.equipe ? <> → equipe: {c.equipe}</> : null}
+                  </li>
+                ))}
+                {g.casos.length > 3 ? <li>e mais {g.casos.length - 3}</li> : null}
+              </ul>
+              {g.depois ? (
+                <div className="flex min-w-0 flex-col gap-1">
+                  {g.antes ? (
+                    <>
+                      <p className="text-xs font-semibold">Antes</p>
+                      <p className="min-w-0 whitespace-pre-wrap break-words rounded-botao bg-muted p-2 text-xs">
+                        {g.antes}
+                      </p>
+                    </>
+                  ) : null}
+                  <p className="text-xs font-semibold">{g.antes ? "Depois" : "Texto novo"}</p>
+                  <p className="min-w-0 whitespace-pre-wrap break-words rounded-botao bg-marca-claro p-2 text-xs">
+                    {g.depois}
+                  </p>
+                </div>
+              ) : null}
+              {g.pergunta_ao_dono ? (
+                <p className="text-xs">
+                  <span className="font-semibold">Falta decidir:</span> {g.pergunta_ao_dono}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       </div>
     </Recolhido>
   );

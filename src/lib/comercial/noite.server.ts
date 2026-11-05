@@ -2583,6 +2583,16 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
         agora,
         hoje,
       ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+      // 4b3. O que a Alice não soube (05/11): só quando a base parada não leu nada nesta passada.
+      if (!Object.keys(saida["base_parada"] as object).length) {
+        const { rodarNaoSoube } = await import("./alice-nao-soube.server");
+        saida["alice_nao_soube"] = await rodarNaoSoube(
+          db,
+          configs.filter((c) => c.modo !== "desligado").map((c) => c.empresa_id),
+          agora,
+          hoje,
+        ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+      }
     }
   }
 
