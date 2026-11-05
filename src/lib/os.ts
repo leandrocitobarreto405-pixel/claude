@@ -56,6 +56,10 @@ export type VisitInput = {
   visit_notes?: string | null;
   /** Ocupa o dia inteiro do técnico (true), nunca (false) ou automático pelo valor (null). */
   ocupa_dia?: boolean | null;
+  /** Atendimento de retirada de persiana/tapete (05/11): tipo e entrega prevista (editável). */
+  retirada?: "persiana" | "tapete" | null;
+  entrega_prevista?: string | null;
+  entrega_editada?: boolean;
   items: ServiceItemInput[];
 };
 
@@ -302,6 +306,48 @@ async function saveCollectionVisit(
   await supabase.from("work_orders").update({ collection_visit_id: visitId }).eq("id", workOrderId);
 }
 
+/**
+ * Retirada de persiana/tapete (05/11): o atendimento cujos itens são todos de um tipo vira
+ * retirada, em horário comercial, com a entrega prevista em dias úteis (feriados da empresa em que
+ * ela não trabalha não contam). A data que o formulário mandar (editada) vale.
+ */
+async function camposDeRetirada(v: VisitInput): Promise<Record<string, unknown>> {
+  const { retiradaDoAtendimento, entregaPrevista, HORA_RETIRADA } = await import("./retirada");
+  let tipo = v.retirada ?? null;
+  if (tipo === undefined || tipo === null) {
+    const { data: catalogo } = await supabase.from("tabela_precos_itens").select("nome, categoria");
+    const r = retiradaDoAtendimento(
+      v.items.map((i) => i.description ?? ""),
+      (catalogo ?? []) as Array<{ nome: string; categoria: string | null }>,
+    );
+    tipo = r.situacao === "retirada" ? r.tipo : null;
+  }
+  if (!tipo) return { retirada: null, entrega_prevista: null, entrega_editada: false };
+  let entrega = v.entrega_editada ? (v.entrega_prevista ?? null) : null;
+  if (!entrega) {
+    const { feriadoBloqueia } = await import("./feriados");
+    const { data: feriados } = await supabase
+      .from("feriados" as never)
+      .select("data, nome, trabalhamos")
+      .gte("data", v.scheduled_date)
+      .limit(60);
+    const bloqueados = new Set(
+      ((feriados ?? []) as Array<{ data: string; nome: string; trabalhamos: boolean | null }>)
+        .filter((f) => feriadoBloqueia(f))
+        .map((f) => f.data),
+    );
+    entrega = entregaPrevista(v.scheduled_date, tipo, bloqueados);
+  }
+  return {
+    retirada: tipo,
+    entrega_prevista: entrega,
+    entrega_editada: Boolean(v.entrega_editada),
+    // Horário comercial (a agenda mostra "8h às 18h") e não ocupa o dia de técnico próprio.
+    scheduled_time: HORA_RETIRADA,
+    ocupa_dia: false,
+  };
+}
+
 export async function createWorkOrder(args: {
   customer: CustomerInput;
   customerId?: string | null;
@@ -345,7 +391,8 @@ export async function createWorkOrder(args: {
         ocupa_dia: v.ocupa_dia ?? null,
         status: "Agendado",
         ...visitLegacyFields(v),
-      })
+        ...((await camposDeRetirada(v)) as object),
+      } as never)
       .select("id")
       .single();
     if (visitError) throw visitError;
@@ -463,16 +510,20 @@ export async function updateWorkOrder(args: {
       visit_notes: v.visit_notes ?? null,
       ocupa_dia: v.ocupa_dia ?? null,
       ...visitLegacyFields(v),
+      ...((await camposDeRetirada(v)) as object),
     };
     if (v.id) {
-      const { error: e } = await supabase.from("visits").update(payload).eq("id", v.id);
+      const { error: e } = await supabase
+        .from("visits")
+        .update(payload as never)
+        .eq("id", v.id);
       if (e) throw e;
       await saveVisitItems(v.id, v.items);
       visitIds.push(v.id);
     } else {
       const { data: novo, error: e } = await supabase
         .from("visits")
-        .insert({ work_order_id: args.workOrderId, status: "Agendado", ...payload })
+        .insert({ work_order_id: args.workOrderId, status: "Agendado", ...payload } as never)
         .select("id")
         .single();
       if (e) throw e;
@@ -780,7 +831,8 @@ export {
 export const VISIT_SELECT = `
   id, scheduled_date, scheduled_time, status, visit_value, final_value, upholstery_description,
   completion_date, completion_time, visit_notes, mileage_cost_allocated, work_order_id,
-  technician_id, service_type_id, ocupa_dia,
+  technician_id, service_type_id, ocupa_dia, retirada, entrega_prevista, entrega_editada,
+  entrega_feita_em,
   reschedule_type, technician_travel_occurred, preserve_original_route, reschedule_reason,
   reschedule_notes, original_scheduled_date, rescheduled_from_visit_id, rescheduled_to_visit_id,
   rescheduled_to:rescheduled_to_visit_id ( id, scheduled_date, scheduled_time, status ),
@@ -818,6 +870,11 @@ export type VisitRow = {
   technician_id?: string | null;
   service_type_id?: string | null;
   ocupa_dia?: boolean | null;
+  /** Retirada de persiana/tapete (05/11). */
+  retirada?: "persiana" | "tapete" | null;
+  entrega_prevista?: string | null;
+  entrega_editada?: boolean | null;
+  entrega_feita_em?: string | null;
   reschedule_type?: string | null;
   technician_travel_occurred?: boolean | null;
   preserve_original_route?: boolean | null;

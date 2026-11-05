@@ -38,6 +38,7 @@ import { CartaoAtendimento } from "@/components/agenda/cartao-atendimento";
 import { FaixaHorariosLivres } from "@/components/agenda/faixa-horarios-livres";
 import { VisitDialog } from "@/components/visit-dialog";
 import { BudgetVisitDialog } from "@/components/budget-visit-dialog";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { semOsDeTeste } from "@/lib/os-teste";
@@ -45,6 +46,7 @@ import { BUDGET_VISIT_SELECT, type BudgetVisitRow } from "@/lib/budget-visits";
 import { VISIT_STATUSES, useTechnicians } from "@/lib/data";
 import {
   contagemPorDia,
+  deEntrega,
   deOrcamento,
   deVisita,
   idAtual,
@@ -183,6 +185,23 @@ function Agenda() {
     },
   });
 
+  // Entregas de persiana/tapete (05/11): aparecem no dia da entrega prevista.
+  const entregasQuery = useQuery({
+    queryKey: ["agenda", "entregas", chave],
+    enabled: !especial,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visits")
+        .select(VISIT_SELECT)
+        .not("retirada" as never, "is", null)
+        .neq("status", "Cancelado")
+        .gte("entrega_prevista" as never, from)
+        .lte("entrega_prevista" as never, to);
+      if (error) throw error;
+      return ((data ?? []) as unknown as VisitRow[]).filter(semOsDeTeste);
+    },
+  });
+
   // Quilômetros da rota do dia (quando a rota já foi calculada).
   const rotaQuery = useQuery({
     queryKey: ["agenda", "rota", ref],
@@ -198,8 +217,12 @@ function Agenda() {
   });
 
   const visitaPorId = useMemo(
-    () => new Map((query.data ?? []).map((v) => [`os-${v.id}`, v])),
-    [query.data],
+    () =>
+      new Map<string, VisitRow>([
+        ...(query.data ?? []).map((v): [string, VisitRow] => [`os-${v.id}`, v]),
+        ...(entregasQuery.data ?? []).map((v): [string, VisitRow] => [`ent-${v.id}`, v]),
+      ]),
+    [query.data, entregasQuery.data],
   );
   const orcamentoPorId = useMemo(
     () => new Map((orcamentosQuery.data ?? []).map((b) => [`orc-${b.id}`, b])),
@@ -211,6 +234,9 @@ function Agenda() {
       ...(query.data ?? [])
         .filter((v) => tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto)
         .map(deVisita),
+      ...(especial ? [] : (entregasQuery.data ?? []))
+        .filter((v) => tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto)
+        .map(deEntrega),
       ...(orcamentosQuery.data ?? [])
         .filter((b) => tecnicoVisto === "todos" || b.technician?.id === tecnicoVisto)
         .map(deOrcamento),
@@ -218,7 +244,7 @@ function Agenda() {
     return todos
       .map((i) => (comValores ? i : { ...i, valor: null }))
       .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
-  }, [query.data, orcamentosQuery.data, tecnicoVisto, comValores]);
+  }, [query.data, entregasQuery.data, especial, orcamentosQuery.data, tecnicoVisto, comValores]);
 
   const filtrados = useMemo(
     () => doTecnico.filter((i) => status === "todos" || i.status === status),
@@ -280,6 +306,21 @@ function Agenda() {
   function recarregar() {
     void query.refetch();
     void orcamentosQuery.refetch();
+    void entregasQuery.refetch();
+  }
+
+  /** Entrega da persiana/tapete feita: o bloco da Entrega fica como "Entregue". */
+  async function marcarEntregue(id: string) {
+    const v = visitaPorId.get(id);
+    if (!v) return;
+    const { error } = await supabase
+      .from("visits")
+      .update({ entrega_feita_em: new Date().toISOString() } as never)
+      .eq("id", v.id);
+    if (error) return void toast.error("Não foi possível marcar a entrega.");
+    toast.success("Entrega registrada.");
+    void entregasQuery.refetch();
+    void query.refetch();
   }
 
   const carregando = query.isLoading || orcamentosQuery.isLoading;
@@ -494,6 +535,7 @@ function Agenda() {
                   aberto={abertoId === item.id}
                   onAlternar={() => alternar(item.id)}
                   onDetalhes={() => detalhes(item.id)}
+                  onEntregue={() => void marcarEntregue(item.id)}
                 />
               ))}
             </ul>
@@ -532,6 +574,7 @@ function Agenda() {
                     aberto={abertoId === item.id}
                     onAlternar={() => alternar(item.id)}
                     onDetalhes={() => detalhes(item.id)}
+                    onEntregue={() => void marcarEntregue(item.id)}
                   />
                 ))}
               </ul>
