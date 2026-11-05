@@ -19,6 +19,16 @@ test("encerramento: combinado, ok, obrigado, emoji, até lá", () => {
     "valeu",
     "Certo, aguardo",
     "Obg, bom dia",
+    // 05/11: dia, hora e nome não mudam o sentido.
+    "obrigada, até sábado",
+    "Combinado então, até segunda!",
+    "Perfeito, até amanhã às 9h",
+    "Muito obrigada Maria, fico no aguardo",
+    "Obrigada pelo retorno, aguardo vocês no sábado",
+    "Tá bom linda obrigada",
+    "Imagina! Eu que agradeço",
+    "",
+    "This message is unavailable.",
   ])
     assert.equal(mensagemDeEncerramento(t), true, t);
 });
@@ -31,6 +41,8 @@ test("não é encerramento: pergunta, conteúdo novo, áudio/foto", () => {
     "obrigada, e o tapete vocês fazem",
     "oi",
     "?",
+    "Obrigada, Maria, quero agendar no sábado",
+    "ok, até sábado, mas e o tapete",
   ])
     assert.equal(mensagemDeEncerramento(t), false, t);
   assert.equal(mensagemDeEncerramento("", "Áudio"), false);
