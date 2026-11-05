@@ -98,3 +98,12 @@ test("toque da equipe: trava das regras da mensagem", () => {
   // Lacuna.
   assert.equal(mensagemValida(`${ab} e o valor é R$ ___. Pode ser?`, e), false);
 });
+
+test("voltar na conversa: P1 em negociação, preço ou concorrência; P2 no resto", async () => {
+  const { prioridadeVoltarConversa } = await import("../comercial/voltar-conversa");
+  assert.equal(prioridadeVoltarConversa(["achei um pouco caro", "oi"]), 1);
+  assert.equal(prioridadeVoltarConversa(["recebi um orçamento melhor de outra empresa"]), 1);
+  assert.equal(prioridadeVoltarConversa(["consegue fazer por 400 no pix?"]), 1);
+  assert.equal(prioridadeVoltarConversa(["vou ver com meu marido e te falo", null]), 2);
+  assert.equal(prioridadeVoltarConversa([]), 2);
+});

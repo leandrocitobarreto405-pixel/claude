@@ -8,12 +8,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { primeiraAtendente, rotuloDoToque, travaDoLead } from "@/lib/alice/cadencia";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
+import { prioridadeVoltarConversa } from "./voltar-conversa";
 
 type Db = SupabaseClient;
 
 /** Motivos da trava do toque que querem dizer "a equipe entrou no meio". */
 export const EQUIPE_ENTROU = ["equipe escreveu para o cliente", "equipe assumiu a conversa"];
-const LIMITE_POR_NOITE = 15;
 
 export async function tarefasVoltarConversa(
   db: Db,
@@ -79,9 +79,22 @@ export async function tarefasVoltarConversa(
     agendado_em: string | null;
     closed_at: string | null;
   }>) {
-    if (criadas >= LIMITE_POR_NOITE) break;
+    // Sem limite por noite (05/11): toda conversa parada no meio vira tarefa, com prioridade.
     if (travaDoLead(l) || comTarefa.has(l.id)) continue;
     const conversaId = porLead.get(l.id)!;
+    const { data: ultimas } = await db
+      .from("whatsapp_messages")
+      .select("text_content, transcricao")
+      .eq("empresa_id", o.emp)
+      .eq("conversa_id", conversaId)
+      .eq("privada", false)
+      .order("message_timestamp", { ascending: false })
+      .limit(15);
+    const prioridade = prioridadeVoltarConversa(
+      ((ultimas ?? []) as Array<{ text_content: string | null; transcricao: string | null }>).map(
+        (m) => m.text_content || m.transcricao,
+      ),
+    );
     const escrita = await mensagemDoToqueEquipe(db, {
       etapa: "VC",
       nomeCliente: primeiroNomeLimpo(l.lead_name),
@@ -103,10 +116,12 @@ export async function tarefasVoltarConversa(
       canal: "equipe",
       origem: "gerente",
       tarefa_tipo: "mensagem",
-      prioridade: 2,
+      prioridade,
       mensagem: escrita.mensagem.slice(0, 1000),
       motivo:
-        "A equipe entrou na conversa e a sequência da Alice parou: seguir com o cliente até ter desfecho.",
+        prioridade === 1
+          ? "Negociação de preço em andamento (a equipe entrou na conversa): retomar hoje de manhã, até ter desfecho."
+          : "A equipe entrou na conversa e a sequência da Alice parou: seguir com o cliente até ter desfecho.",
       notes: `Tatiana: ${rotulo} (todo dia até o desfecho).`,
     });
     if (!error) criadas++;

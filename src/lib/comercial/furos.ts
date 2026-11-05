@@ -205,6 +205,34 @@ export function temLacuna(texto: string | null | undefined): boolean {
 }
 export const MOTIVO_LACUNA = "Montar o orçamento e mandar o valor";
 
+/**
+ * Oferta de condição numa mensagem pronta (05/11, regra aprovada): fora do toque de desconto (5 de
+ * 5), a mensagem nunca oferece condição melhor nem "ver com a equipe/gestor"; se oferecer, não sai
+ * pronta e a tarefa fica com o aviso.
+ */
+const OFERTA_CONDICAO =
+  /condi[cç][aã]o (melhor|especial|mais vantajosa|diferenciada)|melhor condi[cç][aã]o|ver com (a equipe|o gestor|meu gestor|o meu gestor|a ger[eê]ncia)|consegui (um|uma) (desconto|condi)|consigo (um|uma) (desconto|condi)|posso ver (um|uma) (desconto|condi)/i;
+export function temOfertaDeCondicao(texto: string | null | undefined): boolean {
+  return Boolean(texto && OFERTA_CONDICAO.test(texto));
+}
+export const MOTIVO_OFERTA = "mensagem tinha oferta de condição: escrever sem oferecer desconto";
+
+/**
+ * A conversa já teve desconto? (05/11) Mensagem da Alice ou da equipe com desconto, "% off",
+ * "condição especial" ou "consigo fazer por". O desconto padrão do Pix não conta.
+ */
+const DESCONTO_DADO =
+  /\bdesconto\b|%\s*off|condi[cç][aã]o especial|consigo (fazer|chegar) (por|em)|fa[cç]o por|deixo por/i;
+export function textoComDesconto(texto: string | null | undefined): boolean {
+  if (!texto) return false;
+  // "5% de desconto no Pix" é o desconto padrão, não um desconto dado.
+  const semPix = texto.replace(
+    /\d+(,\d+)?\s*%\s*(de\s+)?desconto\s+(no|pelo|via|pagando no)\s+pix|no pix\s*\(\s*\d+(,\d+)?\s*%\s*(de\s+)?desconto\s*\)|pix\s*\(\s*\d+(,\d+)?\s*%\s*(de\s+)?desconto\s*\)/gi,
+    "",
+  );
+  return DESCONTO_DADO.test(semPix);
+}
+
 /** Caixinhas finalizadas (comprou, fechou com outra, fora da área, descartado): fora da leitura. */
 export const CAIXINHAS_FINALIZADAS = new Set([1, 7, 8, 9]);
 

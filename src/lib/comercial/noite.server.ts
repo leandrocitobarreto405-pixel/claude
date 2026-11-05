@@ -15,11 +15,13 @@ import {
   diaDeRever,
   CAIXINHAS_FINALIZADAS,
   MOTIVO_LACUNA,
+  MOTIVO_OFERTA,
   campanhaSemResposta,
   finalizadoFora,
   frioAindaRecente,
   guardadoFora,
   temLacuna,
+  temOfertaDeCondicao,
   followUpEsquecido,
   horarioDaConfig,
   motivosDeEntrada,
@@ -934,8 +936,8 @@ async function melhorarMensagem(
       },
       system: [
         "Você escreve a mensagem de WhatsApp que uma vendedora vai copiar e mandar a um cliente de limpeza de estofados. Até 3 frases curtas, tom humano e carinhoso, sem pressão.",
-        "Cite algo específico da conversa; empatia primeiro se o cliente contou um problema; traga algo novo e útil (um horário, um resumo para quem decide, um cuidado); termine com UMA pergunta fácil.",
-        `Ao falar de preço, cite o valor no Pix${pixPct ? ` (${String(pixPct).replace(".", ",")}% de desconto)` : ""}. Nunca invente desconto, prazo ou horário que não estejam na conversa.`,
+        'Use o contexto da conversa (cite algo específico); empatia primeiro se o cliente contou um problema; termine com UMA pergunta simples para o cliente responder (ex.: "Conseguiu ver um dia bom para agendarmos?", "Quer que eu já reserve um horário pra você?", "Tem alguma coisa te impedindo de decidir que eu possa ajudar?").',
+        `Nunca ofereça nem prometa desconto, condição melhor ou "ver com a equipe/gestor uma condição". Se a conversa já teve desconto, só lembre o valor com desconto que já foi passado. Ao falar de preço, use o valor da conversa, com o Pix${pixPct ? ` (${String(pixPct).replace(".", ",")}% de desconto)` : ""} quando for o caso. Nunca invente prazo ou horário que não estejam na conversa.`,
         'Proibido: "ficou alguma dúvida", "passando para saber", "conseguiu decidir", "está aí?", "fico à disposição". Não se apresente com nome.',
       ].join("\n"),
       messages: [
@@ -1205,6 +1207,14 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     if (m) {
       mensagem = m.mensagem;
       custo += m.custo;
+    }
+  }
+  // Oferta de condição (05/11): fora do toque de desconto, a mensagem não sai pronta.
+  if (temOfertaDeCondicao(mensagem)) {
+    mensagem = "";
+    if (decisao.acao === "chamar" || decisao.acao === "agendar") {
+      responsavel = "equipe";
+      decisao.motivo = `${MOTIVO_OFERTA} · ${decisao.motivo}`;
     }
   }
   // Lacuna ("R$ ___", "[nome]"): a mensagem nunca sai pronta; vira tarefa da equipe (04/11).

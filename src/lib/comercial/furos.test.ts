@@ -246,3 +246,25 @@ test("frio sem novidade: relido a cada 3 dias", () => {
   assert.equal(frioAindaRecente(5, "2026-11-04T00:40:00Z", agora), false);
   assert.equal(frioAindaRecente(6, null, agora), false);
 });
+
+test("trava da oferta de condição na mensagem pronta (05/11)", async () => {
+  const { temOfertaDeCondicao, textoComDesconto } = await import("./furos");
+  assert.equal(
+    temOfertaDeCondicao(
+      "No Pix fica R$ 237,41, e posso ver com a equipe se existe alguma condição melhor pra você.",
+    ),
+    true,
+  );
+  assert.equal(temOfertaDeCondicao("Consegui uma condição especial pra você."), true);
+  assert.equal(temOfertaDeCondicao("Vou ver com o gestor e te retorno."), true);
+  assert.equal(
+    temOfertaDeCondicao("No Pix fica R$ 237,41. Quer que eu reserve um horário?"),
+    false,
+  );
+  // Desconto já dado: o desconto padrão do Pix não conta.
+  assert.equal(textoComDesconto("Total R$ 300 · No Pix (5% de desconto): R$ 285"), false);
+  assert.equal(textoComDesconto("No Pix com 5% de desconto no Pix fica R$ 285"), false);
+  assert.equal(textoComDesconto("Consigo fazer por R$ 470 no Pix"), true);
+  assert.equal(textoComDesconto("Com os 20% de desconto fica R$ 800"), true);
+  assert.equal(textoComDesconto("Oi! Tudo bem?"), false);
+});
