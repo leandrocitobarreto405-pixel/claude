@@ -40,6 +40,8 @@ export type DadosOrcamentoPdf = {
   desconto: { subtotal: string; rotulo: string; valor: string } | null;
   /** Como na mensagem do orçamento: total/parcelas no cartão e valor no Pix. */
   pagamento: string[];
+  /** Persiana/tapete: prazo de entrega depois da retirada (05/11). */
+  prazos?: string[];
 };
 
 export type DadosTermoPdf = {
@@ -136,6 +138,8 @@ export async function pdfDaOs(
     ]),
   );
 
+  for (const linha of orc?.prazos ?? []) doc.texto(linha, { tamanho: 10.5, depois: 2 });
+  if (orc?.prazos?.length) doc.espaco(2);
   if (orc?.desconto) {
     doc.campo("Subtotal:", orc.desconto.subtotal);
     doc.campo(`${orc.desconto.rotulo}:`, `-${orc.desconto.valor}`);

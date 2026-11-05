@@ -131,3 +131,70 @@ export function separarPorTipo<T>(
   }
   return { comum, porTipo };
 }
+
+// ---------------------------------------------------------------- confirmação na véspera
+
+const DIA_LONGO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+function somarDia(dia: string, n: number): string {
+  const d = new Date(`${dia}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Dias confirmados hoje: amanhã; no sábado também a segunda (domingo a equipe não confirma). */
+export function datasDaVespera(hoje: string): string[] {
+  const amanha = somarDia(hoje, 1);
+  const domingo = new Date(`${amanha}T12:00:00Z`).getUTCDay() === 0;
+  return domingo ? [amanha, somarDia(hoje, 2)] : [amanha];
+}
+
+/** "amanhã (sex 06/11)" ou "na segunda (09/11)". */
+export function quandoDaVespera(dia: string, hoje: string): string {
+  const dm = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+  if (dia === somarDia(hoje, 1)) return `amanhã (${diaCurto(dia)})`;
+  const s = new Date(`${dia}T12:00:00Z`).getUTCDay();
+  return `${s === 0 || s === 6 ? "no" : "na"} ${DIA_LONGO[s]} (${dm})`;
+}
+
+/** "as 3 persianas", "a persiana", "os 2 tapetes", "o tapete" (variável {{2}} dos modelos). */
+export function itensDaConfirmacao(tipo: TipoRetirada, quantidade: number): string {
+  const n = Math.max(1, Math.round(quantidade || 1));
+  if (tipo === "persiana") return n > 1 ? `as ${n} persianas` : "a persiana";
+  return n > 1 ? `os ${n} tapetes` : "o tapete";
+}
+
+/**
+ * Texto dos modelos tc_confirmacao_retirada / tc_confirmacao_entrega (e as variantes _sn, sem
+ * nome). Enquanto a Meta não aprova, vira a mensagem pronta da tarefa da equipe na véspera.
+ */
+export function mensagemDaVespera(
+  etapa: "Retirada" | "Entrega",
+  nome: string,
+  itens: string,
+  quando: string,
+): string {
+  const oi = nome ? `Oi, ${nome}, tudo bem?` : "Oi, tudo bem?";
+  return etapa === "Retirada"
+    ? `${oi} Tá tudo certo pra gente retirar ${itens} ${quando}, dentro do horário comercial, entre 8h e 18h?`
+    : `${oi} A limpeza ficou pronta! Tá tudo certo pra gente entregar ${itens} ${quando}, dentro do horário comercial, entre 8h e 18h?`;
+}
+
+/**
+ * Linhas do prazo de entrega no orçamento (mensagem e PDF): uma por tipo presente. Persiana conta
+ * pela quantidade; tapete (por m²) conta cada linha como uma peça.
+ */
+export function linhasDoPrazo(
+  itens: Array<{ categoria?: string | null; quantidade?: number | string | null }>,
+): string[] {
+  const pecas: Partial<Record<TipoRetirada, number>> = {};
+  for (const it of itens) {
+    const tipo = tipoDaCategoria(it.categoria);
+    if (!tipo) continue;
+    const n = tipo === "tapete" ? 1 : Math.max(1, Math.round(Number(it.quantidade) || 1));
+    pecas[tipo] = (pecas[tipo] ?? 0) + n;
+  }
+  return (["persiana", "tapete"] as const)
+    .filter((t) => pecas[t])
+    .map((t) => linhaDoPrazo(t, pecas[t]!));
+}

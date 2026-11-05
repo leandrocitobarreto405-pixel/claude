@@ -420,7 +420,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
               : null,
           leadSiteId: null,
           rotulo:
-            ETAPAS_EQUIPE.has(t.etapa ?? "") || t.etapa === "VC"
+            ETAPAS_EQUIPE.has(t.etapa ?? "") || ["VC", "RT", "EN"].includes(t.etapa ?? "")
               ? rotuloDoToque(t.etapa, { atendente })
               : null,
         }))

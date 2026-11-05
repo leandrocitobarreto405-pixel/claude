@@ -188,6 +188,13 @@ test("tapete aparece em m² e como limpeza; persiana como limpeza", () => {
   assert.ok(m.includes("*Itens:*"), m);
   assert.ok(m.includes("• Tapete comum – limpeza (por m²) (3,68 m²) — Limpeza: R$ 229,63"), m);
   assert.ok(m.includes("• 1x Persiana rolo (até 2 m) — Limpeza: R$ 150,00"), m);
+  // Prazo de entrega (05/11): uma linha por tipo, logo depois dos itens.
+  assert.ok(
+    m.includes(
+      "A persiana é retirada e lavada no nosso galpão, com entrega em até 7 dias úteis após a retirada.\nO tapete é retirado e lavado no nosso galpão, com entrega em até 15 dias úteis após a retirada.",
+    ),
+    m,
+  );
 });
 
 test("mensagem com o número do orçamento (4 dígitos) na primeira linha", () => {

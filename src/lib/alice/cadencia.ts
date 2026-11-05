@@ -555,6 +555,8 @@ export function rotuloDoToque(
   if (etapa === "AE" || etapa === "BE") return `Follow-up extra · ${alice}`;
   if (etapa === "W1" || etapa === "W2") return `Retorno da espera · ${alice}`;
   if (etapa === "VC") return `Voltar na conversa · ${pessoa}`;
+  if (etapa === "RT") return `Confirmar retirada · ${pessoa}`;
+  if (etapa === "EN") return `Confirmar entrega · ${pessoa}`;
   return null;
 }
 
