@@ -38,6 +38,12 @@ import { NOME_GERENTE } from "@/lib/comercial/tatiana";
 import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
 import { ROTULO_TAREFA } from "@/lib/comercial/furos";
 import {
+  contarPorNivel,
+  nivelDaTarefa,
+  prazoDaTarefa,
+  tarefaAtrasada,
+} from "@/lib/comercial/prioridade";
+import {
   NOME_GRUPO_BASE,
   NOME_RECOMENDACAO,
   type DadosBaseParada,
@@ -143,18 +149,7 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
         </div>
       ) : null}
 
-      <section className="flex min-w-0 flex-col gap-2">
-        <h2 className="font-titulo text-lg font-bold">
-          Tarefas de hoje <span className="text-muted-foreground">({tarefas.length})</span>
-        </h2>
-        {tarefas.length ? (
-          tarefas.map((t, i) => <CartaoTarefa key={t.id} t={t} ordem={i + 1} admin={d.admin} />)
-        ) : (
-          <Card className="text-sm text-muted-foreground">
-            Nenhuma tarefa da {NOME_GERENTE} para hoje.
-          </Card>
-        )}
-      </section>
+      <TarefasPorPrioridade tarefas={tarefas} admin={d.admin} />
 
       {d.admin && d.alice.length ? (
         <Recolhido
@@ -189,6 +184,72 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
         </Recolhido>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Tarefas por prioridade (05/11): sem corte. P1 num bloco vermelho no topo, com contador e prazo
+ * "hoje de manhã", que não some até ter Feito ou desfecho; depois P2 (hoje) e P3 (dia marcado).
+ */
+function TarefasPorPrioridade({ tarefas, admin }: { tarefas: TarefaHoje[]; admin: boolean }) {
+  const hoje = todayISO();
+  const c = contarPorNivel(tarefas, hoje);
+  const grupo = (n: 1 | 2 | 3) => tarefas.filter((t) => nivelDaTarefa(t.prioridade) === n);
+  const p1 = grupo(1);
+  const p2 = grupo(2);
+  const p3 = grupo(3);
+  let ordem = 0;
+  return (
+    <section className="flex min-w-0 flex-col gap-3">
+      <h2 className="font-titulo text-lg font-bold">
+        Tarefas de hoje <span className="text-muted-foreground">({tarefas.length})</span>
+      </h2>
+      <div className="flex flex-wrap gap-2 text-sm">
+        <Chip tom="problema">P1 urgente: {c.p1}</Chip>
+        <Chip tom="sucesso">P2 hoje: {c.p2}</Chip>
+        <Chip tom="neutro">P3: {c.p3}</Chip>
+        {c.atrasadas ? <Chip tom="atencao">Atrasadas: {c.atrasadas}</Chip> : null}
+      </div>
+      {p1.length ? (
+        <div className="flex min-w-0 flex-col gap-2 rounded-card border-2 border-problema-foreground/50 bg-problema/50 p-3">
+          <p className="font-titulo text-base font-bold text-problema-foreground">
+            URGENTE · fazer agora de manhã ({p1.length})
+          </p>
+          <p className="text-xs text-problema-foreground">
+            Quase fechado: concorrente, preço, encaixe, retorno vencido ou cliente esperando. Fica
+            aqui até ter Feito ou desfecho.
+          </p>
+          {p1.map((t) => (
+            <CartaoTarefa key={t.id} t={t} ordem={++ordem} admin={admin} />
+          ))}
+        </div>
+      ) : null}
+      {p2.length ? (
+        <>
+          <h3 className="font-titulo text-base font-bold">
+            P2 · Hoje <span className="text-muted-foreground">({p2.length})</span>
+          </h3>
+          {p2.map((t) => (
+            <CartaoTarefa key={t.id} t={t} ordem={++ordem} admin={admin} />
+          ))}
+        </>
+      ) : null}
+      {p3.length ? (
+        <>
+          <h3 className="font-titulo text-base font-bold">
+            P3 · No dia marcado <span className="text-muted-foreground">({p3.length})</span>
+          </h3>
+          {p3.map((t) => (
+            <CartaoTarefa key={t.id} t={t} ordem={++ordem} admin={admin} />
+          ))}
+        </>
+      ) : null}
+      {!tarefas.length ? (
+        <Card className="text-sm text-muted-foreground">
+          Nenhuma tarefa da {NOME_GERENTE} para hoje.
+        </Card>
+      ) : null}
+    </section>
   );
 }
 
@@ -244,7 +305,12 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
               Pendente de ontem{t.adiamentos > 1 ? ` (${t.adiamentos}ª vez)` : ""}
             </Chip>
           ) : null}
-          {t.prioridade === 1 ? <Chip tom="problema">Prioridade</Chip> : null}
+          {tarefaAtrasada(t.quando, todayISO(), t.adiamentos) ? (
+            <Chip tom="atencao">Atrasada</Chip>
+          ) : null}
+          <Chip tom={nivelDaTarefa(t.prioridade) === 1 ? "problema" : "neutro"}>
+            Prazo: {prazoDaTarefa(nivelDaTarefa(t.prioridade), t.quando, todayISO())}
+          </Chip>
           <Chip tom="neutro">{hora(t.quando)}</Chip>
         </span>
       </div>
