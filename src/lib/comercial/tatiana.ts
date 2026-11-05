@@ -560,10 +560,8 @@ export function desdeAUltimaPassada(ultimaPassada: string | null, agora: Date): 
   return ref < tresDias ? tresDias : ref;
 }
 
-/** Até quantas tarefas novas por empresa e por noite (as de maior prioridade; o resto espera). */
-export const LIMITE_TAREFAS_DIA = 15;
-/** Até quantos acertos novos por noite na lista da equipe (o resto só na aba Cobranças do dono). */
-export const LIMITE_COBRANCAS_EQUIPE = 10;
+/** Acertos novos na lista da equipe: sem limite (05/11); antes eram até 10 por noite. */
+export const LIMITE_COBRANCAS_EQUIPE = Infinity;
 /** Ordem dos acertos na lista da equipe; os que não estão aqui ficam só na aba do dono. */
 export const PRIORIDADE_COBRANCA: TipoCobranca[] = [
   "follow_up_esquecido",

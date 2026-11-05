@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  LIMITE_TAREFAS_DIA,
   aplicarTravas,
   confereDesfecho,
   fraseDoCliente,
@@ -190,7 +189,6 @@ test("acertos na lista da equipe: até 10, pela ordem dos tipos e prioridade", (
   ];
   assert.deepEqual(cobrancasVisiveis(novas), ["f", "p1", "p2", "r"]);
   assert.deepEqual(cobrancasVisiveis(novas, 2), ["f", "p1"]);
-  assert.equal(LIMITE_TAREFAS_DIA, 15);
   assert.equal(finalDoTelefone("(11) 99400-0001"), "94000001");
 });
 
