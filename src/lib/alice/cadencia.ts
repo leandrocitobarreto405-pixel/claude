@@ -51,6 +51,11 @@ export type Passo = {
   oferta?: boolean;
   /** Fim da trilha: não manda mensagem, marca o lead como "sem desfecho". */
   fim?: boolean;
+  /**
+   * Toque da equipe (05/11, trilha A 3 e 4): a Alice não manda; na hora, vira tarefa da atendente
+   * com a mensagem pronta (o 3 com a atendente se apresentando).
+   */
+  equipe?: boolean;
 };
 
 export const MOTIVO_FIM: Record<Trilha, string> = {
@@ -81,6 +86,7 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
       guia: "Ofereça dois horários reais da agenda (consulte com consultar_agenda) para o serviço do orçamento, em dias diferentes (o primeiro horário livre e outro em outro dia, de preferência um dia de semana e um sábado), e pergunte se algum funciona. Não repita a pergunta do toque anterior.",
       modelo: "fu_orcamento_horarios",
       horarios: true,
+      equipe: true,
     },
     {
       etapa: "A4",
@@ -88,6 +94,7 @@ export const CADENCIA: Record<Trilha, Passo[]> = {
       quando: { dia: 1, hora: 14 },
       guia: "Seu orçamento vence amanhã. Quer garantir um desses horários?",
       modelo: "fu_orcamento_vence",
+      equipe: true,
     },
     {
       etapa: "A5",
@@ -510,4 +517,61 @@ export function doisHorarios(
   if (a!.livres.length >= 2)
     return [texto(a!.data, a!.livres[0]!.hora), texto(a!.data, a!.livres.at(-1)!.hora)];
   return null;
+}
+
+/** Toques da trilha A que são da equipe (a Alice não manda; vira tarefa com a mensagem pronta). */
+export const ETAPAS_EQUIPE = new Set(
+  CADENCIA.A.filter((p) => p.equipe).map((p) => p.etapa as string),
+);
+
+/** Primeira atendente pelo texto da configuração ("a Maria e a Carol" → "Maria"). */
+export function primeiraAtendente(nomes: string | null | undefined): string | null {
+  const t = (nomes ?? "").replace(/\b(a|o)\s+/gi, " ").trim();
+  const primeiro = t.split(/,|\se\s|\//)[0]?.trim() ?? "";
+  return /^[\p{L}][\p{L}'-]*$/u.test(primeiro) ? primeiro : null;
+}
+
+/**
+ * Numeração do toque (05/11): "Follow-up 3 de 5 · Maria", "Follow-up 5 de 5 · desconto · Alice",
+ * "Encerramento · Alice". Na tarefa, na nota do follow-up e na lista da Alice.
+ */
+export function rotuloDoToque(
+  etapa: string | null | undefined,
+  o: { atendente?: string | null; alice?: string } = {},
+): string | null {
+  const alice = o.alice ?? "Alice";
+  const pessoa = o.atendente || "equipe";
+  if (!etapa) return null;
+  if (etapa === "A_FIM" || etapa === "AE_FIM") return `Encerramento · ${alice}`;
+  if (etapa === "B_FIM" || etapa === "BE_FIM" || etapa === "W_FIM") return "Sem desfecho";
+  for (const t of ["A", "B"] as const) {
+    const lista = CADENCIA[t].filter((p) => !p.fim);
+    const i = lista.findIndex((p) => p.etapa === etapa);
+    if (i === -1) continue;
+    const p = lista[i]!;
+    const extra = p.oferta ? " · desconto" : "";
+    return `Follow-up ${i + 1} de ${lista.length}${extra} · ${p.equipe ? pessoa : alice}`;
+  }
+  if (etapa === "AE" || etapa === "BE") return `Follow-up extra · ${alice}`;
+  if (etapa === "W1" || etapa === "W2") return `Retorno da espera · ${alice}`;
+  if (etapa === "VC") return `Voltar na conversa · ${pessoa}`;
+  return null;
+}
+
+/**
+ * Mensagem da equipe que faz parte da sequência (05/11): mandada enquanto havia um toque da equipe
+ * (trilha A 3 ou 4) aberto nesta conversa, ou até 2 h depois de a atendente marcar como feito. Essa
+ * mensagem não é "a equipe entrou no meio" e não para a sequência da Alice.
+ */
+export function mensagemDaSequencia(
+  em: string,
+  toquesDaEquipe: Array<{ scheduled_at: string; completed_at: string | null; status: string }>,
+): boolean {
+  const t = Date.parse(em);
+  return toquesDaEquipe.some((x) => {
+    if (x.status === "Cancelada") return false;
+    const inicio = Date.parse(x.scheduled_at) - 30 * 60_000;
+    const fim = x.completed_at ? Date.parse(x.completed_at) + 2 * HORA : Infinity;
+    return t >= inicio && t <= fim;
+  });
 }

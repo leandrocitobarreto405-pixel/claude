@@ -78,6 +78,8 @@ export type TarefaHoje = {
   telefone: string | null;
   /** Lead do site sem conversa (tarefa virtual, resolvida no Precisa de você). */
   leadSiteId: string | null;
+  /** Numeração do toque da sequência ("Follow-up 3 de 5 · Maria", "Voltar na conversa · Maria"). */
+  rotulo: string | null;
 };
 
 export type TarefaAlice = {
@@ -135,6 +137,7 @@ async function tarefasLeadSite(db: Db, emp: string, hoje: string): Promise<Taref
       adiamentos: 0,
       telefone: l.telefone,
       leadSiteId: l.id,
+      rotulo: null,
     };
   });
 }
@@ -212,7 +215,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     let qTarefas = db
       .from("crm_followups")
       .select(
-        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to, tarefa_tipo, adiamentos",
+        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to, tarefa_tipo, adiamentos, etapa",
       )
       .eq("empresa_id", emp)
       .eq("origem", "gerente")
@@ -264,7 +267,24 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       assigned_to: string | null;
       tarefa_tipo: string | null;
       adiamentos: number | null;
+      etapa: string | null;
     }>;
+    // Numeração dos toques da sequência com o nome da atendente da configuração da Alice.
+    const { primeiraAtendente, rotuloDoToque, ETAPAS_EQUIPE } =
+      await import("@/lib/alice/cadencia");
+    const atendente = ts.some((t) => ETAPAS_EQUIPE.has(t.etapa ?? "") || t.etapa === "VC")
+      ? primeiraAtendente(
+          (
+            (
+              await db
+                .from("ia_configuracoes")
+                .select("nomes_atendentes")
+                .eq("empresa_id", emp)
+                .maybeSingle()
+            ).data as { nomes_atendentes?: string | null } | null
+          )?.nomes_atendentes,
+        )
+      : null;
     const cs = (
       (cobr ?? []) as Array<{
         id: string;
@@ -399,6 +419,10 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
               ? (ls.get(t.crm_lead_id ?? "")?.normalized_phone ?? null)
               : null,
           leadSiteId: null,
+          rotulo:
+            ETAPAS_EQUIPE.has(t.etapa ?? "") || t.etapa === "VC"
+              ? rotuloDoToque(t.etapa, { atendente })
+              : null,
         }))
         .concat(await tarefasLeadSite(db, emp, hoje)),
       alice: alice.map((a) => ({

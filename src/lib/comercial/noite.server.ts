@@ -2497,6 +2497,18 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
             await pessoasDaEmpresa(db, emp),
             desde,
           ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+          // Voltar na conversa (05/11): a equipe entrou no meio da sequência da Alice.
+          const voltarConversa = await (async () => {
+            const { tarefasVoltarConversa } = await import("./voltar-conversa.server");
+            return tarefasVoltarConversa(db, {
+              emp,
+              quando: proximoHorarioUtil(
+                new Date(`${amanha}T09:00:00-03:00`).toISOString(),
+                horario,
+              ),
+              agora,
+            });
+          })().catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
           const completo = usaLeituraCompleta(cfg.modelo);
           const escopo = await escopoDaNoite(db, emp, agora, hoje, completo);
           const leads = escopo.ids;
@@ -2511,6 +2523,7 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
               entrada: escopo.entrada,
               ...(completo ? { leituraCompleta: true, modelo: "opus" } : {}),
               diretas,
+              voltarConversa,
               naoFeitas,
               especiais: escopo.especiais,
             },

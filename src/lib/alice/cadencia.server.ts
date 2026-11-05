@@ -10,9 +10,13 @@ import {
   doisHorarios,
   ESPACADA,
   ETAPAS_ESPERA,
+  ETAPAS_EQUIPE,
   CADENCIA,
   ancoraDoOrcamento,
+  mensagemDaSequencia,
   passoDaEtapa,
+  primeiraAtendente,
+  rotuloDoToque,
   planejarToque,
   travaDoLead,
   trilhaDoLead,
@@ -211,7 +215,7 @@ export async function seguirCadencia(
         : `🤖 Fim da trilha ${trilha}: se o cliente não responder, o lead vai para "Orçamentos sem desfecho".`
       : espera
         ? `🤖 Retorno da espera ${passo.etapa} (o cliente pediu um tempo): ${passo.guia}`
-        : `🤖 Toque ${passo.etapa} (trilha ${trilha}): ${passo.guia}`,
+        : `🤖 ${rotuloDoToque(passo.etapa, { atendente: primeiraAtendente(o.cfg.nomes_atendentes) }) ?? `Toque ${passo.etapa} (trilha ${trilha})`}: ${passo.guia}`,
   });
   if (!passo.fim)
     await db
@@ -256,34 +260,62 @@ export async function travaDoToque(
   // Conversa encerrada (inclusive pelo encerramento automático por inatividade) ou aberta sem
   // dono não é "equipe assumiu": trava só quem assumiu pelo Nexa ou uma pessoa responsável pela
   // conversa aberta no Chatwoot (ou alguém ter escrito ao cliente, logo abaixo).
-  if (o.conversa.assumida_por) return "equipe assumiu a conversa";
-  const responsavel = o.conversa.responsavel_id == null ? null : Number(o.conversa.responsavel_id);
-  if (o.conversa.status === "open" && responsavel != null && responsavel !== (o.botId ?? null))
-    return "equipe assumiu a conversa";
+  // Toques da equipe (trilha A 3 e 4, 05/11) desta conversa: a atendente que mandou a mensagem da
+  // tarefa vira responsável no Chatwoot, mas a sequência continua (o 5 e o encerramento são da Alice).
+  const { data: toquesEquipe } = await db
+    .from("crm_followups")
+    .select("scheduled_at, completed_at, status")
+    .eq("empresa_id", o.empresaId)
+    .eq("conversa_id", o.conversa.id)
+    .eq("canal", "equipe")
+    .in("etapa", [...ETAPAS_EQUIPE]);
+  const sequencia = ((toquesEquipe ?? []) as Array<{ scheduled_at: string; status: string }>).some(
+    (t) => t.status !== "Cancelada" && Date.parse(t.scheduled_at) > Date.now() - 4 * 86_400_000,
+  );
+  if (!sequencia) {
+    if (o.conversa.assumida_por) return "equipe assumiu a conversa";
+    const responsavel =
+      o.conversa.responsavel_id == null ? null : Number(o.conversa.responsavel_id);
+    if (o.conversa.status === "open" && responsavel != null && responsavel !== (o.botId ?? null))
+      return "equipe assumiu a conversa";
+  }
   const { data: daEquipe } = await db
     .from("whatsapp_messages")
-    .select("id")
+    .select("message_timestamp")
     .eq("empresa_id", o.empresaId)
     .eq("conversa_id", o.conversa.id)
     .eq("direction", "Enviada")
     .eq("remetente_tipo", "user")
     .eq("privada", false)
     .gt("message_timestamp", o.desde.toISOString())
-    .limit(1);
-  if (daEquipe?.length) return "equipe escreveu para o cliente";
+    .limit(50);
+  if (daEquipe?.length) {
+    // Mensagem mandada pela tarefa do toque da equipe (trilha A 3 e 4) é parte da sequência, não
+    // "a equipe entrou no meio" (05/11).
+    const fora = (daEquipe as Array<{ message_timestamp: string }>).filter(
+      (m) => !mensagemDaSequencia(m.message_timestamp, toquesEquipe ?? []),
+    );
+    if (fora.length) return "equipe escreveu para o cliente";
+  }
   if (!o.conversa.crm_lead_id) return "sem lead";
   // Um dono por lead: com tarefa ou toque da Tatiana pendente, a cadência padrão não manda nada.
+  // A tarefa do toque da equipe (trilha A 3 e 4) é da própria sequência e não conta.
   const { data: daTatiana } = o.daTatiana
     ? { data: [] }
     : await db
         .from("crm_followups")
-        .select("id")
+        .select("id, etapa")
         .eq("empresa_id", o.empresaId)
         .eq("crm_lead_id", o.conversa.crm_lead_id)
         .eq("origem", "gerente")
         .eq("status", "Pendente")
-        .limit(1);
-  if (daTatiana?.length) return "a Tatiana está cuidando deste lead";
+        .limit(20);
+  if (
+    ((daTatiana ?? []) as Array<{ etapa: string | null }>).some(
+      (t) => !ETAPAS_EQUIPE.has(t.etapa ?? ""),
+    )
+  )
+    return "a Tatiana está cuidando deste lead";
   const lead = await lerLead(db, o.empresaId, o.conversa.crm_lead_id);
   const trava = travaDoLead(lead);
   if (trava) return trava;

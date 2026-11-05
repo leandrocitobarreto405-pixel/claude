@@ -57,6 +57,8 @@ import {
   diaSP,
   instanteSP,
   passoDaEtapa,
+  primeiraAtendente,
+  rotuloDoToque,
   toqueEmAudio,
   type Passo,
 } from "./cadencia";
@@ -910,6 +912,9 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
     return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
   }
+  // Toque da equipe (05/11, trilha A 3 e 4): a Alice não manda; vira tarefa da atendente com a
+  // mensagem pronta e a sequência segue para o próximo toque.
+  if (passo?.equipe) return toqueDaEquipe(db, tarefa, cfg, d, passo, dados);
 
   const { data: ultima } = await db
     .from("whatsapp_messages")
@@ -1167,6 +1172,73 @@ async function toqueForaDaJanela(
     await enfileirarPendentes(db);
   }
   return resultado;
+}
+
+/**
+ * Toque da equipe (05/11): o follow-up da cadência vira tarefa da atendente (origem gerente, como as
+ * da Tatiana), com a numeração e a mensagem pronta; a nota fica na conversa e o próximo toque já
+ * fica agendado.
+ */
+async function toqueDaEquipe(
+  db: Admin,
+  tarefa: Tarefa,
+  cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
+  d: DadosConversa,
+  passo: Passo,
+  dados: DadosCadencia,
+): Promise<ResultadoTarefa> {
+  const atendente = primeiraAtendente(cfg.nomes_atendentes);
+  const rotulo = rotuloDoToque(passo.etapa, { atendente }) ?? `Toque ${passo.etapa}`;
+  const nomeCliente = await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id);
+  const { data: emp } = await db
+    .from("empresas")
+    .select("nome")
+    .eq("id", tarefa.empresa_id)
+    .maybeSingle();
+  const { mensagemDoToqueEquipe } = await import("./toque-equipe.server");
+  const escrita = await mensagemDoToqueEquipe(db as never, {
+    etapa: passo.etapa === "A4" ? "A4" : "A3",
+    nomeCliente,
+    atendente,
+    empresa: (emp as { nome?: string } | null)?.nome ?? "empresa",
+    empresaId: tarefa.empresa_id,
+    conversaId: d.conversa.id,
+  });
+  await db
+    .from("crm_followups")
+    .update({
+      responsavel: "equipe",
+      canal: "equipe",
+      origem: "gerente",
+      prioridade: 2,
+      mensagem: escrita.mensagem.slice(0, 1000),
+      motivo: "O cliente não respondeu depois do orçamento.",
+      notes: `${rotulo}. Tarefa da equipe com a mensagem pronta (a Alice não manda este toque).`,
+    })
+    .eq("empresa_id", tarefa.empresa_id)
+    .eq("ia_tarefa_id", tarefa.id)
+    .eq("status", "Pendente");
+  await enviarNota(
+    d,
+    `🤖 ${rotulo}: virou tarefa ${atendente ? `da ${atendente}` : "da equipe"} com a mensagem pronta (a Alice não manda este toque).`,
+  ).catch(() => undefined);
+  const { seguirCadencia } = await import("./cadencia.server");
+  if (
+    await seguirCadencia(db, {
+      empresaId: tarefa.empresa_id,
+      conversaId: d.conversa.id,
+      leadId: d.conversa.crm_lead_id,
+      cfg,
+      atual: dados,
+    })
+  ) {
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+  }
+  return {
+    situacao: "concluida",
+    detalhe: `toque ${passo.etapa} para a equipe${escrita.reserva ? " (mensagem reserva)" : ""}`,
+  };
 }
 
 /**
