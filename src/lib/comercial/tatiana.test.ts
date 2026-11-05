@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   LIMITE_TAREFAS_DIA,
   aplicarTravas,
+  confereDesfecho,
+  fraseDoCliente,
   cobrancasVisiveis,
   comNome,
   desdeAUltimaPassada,
@@ -373,4 +375,41 @@ test("acertos (02/11): fechou só com data, orçamento só com preço, sem texto
   );
   assert.equal(r.acertos.length, 1);
   assert.equal(r.acertos[0]!.texto, "Combinou 5x no cartão. R$ 240.");
+});
+
+test("desfecho: só tira o lead com frase clara do cliente", () => {
+  const cli = [
+    "Oiiii, desculpa",
+    "A gente precisava com certa urgência, então fechamos com uma empresa q vem amanhã!",
+  ];
+  assert.equal(fraseDoCliente("fechamos com uma empresa q vem amanhã", cli), true);
+  assert.equal(fraseDoCliente("Fechamos com uma empresa", cli), true);
+  assert.equal(fraseDoCliente("já fechei com outra empresa", cli), false);
+  assert.equal(fraseDoCliente("", cli), false);
+  const ok = confereDesfecho(
+    { caixinha: 7, acao: "parar", frase_cliente: "fechamos com uma empresa" },
+    cli,
+    true,
+  );
+  assert.deepEqual(ok, { caixinha: 7, acao: "parar", rebaixado: false });
+  const sem = confereDesfecho(
+    { caixinha: 7, acao: "parar", frase_cliente: "" },
+    ["no momento não"],
+    true,
+  );
+  assert.deepEqual(sem, { caixinha: 5, acao: "esperar", rebaixado: true });
+  const nove = confereDesfecho(
+    { caixinha: 9, acao: "esperar", frase_cliente: "inventada" },
+    ["oi"],
+    false,
+  );
+  assert.deepEqual(nove, { caixinha: 6, acao: "esperar", rebaixado: true });
+  const parar = confereDesfecho(
+    { caixinha: 4, acao: "parar", frase_cliente: "" },
+    ["vou ver"],
+    true,
+  );
+  assert.deepEqual(parar, { caixinha: 4, acao: "esperar", rebaixado: true });
+  const normal = confereDesfecho({ caixinha: 5, acao: "chamar", frase_cliente: "" }, [], true);
+  assert.equal(normal.rebaixado, false);
 });

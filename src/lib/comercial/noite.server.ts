@@ -8,7 +8,7 @@
  * "conferencia": só conta os acertos, sem criar nada visível. Nada é enviado a clientes.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { calcularFatos, conversaEmTexto } from "./fatos";
+import { calcularFatos, conversaEmTexto, quemMandou } from "./fatos";
 import {
   adiarTarefa,
   bloqueadaParaVenda,
@@ -17,6 +17,7 @@ import {
   MOTIVO_LACUNA,
   campanhaSemResposta,
   finalizadoFora,
+  frioAindaRecente,
   guardadoFora,
   temLacuna,
   followUpEsquecido,
@@ -43,6 +44,7 @@ import {
 } from "./ficha";
 import {
   ESQUEMA_DECISAO,
+  confereDesfecho,
   ESQUEMA_RECADO,
   NOME_GERENTE,
   LIMITE_TAREFAS_DIA,
@@ -245,7 +247,8 @@ export type EscopoDaNoite = {
     | "completa"
     | "campanha_sem_resposta"
     | "finalizado"
-    | "guardado",
+    | "guardado"
+    | "frio_adiado",
     number
   >;
   especiais: EspeciaisDaNoite;
@@ -308,7 +311,7 @@ async function escopoDaNoite(
       .limit(5000),
     db
       .from("comercial_analises")
-      .select("crm_lead_id, caixinha, rever_em, etiquetas")
+      .select("crm_lead_id, caixinha, caixinha_em, rever_em, etiquetas")
       .eq("empresa_id", empresaId)
       .limit(5000),
     // Resposta do cliente a uma campanha conta sempre (e é contada à parte).
@@ -358,6 +361,7 @@ async function escopoDaNoite(
       (fichas ?? []) as Array<{
         crm_lead_id: string;
         caixinha: number | null;
+        caixinha_em: string | null;
         rever_em: string | null;
         etiquetas: { guardado_em?: string | null } | null;
       }>
@@ -377,6 +381,7 @@ async function escopoDaNoite(
   }
   // Leitura completa (mais recurso, 03/11): todo lead aberto sem desfecho entra, sem limite.
   const semDesfecho = new Set<string>();
+  let frioAdiado = 0;
   if (completo) {
     for (let de = 0; ; de += 1000) {
       const { data: abertos } = await db
@@ -390,6 +395,14 @@ async function escopoDaNoite(
       for (const l of lista) {
         const cx = ficha.get(l.id)?.caixinha ?? null;
         if (cx !== null && CAIXINHAS_FINALIZADAS.has(cx)) continue;
+        // Frio sem novidade: só a cada 3 dias (quem tem novidade já entrou por outro motivo).
+        if (
+          !candidatos.has(l.id) &&
+          frioAindaRecente(cx, ficha.get(l.id)?.caixinha_em ?? null, agora)
+        ) {
+          frioAdiado++;
+          continue;
+        }
         semDesfecho.add(l.id);
         candidatos.add(l.id);
       }
@@ -409,6 +422,7 @@ async function escopoDaNoite(
       campanha_sem_resposta: 0,
       finalizado: 0,
       guardado: 0,
+      frio_adiado: 0,
     },
     especiais: { esquecidos: {} },
   };
@@ -529,6 +543,7 @@ async function escopoDaNoite(
       }
     }
   }
+  saida.entrada.frio_adiado = frioAdiado;
   return saida;
 }
 
@@ -896,15 +911,15 @@ async function melhorarMensagem(
   motivo: string,
   rascunho: string,
   pixPct: number | null,
-  opus = false,
 ): Promise<{ mensagem: string; custo: number }> {
-  const preco = opus ? PRECO_OPUS : undefined;
+  // Mensagem pronta sempre no Sonnet (05/11, custo): a decisão continua no Opus.
+  const preco = undefined;
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
   const resp = await chamarIa(() =>
     new Anthropic({ timeout: 90_000, maxRetries: 1 }).messages.create({
-      model: opus ? MODELO_OPUS : MODELO_FICHA,
-      max_tokens: opus ? 8_000 : 2_000,
+      model: MODELO_FICHA,
+      max_tokens: 2_000,
       output_config: {
         effort: "low",
         format: {
@@ -993,6 +1008,27 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     ctx.opus,
   );
   let custo = c1;
+  // Desfecho que tira o lead da leitura só com frase clara do cliente (05/11).
+  const conferido = confereDesfecho(
+    decisao,
+    entrada.mensagens
+      .filter((m) => quemMandou(m) === "cliente")
+      .map((m) => `${m.texto ?? ""} ${m.transcricao ?? ""}`),
+    est.temOrcamento,
+  );
+  if (conferido.rebaixado) {
+    decisao.caixinha = conferido.caixinha;
+    decisao.acao = conferido.acao;
+    decisao.motivo = `sem frase clara do cliente: segue aberto · ${decisao.motivo}`;
+    decisao.frase_cliente = "";
+    const r = (noite.resumo ?? {}) as { desfechoSemFrase?: number };
+    noite.resumo = { ...r, desfechoSemFrase: (r.desfechoSemFrase ?? 0) + 1 };
+  }
+  // Frase que justificou o desfecho: fica na ficha.
+  const fraseDesfecho =
+    decisao.caixinha === 7 || decisao.caixinha === 9 || decisao.acao === "parar"
+      ? decisao.frase_cliente.trim().slice(0, 300) || null
+      : null;
 
   // Demoras: só para quem chegou nas últimas ~26 h (contadas pelo sistema).
   const novo =
@@ -1163,13 +1199,9 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     responsavel === "equipe" &&
     (decisao.acao === "chamar" || decisao.acao === "agendar")
   ) {
-    const m = await melhorarMensagem(
-      conversa,
-      decisao.motivo,
-      mensagem,
-      ctx.pixPct,
-      ctx.opus,
-    ).catch(() => null);
+    const m = await melhorarMensagem(conversa, decisao.motivo, mensagem, ctx.pixPct).catch(
+      () => null,
+    );
     if (m) {
       mensagem = m.mensagem;
       custo += m.custo;
@@ -1237,6 +1269,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         fora_area: foraArea,
         rever_em: reverEm,
         rever_motivo: reverMotivo,
+        ...(fraseDesfecho ? { frase_cliente: fraseDesfecho } : {}),
       })
       .eq("id", (ficha as { id: string }).id);
   } else {
@@ -1252,6 +1285,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       fora_area: foraArea,
       rever_em: reverEm,
       rever_motivo: reverMotivo,
+      frase_cliente: fraseDesfecho,
     });
   }
 
@@ -2279,13 +2313,47 @@ async function limitesDaNoite(db: Db, noite: Noite) {
   );
   const { data: decs } = await db
     .from("comercial_decisoes")
-    .select("id, followup_id, motivo")
+    .select("id, followup_id, motivo, crm_lead_id")
     .eq("noite_id", noite.id)
     .not("followup_id", "is", null);
-  const ds = (decs ?? []) as Array<{ id: string; followup_id: string; motivo: string | null }>;
+  const ds = (decs ?? []) as Array<{
+    id: string;
+    followup_id: string;
+    motivo: string | null;
+    crm_lead_id: string;
+  }>;
+  // Cortado pelo limite na noite anterior (05/11): entra na frente e não é cortado de novo.
+  const { data: anterior } = await db
+    .from("comercial_noites")
+    .select("id")
+    .eq("empresa_id", noite.empresa_id)
+    .neq("modo", "conferencia")
+    .lt("noite", noite.noite)
+    .order("noite", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const cortadosOntem = new Set<string>();
+  if (anterior) {
+    const { data: cortes } = await db
+      .from("comercial_decisoes")
+      .select("crm_lead_id")
+      .eq("noite_id", (anterior as { id: string }).id)
+      .like("motivo", "limite do dia%");
+    for (const c of (cortes ?? []) as Array<{ crm_lead_id: string }>)
+      cortadosOntem.add(c.crm_lead_id);
+  }
   const prioridade = new Map<string, number>();
   // Fora do limite de 15: ligar (o cliente pediu) e follow-up esquecido (repõe um toque devido).
   const foraDoLimite = new Set<string>();
+  for (const d of ds)
+    if (cortadosOntem.has(d.crm_lead_id)) {
+      foraDoLimite.add(d.followup_id);
+      await db
+        .from("crm_followups")
+        .update({ prioridade: 1 })
+        .eq("id", d.followup_id)
+        .eq("status", "Pendente");
+    }
   for (let i = 0; i < ds.length; i += 200) {
     const { data: fus } = await db
       .from("crm_followups")
@@ -2348,6 +2416,7 @@ async function limitesDaNoite(db: Db, noite: Noite) {
     ...(noite.resumo ?? {}),
     tarefasNoLimite: Math.min(lista.length, LIMITE_TAREFAS_DIA),
     tarefasEsperar: sobra.length,
+    voltaramDoLimite: ds.filter((d) => cortadosOntem.has(d.crm_lead_id)).length,
     acertosNaLista: visiveis.length,
     acertosSoNaAba: Math.max(0, (novas ?? []).length - visiveis.length),
   };

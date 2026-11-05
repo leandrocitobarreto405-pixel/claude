@@ -5,6 +5,7 @@ import {
   bloqueadaParaVenda,
   campanhaSemResposta,
   finalizadoFora,
+  frioAindaRecente,
   guardadoFora,
   temLacuna,
   diaDeRever,
@@ -235,4 +236,13 @@ test("guardado para campanha: fora até o cliente falar de novo", () => {
     false,
   );
   assert.equal(guardadoFora({ guardadoEm: null, clienteFalouDepois: false }), false);
+});
+
+test("frio sem novidade: relido a cada 3 dias", () => {
+  const agora = new Date("2026-11-05T00:30:00Z");
+  assert.equal(frioAindaRecente(6, "2026-11-04T00:40:00Z", agora), true);
+  assert.equal(frioAindaRecente(6, "2026-11-03T00:40:00Z", agora), true);
+  assert.equal(frioAindaRecente(6, "2026-11-02T00:40:00Z", agora), false);
+  assert.equal(frioAindaRecente(5, "2026-11-04T00:40:00Z", agora), false);
+  assert.equal(frioAindaRecente(6, null, agora), false);
 });
