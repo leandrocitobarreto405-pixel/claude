@@ -58,6 +58,12 @@ const ENCERRAMENTO = new Set([
 ]);
 /** Palavras que podem acompanhar o encerramento sem mudar o sentido. */
 const COMPLEMENTO = new Set([
+  "td",
+  "imagina",
+  "linda",
+  "lindo",
+  "querida",
+  "querido",
   "muito",
   "muitissimo",
   "mto",
@@ -115,6 +121,10 @@ const COMPLEMENTO = new Set([
   "semana",
 ]);
 
+/** Dia da semana, data e hora ("até sábado", "às 9h", "dia 12"): não muda o sentido (05/11). */
+const HORA_OU_DIA =
+  /^(segunda|terca|quarta|quinta|sexta|sabado|domingo|feira|as|proxima|proximo|dia|\d{1,2}(h|hs|hrs|horas|h\d{2})?|\d{1,2}h\d{2})$/;
+
 function normalizar(texto: string): string {
   return texto
     .toLowerCase()
@@ -131,18 +141,28 @@ function normalizar(texto: string): string {
 export function mensagemDeEncerramento(texto: string | null | undefined, tipo = "Texto"): boolean {
   if (tipo !== "Texto") return false; // áudio, foto, documento: pode pedir resposta
   const bruto = String(texto ?? "").trim();
-  if (!bruto) return false;
+  // Texto vazio do cliente é figurinha ou reação; "This message is unavailable." é aviso do
+  // WhatsApp (mensagem apagada ou não suportada): nenhum dos dois pede resposta (05/11).
+  if (!bruto || /^this message is unavailable\.?$/i.test(bruto)) return true;
   const t = normalizar(bruto);
   if (t.includes("?")) return false;
   if (!t) return true; // só emoji/pontuação (👍, 🙏, ❤️)
   const palavras = t.split(" ").map((p) => p.replace(/(\p{L})\1+$/u, "$1"));
-  if (palavras.length > 10) return false;
+  if (palavras.length > 12) return false;
   const juntas = t.replace(/\s/g, "");
   if (ENCERRAMENTO.has(juntas)) return true; // "ta bom" → "tabom"
+  // Nome próprio no meio da frase ("obrigada Maria") também acompanha o encerramento (05/11).
+  const nomes = new Set(
+    bruto
+      .split(/[\s,.!;:]+/)
+      .slice(1)
+      .filter((w) => /^\p{Lu}\p{Ll}+$/u.test(w))
+      .map((w) => normalizar(w)),
+  );
   let temEncerramento = false;
   for (const p of palavras) {
     if (ENCERRAMENTO.has(p)) temEncerramento = true;
-    else if (!COMPLEMENTO.has(p)) return false;
+    else if (!COMPLEMENTO.has(p) && !HORA_OU_DIA.test(p) && !nomes.has(p)) return false;
   }
   return temEncerramento;
 }
