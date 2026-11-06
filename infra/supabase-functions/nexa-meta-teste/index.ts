@@ -7,6 +7,8 @@
 //   criar_modelo { nome }                 → whatsapp_business_management
 //   mensagens                             → últimas mensagens recebidas pelo webhook (tela)
 //   verificar_token                       → o token de teste vale? (aviso na tela, não quebra)
+//   ver_inscricao                         → GET subscribed_apps do WABA de teste (só lê)
+//   inscrever_app                         → POST subscribed_apps no WABA de teste (só com o clique)
 import {
   cabecalhosCors,
   erroDaMeta,
@@ -35,6 +37,17 @@ function resposta(
   if (tokenInvalido(r))
     return json({ ok: false, token_invalido: true, erro: AVISO_TOKEN }, 200, cors);
   return json({ ok: false, erro: erroDaMeta(r) }, 502, cors);
+}
+
+/** IDs dos apps inscritos no WABA (resposta do GET subscribed_apps). */
+function appsInscritos(dados: Record<string, unknown>): string[] {
+  const lista = (dados["data"] as Array<Record<string, unknown>> | undefined) ?? [];
+  return lista
+    .map((a) => {
+      const api = a["whatsapp_business_api_data"] as { id?: unknown } | undefined;
+      return String(api?.id ?? a["id"] ?? "");
+    })
+    .filter(Boolean);
 }
 
 Deno.serve(async (req: Request) => {
@@ -169,6 +182,31 @@ Deno.serve(async (req: Request) => {
         },
       });
       return resposta(r, cors);
+    }
+    case "ver_inscricao": {
+      // Só o WABA de teste: quais apps recebem os webhooks dele.
+      const r = await g(`${TESTE_WABA_ID}/subscribed_apps`);
+      if (!r.ok) return resposta(r, cors);
+      return json(
+        { ok: true, inscrito: appsInscritos(r.dados).includes(c.appId), meta: r.dados },
+        200,
+        cors,
+      );
+    }
+    case "inscrever_app": {
+      // Só o WABA de teste e só quando a Nexa clica em "Inscrever".
+      const r = await g(`${TESTE_WABA_ID}/subscribed_apps`, { metodo: "POST" });
+      if (!r.ok) return resposta(r, cors);
+      const depois = await g(`${TESTE_WABA_ID}/subscribed_apps`);
+      return json(
+        {
+          ok: true,
+          inscrito: depois.ok ? appsInscritos(depois.dados).includes(c.appId) : null,
+          meta: { inscricao: r.dados, depois: depois.dados },
+        },
+        200,
+        cors,
+      );
     }
     case "mensagens": {
       const { data } = await db
