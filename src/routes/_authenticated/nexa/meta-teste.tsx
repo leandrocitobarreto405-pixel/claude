@@ -106,9 +106,7 @@ function MetaTeste() {
           {token.vence_em
             ? ` até ${new Date(token.vence_em).toLocaleDateString("pt-BR")}`
             : " (sem vencimento)"}
-          {token.escopos?.length
-            ? ` · ${token.escopos.filter((e) => e.startsWith("whatsapp")).join(", ")}`
-            : ""}
+          {token.escopos?.length ? ` · ${token.escopos.join(", ")}` : ""}
         </p>
       ) : null}
 
