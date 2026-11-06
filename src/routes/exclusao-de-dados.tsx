@@ -4,8 +4,8 @@ import { PaginaLegal } from "@/components/pagina-legal";
 import {
   ATUALIZADA_EM,
   CONTATO_PRIVACIDADE,
-  EMPRESA_LEGAL,
   PRAZO_EXCLUSAO_DIAS,
+  RESPONSAVEL,
   URL_SITUACAO_EXCLUSAO,
 } from "@/lib/legal";
 
@@ -116,7 +116,7 @@ function ExclusaoDeDados() {
         <Link to="/privacidade" className="text-primary underline">
           Política de Privacidade
         </Link>
-        . Responsável: {EMPRESA_LEGAL}.
+        . Responsável: {RESPONSAVEL}.
       </p>
     </PaginaLegal>
   );

@@ -1,6 +1,6 @@
 // Parte Deno (Supabase Edge Functions): clientes do banco, secrets e quem está chamando.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { GRAPH_VERSAO_PADRAO, META_APP_ID_PADRAO } from "./meta.ts";
+import { GRAPH_VERSAO_PADRAO, META_APP_ID_PADRAO, usarBaseGraph } from "./meta.ts";
 
 declare const Deno: { env: { get(nome: string): string | undefined } };
 
@@ -15,6 +15,8 @@ function chave(nova: string, antiga: string): string {
 }
 
 export const URL_SUPABASE = Deno.env.get("SUPABASE_URL") ?? "";
+// Ensaio local: Graph API falsa. Em produção a variável não existe.
+usarBaseGraph(Deno.env.get("NEXA_META_GRAPH_URL"));
 const CHAVE_SECRETA = chave("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY");
 const CHAVE_PUBLICA = chave("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");
 
@@ -34,7 +36,10 @@ export const config = () => ({
   chaveToken: segredo("NEXA_META_TOKEN_KEY"),
   configId: segredo("NEXA_META_ES_CONFIG_ID"),
   versao: segredo("NEXA_META_GRAPH_VERSION") || GRAPH_VERSAO_PADRAO,
-  tokenTeste: segredo("NEXA_META_TESTE_TOKEN"),
+  /** Token PERMANENTE do usuário do sistema da Nexa: o dia a dia (mensagens, modelos, perfil). */
+  systemToken: segredo("NEXA_META_SYSTEM_TOKEN"),
+  /** Número de teste: token próprio ou, sem ele, o do usuário do sistema. */
+  tokenTeste: segredo("NEXA_META_TESTE_TOKEN") || segredo("NEXA_META_SYSTEM_TOKEN"),
 });
 
 export type Chamador = {

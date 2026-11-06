@@ -13,6 +13,8 @@ import {
   gerarPin,
   lerSignedRequest,
   linhasDoWebhook,
+  tokenInvalido,
+  vencimentoDoToken,
 } from "../../../infra/supabase-functions/_compartilhado/meta";
 
 const SEGREDO = "segredo-ficticio-do-app";
@@ -143,4 +145,13 @@ test("código, PIN e erro da Meta sem token", () => {
     dados: { error: { message: "Invalid token EAAabc123", code: 190 } },
   });
   assert.equal(e, "Invalid token [token] (código 190)");
+});
+
+test("token vencido/inválido e vencimento pelo debug_token", () => {
+  const r = (error: object) => ({ ok: false, status: 400, dados: { error } });
+  assert.equal(tokenInvalido(r({ code: 190, error_subcode: 463, type: "OAuthException" })), true);
+  assert.equal(tokenInvalido(r({ code: 100 })), false);
+  assert.equal(tokenInvalido({ ok: true, status: 200, dados: {} }), false);
+  assert.equal(vencimentoDoToken({ data: { expires_at: 0 } }), null);
+  assert.equal(vencimentoDoToken({ data: { expires_at: 1793750400 } }), "2026-11-04T00:00:00.000Z");
 });

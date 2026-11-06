@@ -6,6 +6,7 @@
 //   listar_modelos / listar_numeros       → whatsapp_business_management
 //   criar_modelo { nome }                 → whatsapp_business_management
 //   mensagens                             → últimas mensagens recebidas pelo webhook (tela)
+//   verificar_token                       → o token de teste vale? (aviso na tela, não quebra)
 import {
   cabecalhosCors,
   erroDaMeta,
@@ -13,6 +14,8 @@ import {
   json,
   TESTE_PHONE_ID,
   TESTE_WABA_ID,
+  tokenInvalido,
+  vencimentoDoToken,
   type RespostaGraph,
 } from "../_compartilhado/meta.ts";
 import { bancoServidor, chamador, config } from "../_compartilhado/servidor.ts";
@@ -20,14 +23,18 @@ import { bancoServidor, chamador, config } from "../_compartilhado/servidor.ts";
 const PARA = /^[0-9]{10,15}$/;
 const NOME_MODELO = /^[a-z0-9_]{1,512}$/;
 
+const AVISO_TOKEN =
+  "Token de teste vencido ou inválido. Gere o token permanente do usuário do sistema da Nexa e coloque em NEXA_META_TESTE_TOKEN (ou NEXA_META_SYSTEM_TOKEN).";
+
 function resposta(
   r: RespostaGraph,
   cors: Record<string, string>,
   extra: Record<string, unknown> = {},
 ) {
-  return r.ok
-    ? json({ ok: true, ...extra, meta: r.dados }, 200, cors)
-    : json({ ok: false, erro: erroDaMeta(r) }, 502, cors);
+  if (r.ok) return json({ ok: true, ...extra, meta: r.dados }, 200, cors);
+  if (tokenInvalido(r))
+    return json({ ok: false, token_invalido: true, erro: AVISO_TOKEN }, 200, cors);
+  return json({ ok: false, erro: erroDaMeta(r) }, 502, cors);
 }
 
 Deno.serve(async (req: Request) => {
@@ -41,7 +48,17 @@ Deno.serve(async (req: Request) => {
     return json({ erro: "Só a equipe da Nexa usa as chamadas de teste." }, 403, cors);
 
   const c = config();
-  if (!c.tokenTeste) return json({ erro: "Falta o secret NEXA_META_TESTE_TOKEN." }, 503, cors);
+  if (!c.tokenTeste) {
+    return json(
+      {
+        ok: false,
+        token_ausente: true,
+        erro: "Falta o secret NEXA_META_TESTE_TOKEN (ou NEXA_META_SYSTEM_TOKEN).",
+      },
+      200,
+      cors,
+    );
+  }
   const corpo = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const acao = String(corpo["acao"] ?? "");
   const g = (caminho: string, o: Parameters<typeof graph>[1] = {}) =>
@@ -57,6 +74,38 @@ Deno.serve(async (req: Request) => {
     return json({ erro: "O número de teste está ligado a uma empresa: recusado." }, 409, cors);
 
   switch (acao) {
+    case "verificar_token": {
+      // Valida o token sem enviar nada: debug_token (com o App Secret) ou, sem ele, /me.
+      if (c.appSecret) {
+        const r = await graph("debug_token", {
+          versao: c.versao,
+          params: { input_token: c.tokenTeste, access_token: `${c.appId}|${c.appSecret}` },
+        });
+        const d = (r.dados["data"] ?? {}) as {
+          is_valid?: boolean;
+          scopes?: string[];
+          type?: string;
+        };
+        if (!r.ok) return resposta(r, cors);
+        if (!d.is_valid)
+          return json({ ok: false, token_invalido: true, erro: AVISO_TOKEN }, 200, cors);
+        return json(
+          {
+            ok: true,
+            valido: true,
+            vence_em: vencimentoDoToken(r.dados),
+            tipo: d.type ?? null,
+            escopos: d.scopes ?? [],
+          },
+          200,
+          cors,
+        );
+      }
+      const r = await g("me", { params: { fields: "id,name" } });
+      return r.ok
+        ? json({ ok: true, valido: true, vence_em: null, escopos: [] }, 200, cors)
+        : resposta(r, cors);
+    }
     case "enviar_texto": {
       const para = String(corpo["para"] ?? "").replace(/\D/g, "");
       const texto = String(corpo["texto"] ?? "").trim();

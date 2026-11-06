@@ -23,7 +23,7 @@ type Situacao = {
   app_id?: string;
   config_id?: string | null;
   versao?: string;
-  situacao?: "liberado" | "pendente" | "conectado" | "erro";
+  situacao?: "liberado" | "pendente" | "conectado" | "erro" | "desautorizado";
   numero?: string | null;
   nome?: string | null;
   erro?: string | null;
@@ -35,6 +35,7 @@ const TOM: Record<string, TomChip> = {
   pendente: "atencao",
   conectado: "sucesso",
   erro: "problema",
+  desautorizado: "problema",
 };
 
 async function chamar<T>(corpo: Record<string, unknown>): Promise<T> {
@@ -150,21 +151,32 @@ function ConectarWhatsapp() {
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="text-[15px] font-bold">WhatsApp da empresa</span>
               <span className="text-sm text-muted-foreground">
-                {situacao === "conectado"
+                {(situacao === "conectado" || situacao === "pendente") && s.numero
                   ? [s.numero, s.nome].filter(Boolean).join(" · ")
                   : "Nenhum número conectado"}
               </span>
             </div>
             <Chip tom={TOM[situacao] ?? "neutro"}>{ROTULO_SITUACAO[situacao] ?? situacao}</Chip>
           </div>
-          {situacao === "erro" && s.erro ? (
+          {situacao === "desautorizado" ? (
             <p className="rounded-md bg-problema px-3 py-2 text-sm text-problema-foreground">
+              O acesso do Nexa OS foi removido no Facebook. Conecte de novo para voltar a receber as
+              mensagens.
+            </p>
+          ) : (situacao === "erro" || situacao === "pendente") && s.erro ? (
+            <p
+              className={
+                situacao === "erro"
+                  ? "rounded-md bg-problema px-3 py-2 text-sm text-problema-foreground"
+                  : "rounded-md bg-atencao px-3 py-2 text-sm text-atencao-foreground"
+              }
+            >
               {s.erro}
             </p>
           ) : null}
-          {situacao === "conectado" ? (
+          {situacao === "pendente" ? null : situacao === "conectado" ? (
             <p className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="size-4 text-sucesso-foreground" aria-hidden />
+              <CheckCircle2 className="size-4 text-marca" aria-hidden />
               Mensagens e confirmações de entrega chegam ao Nexa OS.
             </p>
           ) : (

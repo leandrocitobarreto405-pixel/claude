@@ -64,4 +64,16 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.ok((SELECT count(*) FROM public.whatsapp_cloud_conexoes) = 0, 'atendente não vê a conexão');
 SELECT pg_temp.ok((SELECT count(*) FROM public.whatsapp_cloud_eventos) = 0, 'atendente não vê eventos');
 RESET ROLE;
+
+-- Guarda de 90 dias: só o evento mais velho sai.
+INSERT INTO public.whatsapp_cloud_eventos (tipo, payload, recebido_em)
+VALUES ('outro', '{"t":"velho"}', now() - interval '91 days'), ('outro', '{"t":"novo"}', now() - interval '89 days');
+SELECT pg_temp.ok(private.whatsapp_cloud_limpar_eventos() = 1, 'limpeza apaga só o evento com mais de 90 dias');
+SELECT pg_temp.ok((SELECT count(*) FROM public.whatsapp_cloud_eventos WHERE payload->>'t' = 'novo') = 1, 'evento de 89 dias fica');
+
+-- Desautorizar marca a conexão (sem apagar).
+UPDATE public.whatsapp_cloud_conexoes SET meta_user_id = '1010999' WHERE empresa_id = :'A';
+UPDATE public.whatsapp_cloud_conexoes SET situacao = 'desautorizado', desautorizado_em = now() WHERE meta_user_id = '1010999';
+SELECT pg_temp.ok((SELECT situacao FROM public.whatsapp_cloud_conexoes WHERE empresa_id = :'A') = 'desautorizado', 'situação desautorizado aceita');
+SELECT pg_temp.ok((SELECT count(*) FROM public.whatsapp_cloud_segredos WHERE empresa_id = :'A') = 1, 'segredo continua (nada apagado)');
 ROLLBACK;

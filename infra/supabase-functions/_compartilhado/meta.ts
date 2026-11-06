@@ -11,6 +11,9 @@ export const META_APP_ID_PADRAO = "2330123227786041";
 export const GRAPH_VERSAO_PADRAO = "v23.0";
 export const ORIGEM_APP = "https://app.nexaperformanceos.com.br";
 
+/** Portfólio Nexa Performance na Meta (dono do app e do usuário do sistema). */
+export const NEXA_BUSINESS_ID = "1819405918725550";
+
 /** Número de teste da Meta no app Nexa OS (não é de cliente). */
 export const TESTE_PHONE_ID = "1547429628435173";
 export const TESTE_WABA_ID = "3641269396036529";
@@ -263,6 +266,12 @@ export async function decifrar(cifrado: string, chaveBase64: string): Promise<st
 
 export type RespostaGraph = { ok: boolean; status: number; dados: Record<string, unknown> };
 
+/** Endereço da Graph API. Só o ensaio local troca (NEXA_META_GRAPH_URL); produção usa o padrão. */
+let baseGraph = "https://graph.facebook.com";
+export function usarBaseGraph(url: string | undefined) {
+  if (url) baseGraph = url;
+}
+
 /**
  * Chamada à Graph API. O token vai no cabeçalho (nunca na URL do log). Erro devolve só a mensagem
  * da Meta, sem token.
@@ -278,7 +287,7 @@ export async function graph(
     base?: string;
   } = {},
 ): Promise<RespostaGraph> {
-  const base = (o.base ?? "https://graph.facebook.com").replace(/\/$/, "");
+  const base = (o.base ?? baseGraph).replace(/\/$/, "");
   const url = new URL(`${base}/${o.versao ?? GRAPH_VERSAO_PADRAO}/${caminho.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(o.params ?? {})) url.searchParams.set(k, v);
   const headers: Record<string, string> = {};
@@ -305,6 +314,26 @@ export function erroDaMeta(r: RespostaGraph): string {
   return `${msg}${e?.code ? ` (código ${e.code})` : ""}`
     .replace(/EAA[A-Za-z0-9]+/g, "[token]")
     .slice(0, 300);
+}
+
+/**
+ * Token vencido, revogado ou inválido (OAuthException 190 e subcódigos de sessão). A tela mostra
+ * um aviso em vez de quebrar.
+ */
+export function tokenInvalido(r: RespostaGraph): boolean {
+  const e = r.dados["error"] as
+    { code?: number; error_subcode?: number; type?: string } | undefined;
+  if (!e) return false;
+  return (
+    e.code === 190 || e.code === 102 || [458, 460, 463, 464, 467].includes(e.error_subcode ?? 0)
+  );
+}
+
+/** Vencimento do token pelo debug_token (0 = não vence). */
+export function vencimentoDoToken(dados: Record<string, unknown>): string | null {
+  const d = (dados["data"] ?? {}) as { expires_at?: number; data_access_expires_at?: number };
+  const s = Number(d.expires_at ?? 0);
+  return s > 0 ? new Date(s * 1000).toISOString() : null;
 }
 
 // ---------------------------------------------------------------- respostas HTTP

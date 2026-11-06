@@ -23,39 +23,48 @@ por enquanto.
 
 ## 2. Secrets (Supabase → Edge Functions → Secrets)
 
-| Nome                                 | O que colocar                                                                                                                  |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `NEXA_META_APP_SECRET`               | Chave secreta do app Nexa OS (Configurações do app → Básico)                                                                   |
-| `NEXA_META_WEBHOOK_VERIFY_TOKEN`     | Um texto aleatório inventado por você (ex.: `openssl rand -hex 24`); o mesmo vai no campo "Verificar token" do webhook na Meta |
-| `NEXA_META_TOKEN_KEY`                | Chave da criptografia dos tokens dos clientes: `openssl rand -base64 32` (32 bytes). Não troque depois de conectar clientes    |
-| `NEXA_META_ES_CONFIG_ID`             | ID da configuração do "Login do Facebook para Empresas" (Cadastro Incorporado)                                                 |
-| `NEXA_META_TESTE_TOKEN`              | Token de acesso do número de teste (+1 555 188-4259), com whatsapp_business_messaging e whatsapp_business_management           |
-| `NEXA_META_APP_ID` (opcional)        | Só se quiser trocar o App ID (padrão 2330123227786041)                                                                         |
-| `NEXA_META_GRAPH_VERSION` (opcional) | Versão da Graph API (padrão `v23.0`)                                                                                           |
+| Nome                                 | O que colocar                                                                                                                                                                                            |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXA_META_APP_SECRET`               | Chave secreta do app Nexa OS (Configurações do app → Básico)                                                                                                                                             |
+| `NEXA_META_WEBHOOK_VERIFY_TOKEN`     | Texto aleatório inventado por você (ex.: `openssl rand -hex 24`); o mesmo vai em "Verificar token" do webhook na Meta                                                                                    |
+| `NEXA_META_TOKEN_KEY`                | Chave da criptografia: `openssl rand -base64 32`. Não troque depois de conectar clientes                                                                                                                 |
+| `NEXA_META_ES_CONFIG_ID`             | `1664742928539464` (configuração do Cadastro Incorporado)                                                                                                                                                |
+| `NEXA_META_SYSTEM_TOKEN`             | Token PERMANENTE do usuário do sistema da Nexa (portfólio Nexa Performance), sem vencimento, com whatsapp_business_management, whatsapp_business_messaging e business_management. É o token do dia a dia |
+| `NEXA_META_TESTE_TOKEN`              | Token do número de teste (+1 555 188-4259). Se ficar vazio, a tela de teste usa o `NEXA_META_SYSTEM_TOKEN`                                                                                               |
+| `NEXA_META_APP_ID` (opcional)        | Só se for trocar o App ID (padrão 2330123227786041)                                                                                                                                                      |
+| `NEXA_META_GRAPH_VERSION` (opcional) | Versão da Graph API (padrão `v23.0`)                                                                                                                                                                     |
 
-Os IDs do número de teste ficam no código, porque não são segredo: Phone Number ID
-1547429628435173 e WABA 3641269396036529.
+Os IDs do número de teste (Phone Number ID 1547429628435173, WABA 3641269396036529) e do
+portfólio da Nexa (1819405918725550) ficam no código, porque não são segredo.
 
 ## 3. Como funciona
 
 - **Webhook** (`nexa-meta-webhook`). O GET confere o `hub.verify_token` e devolve o `hub.challenge`.
   O POST confere `X-Hub-Signature-256` (HMAC-SHA256 do corpo com o App Secret) e grava mensagens e
-  status em `whatsapp_cloud_eventos`; a empresa é achada pelo `phone_number_id`/`waba_id`. Não
-  responde ao cliente, não chama a Alice e não mexe no Chatwoot.
-- **Cadastro Incorporado**. A tela abre o SDK da Meta (`FB.login` com `config_id`), lê o `waba_id` e
-  o `phone_number_id` pelo postMessage e manda o `code` para `nexa-meta-cadastro`. A função:
-  1. troca o `code` pelo token;
-  2. confere no `debug_token` que o WABA é desse token;
-  3. guarda o token e o PIN criptografados (AES-256-GCM) em `whatsapp_cloud_segredos`;
-  4. faz `POST /{waba_id}/subscribed_apps`;
-  5. faz `POST /{phone_number_id}/register` com o PIN;
-  6. salva número, nome e situação.
+  status em `whatsapp_cloud_eventos`, com a empresa achada pelo `phone_number_id`/`waba_id`. Não
+  responde ao cliente, não chama a Alice e não mexe no Chatwoot. O evento bruto fica **90 dias**;
+  uma rotina diária do banco (pg_cron, 03:17) apaga o que passou disso.
+- **Cadastro Incorporado** (`nexa-meta-cadastro`). A tela abre o SDK da Meta (`FB.login` com o
+  `config_id`), lê o `waba_id` e o `phone_number_id` pelo postMessage e manda o `code`. No servidor:
+  1. troca o `code` pelo token do cliente (vence em 60 dias);
+  2. confere no `debug_token` que o WABA é desse token e guarda quem autorizou e o vencimento (só
+     registro);
+  3. com o token do cliente: `POST /{waba_id}/subscribed_apps` e
+     `POST /{phone_number_id}/register` com PIN;
+  4. com o token permanente da Nexa: confere se o WABA aparece em
+     `/1819405918725550/client_whatsapp_business_accounts` e atribui o usuário do sistema da Nexa
+     (`POST /{waba_id}/assigned_users`, tasks `MANAGE`). O resultado fica salvo;
+  5. com a atribuição feita, a situação fica **Conectado**. Se a atribuição falhar, fica
+     **Pendente** e a Nexa tenta de novo (ação "reatribuir").
+     O dia a dia (mensagens, modelos, perfil) usa só o token permanente. O token do cliente fica
+     criptografado só como registro e para uma nova tentativa da atribuição.
 - **Liberação**. Empresa sem linha em `whatsapp_cloud_conexoes` vê "Ainda não disponível". Para
   liberar uma empresa (só com OK do dono):
   `INSERT INTO whatsapp_cloud_conexoes (empresa_id) VALUES ('<id>');`
-- **Exclusão e desautorizar**. Validam o `signed_request` e registram em `meta_exclusao_pedidos`. A
-  exclusão devolve `{ url, confirmation_code }`; a página `/exclusao-de-dados?codigo=` mostra a
-  situação do pedido.
+- **Exclusão**. Valida o `signed_request`, registra em `meta_exclusao_pedidos` e devolve
+  `{ url, confirmation_code }`. A página `/exclusao-de-dados?codigo=` mostra a situação.
+- **Desautorizar**. Valida o `signed_request`, registra e marca como **desautorizado** a conexão da
+  empresa que aquela pessoa autorizou. Não apaga nada sozinho.
 
 ## 4. Chamadas de teste (para liberar o acesso avançado)
 
@@ -65,7 +74,7 @@ Pré-requisitos:
 - seu celular cadastrado como destinatário em WhatsApp → Configuração da API ("Para", até 5
   números).
 
-1. Entre no app como admin da Nexa → Painel Nexa → **WhatsApp Cloud: teste**.
+1. Entre no app como admin da Nexa → Painel Nexa → **WhatsApp Cloud: teste**. No topo aparece se o token de teste vale (faixa azul, com o vencimento) ou um aviso vermelho se ele estiver vencido, inválido ou faltando; nesse caso, nada quebra: é só trocar o secret.
 2. Em "Enviar para", digite seu número com DDI (ex.: 55119…).
 3. **Enviar modelo** com `hello_world`: a mensagem chega no seu WhatsApp. Este passo abre a
    conversa.
@@ -155,9 +164,13 @@ confirmations."_
   - Verificar token: o mesmo de `NEXA_META_WEBHOOK_VERIFY_TOKEN`;
   - tocar **Verificar e salvar**;
   - assinar o campo **messages**.
-- [ ] **Login do Facebook para Empresas → Configurações**: criar a configuração do Cadastro
-      Incorporado (WhatsApp, permissões whatsapp_business_management e whatsapp_business_messaging) e
-      me passar o **config_id** (vai em `NEXA_META_ES_CONFIG_ID`).
+- [ ] **Usuário do sistema** (Configurações do negócio do portfólio Nexa Performance → Usuários do
+      sistema):
+  - criar um usuário Admin;
+  - atribuir a ele o app Nexa OS com controle total;
+  - gerar um token **sem vencimento** com whatsapp_business_management,
+    whatsapp_business_messaging e business_management;
+  - colocar em `NEXA_META_SYSTEM_TOKEN`.
 - [ ] Secrets no Supabase (seção 2).
 - [ ] Número de teste: cadastrar o seu celular como destinatário ("Para") na Configuração da API.
 - [ ] Rodar as chamadas de teste (seção 4) e esperar os contadores subirem.

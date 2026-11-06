@@ -3,6 +3,14 @@
  * Endereço do app: https://app.nexaperformanceos.com.br.
  */
 export const EMPRESA_LEGAL = "Nexa Performance";
+/** Como no cadastro verificado da Meta. */
+export const RAZAO_SOCIAL = "MARIA FERNANDA GONCALVES GERMANO";
+export const CNPJ = "50.529.101/0001-22";
+export const ENDERECO = "Rua Doutor Augusto do Amaral, 94, Vila Nina, São Paulo/SP, CEP 02831-030";
+/** Responsável, numa linha (rodapé e páginas legais). */
+export const RESPONSAVEL = `${EMPRESA_LEGAL} (${RAZAO_SOCIAL}, CNPJ ${CNPJ}), ${ENDERECO}`;
+/** Guarda dos eventos brutos do WhatsApp (webhook), em dias. */
+export const GUARDA_EVENTOS_DIAS = 90;
 /** E-mail do encarregado (LGPD) e dos pedidos de exclusão. */
 export const CONTATO_PRIVACIDADE = "contato@nexaperformanceos.com.br";
 /** Prazo para atender pedidos de exclusão (dias). */

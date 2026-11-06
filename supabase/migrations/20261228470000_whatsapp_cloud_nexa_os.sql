@@ -5,18 +5,33 @@
 -- Liberação por empresa: sem linha em whatsapp_cloud_conexoes = desligado (botão escondido). A
 -- Nexa libera inserindo a linha com situacao 'liberado'. As empresas atuais (Turbine inclusive) não
 -- ganham linha.
+--
+-- Tokens: o token do cliente (vem do Cadastro Incorporado, vence em 60 dias) só serve no cadastro
+-- (subscribed_apps e register). No dia a dia, as chamadas usam o token PERMANENTE do usuário do
+-- sistema da Nexa (secret NEXA_META_SYSTEM_TOKEN), atribuído ao WABA do cliente (assigned_users).
 
 -- ================================================================ 1. conexão (sem segredo)
 CREATE TABLE public.whatsapp_cloud_conexoes (
   empresa_id uuid PRIMARY KEY REFERENCES public.empresas(id) ON DELETE CASCADE,
   situacao text NOT NULL DEFAULT 'liberado'
-    CHECK (situacao IN ('liberado', 'pendente', 'conectado', 'erro')),
+    CHECK (situacao IN ('liberado', 'pendente', 'conectado', 'erro', 'desautorizado')),
   waba_id text CHECK (waba_id IS NULL OR waba_id ~ '^[0-9]{5,25}$'),
   phone_number_id text CHECK (phone_number_id IS NULL OR phone_number_id ~ '^[0-9]{5,25}$'),
   numero_exibicao text CHECK (numero_exibicao IS NULL OR length(numero_exibicao) <= 40),
   nome_verificado text CHECK (nome_verificado IS NULL OR length(nome_verificado) <= 200),
   -- Texto curto para a tela; nunca leva token nem resposta crua da Meta.
   erro text CHECK (erro IS NULL OR length(erro) <= 500),
+  -- Quem autorizou no Facebook (ID do usuário no app): liga o callback de desautorizar à empresa.
+  meta_user_id text CHECK (meta_user_id IS NULL OR length(meta_user_id) <= 100),
+  -- Vencimento do token do cliente (só registro; o dia a dia usa o token da Nexa).
+  token_cliente_vence_em timestamptz,
+  -- O WABA aparece entre as contas de clientes do portfólio da Nexa (Business 1819405918725550)?
+  waba_compartilhado boolean,
+  -- Usuário do sistema da Nexa atribuído ao WABA (assigned_users, tasks MANAGE).
+  atribuicao_ok boolean,
+  atribuicao_erro text CHECK (atribuicao_erro IS NULL OR length(atribuicao_erro) <= 500),
+  atribuido_em timestamptz,
+  desautorizado_em timestamptz,
   liberado_em timestamptz NOT NULL DEFAULT now(),
   conectado_em timestamptz,
   conectado_por uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -26,6 +41,8 @@ CREATE UNIQUE INDEX uq_whatsapp_cloud_phone ON public.whatsapp_cloud_conexoes (p
   WHERE phone_number_id IS NOT NULL;
 CREATE INDEX idx_whatsapp_cloud_waba ON public.whatsapp_cloud_conexoes (waba_id)
   WHERE waba_id IS NOT NULL;
+CREATE INDEX idx_whatsapp_cloud_meta_user ON public.whatsapp_cloud_conexoes (meta_user_id)
+  WHERE meta_user_id IS NOT NULL;
 ALTER TABLE public.whatsapp_cloud_conexoes ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.whatsapp_cloud_conexoes FROM anon, authenticated;
 GRANT SELECT ON public.whatsapp_cloud_conexoes TO authenticated;
@@ -36,8 +53,9 @@ CREATE TRIGGER trg_whatsapp_cloud_conexoes_upd BEFORE UPDATE ON public.whatsapp_
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ================================================================ 2. segredos (só o servidor)
--- Token de integração do cliente e PIN do registro, criptografados (AES-256-GCM) pela Edge Function
--- com a chave do secret NEXA_META_TOKEN_KEY. O banco nunca vê o texto aberto.
+-- Token do cliente (registro e nova tentativa da atribuição; vence em 60 dias) e PIN do registro,
+-- criptografados (AES-256-GCM) pela Edge Function com a chave do secret NEXA_META_TOKEN_KEY. O banco
+-- nunca vê o texto aberto.
 CREATE TABLE public.whatsapp_cloud_segredos (
   empresa_id uuid PRIMARY KEY REFERENCES public.whatsapp_cloud_conexoes(empresa_id) ON DELETE CASCADE,
   token_cifrado text NOT NULL CHECK (length(token_cifrado) BETWEEN 20 AND 4000),
@@ -52,7 +70,7 @@ CREATE POLICY whatsapp_cloud_segredos_sem_acesso ON public.whatsapp_cloud_segred
 
 -- ================================================================ 3. eventos do webhook
 -- O que a Meta manda ao webhook do app Nexa OS (mensagens e status). empresa_id vazio = número sem
--- empresa (ex.: o número de teste da Meta).
+-- empresa (ex.: o número de teste da Meta). Evento bruto fica 90 dias (limpeza diária, abaixo).
 CREATE TABLE public.whatsapp_cloud_eventos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   empresa_id uuid REFERENCES public.empresas(id) ON DELETE CASCADE,
@@ -98,9 +116,31 @@ GRANT ALL ON public.meta_exclusao_pedidos TO service_role;
 CREATE POLICY meta_exclusao_pedidos_sem_acesso ON public.meta_exclusao_pedidos
   FOR ALL TO authenticated USING (false) WITH CHECK (false);
 
+-- ================================================================ 5. guarda de 90 dias
+CREATE OR REPLACE FUNCTION private.whatsapp_cloud_limpar_eventos()
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  n integer;
+BEGIN
+  DELETE FROM public.whatsapp_cloud_eventos WHERE recebido_em < now() - interval '90 days';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION private.whatsapp_cloud_limpar_eventos() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION private.whatsapp_cloud_limpar_eventos() TO service_role;
+
+-- Todo dia às 03:17 (horário de Brasília). Só onde o pg_cron existe (produção).
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NOT NULL THEN
+    PERFORM cron.schedule('whatsapp_cloud_limpar_eventos', '17 6 * * *',
+                          'SELECT private.whatsapp_cloud_limpar_eventos()');
+  END IF;
+END $$;
+
 COMMENT ON TABLE public.whatsapp_cloud_conexoes IS 'WhatsApp Cloud pelo app Nexa OS (Cadastro Incorporado): liberação e situação por empresa. Sem linha = desligado.';
 COMMENT ON TABLE public.whatsapp_cloud_segredos IS 'Token e PIN do WhatsApp Cloud por empresa, criptografados pela Edge Function. Só o servidor.';
-COMMENT ON TABLE public.whatsapp_cloud_eventos IS 'Eventos do webhook do app Nexa OS (mensagens e status).';
+COMMENT ON TABLE public.whatsapp_cloud_eventos IS 'Eventos do webhook do app Nexa OS (mensagens e status). Guardados por 90 dias.';
 COMMENT ON TABLE public.meta_exclusao_pedidos IS 'Pedidos de exclusão e de desautorizar recebidos da Meta pelo app Nexa OS.';
 
 SELECT private.instalar_travas_somente_leitura();

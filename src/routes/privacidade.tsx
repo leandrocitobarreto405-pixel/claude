@@ -4,7 +4,9 @@ import {
   ATUALIZADA_EM,
   CONTATO_PRIVACIDADE,
   EMPRESA_LEGAL,
+  GUARDA_EVENTOS_DIAS,
   PRAZO_EXCLUSAO_DIAS,
+  RESPONSAVEL,
 } from "@/lib/legal";
 
 export const Route = createFileRoute("/privacidade")({
@@ -40,7 +42,7 @@ function Privacidade() {
         </li>
         <li>
           <strong>{EMPRESA_LEGAL} (operadora):</strong> fornece o Nexa OS e trata os dados em nome
-          da empresa cliente, só para prestar o serviço.
+          da empresa cliente, só para prestar o serviço. Dados: {RESPONSAVEL}.
         </li>
       </ul>
 
@@ -175,6 +177,11 @@ function Privacidade() {
       <h2>Por quanto tempo guardamos</h2>
       <ul>
         <li>
+          Os eventos brutos que o WhatsApp envia ao Nexa OS (avisos de mensagem recebida e de
+          entrega) ficam guardados por {GUARDA_EVENTOS_DIAS} dias e depois são apagados
+          automaticamente.
+        </li>
+        <li>
           Enquanto a empresa cliente usar o Nexa OS. Depois do fim do contrato, os dados são
           excluídos em até 90 dias, salvo o que a lei obriga a guardar (por exemplo, dados fiscais).
         </li>
@@ -210,7 +217,7 @@ function Privacidade() {
 
       <h2>Encarregado (contato)</h2>
       <p>
-        Encarregado pelo tratamento de dados da {EMPRESA_LEGAL}:{" "}
+        Encarregado pelo tratamento de dados da {RESPONSAVEL}:{" "}
         <a className="text-primary underline" href={`mailto:${CONTATO_PRIVACIDADE}`}>
           {CONTATO_PRIVACIDADE}
         </a>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ListChecks, MessageSquare, Phone, PlusCircle, RefreshCw, Send } from "lucide-react";
@@ -21,7 +21,17 @@ type Evento = {
   recebido_em: string;
 };
 
-type Resposta = { ok?: boolean; erro?: string; meta?: unknown; eventos?: Evento[] };
+type Resposta = {
+  ok?: boolean;
+  erro?: string;
+  meta?: unknown;
+  eventos?: Evento[];
+  token_invalido?: boolean;
+  token_ausente?: boolean;
+  valido?: boolean;
+  vence_em?: string | null;
+  escopos?: string[];
+};
 
 async function chamar(corpo: Record<string, unknown>): Promise<Resposta> {
   const { data, error } = await supabase.functions.invoke("nexa-meta-teste", { body: corpo });
@@ -56,12 +66,19 @@ function MetaTeste() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [saida, setSaida] = useState<{ titulo: string; corpo: unknown } | null>(null);
   const [eventos, setEventos] = useState<Evento[] | null>(null);
+  // Situação do token de teste: aviso claro em vez de quebrar.
+  const [token, setToken] = useState<Resposta | null>(null);
+
+  useEffect(() => {
+    void chamar({ acao: "verificar_token" }).then(setToken);
+  }, []);
 
   async function rodar(titulo: string, corpo: Record<string, unknown>) {
     setOcupado(titulo);
     const r = await chamar(corpo);
     setOcupado(null);
     if (r.eventos) setEventos(r.eventos);
+    if (r.token_invalido || r.token_ausente) setToken(r);
     setSaida({ titulo, corpo: r.ok === false ? { erro: r.erro } : (r.meta ?? r) });
     if (r.ok === false) toast.error(r.erro ?? "Erro.");
     else toast.success(`${titulo}: ok`);
@@ -75,6 +92,25 @@ function MetaTeste() {
         titulo="WhatsApp Cloud: teste"
         descricao="Chamadas do app Nexa OS com o número de teste da Meta. Nunca usa número de cliente."
       />
+
+      {token && (token.token_invalido || token.token_ausente || token.ok === false) ? (
+        <p
+          role="alert"
+          className="rounded-md bg-problema px-3 py-2 text-sm font-medium text-problema-foreground"
+        >
+          {token.erro ?? "Token de teste inválido."}
+        </p>
+      ) : token?.valido ? (
+        <p className="rounded-md bg-marca-claro px-3 py-2 text-sm text-marca">
+          Token de teste válido
+          {token.vence_em
+            ? ` até ${new Date(token.vence_em).toLocaleDateString("pt-BR")}`
+            : " (sem vencimento)"}
+          {token.escopos?.length
+            ? ` · ${token.escopos.filter((e) => e.startsWith("whatsapp")).join(", ")}`
+            : ""}
+        </p>
+      ) : null}
 
       <Card className="gap-2 text-sm">
         <div className="flex flex-wrap items-center gap-2">

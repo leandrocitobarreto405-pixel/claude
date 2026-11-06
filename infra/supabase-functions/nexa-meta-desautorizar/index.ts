@@ -1,6 +1,7 @@
 // Callback de desautorizar do app "Nexa OS" (formato da Meta): a pessoa removeu o app nas
-// configurações do Facebook. Valida o signed_request com o App Secret e registra; a Meta só espera
-// 200. Não desliga nenhuma conexão sozinho (o WhatsApp da empresa continua até ela desconectar).
+// configurações do Facebook. Valida o signed_request com o App Secret, registra o pedido e marca a
+// conexão da empresa que essa pessoa autorizou como "desautorizado". Não apaga nada sozinho (token,
+// eventos e o vínculo ficam; a equipe da Nexa decide). A Meta só espera 200.
 import { gerarCodigo, json, lerSignedRequest } from "../_compartilhado/meta.ts";
 import { bancoServidor, config } from "../_compartilhado/servidor.ts";
 
@@ -27,5 +28,10 @@ Deno.serve(async (req: Request) => {
     console.error("nexa-meta-desautorizar: falha ao gravar", error.code);
     return json({ erro: "Falha ao registrar." }, 500);
   }
-  return json({ ok: true });
+  const { data: marcadas } = await bancoServidor()
+    .from("whatsapp_cloud_conexoes")
+    .update({ situacao: "desautorizado", desautorizado_em: new Date().toISOString() })
+    .eq("meta_user_id", payload.user_id.slice(0, 100))
+    .select("empresa_id");
+  return json({ ok: true, conexoes: (marcadas ?? []).length });
 });

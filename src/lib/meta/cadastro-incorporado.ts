@@ -115,4 +115,5 @@ export const ROTULO_SITUACAO: Record<string, string> = {
   pendente: "Pendente",
   conectado: "Conectado",
   erro: "Erro",
+  desautorizado: "Desautorizado",
 };

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PaginaLegal } from "@/components/pagina-legal";
-import { ATUALIZADA_EM, CONTATO_PRIVACIDADE, EMPRESA_LEGAL } from "@/lib/legal";
+import { ATUALIZADA_EM, CONTATO_PRIVACIDADE, EMPRESA_LEGAL, RESPONSAVEL } from "@/lib/legal";
 
 export const Route = createFileRoute("/termos")({
   head: () => ({
@@ -89,7 +89,8 @@ function Termos() {
 
       <h2>8. Mudanças e contato</h2>
       <p>
-        Estes termos podem ser atualizados; a data da última versão fica no topo da página. Dúvidas:{" "}
+        Estes termos podem ser atualizados; a data da última versão fica no topo da página.
+        Responsável: {RESPONSAVEL}. Dúvidas:{" "}
         <a className="text-primary underline" href={`mailto:${CONTATO_PRIVACIDADE}`}>
           {CONTATO_PRIVACIDADE}
         </a>
