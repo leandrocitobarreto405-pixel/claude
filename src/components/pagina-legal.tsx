@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { LogoNexa } from "@/components/nexa";
 
-/** Layout das páginas públicas de Política de Privacidade e Termos de Serviço. */
+/** Layout das páginas públicas: Política de Privacidade, Termos de Uso e Exclusão de dados. */
 export function PaginaLegal({
   titulo,
   atualizadaEm,
@@ -33,7 +33,10 @@ export function PaginaLegal({
             Política de Privacidade
           </Link>
           <Link to="/termos" className="hover:underline">
-            Termos de Serviço
+            Termos de Uso
+          </Link>
+          <Link to="/exclusao-de-dados" className="hover:underline">
+            Exclusão de dados
           </Link>
         </footer>
       </main>

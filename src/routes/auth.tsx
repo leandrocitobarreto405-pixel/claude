@@ -301,12 +301,15 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
-          <p className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+          <p className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <Link to="/privacidade" className="hover:underline">
               Política de Privacidade
             </Link>
             <Link to="/termos" className="hover:underline">
-              Termos de Serviço
+              Termos de Uso
+            </Link>
+            <Link to="/exclusao-de-dados" className="hover:underline">
+              Exclusão de dados
             </Link>
           </p>
         </div>

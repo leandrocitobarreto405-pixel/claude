@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContadoraRouteRouteImport } from './routes/contadora/route'
+import { Route as ExclusaoDeDadosRouteImport } from './routes/exclusao-de-dados'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
@@ -62,6 +63,7 @@ import { Route as AuthenticatedConfiguracoesEquipeRouteImport } from './routes/_
 import { Route as AuthenticatedConfiguracoesMensagensRouteImport } from './routes/_authenticated/configuracoes/mensagens'
 import { Route as AuthenticatedConfiguracoesOutrosRouteImport } from './routes/_authenticated/configuracoes/outros'
 import { Route as AuthenticatedConfiguracoesVendasRouteImport } from './routes/_authenticated/configuracoes/vendas'
+import { Route as AuthenticatedConfiguracoesWhatsappRouteImport } from './routes/_authenticated/configuracoes/whatsapp'
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasConversaIdRouteImport } from './routes/_authenticated/conversas.$conversaId'
 import { Route as AuthenticatedCrmCampanhasRouteImport } from './routes/_authenticated/crm/campanhas'
@@ -84,6 +86,7 @@ import { Route as AuthenticatedNexaChatwootRouteImport } from './routes/_authent
 import { Route as AuthenticatedNexaComissoesRouteImport } from './routes/_authenticated/nexa/comissoes'
 import { Route as AuthenticatedNexaConsumoRouteImport } from './routes/_authenticated/nexa/consumo'
 import { Route as AuthenticatedNexaEmpresasRouteImport } from './routes/_authenticated/nexa/empresas'
+import { Route as AuthenticatedNexaMetaTesteRouteImport } from './routes/_authenticated/nexa/meta-teste'
 import { Route as AuthenticatedNexaPlanosRouteImport } from './routes/_authenticated/nexa/planos'
 import { Route as AuthenticatedOrcamentosIndexRouteImport } from './routes/_authenticated/orcamentos/index'
 import { Route as AuthenticatedOrcamentosQuoteIdRouteImport } from './routes/_authenticated/orcamentos/$quoteId'
@@ -125,6 +128,11 @@ const AuthRoute = AuthRouteImport.update({
 const ContadoraRouteRoute = ContadoraRouteRouteImport.update({
   id: '/contadora',
   path: '/contadora',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExclusaoDeDadosRoute = ExclusaoDeDadosRouteImport.update({
+  id: '/exclusao-de-dados',
+  path: '/exclusao-de-dados',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -388,6 +396,12 @@ const AuthenticatedConfiguracoesVendasRoute =
     path: '/configuracoes/vendas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedConfiguracoesWhatsappRoute =
+  AuthenticatedConfiguracoesWhatsappRouteImport.update({
+    id: '/configuracoes/whatsapp',
+    path: '/configuracoes/whatsapp',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConversasIndexRoute =
   AuthenticatedConversasIndexRouteImport.update({
     id: '/',
@@ -515,6 +529,12 @@ const AuthenticatedNexaEmpresasRoute =
   AuthenticatedNexaEmpresasRouteImport.update({
     id: '/nexa/empresas',
     path: '/nexa/empresas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedNexaMetaTesteRoute =
+  AuthenticatedNexaMetaTesteRouteImport.update({
+    id: '/nexa/meta-teste',
+    path: '/nexa/meta-teste',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedNexaPlanosRoute = AuthenticatedNexaPlanosRouteImport.update({
@@ -652,6 +672,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contadora': typeof ContadoraRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/exclusao-de-dados': typeof ExclusaoDeDadosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
@@ -700,6 +721,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
   '/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
   '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
+  '/configuracoes/whatsapp': typeof AuthenticatedConfiguracoesWhatsappRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/dashboard': typeof AuthenticatedCrmDashboardRoute
@@ -721,6 +743,7 @@ export interface FileRoutesByFullPath {
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/nexa/meta-teste': typeof AuthenticatedNexaMetaTesteRoute
   '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -750,6 +773,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/exclusao-de-dados': typeof ExclusaoDeDadosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
@@ -797,6 +821,7 @@ export interface FileRoutesByTo {
   '/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
   '/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
   '/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
+  '/configuracoes/whatsapp': typeof AuthenticatedConfiguracoesWhatsappRoute
   '/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/crm/dashboard': typeof AuthenticatedCrmDashboardRoute
@@ -818,6 +843,7 @@ export interface FileRoutesByTo {
   '/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/nexa/meta-teste': typeof AuthenticatedNexaMetaTesteRoute
   '/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -850,6 +876,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/contadora': typeof ContadoraRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/exclusao-de-dados': typeof ExclusaoDeDadosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
@@ -898,6 +925,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes/mensagens': typeof AuthenticatedConfiguracoesMensagensRoute
   '/_authenticated/configuracoes/outros': typeof AuthenticatedConfiguracoesOutrosRoute
   '/_authenticated/configuracoes/vendas': typeof AuthenticatedConfiguracoesVendasRoute
+  '/_authenticated/configuracoes/whatsapp': typeof AuthenticatedConfiguracoesWhatsappRoute
   '/_authenticated/conversas/$conversaId': typeof AuthenticatedConversasConversaIdRoute
   '/_authenticated/crm/campanhas': typeof AuthenticatedCrmCampanhasRoute
   '/_authenticated/crm/dashboard': typeof AuthenticatedCrmDashboardRoute
@@ -919,6 +947,7 @@ export interface FileRoutesById {
   '/_authenticated/nexa/comissoes': typeof AuthenticatedNexaComissoesRoute
   '/_authenticated/nexa/consumo': typeof AuthenticatedNexaConsumoRoute
   '/_authenticated/nexa/empresas': typeof AuthenticatedNexaEmpresasRoute
+  '/_authenticated/nexa/meta-teste': typeof AuthenticatedNexaMetaTesteRoute
   '/_authenticated/nexa/planos': typeof AuthenticatedNexaPlanosRoute
   '/_authenticated/orcamentos/$quoteId': typeof AuthenticatedOrcamentosQuoteIdRoute
   '/_authenticated/os/$osNumber': typeof AuthenticatedOsOsNumberRoute
@@ -951,6 +980,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contadora'
     | '/auth'
+    | '/exclusao-de-dados'
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
@@ -999,6 +1029,7 @@ export interface FileRouteTypes {
     | '/configuracoes/mensagens'
     | '/configuracoes/outros'
     | '/configuracoes/vendas'
+    | '/configuracoes/whatsapp'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/dashboard'
@@ -1020,6 +1051,7 @@ export interface FileRouteTypes {
     | '/nexa/comissoes'
     | '/nexa/consumo'
     | '/nexa/empresas'
+    | '/nexa/meta-teste'
     | '/nexa/planos'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
@@ -1049,6 +1081,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/exclusao-de-dados'
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
@@ -1096,6 +1129,7 @@ export interface FileRouteTypes {
     | '/configuracoes/mensagens'
     | '/configuracoes/outros'
     | '/configuracoes/vendas'
+    | '/configuracoes/whatsapp'
     | '/conversas/$conversaId'
     | '/crm/campanhas'
     | '/crm/dashboard'
@@ -1117,6 +1151,7 @@ export interface FileRouteTypes {
     | '/nexa/comissoes'
     | '/nexa/consumo'
     | '/nexa/empresas'
+    | '/nexa/meta-teste'
     | '/nexa/planos'
     | '/orcamentos/$quoteId'
     | '/os/$osNumber'
@@ -1148,6 +1183,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/contadora'
     | '/auth'
+    | '/exclusao-de-dados'
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
@@ -1196,6 +1232,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes/mensagens'
     | '/_authenticated/configuracoes/outros'
     | '/_authenticated/configuracoes/vendas'
+    | '/_authenticated/configuracoes/whatsapp'
     | '/_authenticated/conversas/$conversaId'
     | '/_authenticated/crm/campanhas'
     | '/_authenticated/crm/dashboard'
@@ -1217,6 +1254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nexa/comissoes'
     | '/_authenticated/nexa/consumo'
     | '/_authenticated/nexa/empresas'
+    | '/_authenticated/nexa/meta-teste'
     | '/_authenticated/nexa/planos'
     | '/_authenticated/orcamentos/$quoteId'
     | '/_authenticated/os/$osNumber'
@@ -1249,6 +1287,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ContadoraRouteRoute: typeof ContadoraRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ExclusaoDeDadosRoute: typeof ExclusaoDeDadosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
@@ -1300,6 +1339,13 @@ declare module '@tanstack/react-router' {
       path: '/contadora'
       fullPath: '/contadora'
       preLoaderRoute: typeof ContadoraRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exclusao-de-dados': {
+      id: '/exclusao-de-dados'
+      path: '/exclusao-de-dados'
+      fullPath: '/exclusao-de-dados'
+      preLoaderRoute: typeof ExclusaoDeDadosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -1645,6 +1691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesVendasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/configuracoes/whatsapp': {
+      id: '/_authenticated/configuracoes/whatsapp'
+      path: '/configuracoes/whatsapp'
+      fullPath: '/configuracoes/whatsapp'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/conversas/': {
       id: '/_authenticated/conversas/'
       path: '/'
@@ -1797,6 +1850,13 @@ declare module '@tanstack/react-router' {
       path: '/nexa/empresas'
       fullPath: '/nexa/empresas'
       preLoaderRoute: typeof AuthenticatedNexaEmpresasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/nexa/meta-teste': {
+      id: '/_authenticated/nexa/meta-teste'
+      path: '/nexa/meta-teste'
+      fullPath: '/nexa/meta-teste'
+      preLoaderRoute: typeof AuthenticatedNexaMetaTesteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/nexa/planos': {
@@ -2020,6 +2080,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesMensagensRoute: typeof AuthenticatedConfiguracoesMensagensRoute
   AuthenticatedConfiguracoesOutrosRoute: typeof AuthenticatedConfiguracoesOutrosRoute
   AuthenticatedConfiguracoesVendasRoute: typeof AuthenticatedConfiguracoesVendasRoute
+  AuthenticatedConfiguracoesWhatsappRoute: typeof AuthenticatedConfiguracoesWhatsappRoute
   AuthenticatedCrmCampanhasRoute: typeof AuthenticatedCrmCampanhasRoute
   AuthenticatedCrmDashboardRoute: typeof AuthenticatedCrmDashboardRoute
   AuthenticatedCrmFollowUpRoute: typeof AuthenticatedCrmFollowUpRoute
@@ -2040,6 +2101,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNexaComissoesRoute: typeof AuthenticatedNexaComissoesRoute
   AuthenticatedNexaConsumoRoute: typeof AuthenticatedNexaConsumoRoute
   AuthenticatedNexaEmpresasRoute: typeof AuthenticatedNexaEmpresasRoute
+  AuthenticatedNexaMetaTesteRoute: typeof AuthenticatedNexaMetaTesteRoute
   AuthenticatedNexaPlanosRoute: typeof AuthenticatedNexaPlanosRoute
   AuthenticatedOrcamentosQuoteIdRoute: typeof AuthenticatedOrcamentosQuoteIdRoute
   AuthenticatedOsOsNumberRoute: typeof AuthenticatedOsOsNumberRoute
@@ -2093,6 +2155,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedConfiguracoesMensagensRoute,
   AuthenticatedConfiguracoesOutrosRoute: AuthenticatedConfiguracoesOutrosRoute,
   AuthenticatedConfiguracoesVendasRoute: AuthenticatedConfiguracoesVendasRoute,
+  AuthenticatedConfiguracoesWhatsappRoute:
+    AuthenticatedConfiguracoesWhatsappRoute,
   AuthenticatedCrmCampanhasRoute: AuthenticatedCrmCampanhasRoute,
   AuthenticatedCrmDashboardRoute: AuthenticatedCrmDashboardRoute,
   AuthenticatedCrmFollowUpRoute: AuthenticatedCrmFollowUpRoute,
@@ -2113,6 +2177,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNexaComissoesRoute: AuthenticatedNexaComissoesRoute,
   AuthenticatedNexaConsumoRoute: AuthenticatedNexaConsumoRoute,
   AuthenticatedNexaEmpresasRoute: AuthenticatedNexaEmpresasRoute,
+  AuthenticatedNexaMetaTesteRoute: AuthenticatedNexaMetaTesteRoute,
   AuthenticatedNexaPlanosRoute: AuthenticatedNexaPlanosRoute,
   AuthenticatedOrcamentosQuoteIdRoute: AuthenticatedOrcamentosQuoteIdRoute,
   AuthenticatedOsOsNumberRoute: AuthenticatedOsOsNumberRoute,
@@ -2150,6 +2215,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ContadoraRouteRoute: ContadoraRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ExclusaoDeDadosRoute: ExclusaoDeDadosRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
