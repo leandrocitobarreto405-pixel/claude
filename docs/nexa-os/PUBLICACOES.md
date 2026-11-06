@@ -845,6 +845,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 06/11/2026 | App Nexa OS na Meta: páginas públicas /privacidade, /termos e /exclusao-de-dados (links no rodapé do login), Conectar WhatsApp (Cadastro Incorporado, nenhuma empresa liberada), Painel Nexa › Teste Meta, 5 Edge Functions `nexa-meta-*`; migração 20261228470000 | `2637f03` | `20261228470000` |
 | 06/11/2026 | Painel Nexa › Teste Meta: a faixa do token mostra todas as permissões (antes só as do WhatsApp) | `b4b2433` | — |
 | 06/11/2026 | Painel Nexa › Teste Meta: botões "Ver inscrição" e "Inscrever" do app no WABA de teste (função `nexa-meta-teste` v3) | `7f3037b` | — |
+| 06/11/2026 | Correção: tela Tatiana · Gerente comercial dizia "não está ligado" para o admin da Nexa (leituras sem filtro de empresa) | `92fff15` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1465,6 +1466,8 @@ App Nexa OS na Meta (06/11, "pode publicar" do dono, nesta ordem): (a) migraçã
 Faixa do token (06/11, "pode publicar" do dono): merge `b4b2433`. Na tela Painel Nexa › Teste Meta, a faixa do token válido lista todas as permissões do token, não só as que começam com `whatsapp` (assim dá para ver se `business_management` está lá). Só código. Como desfazer: `git revert -m 1 b4b2433`, build.
 
 Inscrição no WABA de teste (06/11, "pode publicar" do dono): função `nexa-meta-teste` republicada (versão 3) com as ações `ver_inscricao` (GET `/3641269396036529/subscribed_apps`, só lê) e `inscrever_app` (POST no mesmo WABA, só quando a Nexa clica em "Inscrever"), e merge `7f3037b` com os botões na tela Painel Nexa › Teste Meta. Motivo: a resposta do dono pelo WhatsApp às 08:37 não chegou ao webhook (nenhum POST nos logs; só a verificação das 08:02). Mexe só no WABA de teste; nada da Turbine. Como desfazer: `git revert -m 1 7f3037b`, build, e republicar a função com a versão anterior.
+
+Tela da Tatiana para o admin da Nexa (06/11, correção de defeito): merge `92fff15`. A tela Tatiana · Gerente comercial lia `comercial_configuracoes` (e lotes, análises e relatórios) sem filtrar a empresa; o admin da Nexa enxerga pela RLS as linhas das duas empresas, a leitura da configuração voltava duas linhas e a tela dizia "ainda não está ligado" desde a configuração da Ecoprime (03/11). As noites não foram afetadas. Agora tudo filtra pela empresa ativa. Só código. Como desfazer: `git revert -m 1 92fff15`, build.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
