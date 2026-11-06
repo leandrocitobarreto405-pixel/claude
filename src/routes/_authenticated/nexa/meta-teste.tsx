@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ListChecks, MessageSquare, Phone, PlusCircle, RefreshCw, Send } from "lucide-react";
+import {
+  BellRing,
+  ListChecks,
+  MessageSquare,
+  Phone,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Send,
+} from "lucide-react";
 import { Botao, CabecalhoDeTela, Card, Chip } from "@/components/nexa";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +40,7 @@ type Resposta = {
   valido?: boolean;
   vence_em?: string | null;
   escopos?: string[];
+  inscrito?: boolean | null;
 };
 
 async function chamar(corpo: Record<string, unknown>): Promise<Resposta> {
@@ -68,6 +78,8 @@ function MetaTeste() {
   const [eventos, setEventos] = useState<Evento[] | null>(null);
   // Situação do token de teste: aviso claro em vez de quebrar.
   const [token, setToken] = useState<Resposta | null>(null);
+  // Inscrição do app no WABA de teste: null = ainda não consultada.
+  const [inscrito, setInscrito] = useState<boolean | null>(null);
 
   useEffect(() => {
     void chamar({ acao: "verificar_token" }).then(setToken);
@@ -78,6 +90,7 @@ function MetaTeste() {
     const r = await chamar(corpo);
     setOcupado(null);
     if (r.eventos) setEventos(r.eventos);
+    if (typeof r.inscrito === "boolean") setInscrito(r.inscrito);
     if (r.token_invalido || r.token_ausente) setToken(r);
     setSaida({ titulo, corpo: r.ok === false ? { erro: r.erro } : (r.meta ?? r) });
     if (r.ok === false) toast.error(r.erro ?? "Erro.");
@@ -202,6 +215,36 @@ function MetaTeste() {
           >
             <PlusCircle /> Criar modelo
           </Botao>
+        </div>
+      </Card>
+
+      <Card className="gap-3">
+        <p className="text-[15px] font-bold">Webhook: inscrição do app no WABA de teste</p>
+        <p className="text-sm text-muted-foreground">
+          A Meta só manda as mensagens ao webhook se o app Nexa OS estiver inscrito no WABA. Mexe só
+          no WABA de teste 3641269396036529.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Botao
+            variante="contorno"
+            disabled={Boolean(ocupado)}
+            onClick={() => void rodar("Ver inscrição", { acao: "ver_inscricao" })}
+          >
+            <Search /> Ver inscrição
+          </Botao>
+          {inscrito === true ? (
+            <Chip tom="sucesso">Nexa OS inscrito</Chip>
+          ) : inscrito === false ? (
+            <>
+              <Chip tom="problema">Nexa OS não inscrito</Chip>
+              <Botao
+                disabled={Boolean(ocupado)}
+                onClick={() => void rodar("Inscrever app", { acao: "inscrever_app" })}
+              >
+                <BellRing /> Inscrever
+              </Botao>
+            </>
+          ) : null}
         </div>
       </Card>
 
