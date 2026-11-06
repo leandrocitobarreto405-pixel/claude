@@ -50,9 +50,9 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "mensagens",
     rotulo: "Mensagens",
-    descricao: "Modelos de mensagem · Respostas prontas · Mensagem padrão",
+    descricao: "Conectar WhatsApp · Modelos de mensagem · Respostas prontas · Mensagem padrão",
     icone: MessageSquareText,
-    itens: ["Modelos de mensagem", "Respostas prontas", "Mensagem padrão"],
+    itens: ["Conectar WhatsApp", "Modelos de mensagem", "Respostas prontas", "Mensagem padrão"],
   },
   {
     id: "documentos",

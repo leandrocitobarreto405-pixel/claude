@@ -116,6 +116,7 @@ export const GRUPOS_MENU: GrupoMenu[] = [
       { to: "/nexa/alice", rotulo: "Alice: custo e resultado", icone: Bot },
       { to: "/nexa/consumo", rotulo: "Consumo das empresas", icone: Gauge },
       { to: "/nexa/chatwoot", rotulo: "Chatwoot das empresas", icone: MessagesSquare },
+      { to: "/nexa/meta-teste", rotulo: "WhatsApp Cloud: teste", icone: MessageCircle },
     ],
   },
 ];
