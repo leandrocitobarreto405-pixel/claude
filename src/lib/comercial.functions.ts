@@ -107,10 +107,16 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
     const empresaId = context.empresaId as string;
     const [{ data: cfg }, { data: lotes }, { data: motivos }, { data: analises }, { data: rel }] =
       await Promise.all([
-        db.from("comercial_configuracoes").select("ligado, teto_usd, rotina_diaria").maybeSingle(),
+        // Sempre pela empresa ativa: o admin da Nexa enxerga as linhas de todas pela RLS.
+        db
+          .from("comercial_configuracoes")
+          .select("ligado, teto_usd, rotina_diaria")
+          .eq("empresa_id", empresaId)
+          .maybeSingle(),
         db
           .from("comercial_lotes")
           .select("id, descricao, status, leads, processados, com_erro, custo_usd, pedido_em")
+          .eq("empresa_id", empresaId)
           .order("pedido_em", { ascending: false })
           .limit(10),
         db
@@ -125,11 +131,13 @@ export const gerenteComercialFn = createServerFn({ method: "GET" })
           .select(
             "id, crm_lead_id, grupo, status, erro, servico, origem, quem_atendeu, resultado, valor_orcado, valor_vendido, nota, motivo_sugerido_id, frase_cliente, ainda_vale, mensagem_sugerida, pediu_encaixe, perda_situacao, perda_motivo_final_id, custo_usd, ficha, fatos, analisado_em, caixinha, rever_em",
           )
+          .eq("empresa_id", empresaId)
           .order("analisado_em", { ascending: false, nullsFirst: false })
           .limit(1000),
         db
           .from("comercial_relatorios")
           .select("id, custo_usd, periodo, criado_em, dados")
+          .eq("empresa_id", empresaId)
           .order("criado_em", { ascending: false }),
       ]);
     type LinhaAnalise = {
