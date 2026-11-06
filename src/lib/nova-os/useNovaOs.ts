@@ -11,6 +11,12 @@ import type { ModoDocumento } from "@/lib/pdf/textos-padrao";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfigOptions, useSalespeople, useTechnicians } from "@/lib/data";
+import {
+  infoRetirada,
+  separarRetirada as separarVisitas,
+  useDadosRetirada,
+  type InfoRetirada,
+} from "./retirada-visitas";
 import { buildFullAddress, onlyDigits } from "@/lib/format";
 import { createWorkOrder, findCustomerByPhone, osNumberExists, suggestOsNumber } from "@/lib/os";
 import { linkLeadToWorkOrder } from "@/lib/crm";
@@ -81,6 +87,7 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
   const { data: estofados } = useConfigOptions("upholstery_type");
   const { data: vendedoras } = useSalespeople();
   const { data: tecnicos } = useTechnicians();
+  const dadosRetirada = useDadosRetirada();
 
   const ambienteDeTeste = useMemo(
     () => ehAmbienteDeTeste(typeof window === "undefined" ? "" : window.location.hostname),
@@ -318,6 +325,22 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
         ),
       }),
     );
+  }
+  /** Persiana/tapete junto com outros itens: vira atendimento de retirada com o parceiro. */
+  function separarRetirada(i: number) {
+    setEstado((prev) =>
+      comNegociadoAtualizado({
+        ...prev,
+        visitas: separarVisitas(
+          prev.visitas,
+          i,
+          dadosRetirada.catalogo,
+          estofados ?? [],
+          (tecnico, data) => novaVisita(tecnico, data),
+        ),
+      }),
+    );
+    toast.success("Atendimento de retirada criado. Confira a data e o parceiro.");
   }
   function copiarItens(de: number, para: number) {
     setEstado((prev) => {
@@ -607,6 +630,14 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     if (codigo !== estado.origemCodigo) setEstado((prev) => ({ ...prev, origemCodigo: codigo }));
   }, [estado.origemId, estado.origemCodigo, origens, codigoDe]);
 
+  const retiradas: InfoRetirada[] = useMemo(
+    () =>
+      estado.visitas.map((v) =>
+        infoRetirada(v, dadosRetirada.catalogo, estofados ?? [], dadosRetirada.bloqueados),
+      ),
+    [estado.visitas, dadosRetirada.catalogo, dadosRetirada.bloqueados, estofados],
+  );
+
   return {
     estado,
     mudar,
@@ -656,6 +687,8 @@ export function useNovaOs(opcoes: { aberta: boolean; origem: OrigemDaJanela }) {
     adicionarItem,
     removerItem,
     copiarItens,
+    separarRetirada,
+    retiradas,
     salvando,
     salvar,
     criada,

@@ -91,6 +91,8 @@ export async function rodarPosAtendimento(): Promise<Resumo> {
 
 type Visita = {
   id: string;
+  /** Retirada de persiana/tapete (05/11): fora da confirmação do serviço (horário comercial). */
+  retirada?: string | null;
   work_order_id: string;
   scheduled_date: string;
   scheduled_time: string | null;
@@ -108,7 +110,7 @@ type Visita = {
 };
 
 const SELECT_VISITA =
-  "id, work_order_id, scheduled_date, scheduled_time, completion_date, status, technician_id, work_order:work_order_id ( id, os_number, status, deleted_at, eh_teste, customer:customer_id ( full_name, phone ) )";
+  "id, work_order_id, scheduled_date, scheduled_time, completion_date, status, technician_id, retirada, work_order:work_order_id ( id, os_number, status, deleted_at, eh_teste, customer:customer_id ( full_name, phone ) )";
 
 // OS excluída, cancelada ou de teste não recebe confirmação nem pós-venda.
 const osAtiva = (v: Visita) => osElegivel(v.work_order);
@@ -134,6 +136,8 @@ async function candidatos(
       .order("scheduled_time");
     for (const v of (data ?? []) as unknown as Visita[]) {
       if (!osAtiva(v)) continue;
+      // Retirada do parceiro não tem horário marcado: o modelo do serviço diria "às 08:00".
+      if (v.retirada) continue;
       const chave = `${v.work_order_id}:${v.scheduled_date}`;
       if (porOs.has(chave)) continue;
       porOs.set(chave, {

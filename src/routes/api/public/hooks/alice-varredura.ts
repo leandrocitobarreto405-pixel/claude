@@ -33,6 +33,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Alice: falha no pós-atendimento", e);
             return null;
           });
+          // Retirada/entrega de persiana e tapete: tarefa da equipe na véspera (nada vai ao cliente).
+          const { rodarVesperaRetirada } = await import("@/lib/retirada-vespera.server");
+          const vesperaRetirada = await rodarVesperaRetirada().catch((e) => {
+            console.error("Retirada: falha na véspera", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Encerramento automático de conversas paradas (cada empresa liga em Configurações).
           const { rodarEncerramentoAutomatico } = await import("@/lib/caixa-encerramento.server");
           const encerramento = await rodarEncerramentoAutomatico().catch((e) => {
@@ -122,6 +128,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             ...fila,
             anuncios,
             posAtendimento,
+            vesperaRetirada,
             leadsSite,
             vinculoOs,
             temperaturas,

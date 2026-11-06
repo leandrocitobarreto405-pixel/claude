@@ -42,6 +42,9 @@ export type VisitForm = {
   visit_notes: string;
   /** "" = automático pelo valor; "sim" = ocupa o dia inteiro do técnico; "nao" = nunca. */
   ocupa_dia: "" | "sim" | "nao";
+  /** Retirada de persiana/tapete (05/11): entrega que a equipe digitou (vale no lugar do cálculo). */
+  entrega_prevista?: string;
+  entrega_editada?: boolean;
   items: ItemForm[];
 };
 
@@ -368,6 +371,9 @@ export function montarPayload(e: EstadoNovaOs, ctx: ContextoPayload): PayloadNov
       scheduled_time: v.scheduled_time,
       technician_id: v.technician_id || null,
       visit_notes: v.visit_notes.trim() || null,
+      ...(v.entrega_editada && v.entrega_prevista
+        ? { entrega_prevista: v.entrega_prevista, entrega_editada: true }
+        : {}),
       items: v.items.map((it, idx) => ({
         id: it.id ?? null,
         upholstery_type_id: it.upholstery_type_id || null,

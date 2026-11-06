@@ -1464,6 +1464,11 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${comDuplaFace(e.item.nome, Boolean(e.duplaFace))}`
       } — ${reais(finais[i]!.subtotal_cliente)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
   );
+  // Persiana e tapete: prazo de entrega depois da retirada (05/11).
+  const { linhasDoPrazo } = await import("@/lib/retirada");
+  const prazos = linhasDoPrazo(
+    escolhidos.map((e) => ({ categoria: e.item.categoria ?? null, quantidade: e.quantidade })),
+  );
   return {
     erro: false,
     texto: [
@@ -1486,6 +1491,9 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           ]
         : []),
       ...(avisoDesconto ? [`(Para você, não copie: ${avisoDesconto})`] : []),
+      ...(prazos.length
+        ? ["Prazo de entrega (copie para o cliente, logo depois dos itens):", ...prazos]
+        : []),
       `Total${desconto ? " com desconto" : ""}: ${reais(cond.total)}`,
       "Pagamento para o cliente (copie exatamente assim, nestas linhas):",
       linhasPagamento({
@@ -1498,6 +1506,10 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     ].join("\n"),
   };
 }
+
+/** Resposta da trava da agenda no atendimento só de persiana/tapete. */
+export const TEXTO_RETIRADA_SEM_AGENDA =
+  'Persiana e tapete não são agendados por você: a retirada é feita pelo parceiro, em horário comercial (8h às 18h), e a equipe combina o dia. Não ofereça horário. Diga ao cliente que a equipe vai confirmar o dia da retirada e transfira com o motivo "agendar retirada: consultar o parceiro".';
 
 /** Atendimento só de tapete/persiana (texto do cliente, descrição do lead e itens dos orçamentos). */
 async function atendimentoSoTapeteOuPersiana(ctx: ContextoFerramenta): Promise<boolean> {
@@ -2173,6 +2185,10 @@ export async function executarFerramenta(
       }
       case "reservar_horario": {
         if (!ctx.cfg.agenda_automatica) return { conteudo: "Agenda não liberada.", erro: true };
+        // Retirada (05/11): só persiana/tapete não vai para a agenda da Alice; a equipe combina
+        // a retirada com o parceiro, em horário comercial.
+        if (await atendimentoSoTapeteOuPersiana(ctx))
+          return { conteudo: TEXTO_RETIRADA_SEM_AGENDA, erro: true };
         const { ReservarHorario, reservarHorario } = await import("./agendamento.server");
         const p = ReservarHorario.safeParse(entrada);
         return p.success ? r(await reservarHorario(ctx, p.data)) : invalida(p.error);

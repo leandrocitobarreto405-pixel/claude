@@ -1,4 +1,4 @@
-import { ChevronDown, MapPin, MessageCircle, Navigation, Phone } from "lucide-react";
+import { Check, ChevronDown, MapPin, MessageCircle, Navigation, Phone } from "lucide-react";
 import { Botao, Chip } from "@/components/nexa";
 import { chipDoStatus, encerrado, type Atendimento } from "@/lib/agenda";
 
@@ -15,18 +15,24 @@ export function CartaoAtendimento({
   aberto,
   onAlternar,
   onDetalhes,
+  onEntregue,
 }: {
   item: Atendimento;
   aberto: boolean;
   onAlternar: () => void;
   onDetalhes: () => void;
+  /** Bloco da Entrega (persiana/tapete): marca como entregue. */
+  onEntregue?: () => void;
 }) {
   const chip =
     item.tipo === "orcamento" && !encerrado(item.status) && item.status !== "Em deslocamento"
       ? { rotulo: "Orçamento", tom: "neutro" as const }
-      : chipDoStatus(item.status);
+      : item.etapa && (item.status === "Agendado" || !item.status)
+        ? { rotulo: item.etapa, tom: "neutro" as const }
+        : chipDoStatus(item.status);
   const apagado = encerrado(item.status);
   const resumo = [
+    item.etapa ?? null,
     item.peca,
     item.bairro,
     item.tecnico ?? "Sem técnico",
@@ -61,7 +67,15 @@ export function CartaoAtendimento({
             apagado && "text-muted-foreground",
           )}
         >
-          {timeBR(item.hora)}
+          {item.etapa ? (
+            // Retirada e entrega do parceiro: horário comercial, sem hora marcada.
+            <span className="flex flex-col text-[13px] leading-tight">
+              <span>8h às</span>
+              <span>18h</span>
+            </span>
+          ) : (
+            timeBR(item.hora)
+          )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span
@@ -106,6 +120,12 @@ export function CartaoAtendimento({
               <span className="text-[13px] font-semibold text-atencao-foreground">{item.nota}</span>
             ) : null}
           </div>
+
+          {item.etapa === "Entrega" && item.status !== "Entregue" && onEntregue ? (
+            <Botao variante="primario" larguraTotal onClick={onEntregue}>
+              <Check /> Entregue
+            </Botao>
+          ) : null}
 
           {maps || waze ? (
             <div className="grid grid-cols-2 gap-2">

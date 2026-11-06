@@ -912,6 +912,10 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
   // Serviço para data futura: o valor fica garantido até a data combinada.
   const garantia = (o as { valido_ate?: string | null }).valido_ate ?? null;
 
+  const prazos = (await import("@/lib/retirada")).linhasDoPrazo(
+    (itens ?? []) as Array<{ categoria: string | null; quantidade: number }>,
+  );
+
   return {
     ...dadosPdfDaWo(wo),
     numero: formatarNumeroOrcamento(o.numero, o.id),
@@ -937,6 +941,8 @@ export async function dadosOrcamentoPdf(quoteId: string): Promise<DadosOsPdf> {
               valor: brl(desconto),
             }
           : null,
+      // Persiana/tapete: prazo de entrega (só quando há).
+      ...(prazos.length ? { prazos } : {}),
       // Sem os asteriscos do WhatsApp.
       pagamento: linhasPagamento({ total, parcelas, pix: aVista, pixPct })
         .split("\n")

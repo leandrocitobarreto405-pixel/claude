@@ -3,6 +3,7 @@ import type { TomChip } from "@/components/nexa";
 import type { BudgetVisitRow } from "@/lib/budget-visits";
 import { addDaysISO, dateBR } from "@/lib/format";
 import type { VisitRow } from "@/lib/os";
+import { HORA_RETIRADA, diaCurto, textoDoBloco } from "@/lib/retirada";
 
 /** Atendimento da agenda já no formato da tela (serviço de uma OS ou visita de orçamento). */
 export type Atendimento = {
@@ -23,6 +24,8 @@ export type Atendimento = {
   valor: number | null;
   /** Observação curta (reagendamento, OS gerada...). */
   nota: string | null;
+  /** Persiana/tapete (05/11): etapa da retirada no galpão, em horário comercial. */
+  etapa?: "Retirada" | "Entrega";
 };
 
 const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -39,7 +42,13 @@ export function semanaDe(ref: string): { iso: string; curto: string; dia: number
 }
 
 /** Status que já saíram da rota do dia (não contam como "próximo serviço"). */
-const ENCERRADOS = ["Concluído", "Cancelado", "Reagendado", "Reagendado com deslocamento"];
+const ENCERRADOS = [
+  "Concluído",
+  "Cancelado",
+  "Reagendado",
+  "Reagendado com deslocamento",
+  "Entregue",
+];
 
 export function encerrado(status: string): boolean {
   return ENCERRADOS.includes(status);
@@ -50,6 +59,8 @@ export function chipDoStatus(status: string): { rotulo: string; tom: TomChip } {
   switch (status) {
     case "Concluído":
       return { rotulo: "Feito", tom: "sucesso" };
+    case "Entregue":
+      return { rotulo: "Entregue", tom: "sucesso" };
     case "Em deslocamento":
       return { rotulo: "A caminho", tom: "atencao" };
     case "Em execução":
@@ -117,6 +128,41 @@ export function rotuloDoMes(dias: { iso: string }[]): string {
     : `${curto(m1)} ${a1} – ${curto(m2)} ${a2}`;
 }
 
+/** "Entrega prevista: sex 13/11" (sem a data, nada). */
+function notaDaEntrega(v: VisitRow): string | null {
+  if (!v.entrega_prevista) return null;
+  return v.entrega_feita_em
+    ? `Entregue em ${dateBR(v.entrega_feita_em.slice(0, 10))}`
+    : `Entrega prevista: ${diaCurto(v.entrega_prevista)}`;
+}
+
+/** Bloco da Entrega de uma retirada (persiana/tapete), no dia da entrega prevista. */
+export function deEntrega(v: VisitRow): Atendimento {
+  const cli = v.work_order?.customer;
+  return {
+    id: `ent-${v.id}`,
+    tipo: "os",
+    data: v.entrega_prevista ?? v.scheduled_date,
+    hora: HORA_RETIRADA,
+    status: v.entrega_feita_em ? "Entregue" : "Agendado",
+    cliente: cli?.full_name ?? "Cliente",
+    servico: textoDoBloco(
+      "Entrega",
+      v.work_order?.os_number ? `OS ${v.work_order.os_number}` : "",
+      null,
+    ),
+    peca: v.upholstery_description || v.upholstery_type?.name || null,
+    bairro: cli?.neighborhood ?? null,
+    endereco: cli?.full_address ?? null,
+    telefone: cli?.phone ?? null,
+    tecnico: v.technician?.name ?? null,
+    // O valor fica na retirada: a entrega não soma de novo no dia.
+    valor: null,
+    nota: `Retirada em ${diaCurto(v.scheduled_date)}`,
+    etapa: "Entrega",
+  };
+}
+
 export function deVisita(v: VisitRow): Atendimento {
   const cli = v.work_order?.customer;
   const nota =
@@ -124,7 +170,9 @@ export function deVisita(v: VisitRow): Atendimento {
       ? `Deslocamento feito · serviço reagendado${v.rescheduled_to_visit_id ? " (novo atendimento criado)" : ""}`
       : v.rescheduled_from_visit_id
         ? `Reagendamento${v.original_scheduled_date ? ` de ${dateBR(v.original_scheduled_date)}` : ""}`
-        : null;
+        : v.retirada
+          ? notaDaEntrega(v)
+          : null;
   return {
     id: `os-${v.id}`,
     tipo: "os",
@@ -133,7 +181,7 @@ export function deVisita(v: VisitRow): Atendimento {
     status: v.status,
     cliente: cli?.full_name ?? "Cliente",
     servico: [
-      v.service_type?.name ?? "Serviço",
+      v.retirada ? "Retirada" : (v.service_type?.name ?? "Serviço"),
       v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
     ]
       .filter(Boolean)
@@ -145,6 +193,7 @@ export function deVisita(v: VisitRow): Atendimento {
     tecnico: v.technician?.name ?? null,
     valor: Number(v.final_value ?? v.visit_value ?? 0) || null,
     nota,
+    ...(v.retirada ? { etapa: "Retirada" as const } : {}),
   };
 }
 

@@ -6,6 +6,7 @@ import { linhasPagamento } from "@/lib/texto-pagamento";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { itensComDistancia, type RegrasOrcamento } from "@/lib/orcamento-regras";
 import type { Quote, QuoteItem } from "@/lib/quotes";
+import { linhasDoPrazo } from "@/lib/retirada";
 import {
   categoriaDeLimpeza,
   rotuloServico,
@@ -133,6 +134,10 @@ export function quoteWhatsappMessage(
     items.some((it) => categoriaDeLimpeza(it.categoria)) ? "*Itens:*" : "*Estofados:*",
     listaEstofados(items, !vitrine),
   ];
+
+  // Persiana e tapete vão para o galpão: prazo de entrega em dias úteis (05/11).
+  const prazos = linhasDoPrazo(items);
+  if (prazos.length) partes.push("", ...prazos);
 
   // Adicionais: com vitrine, só em texto (já estão nos valores); sem vitrine, com o valor.
   const adicionais: string[] = [];

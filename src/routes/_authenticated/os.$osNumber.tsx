@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntregaDaRetirada } from "@/components/os/bloco-retirada";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/app-shell";
 import { LinhaSwitch } from "@/components/nexa";
@@ -92,7 +93,7 @@ const SELECT = `
   general_notes, eh_teste, cancelled_at, cancellation_reason, deleted_at, deletion_reason,
   customer:customer_id ( id, full_name, phone, full_address, document_number, email ),
   salesperson:salesperson_id ( name ),
-  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, visit_value, final_value, item_quantity, mileage_cost_allocated, repasse_parceiro,
+  visits!visits_work_order_id_fkey ( id, status, scheduled_date, scheduled_time, completion_date, retirada, entrega_prevista, entrega_editada, entrega_feita_em, visit_value, final_value, item_quantity, mileage_cost_allocated, repasse_parceiro,
     discount_amount, discount_reason, discount_notes,
     upholstery_description, visit_notes, reschedule_type, rescheduled_from_visit_id,
     rescheduled_to_visit_id, original_scheduled_date, reschedule_reason,
@@ -127,6 +128,10 @@ type Item = {
 
 type Visit = {
   id: string;
+  retirada?: string | null;
+  entrega_prevista?: string | null;
+  entrega_editada?: boolean | null;
+  entrega_feita_em?: string | null;
   mileage_cost_allocated: number | null;
   repasse_parceiro?: number | null;
   status: string;
@@ -700,9 +705,11 @@ function OsDetalhe() {
                       <span className="text-xs text-muted-foreground">{v.status}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {dateBR(v.scheduled_date)} às {timeBR(v.scheduled_time)}
+                      {dateBR(v.scheduled_date)}
+                      {v.retirada ? "" : ` às ${timeBR(v.scheduled_time)}`}
                       {v.technician?.name ? ` · ${v.technician.name}` : ""}
                     </p>
+                    <EntregaDaRetirada visita={v} onSalvo={() => void osQuery.refetch()} />
                     <div className="mt-3 overflow-x-auto">
                       <table className="w-full min-w-[420px] text-sm">
                         <thead className="bg-secondary text-left">

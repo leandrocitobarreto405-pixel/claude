@@ -37,6 +37,8 @@ import { linkBudgetVisitToWorkOrder } from "@/lib/budget-visits";
 import { linkQuoteToWorkOrder } from "@/lib/quotes";
 import { useSession } from "@/lib/session";
 import { fetchDireto } from "@/lib/enderecos";
+import { BlocoRetirada, HorarioComercial } from "@/components/os/bloco-retirada";
+import { infoRetirada, separarRetirada, useDadosRetirada } from "@/lib/nova-os/retirada-visitas";
 
 export const Route = createFileRoute("/_authenticated/nova-os")({
   validateSearch: (
@@ -134,6 +136,9 @@ type VisitForm = {
   scheduled_time: string;
   technician_id: string;
   visit_notes: string;
+  /** Retirada de persiana/tapete (05/11): entrega digitada pela equipe. */
+  entrega_prevista?: string;
+  entrega_editada?: boolean;
   items: ItemForm[];
 };
 
@@ -192,6 +197,7 @@ function NovaOS() {
   const { data: tenant } = useContextoTenant();
   const ehAdmin = tenant?.souNexa || tenant?.ativa?.papel === "admin";
   const { data: tecnicos } = useTechnicians();
+  const dadosRetirada = useDadosRetirada();
   const { data: tabelaPrecos } = useTabelaPrecos();
 
   const [osNumber, setOsNumber] = useState("");
@@ -258,7 +264,7 @@ function NovaOS() {
            adjustment_reason, manual_total_reason, negotiated_payment_method, negotiated_installments,
            payment_notes, general_notes, eh_teste, customer_id,
            customer:customer_id ( * ),
-           visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status,
+           visits!visits_work_order_id_fkey ( id, service_type_id, scheduled_date, scheduled_time, technician_id, visit_notes, status, entrega_prevista, entrega_editada,
              service_items ( id, upholstery_type_id, description, quantity, unit_price, item_group_id, display_order, active, preco_tabela, editado_por, editado_em, adicional_pos_fechamento, unidade ) )`,
         )
         .eq("os_number", editar)
@@ -355,6 +361,8 @@ function NovaOS() {
           scheduled_time: (v.scheduled_time ?? "09:00").slice(0, 5),
           technician_id: v.technician_id ?? "",
           visit_notes: v.visit_notes ?? "",
+          entrega_prevista: (v as { entrega_prevista?: string | null }).entrega_prevista ?? "",
+          entrega_editada: Boolean((v as { entrega_editada?: boolean }).entrega_editada),
           items: (v.service_items ?? [])
             .filter((i) => i.active !== false)
             .sort((a, b) => a.display_order - b.display_order)
@@ -765,6 +773,23 @@ function NovaOS() {
     }
   }
 
+  const retiradas = useMemo(
+    () =>
+      visitas.map((v) =>
+        infoRetirada(v, dadosRetirada.catalogo, estofados ?? [], dadosRetirada.bloqueados),
+      ),
+    [visitas, dadosRetirada.catalogo, dadosRetirada.bloqueados, estofados],
+  );
+  function separarRetiradaDaVisita(i: number) {
+    setVisitas((prev) =>
+      separarRetirada(prev, i, dadosRetirada.catalogo, estofados ?? [], (tecnico, data) => ({
+        ...novaVisita(tecnico),
+        scheduled_date: data,
+      })),
+    );
+    toast.success("Atendimento de retirada criado. Confira a data e o parceiro.");
+  }
+
   function atualizarVisita(i: number, patch: Partial<VisitForm>) {
     setVisitas((prev) => prev.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
   }
@@ -938,6 +963,9 @@ function NovaOS() {
       scheduled_time: v.scheduled_time,
       technician_id: v.technician_id || null,
       visit_notes: v.visit_notes.trim() || null,
+      ...(v.entrega_editada && v.entrega_prevista
+        ? { entrega_prevista: v.entrega_prevista, entrega_editada: true }
+        : {}),
       items: v.items.map((it, idx) => ({
         id: it.id ?? null,
         upholstery_type_id: it.upholstery_type_id || null,
@@ -1273,16 +1301,22 @@ function NovaOS() {
                       onChange={(e) => atualizarVisita(i, { scheduled_date: e.target.value })}
                     />
                   </div>
+                  {retiradas[i]?.situacao === "retirada" ? (
+                    <HorarioComercial id={`hora-${i}`} />
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Horário</Label>
+                      <Input
+                        type="time"
+                        value={v.scheduled_time}
+                        onChange={(e) => atualizarVisita(i, { scheduled_time: e.target.value })}
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Label>Horário</Label>
-                    <Input
-                      type="time"
-                      value={v.scheduled_time}
-                      onChange={(e) => atualizarVisita(i, { scheduled_time: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`tecnico-${i}`}>Técnico responsável</Label>
+                    <Label htmlFor={`tecnico-${i}`}>
+                      {retiradas[i]?.situacao === "retirada" ? "Parceiro" : "Técnico responsável"}
+                    </Label>
                     <NativeSelect
                       id={`tecnico-${i}`}
                       value={v.technician_id}
@@ -1296,12 +1330,32 @@ function NovaOS() {
                       ))}
                     </NativeSelect>
                   </div>
-                  <AlertaRodizio
-                    data={v.scheduled_date}
-                    hora={v.scheduled_time}
-                    tecnicoId={v.technician_id}
-                    className="sm:col-span-2 xl:col-span-4"
-                  />
+                  <div className="sm:col-span-2 xl:col-span-4">
+                    <BlocoRetirada
+                      id={`retirada-${i}`}
+                      info={retiradas[i]}
+                      tecnicoId={v.technician_id}
+                      tecnicos={tecnicos ?? []}
+                      aoMudarEntrega={(data) =>
+                        atualizarVisita(
+                          i,
+                          data
+                            ? { entrega_prevista: data, entrega_editada: true }
+                            : { entrega_prevista: "", entrega_editada: false },
+                        )
+                      }
+                      aoUsarParceiro={(id) => atualizarVisita(i, { technician_id: id })}
+                      aoSeparar={() => separarRetiradaDaVisita(i)}
+                    />
+                  </div>
+                  {retiradas[i]?.situacao === "retirada" ? null : (
+                    <AlertaRodizio
+                      data={v.scheduled_date}
+                      hora={v.scheduled_time}
+                      tecnicoId={v.technician_id}
+                      className="sm:col-span-2 xl:col-span-4"
+                    />
+                  )}
                   <div className="space-y-2 sm:col-span-2 xl:col-span-4">
                     <Label>Observações do atendimento</Label>
                     <Input
