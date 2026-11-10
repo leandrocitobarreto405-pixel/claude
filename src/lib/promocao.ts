@@ -24,8 +24,13 @@ export type HorarioLivre = { tecnicoId: string; tecnico: string; hora: string };
 export type RegrasAgenda = { duracaoMin: number; diaInteiroValor: number | null };
 export const REGRAS_PADRAO: RegrasAgenda = { duracaoMin: 180, diaInteiroValor: 1000 };
 
-/** Atendimentos que não ocupam mais o horário. */
-const NAO_OCUPAM = ["Cancelado", "Reagendado", "Reagendado com deslocamento"];
+/**
+ * Atendimentos que não ocupam mais o horário. "Reagendado" OCUPA: no reagendamento sem
+ * deslocamento a própria visita muda de data e fica com esse status no dia novo (10/11: a vaga
+ * do dia novo aparecia livre). "Reagendado com deslocamento" é a visita antiga, que ficou para
+ * trás (a nova nasce "Agendado").
+ */
+const NAO_OCUPAM = ["Cancelado", "Reagendado com deslocamento"];
 
 /** 0 = domingo ... 6 = sábado, para uma data AAAA-MM-DD. */
 export function diaDaSemana(data: string): number {

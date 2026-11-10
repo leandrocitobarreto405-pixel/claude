@@ -433,3 +433,13 @@ test("empresa sem configuração de agenda usa os padrões (180 min, R$ 1.000); 
   });
   assert.equal(regrasDaAgenda({ diaInteiroValor: "0" }).diaInteiroValor, null);
 });
+
+test("visita reagendada (sem deslocamento) ocupa o horário no dia novo; a antiga com deslocamento não", () => {
+  const livres = (status: string) =>
+    horariosLivres(BASE, [{ tecnicoId: "j", hora: "10:00:00", status }], "2026-10-05").map(
+      (h) => h.hora,
+    );
+  assert.ok(!livres("Reagendado").includes("10:00"));
+  assert.ok(livres("Reagendado com deslocamento").includes("10:00"));
+  assert.ok(livres("Cancelado").includes("10:00"));
+});
