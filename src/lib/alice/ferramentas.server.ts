@@ -156,7 +156,7 @@ const AtualizarLead = z.object({
   resumo: z.string().trim().min(1).max(1500).optional(),
   temperatura: z.enum(["QUENTE", "MORNO", "FRIO"]).optional(),
   origem: z
-    .enum(["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "outro"])
+    .enum(["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "ia", "outro"])
     .optional(),
 });
 const ConsultarCep = z.object({ cep: z.string().trim().min(8).max(10) });
@@ -360,9 +360,17 @@ export function ferramentasDisponiveis(
           },
           origem: {
             type: "string",
-            enum: ["google_anuncio", "google_artigo", "google", "instagram", "indicacao", "outro"],
+            enum: [
+              "google_anuncio",
+              "google_artigo",
+              "google",
+              "instagram",
+              "indicacao",
+              "ia",
+              "outro",
+            ],
             description:
-              "Só quando a origem do cliente não é conhecida e ele disse como conheceu a empresa: google_anuncio (anúncio do Google), google_artigo (artigo/blog achado no Google), google (só 'Google', sem saber qual), instagram, indicacao, outro. Origem já conhecida não é trocada.",
+              "Só quando a origem do cliente não é conhecida e ele disse como conheceu a empresa: google_anuncio (anúncio do Google), google_artigo (artigo/blog achado no Google), google (só 'Google', sem saber qual), instagram, indicacao, ia (ChatGPT ou outra IA: Perplexity, Gemini, Copilot, Claude), outro. Origem já conhecida não é trocada.",
           },
         },
         additionalProperties: false,
@@ -932,6 +940,7 @@ const CODIGO_ORIGEM_INFORMADA = {
   google: "google",
   instagram: "instagram",
   indicacao: "indicacao",
+  ia: "ia",
   outro: "outra",
 } as const;
 
