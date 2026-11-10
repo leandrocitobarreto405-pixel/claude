@@ -30,13 +30,15 @@ export const GRUPOS_CONFIG: GrupoConfig[] = [
   {
     id: "vendas",
     rotulo: "Vendas",
-    descricao: "Tabela de preços · Regras de orçamento · Descontos e promoções · Taxas · Produtos",
+    descricao:
+      "Tabela de preços · Regras de orçamento · Descontos e promoções · Taxas · Tatiana · Produtos",
     icone: ShoppingBag,
     itens: [
       "Tabela de preços",
       "Regras de orçamento",
       "Descontos e promoções",
       "Taxas de pagamento",
+      "Tatiana (gerente comercial)",
       "Produtos",
     ],
   },

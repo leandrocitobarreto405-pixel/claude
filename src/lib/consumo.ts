@@ -15,6 +15,8 @@ export type ConsumoEmpresa = {
   mkt_mensagens: number;
   pos_atendimento_mensagens: number;
   agenda_mensagens: number;
+  /** IA da Tatiana (gerente comercial) no mês: noites, lotes, relatórios, planos e campanhas. */
+  tatiana_custo_usd: number;
 };
 
 /** Mensagens que saíram sem IA (cada uma pode ter custo na Meta, pago pela empresa). */
@@ -30,6 +32,8 @@ export function totaisDoConsumo(lista: ConsumoEmpresa[]) {
   return {
     iaRespostas: soma((c) => c.ia_respostas),
     iaCustoUsd: Math.round(soma((c) => c.ia_custo_usd) * 100) / 100,
+    tatianaCustoUsd: Math.round(soma((c) => c.tatiana_custo_usd) * 100) / 100,
+    iaTotalUsd: Math.round(soma((c) => c.ia_custo_usd + c.tatiana_custo_usd) * 100) / 100,
     audioCustoReais: Math.round(soma((c) => c.audio_custo_reais) * 100) / 100,
     automaticas: soma(mensagensAutomaticas),
   };
@@ -50,6 +54,7 @@ export function lerConsumo(linha: Record<string, unknown>): ConsumoEmpresa {
     mkt_mensagens: n("mkt_mensagens"),
     pos_atendimento_mensagens: n("pos_atendimento_mensagens"),
     agenda_mensagens: n("agenda_mensagens"),
+    tatiana_custo_usd: n("tatiana_custo_usd"),
   };
 }
 

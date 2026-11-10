@@ -6,6 +6,7 @@ import { RegraNotaFiscal } from "@/components/configuracoes/nota-fiscal";
 import { TabelaPrecosConfig } from "@/components/tabela-precos-config";
 import { OrcamentoRegrasConfig } from "@/components/orcamento-regras-config";
 import { ControleInsumosCard, ProdutosConfig } from "@/components/produtos-config";
+import { TatianaConfig } from "@/components/configuracoes/tatiana-config";
 import { useControleInsumos } from "@/lib/produtos";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/vendas")({
@@ -31,6 +32,9 @@ function Vendas() {
       </SecaoConfig>
       <SecaoConfig titulo="Taxas de pagamento">
         <Taxas />
+      </SecaoConfig>
+      <SecaoConfig titulo="Tatiana (gerente comercial)">
+        <TatianaConfig />
       </SecaoConfig>
       <SecaoConfig titulo="Produtos e insumos">
         <div className="grid gap-6">

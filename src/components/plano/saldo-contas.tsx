@@ -14,6 +14,8 @@ type SaldoIa = {
   carregado_usd: number;
   carregado_em: string;
   consumido_usd: number;
+  consumido_alice_usd?: number;
+  consumido_tatiana_usd?: number;
   restante_usd: number;
   pct_restante: number;
 } | null;
@@ -98,8 +100,11 @@ export function SaldoContas() {
               {dataBR(s.carregado_em)}.
             </p>
             <p className="text-xs text-muted-foreground">
-              Consumo medido desde a carga: {usd(s.consumido_usd)}. É uma estimativa: a conta da IA
-              não informa o saldo pela chave.
+              Consumo medido desde a carga: {usd(s.consumido_usd)}
+              {s.consumido_tatiana_usd !== undefined
+                ? ` (Alice ${usd(s.consumido_alice_usd ?? 0)} + Tatiana ${usd(s.consumido_tatiana_usd)})`
+                : ""}
+              . É uma estimativa: a conta da IA não informa o saldo pela chave.
             </p>
           </>
         ) : (
