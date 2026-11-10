@@ -55,9 +55,9 @@ VALUES ('11111111-1111-1111-1111-111111111111', 'Cliente antigo', '(11) 97000-00
 SELECT pg_temp.ok((SELECT string_agg(name, ' | ' ORDER BY display_order) FROM public.config_options
   WHERE empresa_id = '11111111-1111-1111-1111-111111111111' AND kind = 'sales_origin'
     -- As origens do Google Ads (botão e landing) e o Site são próprias da Turbine
-    -- (20261118120000 e 20261120120000).
+    -- (20261118120000 e 20261120120000), como a origem IA (20261228490000).
     AND coalesce(metadata->>'codigo', '') NOT LIKE 'google\_ads\_%'
-    AND coalesce(metadata->>'codigo', '') <> 'site')
+    AND coalesce(metadata->>'codigo', '') NOT IN ('site', 'ia'))
   = 'Google | Instagram | Facebook | Indicação | Blog | Cliente existente / Recorrência | Outra origem',
   'origens padrão na ordem');
 
