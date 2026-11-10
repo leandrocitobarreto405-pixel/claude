@@ -22,6 +22,7 @@ const a = lerConsumo({
   mkt_mensagens: "5",
   pos_atendimento_mensagens: "3",
   agenda_mensagens: "4",
+  tatiana_custo_usd: "2.5",
 });
 const teste = lerConsumo({
   empresa_id: "t",
@@ -41,6 +42,8 @@ test("totais sem as empresas de teste", () => {
   assert.deepEqual(totaisDoConsumo([a, teste]), {
     iaRespostas: 10,
     iaCustoUsd: 1.23,
+    tatianaCustoUsd: 2.5,
+    iaTotalUsd: 3.73,
     audioCustoReais: 0.4,
     automaticas: 12,
   });

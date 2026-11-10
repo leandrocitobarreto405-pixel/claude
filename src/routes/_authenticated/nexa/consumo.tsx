@@ -55,7 +55,20 @@ function ConsumoNexa() {
         } as never,
       );
       if (error) throw error;
-      return ((data ?? []) as Record<string, unknown>[]).map(lerConsumo);
+      // Custo da Tatiana (gerente comercial) por empresa: mesma conta de IA da Alice.
+      const { data: tat } = await supabase.rpc(
+        "tatiana_consumo_empresas" as never,
+        { _mes: monthStart(mes) } as never,
+      );
+      const porEmpresa = new Map(
+        ((tat ?? []) as Record<string, unknown>[]).map((l) => [
+          String(l["empresa_id"]),
+          l["tatiana_custo_usd"],
+        ]),
+      );
+      return ((data ?? []) as Record<string, unknown>[]).map((l) =>
+        lerConsumo({ ...l, tatiana_custo_usd: porEmpresa.get(String(l["empresa_id"])) ?? 0 }),
+      );
     },
   });
 
@@ -103,7 +116,7 @@ function ConsumoNexa() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <CabecalhoDeTela
         titulo="Consumo das empresas"
-        descricao="IA da Alice, áudio e mensagens automáticas de cada empresa no mês."
+        descricao="IA da Alice e da Tatiana, áudio e mensagens automáticas de cada empresa no mês."
       />
 
       <SaldoContas />
@@ -147,7 +160,11 @@ function ConsumoNexa() {
       <Card>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <NumeroGrande valor={int(t.iaRespostas)} legenda="Respostas da Alice" tamanho="pequeno" />
-          <NumeroGrande valor={usd(t.iaCustoUsd)} legenda="Custo da IA" tamanho="pequeno" />
+          <NumeroGrande
+            valor={usd(t.iaTotalUsd)}
+            legenda="IA total (Alice + Tatiana)"
+            tamanho="pequeno"
+          />
           <NumeroGrande valor={brl(t.audioCustoReais)} legenda="Custo de áudio" tamanho="pequeno" />
           <NumeroGrande
             valor={int(t.automaticas)}
@@ -156,8 +173,10 @@ function ConsumoNexa() {
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Totais sem as empresas de teste. Mensagens automáticas (campanhas, pós-atendimento e
-          agenda dos técnicos) não usam IA; o custo delas na Meta é da própria empresa.
+          Totais sem as empresas de teste. IA: Alice {usd(t.iaCustoUsd)} + Tatiana{" "}
+          {usd(t.tatianaCustoUsd)} (a mesma conta de IA). Mensagens automáticas (campanhas,
+          pós-atendimento e agenda dos técnicos) não usam IA; o custo delas na Meta é da própria
+          empresa.
         </p>
       </Card>
 
@@ -179,7 +198,12 @@ function ConsumoNexa() {
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
               <Item rotulo="Respostas da Alice" valor={int(c.ia_respostas)} />
               <Item rotulo="Mensagens da Alice" valor={int(c.ia_mensagens)} />
-              <Item rotulo="Custo da IA" valor={usd(c.ia_custo_usd)} />
+              <Item rotulo="Custo da IA (Alice)" valor={usd(c.ia_custo_usd)} />
+              <Item rotulo="Tatiana (IA)" valor={usd(c.tatiana_custo_usd)} />
+              <Item
+                rotulo="IA total (Alice + Tatiana)"
+                valor={usd(c.ia_custo_usd + c.tatiana_custo_usd)}
+              />
               <Item
                 rotulo="Áudios da Alice"
                 valor={`${int(c.audios)} · ${brl(c.audio_custo_reais)}`}
