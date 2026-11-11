@@ -78,6 +78,13 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             );
             return null;
           });
+          // Visita que passou da data sem conclusão nem nova data: tarefa P1 "remarcar" da equipe
+          // (fecha sozinha quando a visita é concluída ou remarcada). Não depende da Tatiana.
+          const { rodarVisitasVencidas } = await import("@/lib/visita-vencida.server");
+          const visitasVencidas = await rodarVisitasVencidas().catch((e) => {
+            console.error("Visita vencida: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           // "Precisa de você": resumo do dia no sininho às 10h (só no app).
           const { avisoDasDezPrecisa } = await import("@/lib/precisa-de-voce.server");
           const precisaResumo = await avisoDasDezPrecisa().catch((e) => {
@@ -134,6 +141,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             temperaturas,
             retornosExpirados,
             servicosNaoConcluidos,
+            visitasVencidas,
             precisaResumo,
             exportacaoGoogle,
             comercial,
