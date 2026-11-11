@@ -6,7 +6,9 @@
  * para parar. Falha da IA: o toque segue (registra no log).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { MODELO_HAIKU } from "@/lib/comercial/ficha";
 import {
+  CLASSES_CONTEXTO,
   INSTRUCAO_CLASSIFICADOR,
   historicoParaClassificar,
   lerClassificacao,
@@ -50,14 +52,32 @@ export async function contextoDoCliente(
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("./parada-ia.server");
+    // Haiku 5.5 (11/11, custo): mesma forma de chamada da decisão da noite (esforço baixo e
+    // resposta em JSON pelo esquema); o limite de tokens cobre o raciocínio do modelo.
     const r = await chamarIa(() =>
-      new Anthropic().messages.create({
-        model: "claude-haiku-4-5",
-        max_tokens: 120,
+      new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
+        model: MODELO_HAIKU,
+        max_tokens: 2_000,
+        output_config: {
+          effort: "low",
+          format: {
+            type: "json_schema",
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["classe", "trecho"],
+              properties: {
+                classe: { type: "string", enum: [...CLASSES_CONTEXTO] },
+                trecho: { type: "string" },
+              },
+            },
+          },
+        },
         system: INSTRUCAO_CLASSIFICADOR,
         messages: [{ role: "user", content: historicoParaClassificar(msgs) }],
       }),
     );
+    if (r.stop_reason !== "end_turn") throw new Error(`resposta incompleta (${r.stop_reason})`);
     const texto = r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
     return lerClassificacao(texto);
   } catch (e) {
