@@ -40,6 +40,7 @@ import type { FeriadoPendente } from "@/lib/tatiana.functions";
 import { NOME_GERENTE } from "@/lib/comercial/tatiana";
 import { chamarLeadPeloModelo, marcarLeadChamado } from "@/lib/leads-site.functions";
 import { ROTULO_TAREFA } from "@/lib/comercial/furos";
+import { seloDaQueVoltou } from "@/lib/comercial/sem-novidade";
 import {
   contarPorNivel,
   nivelDaTarefa,
@@ -327,11 +328,7 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
               {ROTULO_TAREFA[t.tipo]}
             </Chip>
           ) : null}
-          {t.adiamentos > 0 ? (
-            <Chip tom="atencao">
-              Pendente de ontem{t.adiamentos > 1 ? ` (${t.adiamentos}ª vez)` : ""}
-            </Chip>
-          ) : null}
+          {t.adiamentos > 0 ? <Chip tom="atencao">{seloDaQueVoltou(t.adiamentos)}</Chip> : null}
           {tarefaAtrasada(t.quando, todayISO(), t.adiamentos) ? (
             <Chip tom="atencao">Atrasada</Chip>
           ) : null}
@@ -416,7 +413,7 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
       {!mostrarCorpo ? null : pulando ? (
         <div className="flex flex-col gap-2">
           <label htmlFor={`pular-${t.id}`} className="text-xs font-semibold">
-            Motivo (opcional)
+            Recado para a Tatiana: por que não vai ser feita? (opcional)
           </label>
           <textarea
             id={`pular-${t.id}`}

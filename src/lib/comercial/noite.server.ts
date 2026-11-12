@@ -42,6 +42,20 @@ import {
   ultimaMensagemEm,
   type FichaDoResumo,
 } from "./resumo-dia";
+import {
+  RESULTADO_CAMPANHA,
+  RESULTADO_MUDOU,
+  ehTarefaDeVenda,
+  linhaDasNaoFeitas,
+  notasDaQueVoltou,
+  resumoComNaoFeitas,
+  MARCA_VESPERA,
+  blocoDaVespera,
+  saiParaCampanha,
+  tarefaDaVespera,
+  type RelatorioDosPulados,
+} from "./sem-novidade";
+import type { LeadDaNoite } from "./sem-novidade.server";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { dataCurta, diaSemanaDe } from "@/lib/feriados";
 import { avaliarVirarOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
@@ -131,6 +145,10 @@ const LISTA_GRANDE = 30;
 type EspeciaisDaNoite = {
   /** Lead → data do toque vencido que ninguém fez (tarefa "follow-up esquecido"). */
   esquecidos: Record<string, string>;
+  /** Leads que passam só pela releitura semanal: a tarefa que já está na lista é mantida. */
+  relidos?: string[];
+  /** Pulados com tarefa na lista: no fim da noite a tarefa tem de continuar lá. */
+  puladosComTarefa?: string[];
 };
 type Noite = {
   id: string;
@@ -262,6 +280,8 @@ export type EscopoDaNoite = {
     number
   >;
   especiais: EspeciaisDaNoite;
+  /** Quem ficou fora da leitura por não ter novidade (12/11) e por que os outros passaram. */
+  semNovidade?: RelatorioDosPulados;
 };
 
 /**
@@ -270,6 +290,8 @@ export type EscopoDaNoite = {
  * (c) rede de segurança: aberto nas caixinhas 2–5 sem toque futuro e sem próxima olhada; se havia
  * toque vencido que ninguém fez, vira "follow-up esquecido". Lead fechado/perdido só por mensagem.
  * Lead criado por campanha/disparo que nunca respondeu não entra (04/11): fica nas listas de campanha.
+ * Lead sem novidade desde a última leitura não passa pela IA (12/11): fica como está, com a mesma
+ * tarefa na lista; passa quem tem novidade, lead novo e a releitura completa a cada 7 dias.
  */
 async function escopoDaNoite(
   db: Db,
@@ -291,47 +313,52 @@ async function escopoDaNoite(
     agora,
   );
   const fimDeHoje = new Date(`${hoje}T23:59:59-03:00`).toISOString();
-  const [
-    { data: msgs },
-    { data: disparos },
-    { data: pendentes },
-    { data: fichas },
-    { data: respostas },
-  ] = await Promise.all([
-    db
-      .from("whatsapp_messages")
-      .select("crm_lead_id, chatwoot_message_id")
-      .eq("empresa_id", empresaId)
-      .eq("privada", false)
-      .not("crm_lead_id", "is", null)
-      .gte("message_timestamp", desde)
-      .limit(8000),
-    db
-      .from("mkt_envios")
-      .select("chatwoot_message_id")
-      .eq("empresa_id", empresaId)
-      .gte("enviado_em", desde)
-      .not("chatwoot_message_id", "is", null)
-      .limit(5000),
-    db
-      .from("crm_followups")
-      .select("crm_lead_id, scheduled_at, origem, status")
-      .eq("empresa_id", empresaId)
-      .eq("status", "Pendente")
-      .limit(5000),
-    db
-      .from("comercial_analises")
-      .select("crm_lead_id, caixinha, caixinha_em, rever_em, etiquetas")
-      .eq("empresa_id", empresaId)
-      .limit(5000),
-    // Resposta do cliente a uma campanha conta sempre (e é contada à parte).
-    db
-      .from("mkt_envios")
-      .select("normalized_phone")
-      .eq("empresa_id", empresaId)
-      .gte("respondido_em", desde)
-      .limit(5000),
-  ]);
+  const [{ data: msgs }, { data: disparos }, { data: pendentes }, fichas, { data: respostas }] =
+    await Promise.all([
+      db
+        .from("whatsapp_messages")
+        .select("crm_lead_id, chatwoot_message_id")
+        .eq("empresa_id", empresaId)
+        .eq("privada", false)
+        .not("crm_lead_id", "is", null)
+        .gte("message_timestamp", desde)
+        .limit(8000),
+      db
+        .from("mkt_envios")
+        .select("chatwoot_message_id")
+        .eq("empresa_id", empresaId)
+        .gte("enviado_em", desde)
+        .not("chatwoot_message_id", "is", null)
+        .limit(5000),
+      db
+        .from("crm_followups")
+        .select("crm_lead_id, scheduled_at, origem, status")
+        .eq("empresa_id", empresaId)
+        .eq("status", "Pendente")
+        .limit(5000),
+      // Fichas em páginas de 1000 (a API corta respostas maiores; a Turbine já passa de 780).
+      (async () => {
+        const todas: unknown[] = [];
+        for (let de = 0; de < 20_000; de += 1000) {
+          const { data } = await db
+            .from("comercial_analises")
+            .select("crm_lead_id, caixinha, caixinha_em, rever_em, etiquetas")
+            .eq("empresa_id", empresaId)
+            .order("id")
+            .range(de, de + 999);
+          todas.push(...(data ?? []));
+          if ((data ?? []).length < 1000) break;
+        }
+        return todas;
+      })(),
+      // Resposta do cliente a uma campanha conta sempre (e é contada à parte).
+      db
+        .from("mkt_envios")
+        .select("normalized_phone")
+        .eq("empresa_id", empresaId)
+        .gte("respondido_em", desde)
+        .limit(5000),
+    ]);
   const respondeuCampanha = new Set(
     ((respostas ?? []) as Array<{ normalized_phone: string }>).map((r) =>
       finalDoTelefone(r.normalized_phone),
@@ -368,7 +395,7 @@ async function escopoDaNoite(
   }
   const ficha = new Map(
     (
-      (fichas ?? []) as Array<{
+      fichas as Array<{
         crm_lead_id: string;
         caixinha: number | null;
         caixinha_em: string | null;
@@ -436,12 +463,13 @@ async function escopoDaNoite(
     },
     especiais: { esquecidos: {} },
   };
+  const entram: LeadDaNoite[] = [];
   for (let i = 0; i < ids.length; i += 200) {
     const parte = ids.slice(i, i + 200);
     const { data: leads } = await db
       .from("crm_leads")
       .select(
-        "id, is_open, perdido_em, linked_work_order_id, normalized_phone, entrada, respondeu_em",
+        "id, is_open, perdido_em, linked_work_order_id, normalized_phone, entrada, respondeu_em, os_criada_em, orcamento_enviado_em, agendado_em, realizado_em",
       )
       .eq("empresa_id", empresaId)
       .in("id", parte);
@@ -453,6 +481,10 @@ async function escopoDaNoite(
       normalized_phone: string | null;
       entrada: string | null;
       respondeu_em: string | null;
+      os_criada_em: string | null;
+      orcamento_enviado_em: string | null;
+      agendado_em: string | null;
+      realizado_em: string | null;
     }>;
     // Criado por campanha/disparo e nunca respondeu (04/11): fica nas listas de campanha.
     const semResposta = lote
@@ -541,6 +573,16 @@ async function escopoDaNoite(
         saida.entrada.completa++;
       }
       saida.ids.push(l.id);
+      entram.push({
+        id: l.id,
+        linked_work_order_id: l.linked_work_order_id,
+        normalized_phone: l.normalized_phone,
+        os_criada_em: l.os_criada_em,
+        orcamento_enviado_em: l.orcamento_enviado_em,
+        agendado_em: l.agendado_em,
+        realizado_em: l.realizado_em,
+        esquecido: Boolean(esquecido),
+      });
       for (const m of motivos) saida.entrada[m]++;
       if (
         motivos.includes("mensagem") &&
@@ -554,6 +596,17 @@ async function escopoDaNoite(
     }
   }
   saida.entrada.frio_adiado = frioAdiado;
+  // Lead sem novidade não passa pela IA (12/11). Se a conferência falhar, todos passam.
+  try {
+    const { separarSemNovidade } = await import("./sem-novidade.server");
+    const sep = await separarSemNovidade(db, empresaId, entram, { agora, hoje });
+    saida.ids = saida.ids.filter((id) => !sep.pulados.has(id));
+    saida.especiais.relidos = sep.relidos;
+    saida.especiais.puladosComTarefa = sep.comTarefa;
+    saida.semNovidade = sep.relatorio;
+  } catch (e) {
+    console.error("Tatiana: conferência de novidade", e instanceof Error ? e.message : String(e));
+  }
   return saida;
 }
 
@@ -732,6 +785,24 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
       .eq("crm_lead_id", leadId)
       .maybeSingle(),
   ]);
+  // Desfecho que a equipe deu à última tarefa da Tatiana (Feito ou Pular com recado), até 7 dias.
+  const { data: ultimaTarefa } = await db
+    .from("crm_followups")
+    .select("result, pulado_motivo, completed_at")
+    .eq("empresa_id", empresaId)
+    .eq("crm_lead_id", leadId)
+    .eq("origem", "gerente")
+    .eq("responsavel", "equipe")
+    .in("result", ["Feito", "Pulada"])
+    .gte("completed_at", new Date(Date.now() - 7 * 86_400_000).toISOString())
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const desfecho = ultimaTarefa as {
+    result: string;
+    pulado_motivo: string | null;
+    completed_at: string | null;
+  } | null;
   const ct = contato as {
     ia_desligada: boolean | null;
     marketing_optout_em: string | null;
@@ -823,6 +894,9 @@ async function estadoDoLead(db: Db, empresaId: string, leadId: string): Promise<
     }.`,
     `Próximo toque marcado: ${f ? `${f.etapa ?? "toque"} (${f.responsavel}) em ${f.scheduled_at}` : "nenhum"}.`,
     lead["retorno_combinado_em"] ? `Retorno combinado em ${lead["retorno_combinado_em"]}.` : null,
+    desfecho
+      ? `Última tarefa da equipe: ${desfecho.result === "Pulada" ? "pulada" : "feita"} em ${(desfecho.completed_at ?? "").slice(0, 10)}${desfecho.pulado_motivo ? `; recado da atendente: "${desfecho.pulado_motivo}"` : ""}.`
+      : null,
   ].filter(Boolean);
   return {
     texto: linhas.join("\n"),
@@ -1001,6 +1075,32 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     ctx.equipeUnica ? Promise.resolve(null) : donoDoLead(db, emp, leadId, ctx.pessoas),
   ]);
   const fatos = calcularFatos(entrada);
+  // Tarefas da Tatiana para a equipe que já estão na lista deste lead (as de venda).
+  const { data: jaNaLista } = await db
+    .from("crm_followups")
+    .select("id, tarefa_tipo, created_at, scheduled_at, notes, motivo")
+    .eq("empresa_id", emp)
+    .eq("crm_lead_id", leadId)
+    .eq("origem", "gerente")
+    .eq("responsavel", "equipe")
+    .eq("status", "Pendente")
+    .order("created_at");
+  const deVenda = (
+    (jaNaLista ?? []) as Array<{
+      id: string;
+      tarefa_tipo: string | null;
+      created_at: string;
+      scheduled_at: string;
+      notes: string | null;
+      motivo: string | null;
+    }>
+  ).filter((t) => ehTarefaDeVenda(t.tarefa_tipo));
+  // Véspera (mensagem só no dia): a tarefa de amanhã ainda está com o rascunho; a IA escreve a
+  // mensagem final agora. O toque marcado é a própria tarefa: não vale como trava.
+  const daVespera = tarefaDaVespera(
+    deVenda,
+    new Date(`${ctx.amanha}T23:59:59-03:00`).toISOString(),
+  );
   // Resumo do dia (12/11, custo): com resumo guardado e leitura completa há menos de 7 dias, vai
   // para a IA o resumo e só o fim da conversa; senão a conversa inteira. A decisão é sempre tomada.
   const { data: fichaResumo } = await db
@@ -1025,6 +1125,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       "",
       "NO APP:",
       est.texto,
+      ...(daVespera ? ["", blocoDaVespera(daVespera)] : []),
       "",
       ...blocoDaConversa({
         modo: modoLeitura,
@@ -1207,7 +1308,10 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
   if (!est.aberto && decisao.acao !== "esperar") decisao.acao = "esperar";
   // Travas (31/10): tarefa só para as caixinhas 2 a 5, sem retorno combinado, sem outro toque
   // marcado e sem campanha nos últimos 30 dias; caixinha 6 vai para a campanha da semana.
-  const travado = aplicarTravas({ caixinha: decisao.caixinha, acao: decisao.acao }, est.travas);
+  const travado = aplicarTravas(
+    { caixinha: decisao.caixinha, acao: decisao.acao },
+    daVespera ? { ...est.travas, retornoCombinado: false } : est.travas,
+  );
   decisao.acao = travado.acao;
   if (travado.trava) decisao.motivo = `${travado.trava} · ${decisao.motivo}`;
   {
@@ -1255,14 +1359,16 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     quandoBruto && (decisao.acao === "chamar" || decisao.acao === "agendar")
       ? proximoHorarioUtil(quandoBruto, ctx.horario)
       : quandoBruto;
-  // Mensagem só no dia (11/11, custo): tarefa da equipe marcada para depois de amanhã fica sem a
-  // mensagem pronta. Ela é escrita na véspera, quando o lead volta para a leitura (rever_em), já
-  // com o que aconteceu até lá; antes era escrita e polida agora e reescrita na véspera.
+  // Mensagem só no dia (11/11, custo; acerto de 12/11): tarefa da equipe marcada para depois de
+  // amanhã nasce com o rascunho da mensagem, sem o polimento. A mensagem final é escrita na
+  // véspera, quando o lead volta para a leitura (rever_em), já com o que aconteceu até lá. Sem
+  // rascunho a tarefa chegaria ao dia sem mensagem: na véspera a IA via o próprio toque marcado.
   const soNoDia =
     responsavel === "equipe" && decisao.acao === "agendar" && tarefaParaDepois(quando, ctx.amanha);
-  let mensagem = soNoDia ? "" : decisao.mensagem.trim();
+  let mensagem = decisao.mensagem.trim();
   if (
     mensagem &&
+    !soNoDia &&
     responsavel === "equipe" &&
     (decisao.acao === "chamar" || decisao.acao === "agendar")
   ) {
@@ -1292,13 +1398,19 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
   }
   // Próxima olhada: chamar → dia seguinte à tarefa; agendar → véspera; esperar → data combinada
   // ou 7 dias; parar → nenhuma. Lead bloqueado não volta.
+  // Tarefa agendada para amanhã (ex.: a mensagem escrita na véspera) confere como a de "chamar":
+  // no dia seguinte à tarefa, e não de novo na véspera.
+  const acaoDoRever =
+    decisao.acao === "agendar" && quando && !tarefaParaDepois(quando, ctx.amanha)
+      ? "chamar"
+      : decisao.acao;
   const reverEm = est.bloqueado
     ? null
-    : reverEmIso(diaDeRever({ acao: decisao.acao, quando, hoje: horarioSP(new Date()).data }));
+    : reverEmIso(diaDeRever({ acao: acaoDoRever, quando, hoje: horarioSP(new Date()).data }));
   const reverMotivo = reverEm
-    ? decisao.acao === "chamar"
+    ? acaoDoRever === "chamar"
       ? "ver se respondeu à tarefa"
-      : decisao.acao === "agendar"
+      : acaoDoRever === "agendar"
         ? "véspera da data combinada"
         : "esperando o cliente"
     : null;
@@ -1360,13 +1472,31 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     });
   }
 
-  // Tarefa da equipe (crm_followups, trilha G). A anterior da Tatiana para o lead é substituída.
+  // Tarefa da equipe (crm_followups, trilha G). Com novidade, a anterior da Tatiana para o lead é
+  // substituída. Na releitura semanal (sem novidade), a tarefa de venda que já está na lista
+  // continua, a mesma. "Esperar" não tira tarefa (a IA espera justamente porque ela já existe): a
+  // de venda só sai quando o lead fechou, foi bloqueado, ou o cliente respondeu e o lead deixou de
+  // ser de venda (parou, comprou, fechou com outra, fora da área).
   let followupId: string | null = null;
-  if (
+  const pedeTarefa =
     responsavel === "equipe" &&
     (decisao.acao === "chamar" || decisao.acao === "agendar") &&
-    quando
-  ) {
+    Boolean(quando);
+  const contarLista = (campo: "novas" | "substituidas" | "mantidas" | "sairam") => {
+    const r = (noite.resumo ?? {}) as { lista?: Record<string, unknown> };
+    const l = r.lista ?? {};
+    noite.resumo = { ...r, lista: { ...l, [campo]: Number(l[campo] ?? 0) + 1 } };
+  };
+  // O cliente respondeu depois que a tarefa nasceu? (Sem resposta, a reclassificação da IA sozinha
+  // não tira tarefa da lista.)
+  const clienteRespondeu = deVenda.some(
+    (t) =>
+      est.ultimaDoCliente !== null && Date.parse(est.ultimaDoCliente) > Date.parse(t.created_at),
+  );
+  if (pedeTarefa && deVenda[0] && !daVespera && (ctx.especiais.relidos ?? []).includes(leadId)) {
+    followupId = deVenda[0].id;
+    contarLista("mantidas");
+  } else if (pedeTarefa && quando) {
     await db
       .from("crm_followups")
       .update({ status: "Cancelada", notes: `substituída pela ${NOME_GERENTE}` })
@@ -1393,17 +1523,38 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         motivo: decisao.motivo.slice(0, 300) || null,
         prioridade: decisao.prioridade,
         tarefa_tipo: esquecidoEm ? "follow_up_esquecido" : ligar ? "ligar" : "mensagem",
-        notes: `${NOME_GERENTE}: ${decisao.motivo}`.slice(0, 500),
+        notes:
+          `${NOME_GERENTE}: ${decisao.motivo}`.slice(0, 470) + (soNoDia ? ` ${MARCA_VESPERA}` : ""),
       })
       .select("id")
       .single();
     followupId = (fu as { id: string } | null)?.id ?? null;
+    contarLista((jaNaLista ?? []).length ? "substituidas" : "novas");
     if (esquecidoEm)
       acertos.push({
         tipo: "follow_up_esquecido",
         texto: `${textoFollowUpEsquecido(esquecidoEm)} A tarefa de hoje repõe o toque.`,
         dados: { prioridade: 1 },
       });
+  } else if (
+    deVenda.length &&
+    (!est.aberto ||
+      Boolean(est.bloqueado) ||
+      (clienteRespondeu && (decisao.acao === "parar" || bloqueadaParaVenda(decisao.caixinha))))
+  ) {
+    await db
+      .from("crm_followups")
+      .update({
+        status: "Cancelada",
+        completed_at: new Date().toISOString(),
+        result: `${RESULTADO_MUDOU}: ${decisao.motivo}`.slice(0, 300),
+      })
+      .in(
+        "id",
+        deVenda.map((t) => t.id),
+      )
+      .eq("status", "Pendente");
+    contarLista("sairam");
   }
   // Toque da Alice (modo ativo): entra na fila dela, que respeita a janela de 24 h (fora dela,
   // só com modelo aprovado; sem modelo, a tarefa vira da equipe). No teste, só fica registrado.
@@ -1563,6 +1714,13 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       noite.resumo = { ...rs, acoes: acoesResumo };
     }
   }
+  // A leitura termina aqui: o que a própria noite mexeu no app (tarefa, ações) não é novidade
+  // para a noite seguinte (12/11, lead sem novidade não passa pela IA).
+  await db
+    .from("comercial_decisoes")
+    .update({ criado_em: new Date().toISOString() })
+    .eq("noite_id", noite.id)
+    .eq("crm_lead_id", leadId);
   return custo;
 }
 
@@ -1888,9 +2046,14 @@ async function tarefasDiretas(
   return saida;
 }
 
+/** A noite começa às 21h30: tarefa marcada para as últimas 3 horas ainda não "ficou sem fazer". */
+const FOLGA_DA_TAREFA_MS = 3 * 3_600_000;
+
 /**
- * Tarefa da Tatiana sem Feito/Pular até o fim do dia: volta amanhã como "pendente de ontem" com
- * prioridade maior; no 2º adiamento, acerto "tarefa atrasada" só na aba do admin.
+ * Tarefa da Tatiana sem Feito/Pular até a noite: continua na lista, a mesma, e volta amanhã como
+ * "pendente de ontem" com o contador e prioridade maior; no 2º dia, acerto "tarefa atrasada" só na
+ * aba do admin. Tarefa de venda há 7 dias na lista sem resposta do cliente sai e o lead fica
+ * guardado para campanha (12/11). Regra sobre a lista: não usa IA.
  */
 async function tarefasNaoFeitas(
   db: Db,
@@ -1898,19 +2061,20 @@ async function tarefasNaoFeitas(
   hoje: string,
   amanha: string,
   horario: HorarioUtil,
-): Promise<{ adiadas: number; atrasadas: number }> {
+  agora = new Date(),
+): Promise<{ adiadas: number; atrasadas: number; paraCampanha: number }> {
   const { data: vencidas } = await db
     .from("crm_followups")
     .select(
-      "id, crm_lead_id, conversa_id, assigned_to, prioridade, adiamentos, scheduled_at, notes, tarefa_tipo",
+      "id, crm_lead_id, conversa_id, assigned_to, prioridade, adiamentos, scheduled_at, notes, tarefa_tipo, created_at",
     )
     .eq("empresa_id", emp)
     .eq("origem", "gerente")
     .eq("responsavel", "equipe")
     .eq("status", "Pendente")
-    .lt("scheduled_at", new Date(`${hoje}T00:00:00-03:00`).toISOString())
-    .limit(300);
-  const saida = { adiadas: 0, atrasadas: 0 };
+    .lt("scheduled_at", new Date(agora.getTime() - FOLGA_DA_TAREFA_MS).toISOString())
+    .limit(500);
+  const saida = { adiadas: 0, atrasadas: 0, paraCampanha: 0 };
   for (const t of (vencidas ?? []) as Array<{
     id: string;
     crm_lead_id: string;
@@ -1921,7 +2085,12 @@ async function tarefasNaoFeitas(
     scheduled_at: string;
     notes: string | null;
     tarefa_tipo: string | null;
+    created_at: string;
   }>) {
+    if (await mandarParaCampanha(db, emp, t, hoje)) {
+      saida.paraCampanha++;
+      continue;
+    }
     const a = adiarTarefa({ prioridade: t.prioridade, adiamentos: t.adiamentos ?? 0 });
     const hm = horarioSP(new Date(t.scheduled_at)).hora;
     await db
@@ -1933,7 +2102,7 @@ async function tarefasNaoFeitas(
         ),
         prioridade: a.prioridade,
         adiamentos: a.adiamentos,
-        notes: `Pendente de ontem (${a.adiamentos}ª vez). ${t.notes ?? ""}`.slice(0, 500),
+        notes: notasDaQueVoltou(t.notes, a.adiamentos),
       })
       .eq("id", t.id);
     saida.adiadas++;
@@ -1952,6 +2121,80 @@ async function tarefasNaoFeitas(
     }
   }
   return saida;
+}
+
+/**
+ * Tarefa de venda há 7 dias na lista sem resposta do cliente: sai da lista e o lead fica guardado
+ * para campanha (volta para a leitura quando o cliente mandar mensagem).
+ */
+async function mandarParaCampanha(
+  db: Db,
+  emp: string,
+  t: { id: string; crm_lead_id: string; tarefa_tipo: string | null; created_at: string },
+  hoje: string,
+): Promise<boolean> {
+  if (
+    !saiParaCampanha({ tipo: t.tarefa_tipo, criadaEm: t.created_at, ultimaDoCliente: null, hoje })
+  )
+    return false;
+  const { data: ultima } = await db
+    .from("whatsapp_messages")
+    .select("message_timestamp")
+    .eq("empresa_id", emp)
+    .eq("crm_lead_id", t.crm_lead_id)
+    .eq("direction", "Recebida")
+    .eq("privada", false)
+    .order("message_timestamp", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ultimaDoCliente =
+    (ultima as { message_timestamp?: string } | null)?.message_timestamp ?? null;
+  if (!saiParaCampanha({ tipo: t.tarefa_tipo, criadaEm: t.created_at, ultimaDoCliente, hoje }))
+    return false;
+  const { data: ficha } = await db
+    .from("comercial_analises")
+    .select("id, etiquetas")
+    .eq("empresa_id", emp)
+    .eq("crm_lead_id", t.crm_lead_id)
+    .maybeSingle();
+  const f = ficha as { id: string; etiquetas: Record<string, unknown> | null } | null;
+  // Sem ficha não há onde guardar o lead: a tarefa continua na lista.
+  if (!f) return false;
+  const agora = new Date().toISOString();
+  const { error } = await db
+    .from("comercial_analises")
+    .update({ etiquetas: { ...(f.etiquetas ?? {}), guardado_em: agora } })
+    .eq("id", f.id);
+  if (error) return false;
+  const { error: erro } = await db
+    .from("crm_followups")
+    .update({ status: "Cancelada", completed_at: agora, result: RESULTADO_CAMPANHA })
+    .eq("id", t.id)
+    .eq("status", "Pendente");
+  return !erro;
+}
+
+/** Tarefas da Tatiana para a equipe que estão na lista (pendentes): total, até um dia e as que voltaram. */
+async function tarefasNaLista(
+  db: Db,
+  emp: string,
+  ate: string,
+): Promise<{ total: number; ateAmanha: number; voltaram: number }> {
+  const { data } = await db
+    .from("crm_followups")
+    .select("scheduled_at, adiamentos")
+    .eq("empresa_id", emp)
+    .eq("origem", "gerente")
+    .eq("responsavel", "equipe")
+    .eq("status", "Pendente")
+    .limit(1000);
+  const ts = (data ?? []) as Array<{ scheduled_at: string; adiamentos: number | null }>;
+  const fim = new Date(`${ate}T23:59:59-03:00`).toISOString();
+  return {
+    total: ts.length,
+    ateAmanha: ts.filter((t) => t.scheduled_at <= fim).length,
+    voltaram: ts.filter((t) => (t.adiamentos ?? 0) > 0).length,
+  };
 }
 
 // ---------------------------------------------------------------- recados
@@ -2028,7 +2271,7 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     await Promise.all([
       db
         .from("crm_followups")
-        .select("assigned_to, motivo, prioridade, tarefa_tipo")
+        .select("assigned_to, motivo, prioridade, tarefa_tipo, crm_lead_id, adiamentos")
         .eq("empresa_id", emp)
         .eq("origem", "gerente")
         .eq("responsavel", "equipe")
@@ -2055,7 +2298,30 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     motivo: string | null;
     prioridade: number | null;
     tarefa_tipo: string | null;
+    crm_lead_id: string;
+    adiamentos: number | null;
   }>;
+  // Cobrança das não feitas (12/11): quem voltou de ontem e há quantos dias, pela lista, sem IA.
+  const voltaram = ts.filter((t) => (t.adiamentos ?? 0) > 0);
+  const nomeDoLead = new Map<string, string>();
+  for (let i = 0; i < voltaram.length; i += 200) {
+    const { data: ls } = await db
+      .from("crm_leads")
+      .select("id, lead_name")
+      .eq("empresa_id", emp)
+      .in(
+        "id",
+        voltaram.slice(i, i + 200).map((t) => t.crm_lead_id),
+      );
+    for (const l of (ls ?? []) as Array<{ id: string; lead_name: string | null }>)
+      nomeDoLead.set(l.id, primeiroNomeLimpo(l.lead_name) ?? "");
+  }
+  const cobrancaDasNaoFeitas = (minhas: typeof ts) =>
+    linhaDasNaoFeitas(
+      minhas
+        .filter((t) => (t.adiamentos ?? 0) > 0)
+        .map((t) => ({ nome: nomeDoLead.get(t.crm_lead_id) ?? "", dias: t.adiamentos ?? 1 })),
+    );
   const leadsSite = (await leadsSiteParaTarefa(db, emp, dia).catch(() => [])).length;
   // Meta do dia e semana da equipe (etapa 3): entram no recado como contexto, sem nomes.
   const { linhaDaMeta, textoSemanaEquipe } = await import("./equipe");
@@ -2164,11 +2430,12 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     } catch {
       // Fica a frase de reserva.
     }
+    const resumo = resumoComNaoFeitas(cobrancaDasNaoFeitas(minhas), recado.resumo);
     for (const p of g.para)
       await db
         .from("comercial_recados")
         .upsert(
-          { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo: recado.resumo },
+          { empresa_id: emp, user_id: p.userId, dia, frase: recado.frase, resumo },
           { onConflict: "empresa_id,user_id,dia" },
         );
   }
@@ -2265,6 +2532,7 @@ async function contextoDaNoite(db: Db, noite: Noite): Promise<ContextoNoite> {
     especiais: {
       esquecidos:
         (noite.resumo as { especiais?: EspeciaisDaNoite } | null)?.especiais?.esquecidos ?? {},
+      relidos: (noite.resumo as { especiais?: EspeciaisDaNoite } | null)?.especiais?.relidos ?? [],
     },
     opus: (noite.resumo as { modelo?: string } | null)?.modelo === "opus",
     leituraCompleta: Boolean(
@@ -2366,6 +2634,24 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
     await limitesDaNoite(db, noite).catch((e) =>
       console.error("Tatiana: limites da noite", e instanceof Error ? e.message : String(e)),
     );
+    // Regra da lista, depois da leitura e sem IA: o que ficou sem fazer hoje volta amanhã com o
+    // contador; tarefa de venda há 7 dias sem resposta sai e o lead fica guardado para campanha.
+    const naoFeitas = await tarefasNaoFeitas(
+      db,
+      noite.empresa_id,
+      noite.noite,
+      ctx.amanha,
+      ctx.horario,
+    ).catch((e) => ({ erro: e instanceof Error ? e.message : String(e) }));
+    const r = (noite.resumo ?? {}) as { lista?: Record<string, unknown> };
+    noite.resumo = {
+      ...r,
+      naoFeitas,
+      lista: {
+        ...(r.lista ?? {}),
+        noFim: await tarefasNaLista(db, noite.empresa_id, ctx.amanha).catch(() => null),
+      },
+    };
     custo += await escreverRecados(db, ctx).catch(() => 0);
   }
   await db
@@ -2403,11 +2689,36 @@ async function limitesDaNoite(db: Db, noite: Noite) {
   );
   if (visiveis.length)
     await db.from("comercial_cobrancas").update({ visivel_equipe: true }).in("id", visiveis);
+  // Segurança do "sem novidade" (12/11): a lista no fim da noite e a tarefa de cada lead pulado.
+  const r = (noite.resumo ?? {}) as {
+    lista?: Record<string, unknown>;
+    especiais?: EspeciaisDaNoite;
+  };
+  const comTarefa = r.especiais?.puladosComTarefa ?? [];
+  let aindaNaLista = 0;
+  for (let i = 0; i < comTarefa.length; i += 100) {
+    const { data: ts } = await db
+      .from("crm_followups")
+      .select("crm_lead_id")
+      .eq("empresa_id", noite.empresa_id)
+      .eq("origem", "gerente")
+      .eq("responsavel", "equipe")
+      .eq("status", "Pendente")
+      .in("crm_lead_id", comTarefa.slice(i, i + 100));
+    aindaNaLista += new Set(
+      ((ts ?? []) as Array<{ crm_lead_id: string }>).map((t) => t.crm_lead_id),
+    ).size;
+  }
   noite.resumo = {
     ...(noite.resumo ?? {}),
     tarefas: tarefas ?? 0,
     acertosNaLista: visiveis.length,
     acertosSoNaAba: Math.max(0, (novas ?? []).length - visiveis.length),
+    lista: {
+      ...(r.lista ?? {}),
+      puladosComTarefa: comTarefa.length,
+      puladosAindaNaLista: aindaNaLista,
+    },
   };
 }
 
@@ -2460,14 +2771,24 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
         const gasto = await gastoDoMes(db, emp, agora);
         if (gasto >= teto) {
           saida[`teto_${emp.slice(0, 8)}`] = gasto;
+          // No teto a IA para, mas a lista não: a tarefa não feita volta amanhã com o contador.
+          const { diasBloqueadosLista } = await import("@/lib/feriados.server");
+          await tarefasNaoFeitas(
+            db,
+            emp,
+            hoje,
+            somarDias(hoje, 1),
+            horarioDaConfig(cfg, await diasBloqueadosLista(db, emp, hoje, 45)),
+            agora,
+          ).catch((e) =>
+            console.error("Tatiana: lista no teto", e instanceof Error ? e.message : String(e)),
+          );
         } else {
           const { diasBloqueadosLista } = await import("@/lib/feriados.server");
           const horario = horarioDaConfig(cfg, await diasBloqueadosLista(db, emp, hoje, 45));
           const amanha = somarDias(hoje, 1);
-          // Antes de montar a lista: tarefas de ontem que ninguém fez e as tarefas sem IA.
-          const naoFeitas = await tarefasNaoFeitas(db, emp, hoje, amanha, horario).catch((e) => ({
-            erro: e instanceof Error ? e.message : String(e),
-          }));
+          // Antes de montar a lista: as tarefas sem IA. (As não feitas do dia voltam no FIM da
+          // noite, depois da leitura: empurradas antes, travariam a tarefa nova de quem respondeu.)
           const { data: ultima } = await db
             .from("comercial_noites")
             .select("iniciada_em")
@@ -2506,15 +2827,16 @@ export async function rodarTatiana(agora = new Date()): Promise<Record<string, u
             noite: hoje,
             modo: cfg.modo,
             leads,
-            status: leads.length ? "rodando" : "concluida",
-            concluida_em: leads.length ? null : agora.toISOString(),
+            // Mesmo sem lead para a IA, a noite fecha pelo caminho normal (recado e lista do dia).
+            status: "rodando",
             resumo: {
               entrada: escopo.entrada,
               ...(completo ? { leituraCompleta: true, modelo: "opus" } : {}),
               diretas,
               voltarConversa,
-              naoFeitas,
               especiais: escopo.especiais,
+              semNovidade: escopo.semNovidade ?? null,
+              lista: { noComeco: await tarefasNaLista(db, emp, amanha) },
             },
           });
           saida[`nova_${emp.slice(0, 8)}`] = { leads: leads.length, ...escopo.entrada };
@@ -2682,12 +3004,16 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
     if (manha) {
       const { data: ts } = await db
         .from("crm_followups")
-        .select("assigned_to")
+        .select("assigned_to, adiamentos, responsavel")
         .eq("empresa_id", emp)
         .eq("origem", "gerente")
         .eq("status", "Pendente")
         .lte("scheduled_at", new Date(`${hoje}T23:59:59-03:00`).toISOString());
-      const lista = (ts ?? []) as Array<{ assigned_to: string | null }>;
+      const lista = (ts ?? []) as Array<{
+        assigned_to: string | null;
+        adiamentos: number | null;
+        responsavel: string | null;
+      }>;
       const { data: recs } = await db
         .from("comercial_recados")
         .select("user_id, frase")
@@ -2703,11 +3029,16 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
       for (const p of pessoas) {
         if (!querReceber("tatiana_tarefas", p.papel, p.pref)) continue;
         // Equipe única: as atendentes recebem o total da equipe.
-        const n =
+        const minhas =
           p.papel === "admin" || cfg.equipe_unica
-            ? lista.length
-            : lista.filter((t) => t.assigned_to === p.userId).length;
+            ? lista
+            : lista.filter((t) => t.assigned_to === p.userId);
+        const n = minhas.length;
         if (!n) continue;
+        // Cobrança das não feitas (12/11): quantas voltaram de ontem.
+        const deOntem = minhas.filter(
+          (t) => t.responsavel === "equipe" && (t.adiamentos ?? 0) > 0,
+        ).length;
         const frase =
           ((recs ?? []) as Array<{ user_id: string; frase: string }>).find(
             (r) => r.user_id === p.userId,
@@ -2715,6 +3046,8 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
         const t = textoPushTarefas(n, frase, Boolean(cfg.equipe_unica) && p.papel !== "admin");
         if (n > LISTA_GRANDE)
           t.corpo = `Lista grande hoje (${n} tarefas): comece pelas de prioridade alta. ${t.corpo}`;
+        if (deOntem)
+          t.corpo = `${deOntem} ${deOntem === 1 ? "tarefa de ontem" : "tarefas de ontem"} sem fazer. ${t.corpo}`;
         if (vagasNoTopo) t.corpo = `${vagasNoTopo} ${t.corpo}`;
         const id = await registrarUmaVez(
           db as never,
