@@ -53,7 +53,8 @@ export const listarAvisos = createServerFn({ method: "GET" })
           .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })
           .eq("work_order.eh_teste", false)
           .lt("scheduled_date", hoje)
-          .in("status", ["Agendado", "Em execução", "Reagendado"]),
+          // Confirmado e a caminho também são serviço em aberto (12/11).
+          .in("status", ["Agendado", "Confirmado", "Em deslocamento", "Em execução", "Reagendado"]),
         db
           .from("visits")
           .select(SELECT_VISITA_SEM_TESTE, { count: "exact", head: true })

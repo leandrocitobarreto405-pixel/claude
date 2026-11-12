@@ -33,8 +33,12 @@ const comRecurso = requireRecurso("marketing");
 
 type Db = SupabaseClient<Database>;
 
-/** Visitas que ainda vão acontecer (as encerradas ou canceladas não seguram o cliente). */
-const VISITA_FUTURA = ["Agendado", "Em execução", "Reagendado"];
+/**
+ * Visitas que ainda vão acontecer (as encerradas ou canceladas não contam). "Confirmado" e "Em
+ * deslocamento" também são visita marcada (12/11: ficavam de fora); "Reagendado" é o registro
+ * antigo da visita remarcada, que conta como agendada.
+ */
+const VISITA_FUTURA = ["Agendado", "Confirmado", "Em deslocamento", "Em execução", "Reagendado"];
 
 async function lerConfig(db: Db, empresaId: string): Promise<ConfigAgenda> {
   const { data } = await db
