@@ -47,6 +47,7 @@ import {
 } from "./modulos";
 import { comDuplaFace, ehColchao } from "@/lib/dupla-face";
 import { chavesVendas } from "./chaves";
+import { parametrosDaConfig } from "./negociacao";
 import {
   descontoPermitido,
   lerMarketing,
@@ -227,9 +228,15 @@ const CriarOrcamento = z.object({
   cep: z.string().trim().max(10).optional(),
   endereco: z.string().trim().max(200).optional(),
   rotulo: z.string().trim().max(40).optional(),
-  desconto: z.enum(["campanha", "indicacao", "oferta_followup"]).optional(),
+  desconto: z.enum(["campanha", "indicacao", "oferta_followup", "negociacao"]).optional(),
   cupom: z.string().trim().min(3).max(30).optional(),
   combo: z.boolean().optional(),
+});
+const PedirAutorizacao = z.object({
+  motivo: z.enum(["caro", "concorrente"]),
+  concorrente_valor: z.number().positive().max(100000).optional(),
+  concorrente_nome: z.string().trim().max(120).optional(),
+  frase_cliente: z.string().trim().min(1).max(500),
 });
 const AdicionalPosFechamento = z.object({
   acao: z.enum(["oferecer", "aceitou", "recusou"]),
@@ -460,9 +467,13 @@ export function ferramentasDisponiveis(
           rotulo: { type: "string", description: "Ex.: 'Opção 1'." },
           desconto: {
             type: "string",
-            enum: ["campanha", "indicacao", "oferta_followup"],
-            description:
-              "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao), ou se o sistema mandou a condição do último follow-up nesta conversa e o cliente quis ver (oferta_followup). O sistema calcula o desconto. Nunca dois juntos.",
+            enum: [
+              "campanha",
+              "indicacao",
+              "oferta_followup",
+              ...(parametrosDaConfig(cfg).ligada ? ["negociacao"] : []),
+            ],
+            description: `Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao), ou se o sistema mandou a condição do último follow-up nesta conversa e o cliente quis ver (oferta_followup).${parametrosDaConfig(cfg).ligada ? " negociacao: só quando o sistema avisar que o gestor liberou um valor (volta da autorização de desconto); o sistema aplica o valor liberado." : ""} O sistema calcula o desconto. Nunca dois juntos.`,
           },
           cupom: {
             type: "string",
@@ -860,8 +871,39 @@ export function ferramentasDisponiveis(
   );
   if (extras.regraNome) lista.push(FERRAMENTA_NOME);
   lista.push(FERRAMENTA_DESCADASTRO);
+  if (parametrosDaConfig(cfg).ligada) lista.push(FERRAMENTA_AUTORIZACAO);
   return lista;
 }
+
+/** Desconto com autorização (plano "Alice e vendas", item 5): a Alice nunca dá desconto sozinha. */
+export const FERRAMENTA_AUTORIZACAO: Anthropic.Beta.BetaTool = {
+  name: "pedir_autorizacao_desconto",
+  description:
+    'Pede ao gestor autorização para um desconto no orçamento já enviado. Use quando o cliente disse "sim" à pergunta "Se eu conseguir um preço melhor pra você, você fecha com a gente?" ou passou o valor da outra empresa. O sistema calcula o valor sugerido (até o teto da empresa), avisa a equipe e devolve a frase exata para o cliente. Não prometa valor e não transfira.',
+  input_schema: {
+    type: "object",
+    properties: {
+      motivo: {
+        type: "string",
+        enum: ["caro", "concorrente"],
+        description:
+          "caro: achou caro ou pediu desconto. concorrente: citou outra empresa ou passou o valor dela.",
+      },
+      concorrente_valor: {
+        type: "number",
+        description: "Quanto a outra empresa fez, em reais (só se o cliente disse).",
+      },
+      concorrente_nome: { type: "string", description: "Nome da outra empresa, se ele disse." },
+      frase_cliente: {
+        type: "string",
+        description:
+          "O que o cliente disse sobre o preço, com as palavras dele (até 300 caracteres).",
+      },
+    },
+    required: ["motivo", "frase_cliente"],
+    additionalProperties: false,
+  },
+};
 
 /** Descadastro de marketing quando o pedido do cliente não foi reconhecido pelo gatilho do banco. */
 export const FERRAMENTA_DESCADASTRO: Anthropic.Beta.BetaTool = {
@@ -1315,11 +1357,24 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   let regraDesconto: { pct: number; rotulo: string } | null = null;
   const baseOferta =
     Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
+  let negociado: { valorFinal: number; valorCheio: number } | null = null;
+  if (input.desconto === "negociacao") {
+    const { valorLiberado } = await import("./negociacao.server");
+    negociado = parametrosDaConfig(ctx.cfg).ligada
+      ? await valorLiberado(ctx.admin as never, ctx.empresaId, ctx.conversaId)
+      : null;
+    if (!negociado)
+      return {
+        erro: true,
+        texto:
+          "Não há valor liberado pelo gestor nesta conversa: refaça sem o desconto de negociação.",
+      };
+  }
   if (input.desconto === "oferta_followup") {
     const o = await ofertaDoFollowup(ctx, baseOferta);
     if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
     regraDesconto = o;
-  } else if (input.desconto) {
+  } else if (input.desconto && input.desconto !== "negociacao") {
     const d = descontoPermitido(await lerMarketing(ctx), input.desconto);
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
     regraDesconto = d;
@@ -1379,36 +1434,52 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const baseDesconto =
     Math.round((escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) + taxa.valor) * 100) /
     100;
-  const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
+  // Negociação autorizada: o valor liberado é o final (substitui combo, cupom e campanha).
+  if (negociado && Math.abs(negociado.valorCheio - baseDesconto) > 1)
+    return {
+      erro: true,
+      texto: `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`,
+    };
+  const escolha = negociado ? null : maiorDesconto(baseDesconto, cupom, regraDesconto);
 
   const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
-    escolha?.tipo === "cupom"
+    negociado
       ? {
-          valor: valorDoCupom(escolha.cupom, baseDesconto),
-          rotulo: `Cupom ${escolha.cupom.codigo}`,
+          valor: Math.max(0, Math.round((baseDesconto - negociado.valorFinal) * 100) / 100),
+          rotulo: "Desconto especial (autorizado)",
         }
-      : escolha?.tipo === "pct"
-        ? escolha.pct
-        : null,
+      : escolha?.tipo === "cupom"
+        ? {
+            valor: valorDoCupom(escolha.cupom, baseDesconto),
+            rotulo: `Cupom ${escolha.cupom.codigo}`,
+          }
+        : escolha?.tipo === "pct"
+          ? escolha.pct
+          : null,
     ctx.cfg.parcelas_max,
-    Number(ctx.cfg.desconto_pix_percentual),
+    // O valor negociado é o final: sem o Pix por cima.
+    negociado ? 0 : Number(ctx.cfg.desconto_pix_percentual),
     taxa.valor,
   );
   const comboUsado = Boolean(descontoDoCombo) && escolha?.tipo === "pct";
-  // A condição do último follow-up e o combo ficam como desconto manual no orçamento (rótulo nas
-  // observações).
+  // A condição do último follow-up, o combo e a negociação ficam como desconto manual no orçamento
+  // (rótulo nas observações).
   const tipoDesconto = !desconto
     ? null
-    : cupomUsado || comboUsado || input.desconto === "oferta_followup"
+    : negociado || cupomUsado || comboUsado || input.desconto === "oferta_followup"
       ? ("manual" as const)
-      : (input.desconto ?? null);
-  const chaveDesconto = cupomUsado
-    ? `cupom:${cupomUsado.codigo}`
-    : comboUsado
-      ? "combo"
-      : tipoDesconto;
+      : input.desconto === "campanha" || input.desconto === "indicacao"
+        ? input.desconto
+        : null;
+  const chaveDesconto = negociado
+    ? "negociacao"
+    : cupomUsado
+      ? `cupom:${cupomUsado.codigo}`
+      : comboUsado
+        ? "combo"
+        : tipoDesconto;
   const nomeDoPct = descontoDoCombo
     ? "combo"
     : input.desconto === "campanha"
@@ -2338,6 +2409,26 @@ export async function executarFerramenta(
             "Nota interna registrada para a equipe (o cliente não vê). Continue o atendimento normalmente; não comente com o cliente.",
           erro: false,
         };
+      }
+      case "pedir_autorizacao_desconto": {
+        const p = PedirAutorizacao.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        const { pedirAutorizacao } = await import("./negociacao.server");
+        const { nomeConfirmado } = await import("./nome.server");
+        const nome = await nomeConfirmado(ctx.admin, ctx.empresaId, ctx.conversaId, ctx.contatoId);
+        const r = await pedirAutorizacao(
+          ctx.admin as never,
+          {
+            empresaId: ctx.empresaId,
+            conversaId: ctx.conversaId,
+            leadId: ctx.leadId,
+            cfg: ctx.cfg,
+            nomeCliente: nome ? (nome.split(/\s+/)[0] ?? null) : null,
+            agora: ctx.agora,
+          },
+          p.data,
+        );
+        return { conteudo: r.texto, erro: r.erro };
       }
       case "transferir_para_humano": {
         const p = Transferir.safeParse(entrada);

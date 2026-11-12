@@ -46,6 +46,7 @@ import {
   jaPerguntouOMotivo,
 } from "./atalho";
 import { chavesVendas } from "./chaves";
+import { AVISO_AUTORIZACAO_PENDENTE, parametrosDaConfig } from "./negociacao";
 import { chaveTelefone } from "@/lib/avisos";
 import {
   TEXTO_AUDIO_SEM_TRANSCRICAO,
@@ -820,6 +821,10 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   }
   const d = await dadosConversa(db, tarefa);
   const dados = (tarefa.dados ?? {}) as DadosCadencia;
+  // Volta da autorização de desconto (plano "Alice e vendas", item 5): a Alice dá ao cliente a
+  // resposta do gestor (ou segue sozinha com o sugerido, no prazo).
+  const idAutorizacao = (dados as { autorizacao?: string }).autorizacao;
+  if (idAutorizacao) return voltarDaAutorizacao(db, tarefa, cfg, d, idAutorizacao);
   let passo = comFotoUmaVez(
     dados.cadencia ? passoDaEtapa(dados.etapa) : null,
     chavesVendas(cfg).atalhoApressado,
@@ -1109,6 +1114,46 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   // A trava já passou (ninguém assumiu nem escreveu): a resposta do cliente vem para a Alice.
   if (passo) await voltarParaAliceNoToque(db, d);
   return conversar(db, tarefa, cfg, d, aviso, undefined, { toqueAudio });
+}
+
+async function voltarDaAutorizacao(
+  db: Admin,
+  tarefa: Tarefa,
+  cfg: ConfigIa,
+  d: DadosConversa,
+  id: string,
+): Promise<ResultadoTarefa> {
+  const { autorizacaoParaVolta } = await import("./negociacao.server");
+  const { avisoDaVolta } = await import("./negociacao");
+  const a = await autorizacaoParaVolta(db as never, tarefa.empresa_id, id);
+  if (
+    !a ||
+    (a.situacao !== "autorizado" &&
+      a.situacao !== "outro_valor" &&
+      a.situacao !== "negado" &&
+      a.situacao !== "automatico")
+  )
+    return { situacao: "ignorada", detalhe: "autorização sem resposta para dar ao cliente" };
+  // A equipe assumiu a conversa: quem responde é ela.
+  if (d.conversa.status === "open")
+    return { situacao: "ignorada", detalhe: "a equipe assumiu a conversa" };
+  const { nomeConfirmado } = await import("./nome.server");
+  const nome = await nomeConfirmado(
+    db,
+    tarefa.empresa_id,
+    d.conversa.id,
+    d.conversa.whatsapp_contact_id,
+  );
+  const aviso = avisoDaVolta({
+    situacao: a.situacao,
+    valorFinal: a.valor_final === null ? null : Number(a.valor_final),
+    valorAtual: Number(a.valor_cheio) - Number(a.desconto_atual_valor),
+    valorCheio: Number(a.valor_cheio),
+    nome: nome ? (nome.split(/\s+/)[0] ?? null) : null,
+    acimaDoTeto: a.falta_para_igualar !== null,
+    combo: a.servico === "combo",
+  });
+  return conversar(db, tarefa, cfg, d, aviso);
 }
 
 /**
@@ -1558,6 +1603,13 @@ async function conversar(
       : false;
   const precoTravado =
     REGRA_PRECO_DEPOIS && !atalho && !precoLiberado(hist.mensagens, hist.truncado);
+  // Pedido de desconto ainda com o gestor: a Alice não promete valor nem pede de novo.
+  const autorizacaoPendente =
+    parametrosDaConfig(cfg).ligada && !ehFollowup
+      ? await (
+          await import("./negociacao.server")
+        ).temAutorizacaoPendente(db as never, tarefa.empresa_id, d.conversa.id)
+      : false;
   // Nome do cliente: confirmado (contato/conversa/cadastro) x nome do perfil.
   const nomeCliente = REGRA_NOME
     ? await (
@@ -1610,6 +1662,7 @@ async function conversar(
     instrucaoExtra ?? null,
     precoTravado ? AVISO_PRECO_TRAVADO : null,
     atalho ? AVISO_ATALHO : null,
+    autorizacaoPendente ? AVISO_AUTORIZACAO_PENDENTE : null,
     chaves.atalhoApressado && !atalho && jaPerguntouOMotivo(hist.mensagens)
       ? AVISO_MOTIVO_JA_FEITO
       : null,
