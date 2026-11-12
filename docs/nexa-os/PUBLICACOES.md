@@ -864,6 +864,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: lead sem novidade não passa pela IA; tarefa não feita continua na lista com contador; cobrança das não feitas no resumo da manhã; mensagem final escrita na véspera | `c018af2` | — |
 | 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `dafe783` | — |
 | 12/11/2026 | Tatiana: lead com mais de 7 dias sem resposta (da última mensagem do cliente ou do orçamento) sai das tarefas de venda para a campanha; bloco "Saíram para a lista de campanha" com o botão Segurar na lista; linha no resumo da manhã | `e1dbf6c` | — |
+| 12/11/2026 | Alice e vendas, fase 1 (chaves desligadas): transferência com prazo e alarme de 5 em 5 minutos, tarefa P1 da manhã fora do horário, bloco "Cliente esperando a equipe", resumo da Alice no topo da conversa, encaixe com prazo, aviso "Alice fora do ar" só para o admin, medição | `48fa961` | `20261228530000_alice_vendas` (rodada pelo dono no SQL Editor em 12/11) |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1541,6 +1542,18 @@ de campanha" mostra as saídas de ontem e de hoje com o botão Segurar na lista 
 hoje e o lead deixa de estar guardado); o resumo da manhã diz quantos saíram. A primeira leva (20 na
 Turbine e 6 na Ecoprime) foi aplicada pelo conector no mesmo dia, com o OK do dono; cinco leads
 ficaram seguros a pedido dele. Banco não muda.
+
+Alice e vendas, fase 1 (12/11, `48fa961`): primeira parte do plano das primeiras 48 horas. A
+migração `20261228530000_alice_vendas` (20 colunas de chave e parâmetro em `ia_configuracoes`, todas
+as chaves desligadas; tabelas `alice_autorizacoes`, `alice_transferencias` e `alice_eventos` com RLS e
+trava de somente leitura; tipos novos de push e de desconto) foi rodada pelo dono no SQL Editor em
+12/11 e conferida por leitura. O código entra com `alarme_transferencia` e `aviso_fora_do_ar`
+desligadas: sem a chave nada muda. Com a chave, a Alice diz o prazo ao transferir ("em até 10
+minutos" no horário de atendimento, "logo cedo" fora dele), a equipe recebe push de 5 em 5 minutos
+até responder, a transferência fora do horário vira a primeira tarefa P1 da manhã, e o admin recebe
+push quando a Alice para de responder com cliente esperando (de dia a cada 15 minutos; de noite um
+só e mais um às 7h). O texto do núcleo (encaixe e mensagem da transferência) e as duas chaves da
+Turbine mudam por SQL à parte, com md5 antes e depois, rodado pelo dono.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
