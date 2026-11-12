@@ -53,21 +53,24 @@ type Db = SupabaseClient<Database>;
 /** Mudou o ensaio (roteiro ou textos)? Troque a versão e ele roda de novo, uma vez. */
 export const VERSAO_ENSAIO_VENDAS = "fase2-1";
 export const CHAVE_ENSAIO_VENDAS = "alice_ensaio_vendas";
-/** Foto pública de um sofá (Wikimedia Commons), para o cliente que manda foto. */
-const FOTO_SOFA =
+/** Fotos públicas de sofás (Wikimedia Commons), para o cliente que manda foto. */
+const FOTO_SOFA_CHAISE =
   "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Cozy_living_room_with_a_gray_sofa.jpg/1280px-Cozy_living_room_with_a_gray_sofa.jpg";
+const FOTO_SOFA_COMUM =
+  "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Cozy_living_room_setup_with_a_warm_sofa%2C_coffee_cup%2C_and_an_open_book_in_a_softly_lit_environment.jpg/1280px-Cozy_living_room_setup_with_a_warm_sofa%2C_coffee_cup%2C_and_an_open_book_in_a_softly_lit_environment.jpg";
 /** Conversa marcada "rodando" há mais tempo que isto não terminou (a rodada caiu). */
 const RODANDO_MAX_MS = 20 * 60_000;
 
 type FalaRoteiro = {
   texto: string;
-  foto?: boolean;
+  /** Endereço da foto que o cliente manda junto com o texto. */
+  foto?: string;
   /** Só vai se a Alice ainda não mandou o orçamento / só depois do orçamento. */
   so?: "sem_orcamento" | "com_orcamento";
 };
 
 export const CONVERSAS_ENSAIO: Array<{
-  chave: "apressado" | "combo" | "foto";
+  chave: "apressado" | "combo" | "foto" | "foto2";
   titulo: string;
   nome: string;
   falas: FalaRoteiro[];
@@ -107,7 +110,19 @@ export const CONVERSAS_ENSAIO: Array<{
     titulo: "Cliente que manda foto",
     nome: "Carla",
     falas: [
-      { texto: "Oi, boa tarde! Quanto fica pra limpar esse sofá?", foto: true },
+      { texto: "Oi, boa tarde! Quanto fica pra limpar esse sofá?", foto: FOTO_SOFA_CHAISE },
+      { texto: "04101-000" },
+      { texto: "Só queria saber o valor mesmo", so: "sem_orcamento" },
+      { texto: "Entendi. Tem horário essa semana?", so: "com_orcamento" },
+    ],
+  },
+  {
+    // A primeira foto era de um sofá com chaise (fora da tabela: a Alice transferiu, certo).
+    chave: "foto2",
+    titulo: "Cliente que manda foto (sofá comum)",
+    nome: "Paula",
+    falas: [
+      { texto: "Oi, boa tarde! Quanto fica pra limpar esse sofá?", foto: FOTO_SOFA_COMUM },
       { texto: "04101-000" },
       { texto: "Só queria saber o valor mesmo", so: "sem_orcamento" },
       { texto: "Entendi. Tem horário essa semana?", so: "com_orcamento" },
@@ -207,7 +222,7 @@ export function conferirConversa(
     if (turnos.slice(1).some((t) => PEDE_FOTO.test(texto(t))))
       problemas.push("pediu a foto de novo depois de o cliente dizer que não conseguia");
   }
-  if (chave === "foto") {
+  if (chave === "foto" || chave === "foto2") {
     const t0 = turnos[0];
     if (t0 && temPreco(texto(t0))) problemas.push("passou preço antes do CEP");
     if (t0 && !/\bcep\b/i.test(texto(t0))) problemas.push("não pediu o CEP");
@@ -218,8 +233,8 @@ export function conferirConversa(
 }
 
 // ---------------------------------------------------------------- uma conversa
-async function baixarFoto(): Promise<FalaEnsaio["imagem"]> {
-  const r = await fetch(FOTO_SOFA, { headers: { "User-Agent": "NexaOS-ensaio/1.0" } });
+async function baixarFoto(url: string): Promise<FalaEnsaio["imagem"]> {
+  const r = await fetch(url, { headers: { "User-Agent": "NexaOS-ensaio/1.0" } });
   if (!r.ok) throw new Error(`foto do ensaio não baixou (${r.status})`);
   return { mediaType: "image/jpeg", base64: Buffer.from(await r.arrayBuffer()).toString("base64") };
 }
@@ -432,7 +447,8 @@ export async function rodarConversaEnsaio(
       perguntas: 0,
     } as never,
   };
-  const foto = roteiro.falas.some((f) => f.foto) ? await baixarFoto() : undefined;
+  const urlFoto = roteiro.falas.find((f) => f.foto)?.foto;
+  const foto = urlFoto ? await baixarFoto(urlFoto) : undefined;
   const historico: FalaEnsaio[] = [];
   const turnos: TurnoEnsaio[] = [];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };
@@ -486,7 +502,7 @@ export async function rodarConversaEnsaio(
         foto: Boolean(fala.foto),
         atalho: atalhoAgora,
         travado,
-        alice: r.resposta,
+        alice: r.resposta.filter((t) => t.trim() !== "NADA"),
         retidos: r.retidos,
         ferramentas: r.ferramentas.map((u) => ({
           nome: u.nome,
@@ -583,6 +599,10 @@ export async function rodarEnsaioVendasPendente(
       .maybeSingle();
     let e = (data as { value?: EnsaioVendas } | null)?.value ?? null;
     if (!e || e.versao !== VERSAO_ENSAIO_VENDAS) e = ensaioNovo(cfg);
+    // Conversa nova no roteiro (mesma versão): entra como pendente, sem refazer as já feitas.
+    for (const c of CONVERSAS_ENSAIO)
+      if (!e.conversas.some((x) => x.chave === c.chave))
+        e.conversas.push({ chave: c.chave, titulo: c.titulo, situacao: "pendente", turnos: [] });
     const rodando = e.conversas.find((c) => c.situacao === "rodando");
     if (rodando) {
       if (agora.getTime() - Date.parse(rodando.inicio ?? "") < RODANDO_MAX_MS) continue;
