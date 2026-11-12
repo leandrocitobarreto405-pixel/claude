@@ -120,10 +120,12 @@ export function statusTone(status: string) {
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  // Visita remarcada aparece como "Agendado", igual às outras (12/11).
+  const visto = status === "Reagendado" ? "Agendado" : status;
   return (
-    <Badge className={statusTone(status)}>
+    <Badge className={statusTone(visto)}>
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      {status}
+      {visto}
     </Badge>
   );
 }
@@ -375,16 +377,22 @@ export function VisitDialog({
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              <Select value={visit.status} onValueChange={mudarStatus}>
+              <Select
+                value={visit.status === "Reagendado" ? "Agendado" : visit.status}
+                onValueChange={mudarStatus}
+              >
                 <SelectTrigger className="w-[190px]">
                   <SelectValue placeholder="Status da visita" />
                 </SelectTrigger>
                 <SelectContent>
-                  {VISIT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
+                  {/* "Reagendado" não é mais escolhido à mão; o com deslocamento só aparece se já for o status. */}
+                  {VISIT_STATUSES.filter((s) => !s.startsWith("Reagendado") || s === visit.status)
+                    .filter((s) => s !== "Reagendado")
+                    .map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Button variant="secondary" onClick={() => mudarStatus("Em execução")}>
