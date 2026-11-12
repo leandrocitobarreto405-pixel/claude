@@ -20,6 +20,7 @@ import type { SemanaEquipe } from "@/lib/comercial/equipe";
 import type { AcaoFeita } from "@/lib/comercial/acoes.server";
 export type { AcaoFeita } from "@/lib/comercial/acoes.server";
 import { requireRecurso } from "@/lib/recurso.middleware";
+import { lerMarcaVencida } from "@/lib/visita-vencida";
 import {
   JANELA_DIAS,
   resumoDasClasses,
@@ -80,6 +81,8 @@ export type TarefaHoje = {
   leadSiteId: string | null;
   /** Numeração do toque da sequência ("Follow-up 3 de 5 · Maria", "Voltar na conversa · Maria"). */
   rotulo: string | null;
+  /** Visita que passou da data e segue em aberto: a tarefa pergunta "foi feita?" (12/11). */
+  visitaVencida: { visitaId: string; dia: string } | null;
 };
 
 export type TarefaAlice = {
@@ -137,6 +140,7 @@ async function tarefasLeadSite(db: Db, emp: string, hoje: string): Promise<Taref
       adiamentos: 0,
       telefone: l.telefone,
       leadSiteId: l.id,
+      visitaVencida: null,
       rotulo: null,
     };
   });
@@ -215,7 +219,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
     let qTarefas = db
       .from("crm_followups")
       .select(
-        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to, tarefa_tipo, adiamentos, etapa",
+        "id, crm_lead_id, conversa_id, scheduled_at, prioridade, motivo, mensagem, assigned_to, tarefa_tipo, adiamentos, etapa, notes",
       )
       .eq("empresa_id", emp)
       .eq("origem", "gerente")
@@ -266,6 +270,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       mensagem: string | null;
       assigned_to: string | null;
       tarefa_tipo: string | null;
+      notes?: string | null;
       adiamentos: number | null;
       etapa: string | null;
     }>;
@@ -423,6 +428,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
             ETAPAS_EQUIPE.has(t.etapa ?? "") || ["VC", "RT", "EN"].includes(t.etapa ?? "")
               ? rotuloDoToque(t.etapa, { atendente })
               : null,
+          visitaVencida: lerMarcaVencida(t.notes),
         }))
         .concat(await tarefasLeadSite(db, emp, hoje)),
       alice: alice.map((a) => ({

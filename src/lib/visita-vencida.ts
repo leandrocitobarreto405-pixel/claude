@@ -1,15 +1,16 @@
 /**
- * Visita vencida (11/11, pedido do dono): atendimento que passou da data sem ser concluído nem
- * remarcado vira, sozinho, tarefa P1 "remarcar" da equipe, com a mensagem pronta (texto fixo, sem
- * IA). Regras puras, sem banco. Nada aqui manda mensagem para cliente.
+ * Visita vencida (11/11, ajustada em 12/11 a pedido do dono): atendimento que passou da data e
+ * continua em aberto vira, sozinho, tarefa P1 da equipe que PERGUNTA se a visita foi feita, com
+ * dois caminhos: "Concluir" (conclui a visita) e "Remarcar" (mensagem pronta com os próximos
+ * horários livres, texto fixo, sem IA). Regras puras, sem banco. Nada aqui manda mensagem para
+ * cliente.
  *
- * Não entra: atendimento de retirada de persiana/tapete (fica aberto até a entrega) e OS cancelada,
- * concluída, excluída ou de teste.
+ * Vira tarefa a visita dos últimos 7 dias. As mais antigas ficam só na lista de Serviços › Para
+ * concluir, para a equipe concluir ou cancelar com um toque. Não entra: atendimento de retirada de
+ * persiana/tapete (fica aberto até a entrega) e OS cancelada, concluída, excluída ou de teste.
  */
 
-/** A regra vale para visitas marcadas a partir deste dia (o que venceu antes fica com o dono). */
-export const VALE_DESDE = "2026-11-12";
-/** Só olha para trás esta quantidade de dias. */
+/** Só vira tarefa a visita vencida há até esta quantidade de dias; antes disso é "antiga". */
 export const JANELA_DIAS = 7;
 
 /** Situações em que a visita ainda está "em aberto" no app. */
@@ -41,10 +42,14 @@ export function somarDias(data: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Primeiro dia que a regra olha: o maior entre o começo da regra e a janela. */
+/** Primeiro dia que a regra olha. */
 export function desdeQuando(hoje: string): string {
-  const janela = somarDias(hoje, -JANELA_DIAS);
-  return janela > VALE_DESDE ? janela : VALE_DESDE;
+  return somarDias(hoje, -JANELA_DIAS);
+}
+
+/** Visita em aberto há mais de 7 dias: não vira tarefa, fica na lista para concluir ou cancelar. */
+export function visitaAntiga(scheduledDate: string, hoje: string): boolean {
+  return scheduledDate < desdeQuando(hoje);
 }
 
 // "Parcialmente concluída" continua valendo: ainda falta atendimento.
@@ -103,20 +108,38 @@ export function motivoParaFechar(
 
 const dataCurta = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
-/** Texto da tarefa e da mensagem pronta. `horarios`: dois horários livres reais, quando há. */
+/** Últimos 4 dígitos do telefone ("" quando não há). */
+export function finalDoTelefone(telefone: string | null | undefined): string {
+  const d = (telefone ?? "").replace(/\D/g, "");
+  return d.length >= 4 ? d.slice(-4) : "";
+}
+
+/**
+ * Texto da tarefa: a pergunta ("A visita de ontem (OS nº 1719, cliente final 8473) foi feita?") e
+ * a mensagem pronta do caminho "Remarcar". `horarios`: dois horários livres reais, quando há.
+ */
 export function textoVisitaVencida(o: {
   nome: string;
   osNumero: string | null;
+  /** Final do telefone do cliente (4 dígitos) ou "". */
+  final: string;
   dia: string;
+  hoje: string;
   horarios: [string, string] | null;
 }): { motivo: string; mensagem: string } {
   const n = o.nome ? `, ${o.nome}` : "";
-  const os = o.osNumero ? ` (OS ${o.osNumero})` : "";
+  const quando = o.dia === somarDias(o.hoje, -1) ? "ontem" : dataCurta(o.dia);
+  const detalhes = [
+    o.osNumero ? `OS nº ${o.osNumero}` : null,
+    o.final ? `cliente final ${o.final}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
   const oferta = o.horarios
     ? `Tenho ${o.horarios[0]} ou ${o.horarios[1]}. Qual fica melhor? Se preferir outro dia, me diz o período (manhã ou tarde) que eu vejo os horários.`
     : "Qual o melhor dia e período (manhã ou tarde) pra você? Eu já vejo os horários livres.";
   return {
-    motivo: `URGENTE: a visita de ${dataCurta(o.dia)}${os} passou da data sem conclusão nem nova data: remarcar. Se o serviço foi feito, conclua a OS no app.`,
+    motivo: `A visita de ${quando}${detalhes ? ` (${detalhes})` : ""} foi feita?`,
     mensagem: `Oi${n}! Tudo bem? A sua visita do dia ${dataCurta(o.dia)} ficou pendente e quero remarcar com você. ${oferta}`,
   };
 }

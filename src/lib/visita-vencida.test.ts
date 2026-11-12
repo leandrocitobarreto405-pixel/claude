@@ -2,13 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   desdeQuando,
+  finalDoTelefone,
   jaTemTarefa,
   lerMarcaVencida,
   marcaVencida,
   motivoParaFechar,
   textoVisitaVencida,
+  visitaAntiga,
   visitaVencida,
-  VALE_DESDE,
 } from "./visita-vencida";
 
 const os = { status: "Agendada", deleted_at: null, eh_teste: false };
@@ -29,7 +30,7 @@ test("visita vencida: passou da data e segue em aberto (inclui Confirmado)", () 
   assert.equal(visitaVencida(v("Agendado", "2026-11-17"), os, hoje), false);
 });
 
-test("visita vencida: não entra retirada, OS que não vale, antes do começo da regra nem fora da janela", () => {
+test("visita vencida: não entra retirada, OS que não vale nem fora da janela de 7 dias", () => {
   const hoje = "2026-11-16";
   assert.equal(visitaVencida(v("Agendado", "2026-11-14", "tapete"), os, hoje), false);
   assert.equal(visitaVencida(v("Agendado", "2026-11-14"), null, hoje), false);
@@ -44,13 +45,12 @@ test("visita vencida: não entra retirada, OS que não vale, antes do começo da
     visitaVencida(v("Agendado", "2026-11-14"), { ...os, status: "Parcialmente concluída" }, hoje),
     true,
   );
-  // Antes do começo da regra.
-  assert.equal(visitaVencida(v("Confirmado", "2026-11-09"), os, hoje), false);
-  assert.equal(desdeQuando(hoje), VALE_DESDE);
-  // Fora da janela de 7 dias.
-  assert.equal(desdeQuando("2026-12-10"), "2026-12-03");
-  assert.equal(visitaVencida(v("Agendado", "2026-12-02"), os, "2026-12-10"), false);
-  assert.equal(visitaVencida(v("Agendado", "2026-12-03"), os, "2026-12-10"), true);
+  // Janela de 7 dias: 09/11 entra, 08/11 é antiga (fica só na lista de Serviços).
+  assert.equal(desdeQuando(hoje), "2026-11-09");
+  assert.equal(visitaVencida(v("Confirmado", "2026-11-09"), os, hoje), true);
+  assert.equal(visitaVencida(v("Agendado", "2026-11-08"), os, hoje), false);
+  assert.equal(visitaAntiga("2026-11-08", hoje), true);
+  assert.equal(visitaAntiga("2026-11-09", hoje), false);
 });
 
 test("marca da tarefa: escreve e lê", () => {
@@ -92,19 +92,27 @@ test("fechar sozinha: concluída, cancelada, remarcada ou OS que deixou de valer
   );
 });
 
-test("texto: com dois horários reais e sem agenda cadastrada", () => {
+test("texto: pergunta se foi feita (ontem ou a data) e a mensagem do Remarcar", () => {
   const a = textoVisitaVencida({
     nome: "Paula",
     osNumero: "1719",
+    final: finalDoTelefone("+55 (11) 90000-8473"),
     dia: "2026-11-14",
+    hoje: "2026-11-15",
     horarios: ["quarta (18/11) às 14h", "sábado (21/11) às 9h"],
   });
-  assert.match(a.motivo, /^URGENTE: a visita de 14\/11 \(OS 1719\) passou da data/);
-  assert.match(a.motivo, /conclua a OS no app/);
+  assert.equal(a.motivo, "A visita de ontem (OS nº 1719, cliente final 8473) foi feita?");
   assert.match(a.mensagem, /^Oi, Paula! /);
   assert.match(a.mensagem, /Tenho quarta \(18\/11\) às 14h ou sábado \(21\/11\) às 9h\./);
-  const b = textoVisitaVencida({ nome: "", osNumero: null, dia: "2026-11-14", horarios: null });
-  assert.match(b.motivo, /^URGENTE: a visita de 14\/11 passou da data/);
+  const b = textoVisitaVencida({
+    nome: "",
+    osNumero: null,
+    final: finalDoTelefone(null),
+    dia: "2026-11-12",
+    hoje: "2026-11-15",
+    horarios: null,
+  });
+  assert.equal(b.motivo, "A visita de 12/11 foi feita?");
   assert.match(b.mensagem, /^Oi! /);
   assert.match(b.mensagem, /Qual o melhor dia e período/);
   assert.ok(!b.mensagem.includes("—"));

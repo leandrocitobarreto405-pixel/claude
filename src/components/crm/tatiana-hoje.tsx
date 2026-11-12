@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Archive,
   Bot,
+  CalendarClock,
   Check,
   Copy,
   GraduationCap,
@@ -30,6 +31,8 @@ import {
 } from "@/lib/tatiana.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { completeVisit } from "@/lib/os";
+import { concluirVisitaSemPagamento } from "@/lib/visita-acoes";
+import { useSession } from "@/lib/session";
 import { todayISO } from "@/lib/format";
 import { textoSemanaEquipe } from "@/lib/comercial/equipe";
 import { decidirFeriadoFn } from "@/lib/feriados.functions";
@@ -262,6 +265,28 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
   const [pulando, setPulando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // Visita que passou da data (12/11): a tarefa pergunta "foi feita?" com Concluir e Remarcar.
+  const vencida = t.visitaVencida;
+  const [caminho, setCaminho] = useState<"pergunta" | "concluir" | "remarcar">("pergunta");
+  const mostrarCorpo = !vencida || caminho === "remarcar";
+  const { user } = useSession();
+  const concluirVisita = async () => {
+    setSalvando(true);
+    try {
+      const r = await concluirVisitaSemPagamento({
+        visitId: vencida!.visitaId,
+        userId: user?.id ?? null,
+        nota: `Conclusão confirmada pela equipe na tarefa de visita vencida da ${NOME_GERENTE}.`,
+      });
+      await feito({ data: { id: t.id } });
+      toast.success(`Visita concluída (R$ ${r.valor.toLocaleString("pt-BR")}) 💙`);
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
+    } finally {
+      setSalvando(false);
+    }
+  };
   const agir = async (f: () => Promise<unknown>, msg: string) => {
     setSalvando(true);
     try {
@@ -294,7 +319,9 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
         ) : null}
         <span className="ml-auto flex flex-wrap gap-1">
           {t.rotulo ? <Chip tom="sucesso">{t.rotulo}</Chip> : null}
-          {t.tipo !== "mensagem" ? (
+          {vencida ? (
+            <Chip tom="problema">Visita em aberto</Chip>
+          ) : t.tipo !== "mensagem" ? (
             <Chip tom={t.tipo === "follow_up_esquecido" ? "problema" : "sucesso"}>
               {t.tipo === "ligar" ? <Phone aria-hidden className="size-3.5" /> : null}
               {ROTULO_TAREFA[t.tipo]}
@@ -328,13 +355,50 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
       {admin && t.responsavelNome ? (
         <p className="text-xs text-muted-foreground">Para {t.responsavelNome.split(" ")[0]}</p>
       ) : null}
-      {t.motivo ? (
+      {vencida && t.motivo ? (
+        <p className="text-[15px] font-semibold">{t.motivo}</p>
+      ) : t.motivo ? (
         <p className="text-sm">
           <span className="font-semibold">Por quê: </span>
           {t.motivo}
         </p>
       ) : null}
-      {t.mensagem ? (
+      {vencida && caminho === "pergunta" ? (
+        <div className="flex flex-wrap gap-2">
+          <Botao disabled={salvando} onClick={() => setCaminho("concluir")}>
+            <Check aria-hidden /> Concluir
+          </Botao>
+          <Botao variante="contorno" disabled={salvando} onClick={() => setCaminho("remarcar")}>
+            <CalendarClock aria-hidden /> Remarcar
+          </Botao>
+        </div>
+      ) : null}
+      {vencida && caminho === "concluir" ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs">
+            Concluir a visita com o valor combinado, sem lançar pagamento? O pagamento pode ser
+            lançado depois na OS.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Botao disabled={salvando} onClick={() => void concluirVisita()}>
+              Confirmar conclusão
+            </Botao>
+            <Botao variante="neutro" onClick={() => setCaminho("pergunta")}>
+              Voltar
+            </Botao>
+          </div>
+        </div>
+      ) : null}
+      {vencida && caminho === "remarcar" ? (
+        <button
+          type="button"
+          onClick={() => setCaminho("pergunta")}
+          className="self-start text-xs font-semibold underline underline-offset-2"
+        >
+          Voltar à pergunta
+        </button>
+      ) : null}
+      {mostrarCorpo && t.mensagem ? (
         <div className="flex flex-col gap-1">
           {t.tipo === "ligar" ? (
             <span className="text-xs font-semibold">O que dizer na ligação</span>
@@ -344,12 +408,12 @@ function CartaoTarefa({ t, ordem, admin }: { t: TarefaHoje; ordem: number; admin
           </p>
         </div>
       ) : null}
-      {!t.dentroDaJanela && t.conversaId ? (
+      {mostrarCorpo && !t.dentroDaJanela && t.conversaId ? (
         <p className="text-xs text-atencao-foreground">
           Fora da janela de 24 h do WhatsApp: copie a mensagem ou use um modelo aprovado.
         </p>
       ) : null}
-      {pulando ? (
+      {!mostrarCorpo ? null : pulando ? (
         <div className="flex flex-col gap-2">
           <label htmlFor={`pular-${t.id}`} className="text-xs font-semibold">
             Motivo (opcional)

@@ -1,5 +1,6 @@
 import {
   desdeQuando,
+  finalDoTelefone,
   jaTemTarefa,
   lerMarcaVencida,
   marcaVencida,
@@ -12,8 +13,8 @@ import {
 } from "@/lib/visita-vencida";
 
 /**
- * Visita vencida vira tarefa P1 "remarcar" (11/11, pedido do dono). Roda na varredura do servidor,
- * a partir das 8h, em todas as empresas e sem depender da Tatiana estar ligada nem do teto dela.
+ * Visita vencida vira tarefa P1 que pergunta "foi feita?" (11/11; formato de 12/11). Roda na
+ * varredura do servidor, a partir das 8h, em todas as empresas e sem depender da Tatiana nem do teto.
  * Uma tarefa por visita e data: a marca [vencida:<visita>:<dia>] nas notas evita repetir. A tarefa
  * fecha sozinha quando a visita é concluída, cancelada ou remarcada. Nada vai ao cliente por aqui.
  */
@@ -94,7 +95,7 @@ export async function rodarVisitasVencidas(
     const osNumero = v.work_order?.os_number == null ? null : String(v.work_order.os_number);
     const { data: lead } = await db
       .from("crm_leads")
-      .select("id")
+      .select("id, normalized_phone")
       .eq("empresa_id", v.empresa_id)
       .eq("linked_work_order_id", v.work_order_id)
       .order("created_at", { ascending: false })
@@ -116,7 +117,9 @@ export async function rodarVisitasVencidas(
     const t = textoVisitaVencida({
       nome: primeiroNome(v.work_order?.customer?.full_name),
       osNumero,
+      final: finalDoTelefone((lead as { normalized_phone?: string | null }).normalized_phone),
       dia: v.scheduled_date,
+      hoje: agora.data,
       horarios: await horarios(v.empresa_id),
     });
     const { error: erro } = await db.from("crm_followups").insert({
@@ -134,7 +137,7 @@ export async function rodarVisitasVencidas(
       tarefa_tipo: "remarcar",
       motivo: t.motivo.slice(0, 300),
       mensagem: t.mensagem.slice(0, 1000),
-      notes: `Tatiana: visita vencida sem conclusão nem nova data ${marca}`.slice(0, 500),
+      notes: `Tatiana: visita passou da data e segue em aberto ${marca}`.slice(0, 500),
     });
     if (erro) {
       console.error("Visita vencida: falha ao criar a tarefa", v.id, erro.message);
