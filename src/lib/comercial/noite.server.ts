@@ -43,20 +43,18 @@ import {
   type FichaDoResumo,
 } from "./resumo-dia";
 import {
-  RESULTADO_CAMPANHA,
   RESULTADO_MUDOU,
-  SAIDA_PARA_CAMPANHA_LIGADA,
   ehTarefaDeVenda,
   linhaDasNaoFeitas,
   notasDaQueVoltou,
   resumoComNaoFeitas,
   MARCA_VESPERA,
   blocoDaVespera,
-  saiParaCampanha,
   tarefaDaVespera,
   type RelatorioDosPulados,
 } from "./sem-novidade";
 import type { LeadDaNoite } from "./sem-novidade.server";
+import { linhaDasSaidas } from "./campanha-saida";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { dataCurta, diaSemanaDe } from "@/lib/feriados";
 import { avaliarVirarOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
@@ -2053,8 +2051,9 @@ const FOLGA_DA_TAREFA_MS = 3 * 3_600_000;
 /**
  * Tarefa da Tatiana sem Feito/Pular até a noite: continua na lista, a mesma, e volta amanhã como
  * "pendente de ontem" com o contador e prioridade maior; no 2º dia, acerto "tarefa atrasada" só na
- * aba do admin. Tarefa de venda há 7 dias na lista sem resposta do cliente sai e o lead fica
- * guardado para campanha (12/11). Regra sobre a lista: não usa IA.
+ * aba do admin. Lead com mais de 7 dias sem resposta do cliente (contados da última mensagem dele ou
+ * do orçamento) sai das tarefas de venda e fica guardado para campanha, com as exceções da regra
+ * (12/11; desligado até o OK do dono). Regra sobre a lista: não usa IA.
  */
 async function tarefasNaoFeitas(
   db: Db,
@@ -2076,6 +2075,7 @@ async function tarefasNaoFeitas(
     .lt("scheduled_at", new Date(agora.getTime() - FOLGA_DA_TAREFA_MS).toISOString())
     .limit(500);
   const saida = { adiadas: 0, atrasadas: 0, paraCampanha: 0 };
+  const { mandarParaCampanha } = await import("./campanha-saida.server");
   for (const t of (vencidas ?? []) as Array<{
     id: string;
     crm_lead_id: string;
@@ -2088,7 +2088,7 @@ async function tarefasNaoFeitas(
     tarefa_tipo: string | null;
     created_at: string;
   }>) {
-    if (await mandarParaCampanha(db, emp, t, hoje)) {
+    if (await mandarParaCampanha(db, emp, t, agora).catch(() => false)) {
       saida.paraCampanha++;
       continue;
     }
@@ -2122,58 +2122,6 @@ async function tarefasNaoFeitas(
     }
   }
   return saida;
-}
-
-/**
- * Tarefa de venda há 7 dias na lista sem resposta do cliente: sai da lista e o lead fica guardado
- * para campanha (volta para a leitura quando o cliente mandar mensagem).
- */
-async function mandarParaCampanha(
-  db: Db,
-  emp: string,
-  t: { id: string; crm_lead_id: string; tarefa_tipo: string | null; created_at: string },
-  hoje: string,
-): Promise<boolean> {
-  if (!SAIDA_PARA_CAMPANHA_LIGADA) return false;
-  if (
-    !saiParaCampanha({ tipo: t.tarefa_tipo, criadaEm: t.created_at, ultimaDoCliente: null, hoje })
-  )
-    return false;
-  const { data: ultima } = await db
-    .from("whatsapp_messages")
-    .select("message_timestamp")
-    .eq("empresa_id", emp)
-    .eq("crm_lead_id", t.crm_lead_id)
-    .eq("direction", "Recebida")
-    .eq("privada", false)
-    .order("message_timestamp", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const ultimaDoCliente =
-    (ultima as { message_timestamp?: string } | null)?.message_timestamp ?? null;
-  if (!saiParaCampanha({ tipo: t.tarefa_tipo, criadaEm: t.created_at, ultimaDoCliente, hoje }))
-    return false;
-  const { data: ficha } = await db
-    .from("comercial_analises")
-    .select("id, etiquetas")
-    .eq("empresa_id", emp)
-    .eq("crm_lead_id", t.crm_lead_id)
-    .maybeSingle();
-  const f = ficha as { id: string; etiquetas: Record<string, unknown> | null } | null;
-  // Sem ficha não há onde guardar o lead: a tarefa continua na lista.
-  if (!f) return false;
-  const agora = new Date().toISOString();
-  const { error } = await db
-    .from("comercial_analises")
-    .update({ etiquetas: { ...(f.etiquetas ?? {}), guardado_em: agora } })
-    .eq("id", f.id);
-  if (error) return false;
-  const { error: erro } = await db
-    .from("crm_followups")
-    .update({ status: "Cancelada", completed_at: agora, result: RESULTADO_CAMPANHA })
-    .eq("id", t.id)
-    .eq("status", "Pendente");
-  return !erro;
 }
 
 /** Tarefas da Tatiana para a equipe que estão na lista (pendentes): total, até um dia e as que voltaram. */
@@ -2318,6 +2266,11 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     for (const l of (ls ?? []) as Array<{ id: string; lead_name: string | null }>)
       nomeDoLead.set(l.id, primeiroNomeLimpo(l.lead_name) ?? "");
   }
+  // Quantos leads saíram para a lista de campanha nesta noite (regra da lista, antes do recado).
+  const saidasParaCampanha = Number(
+    (ctx.noite.resumo as { naoFeitas?: { paraCampanha?: number } } | null)?.naoFeitas
+      ?.paraCampanha ?? 0,
+  );
   const cobrancaDasNaoFeitas = (minhas: typeof ts) =>
     linhaDasNaoFeitas(
       minhas
@@ -2432,7 +2385,10 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     } catch {
       // Fica a frase de reserva.
     }
-    const resumo = resumoComNaoFeitas(cobrancaDasNaoFeitas(minhas), recado.resumo);
+    const resumo = resumoComNaoFeitas(
+      [cobrancaDasNaoFeitas(minhas), linhaDasSaidas(saidasParaCampanha)],
+      recado.resumo,
+    );
     for (const p of g.para)
       await db
         .from("comercial_recados")

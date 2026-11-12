@@ -157,6 +157,8 @@ export type HojeTatiana = {
   /** Equipe única: lista e recado da equipe, sem separar por pessoa. */
   equipeUnica: boolean;
   recado: { frase: string; resumo: string | null } | null;
+  /** Leads que saíram para a lista de campanha desde ontem à noite (a equipe pode segurar). */
+  saidas: import("@/lib/comercial/campanha-saida.server").SaidaRecente[];
   /** Números da semana da equipe toda (nunca por pessoa). */
   semana: SemanaEquipe | null;
   tarefas: TarefaHoje[];
@@ -205,6 +207,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       feriados: [],
       equipeUnica,
       recado: null,
+      saidas: [],
       semana: null,
       tarefas: [],
       alice: [],
@@ -401,6 +404,15 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       feriados,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
+      // Saídas para a campanha da última noite (desde as 18h de ontem), para a equipe segurar.
+      saidas: await (async () => {
+        const { saidasRecentes } = await import("@/lib/comercial/campanha-saida.server");
+        return saidasRecentes(
+          adm,
+          emp,
+          new Date(Date.parse(`${hoje}T18:00:00-03:00`) - 86_400_000).toISOString(),
+        );
+      })().catch(() => []),
       semana,
       tarefas: ts
         .map((t): TarefaHoje => ({
@@ -572,6 +584,23 @@ export const pularTarefaFn = createServerFn({ method: "POST" })
       .eq("origem", "gerente")
       .eq("status", "Pendente");
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** A equipe segura na lista um lead que saiu para a campanha (a tarefa volta para hoje). */
+export const segurarNaListaFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((d: { id: string }) => ({ id: uuid(d.id, "Tarefa") }))
+  .handler(async ({ context, data }) => {
+    // A ficha da Tatiana só o admin altera pelo app: aqui vai pelo servidor, sempre na empresa.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { segurarNaLista } = await import("@/lib/comercial/campanha-saida.server");
+    const ok = await segurarNaLista(
+      supabaseAdmin as unknown as Db,
+      context.empresaId as string,
+      data.id,
+    );
+    if (!ok) throw new Error("Não foi possível segurar: a tarefa já voltou ou não saiu da lista.");
     return { ok: true };
   });
 

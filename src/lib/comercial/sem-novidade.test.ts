@@ -3,14 +3,11 @@ import assert from "node:assert/strict";
 import {
   MARCA_VESPERA,
   blocoDaVespera,
-  diasNaLista,
-  ehTarefaDeVenda,
   escolherExemplos,
   lerOuPular,
   linhaDasNaoFeitas,
   notasDaQueVoltou,
   resumoComNaoFeitas,
-  saiParaCampanha,
   seloDaQueVoltou,
   tarefaDaVespera,
   type ExemploPulado,
@@ -173,23 +170,6 @@ test("exemplos da noite: até 5, primeiro quem tem tarefa na lista", () => {
   assert.deepEqual(escolherExemplos([]), []);
 });
 
-test("7 dias na lista sem resposta: só tarefa de venda vai para a campanha", () => {
-  const hoje = "2026-11-12";
-  assert.equal(diasNaLista("2026-11-06T00:40:00Z", hoje), 7); // criada na noite de 05/11
-  assert.equal(diasNaLista("2026-11-07T00:40:00Z", hoje), 6);
-  const t = (tipo: string | null, criadaEm: string, ultimaDoCliente: string | null = null) =>
-    saiParaCampanha({ tipo, criadaEm, ultimaDoCliente, hoje });
-  assert.equal(t("mensagem", "2026-11-06T00:40:00Z"), true);
-  assert.equal(t(null, "2026-11-06T00:40:00Z"), true);
-  assert.equal(t("ligar", "2026-11-01T12:00:00Z", "2026-10-30T12:00:00Z"), true);
-  assert.equal(t("mensagem", "2026-11-07T00:40:00Z"), false);
-  // O cliente respondeu depois que a tarefa nasceu: não é "sem resposta".
-  assert.equal(t("mensagem", "2026-11-06T00:40:00Z", "2026-11-08T12:00:00Z"), false);
-  for (const tipo of ["pos_venda", "remarcar"])
-    assert.equal(t(tipo, "2026-11-01T00:40:00Z"), false, tipo);
-  assert.equal(ehTarefaDeVenda("follow_up_esquecido"), true);
-});
-
 test("tarefa que voltou: notas com um prefixo só e selo com o contador", () => {
   assert.equal(
     notasDaQueVoltou("Tatiana: chamar", 1),
@@ -232,6 +212,9 @@ test("cobrança das não feitas: quem ficou e há quantos dias, pedindo o motivo
   assert.equal(junto.length, 600);
   assert.ok(junto.startsWith(linha));
   assert.equal(resumoComNaoFeitas(null, "Meta do mês em dia."), "Meta do mês em dia.");
+  // Duas linhas da lista (não feitas e saídas para a campanha) antes do resumo.
+  assert.equal(resumoComNaoFeitas(["A.", null, "B."], "Resumo."), "A. B. Resumo.");
+  assert.equal(resumoComNaoFeitas([null, null], "Resumo."), "Resumo.");
   assert.ok(!linha.includes("—"));
 });
 
