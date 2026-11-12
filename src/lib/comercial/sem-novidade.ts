@@ -168,45 +168,7 @@ export function escolherExemplos(pulados: ExemploPulado[]): ExemploPulado[] {
 
 // ---------------------------------------------------------------- a lista de tarefas
 
-/** Tipos de tarefa de venda (as outras, pós-venda e remarcar, têm regra própria). */
-export const TAREFAS_DE_VENDA = ["mensagem", "ligar", "follow_up_esquecido"] as const;
-export const ehTarefaDeVenda = (tipo: string | null | undefined) =>
-  (TAREFAS_DE_VENDA as readonly string[]).includes(tipo ?? "mensagem");
-
-/**
- * Saída automática para a campanha: DESLIGADA (12/11). O dono pediu para trocar a contagem (7 dias
- * da última mensagem do cliente ou do orçamento, com exceções) e ver a lista antes de aplicar; até
- * o OK dele, nenhuma tarefa sai da lista sozinha por tempo.
- */
-export const SAIDA_PARA_CAMPANHA_LIGADA = false;
-
-/** Dias que a tarefa de venda fica na lista sem resposta do cliente antes de ir para a campanha. */
-export const DIAS_NA_LISTA = 7;
-
-const diaSP = (iso: string) =>
-  new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-
-/** Dias corridos (calendário de São Paulo) entre a criação da tarefa e hoje. */
-export function diasNaLista(criadaEm: string, hoje: string): number {
-  const a = Date.parse(`${diaSP(criadaEm)}T12:00:00Z`);
-  const b = Date.parse(`${hoje}T12:00:00Z`);
-  return Number.isNaN(a) || Number.isNaN(b) ? 0 : Math.round((b - a) / 86_400_000);
-}
-
-/**
- * A tarefa sai da lista e o lead vai para a campanha? Só tarefa de venda, há 7 dias ou mais na
- * lista, sem nenhuma resposta do cliente desde que foi criada.
- */
-export function saiParaCampanha(t: {
-  tipo: string | null;
-  criadaEm: string;
-  ultimaDoCliente: string | null;
-  hoje: string;
-}): boolean {
-  if (!ehTarefaDeVenda(t.tipo)) return false;
-  if (diasNaLista(t.criadaEm, t.hoje) < DIAS_NA_LISTA) return false;
-  return !depois(t.ultimaDoCliente, ms(t.criadaEm));
-}
+export { ehTarefaDeVenda, TAREFAS_DE_VENDA } from "./campanha-saida";
 
 /**
  * Mensagem só no dia: a tarefa marcada para depois de amanhã nasce com o rascunho da mensagem e
@@ -241,8 +203,6 @@ export function blocoDaVespera(t: { scheduled_at: string; motivo: string | null 
   ].join("\n");
 }
 
-export const RESULTADO_CAMPANHA =
-  "saiu da lista: mais de 7 dias sem resposta do cliente (lead guardado para campanha)";
 export const RESULTADO_MUDOU = "saiu da lista: a situação mudou";
 
 const PREFIXO_ONTEM = /^(Pendente de ontem \(\d+ª vez\)\.\s*)+/;
@@ -281,8 +241,16 @@ export function linhaDasNaoFeitas(tarefas: Array<{ nome: string; dias: number }>
   );
 }
 
-/** Junta a cobrança das não feitas com o resumo do recado, sem passar do limite do banco. */
-export function resumoComNaoFeitas(linha: string | null, resumo: string, limite = 600): string {
+/**
+ * Junta as linhas da lista (cobrança das não feitas, saídas para a campanha) com o resumo do
+ * recado, sem passar do limite do banco. As linhas da lista vêm primeiro.
+ */
+export function resumoComNaoFeitas(
+  linhas: string | null | Array<string | null>,
+  resumo: string,
+  limite = 600,
+): string {
+  const linha = (Array.isArray(linhas) ? linhas : [linhas]).filter(Boolean).join(" ") || null;
   if (!linha) return resumo.slice(0, limite);
   if (linha.length >= limite) return linha.slice(0, limite);
   const sobra = limite - linha.length - 1;

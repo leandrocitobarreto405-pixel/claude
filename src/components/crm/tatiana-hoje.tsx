@@ -23,6 +23,7 @@ import {
   desfazerAcaoFn,
   hojeTatianaFn,
   pularTarefaFn,
+  segurarNaListaFn,
   resolverAcertoFn,
   type AcaoFeita,
   type Acerto,
@@ -117,6 +118,7 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
             Em teste: as tarefas são sugestões da {NOME_GERENTE}; você decide o que fazer.
           </p>
         ) : null}
+        {d.saidas.length ? <SaidasParaCampanha saidas={d.saidas} /> : null}
         {acertos.length ? <AcertosNoApp acertos={acertos} admin={d.admin} /> : null}
         {d.feitas.length ? <FeitoPelaTatiana feitas={d.feitas} modo={d.modo} /> : null}
       </Card>
@@ -540,6 +542,60 @@ function AcertosNoApp({ acertos, admin }: { acertos: Acerto[]; admin: boolean })
 }
 
 /** O que a Tatiana fez sozinha no app (modo ativo) ou faria (teste), com Desfazer em cada item. */
+/** Leads que saíram das tarefas para a lista de campanha; a equipe pode segurar algum na lista. */
+function SaidasParaCampanha({ saidas }: { saidas: HojeTatiana["saidas"] }) {
+  const qc = useQueryClient();
+  const segurar = useServerFn(segurarNaListaFn);
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const aoSegurar = async (id: string) => {
+    setSalvando(id);
+    try {
+      await segurar({ data: { id } });
+      toast.success("Segurado: a tarefa voltou para a lista de hoje.");
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível segurar.");
+    } finally {
+      setSalvando(null);
+    }
+  };
+  return (
+    <div className="mt-1 flex min-w-0 flex-col gap-2 border-t border-marca/20 pt-2">
+      <p className="text-sm font-bold">Saíram para a lista de campanha ({saidas.length})</p>
+      <p className="text-xs text-muted-foreground">
+        Mais de 7 dias sem resposta do cliente: saíram das tarefas e ficam para a campanha. Nada foi
+        enviado. Se algum ainda vale insistir, segure na lista e a tarefa volta para hoje.
+      </p>
+      <ul className="flex min-w-0 flex-col gap-2">
+        {saidas.map((s) => (
+          <li key={s.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <Link
+              to="/crm/lead/$leadId"
+              params={{ leadId: s.leadId }}
+              className="min-w-0 text-sm font-semibold underline-offset-2 hover:underline"
+            >
+              {s.leadNome}
+            </Link>
+            {s.telefoneFinal ? (
+              <span className="text-xs text-muted-foreground">final {s.telefoneFinal}</span>
+            ) : null}
+            {s.dias ? <Chip tom="neutro">{s.dias} dias sem resposta</Chip> : null}
+            <span className="ml-auto">
+              <Botao
+                variante="neutro"
+                disabled={salvando !== null}
+                onClick={() => void aoSegurar(s.id)}
+              >
+                Segurar na lista
+              </Botao>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FeitoPelaTatiana({ feitas, modo }: { feitas: AcaoFeita[]; modo: HojeTatiana["modo"] }) {
   const feitasMesmo = feitas.filter((f) => f.situacao !== "faria");
   const faria = feitas.filter((f) => f.situacao === "faria");
