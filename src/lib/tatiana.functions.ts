@@ -404,13 +404,13 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       feriados,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
-      // Saídas para a campanha da última noite (desde as 18h de ontem), para a equipe segurar.
+      // Saídas para a campanha de ontem e de hoje, para a equipe poder segurar algum.
       saidas: await (async () => {
         const { saidasRecentes } = await import("@/lib/comercial/campanha-saida.server");
         return saidasRecentes(
           adm,
           emp,
-          new Date(Date.parse(`${hoje}T18:00:00-03:00`) - 86_400_000).toISOString(),
+          new Date(Date.parse(`${hoje}T00:00:00-03:00`) - 86_400_000).toISOString(),
         );
       })().catch(() => []),
       semana,

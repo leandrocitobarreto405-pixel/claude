@@ -2266,11 +2266,14 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     for (const l of (ls ?? []) as Array<{ id: string; lead_name: string | null }>)
       nomeDoLead.set(l.id, primeiroNomeLimpo(l.lead_name) ?? "");
   }
-  // Quantos leads saíram para a lista de campanha nesta noite (regra da lista, antes do recado).
-  const saidasParaCampanha = Number(
-    (ctx.noite.resumo as { naoFeitas?: { paraCampanha?: number } } | null)?.naoFeitas
-      ?.paraCampanha ?? 0,
-  );
+  // Quantos leads saíram para a lista de campanha desde o começo do dia da noite (a regra da
+  // lista roda antes do recado; conta também o que foi aplicado durante o dia).
+  const saidasParaCampanha = await (async () => {
+    const { saidasRecentes } = await import("./campanha-saida.server");
+    return (
+      await saidasRecentes(db, emp, new Date(`${ctx.noite.noite}T00:00:00-03:00`).toISOString())
+    ).length;
+  })().catch(() => 0);
   const cobrancaDasNaoFeitas = (minhas: typeof ts) =>
     linhaDasNaoFeitas(
       minhas

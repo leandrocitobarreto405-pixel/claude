@@ -147,11 +147,28 @@ test("avaliar: sai com 12 dias sem resposta; cada exceção segura o lead", asyn
   );
 });
 
-test("saída desligada: nada é escrito no banco", async () => {
-  assert.equal(SAIDA_PARA_CAMPANHA_LIGADA, false);
-  const b = banco(dados());
-  assert.equal(await mandarParaCampanha(b.db, E, tarefa, agora), false);
-  assert.deepEqual(b.escritas, []);
+test("saída ligada: a tarefa sai com o resultado gravado e o lead fica guardado", async () => {
+  assert.equal(SAIDA_PARA_CAMPANHA_LIGADA, true);
+  const d = dados();
+  const b = banco(d);
+  assert.equal(await mandarParaCampanha(b.db, E, tarefa, agora), true);
+  assert.equal(d.crm_followups[0]?.status, "Cancelada");
+  assert.equal(d.crm_followups[0]?.result, resultadoCampanha(12));
+  assert.equal(
+    (d.comercial_analises[0]?.etiquetas as Record<string, unknown>)["guardado_em"],
+    agora.toISOString(),
+  );
+  assert.equal((d.comercial_analises[0]?.etiquetas as Record<string, unknown>)["servico"], "sofá");
+  // P1, tarefa que não é de venda e lead com exceção: nada é escrito.
+  for (const t of [
+    { ...tarefa, prioridade: 1 },
+    { ...tarefa, tarefa_tipo: "pos_venda" },
+    { ...tarefa, notes: "x [segurada:2026-11-12]" },
+  ]) {
+    const outro = banco(dados());
+    assert.equal(await mandarParaCampanha(outro.db, E, t, agora), false);
+    assert.deepEqual(outro.escritas, []);
+  }
 });
 
 test("segurar na lista: a tarefa volta para hoje com a marca e o lead deixa de estar guardado", async () => {

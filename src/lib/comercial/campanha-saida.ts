@@ -9,10 +9,10 @@
  */
 
 /**
- * Saída automática para a campanha: DESLIGADA (12/11). O dono pediu para ver a lista dos que
- * sairiam antes de aplicar; até o OK dele, nenhuma tarefa sai da lista sozinha por tempo.
+ * Saída automática para a campanha: LIGADA em 12/11, com o OK do dono (ele viu a lista dos que
+ * sairiam, mandou segurar cinco e aprovou a regra e o botão Segurar na lista).
  */
-export const SAIDA_PARA_CAMPANHA_LIGADA = false;
+export const SAIDA_PARA_CAMPANHA_LIGADA = true;
 
 /** Mais do que estes dias sem resposta do cliente: o lead sai das tarefas de venda. */
 export const DIAS_SEM_RESPOSTA = 7;
