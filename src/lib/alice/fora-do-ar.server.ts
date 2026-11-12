@@ -104,7 +104,11 @@ export async function avisoForaDoAr(
       minutos: maisAntigo ? Math.floor((agora.getTime() - Date.parse(maisAntigo)) / 60_000) : 0,
       comAEquipe,
     });
-    const admins = (await avisador.pessoas(emp)).filter((p) => p.papel === "admin");
+    // Só o dono (o primeiro admin da empresa) recebe: pedido do dono em 12/11.
+    const dono = await donoDaEmpresa(db, emp);
+    const admins = (await avisador.pessoas(emp)).filter(
+      (p) => p.papel === "admin" && p.userId === dono,
+    );
     let enviados = 0;
     for (const p of admins)
       enviados += await avisador.enviar({
@@ -126,4 +130,17 @@ export async function avisoForaDoAr(
     saida.pushes += enviados;
   }
   return saida;
+}
+
+/** O dono da empresa: o primeiro usuário com papel admin (quem criou a conta). */
+export async function donoDaEmpresa(db: Db, empresaId: string): Promise<string | null> {
+  const { data } = await db
+    .from("usuarios_empresa")
+    .select("user_id")
+    .eq("empresa_id", empresaId)
+    .eq("papel", "admin")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return (data as { user_id?: string } | null)?.user_id ?? null;
 }

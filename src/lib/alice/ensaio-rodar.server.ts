@@ -7,7 +7,12 @@ import { COM_FALLBACK, SEM_SISTEMA_NO_MEIO } from "./motor.server";
 import { montarTurnos, type MensagemHistorico, type Uso } from "./prompt";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
 
-export type FalaEnsaio = { de: "cliente" | "alice"; texto: string };
+export type FalaEnsaio = {
+  de: "cliente" | "alice";
+  texto: string;
+  /** Foto mandada pelo cliente junto com o texto. */
+  imagem?: { mediaType: "image/jpeg" | "image/png"; base64: string };
+};
 
 export type RespostaEnsaio = {
   resposta: string[];
@@ -17,6 +22,8 @@ export type RespostaEnsaio = {
   rodadas: number;
   /** Textos com preço barrados pela trava (regra nº 1): não iriam ao cliente. */
   retidos: string[];
+  /** A resposta saiu sem o valor no atalho do apressado e foi refeita. */
+  refeita?: boolean;
 };
 
 export async function rodarAliceEnsaio(opcoes: {
@@ -34,13 +41,20 @@ export async function rodarAliceEnsaio(opcoes: {
   cacheComoProducao?: boolean;
   /** Ajusta os turnos antes do envio (ex.: ponto de cache do histórico). */
   prepararTurnos?: (t: Anthropic.Beta.BetaMessageParam[]) => Anthropic.Beta.BetaMessageParam[];
+  /** O que vai para a conversa quando uma ferramenta manda mídia (ex.: "[vídeo]"); null = nada. */
+  marcador?: (ferramenta: string, entrada: unknown) => string | null;
+  /**
+   * Como o motor no atalho do apressado: a resposta final sem valor (e sem transferência) não vai
+   * e a Alice refaz uma vez com este recado.
+   */
+  refazerSemValor?: string;
 }): Promise<RespostaEnsaio> {
   const hist: MensagemHistorico[] = opcoes.historico.map((m) => ({
     direcao: m.de === "cliente" ? "Recebida" : "Enviada",
     texto: m.texto,
     tipo: "Texto",
     remetente: m.de === "cliente" ? null : "agent_bot",
-    imagens: [],
+    imagens: m.imagem ? [m.imagem] : [],
   }));
   const turnos0 = montarTurnos(hist) ?? [];
   const turnos = opcoes.prepararTurnos ? opcoes.prepararTurnos(turnos0) : turnos0;
@@ -60,7 +74,8 @@ export async function rodarAliceEnsaio(opcoes: {
   const usadas: Array<{ nome: string; entrada: unknown }> = [];
   const uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0, cacheEscrita1h: 0 };
   let rodadas = 0;
-  for (let rodada = 0; rodada < 5; rodada++) {
+  let refeita = false;
+  for (let rodada = 0; rodada < 6; rodada++) {
     rodadas++;
     const r = await opcoes.cliente.beta.messages.create({
       model: opcoes.modelo,
@@ -81,6 +96,7 @@ export async function rodarAliceEnsaio(opcoes: {
     // Igual ao motor: total gravado (5 min + 1 hora) e a parte de 1 hora.
     uso.cacheEscrita += r.usage.cache_creation_input_tokens ?? 0;
     uso.cacheEscrita1h! += r.usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+    const antesDosTextos = resposta.length;
     for (const b of r.content) {
       if (b.type !== "text" || !b.text.trim()) continue;
       if (trava && temPreco(b.text)) retidos.push(b.text.trim());
@@ -89,7 +105,23 @@ export async function rodarAliceEnsaio(opcoes: {
     const chamadas = r.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
     );
-    if (r.stop_reason !== "tool_use" || !chamadas.length) break;
+    if (r.stop_reason !== "tool_use" || !chamadas.length) {
+      const transferiu = usadas.some((u) => u.nome === "transferir_para_humano");
+      if (
+        opcoes.refazerSemValor &&
+        !refeita &&
+        !transferiu &&
+        r.stop_reason === "end_turn" &&
+        !resposta.some((t) => temPreco(t))
+      ) {
+        refeita = true;
+        retidos.push(...resposta.splice(antesDosTextos).map((t) => `[atalho: sem o valor] ${t}`));
+        mensagens.push({ role: "assistant", content: r.content });
+        mensagens.push({ role: "user", content: opcoes.refazerSemValor });
+        continue;
+      }
+      break;
+    }
     mensagens.push({ role: "assistant", content: r.content });
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const ch of chamadas) {
@@ -100,6 +132,10 @@ export async function rodarAliceEnsaio(opcoes: {
         (ch.name === "criar_orcamento" || (ch.name === "enviar_mensagem" && temPreco(texto)));
       if (barrada && ch.name === "enviar_mensagem" && texto) retidos.push(texto.trim());
       else if (ch.name === "enviar_mensagem" && texto) resposta.push(texto.trim());
+      else if (!barrada) {
+        const m = opcoes.marcador?.(ch.name, ch.input);
+        if (m) resposta.push(m);
+      }
       resultados.push({
         type: "tool_result",
         tool_use_id: ch.id,
@@ -109,5 +145,5 @@ export async function rodarAliceEnsaio(opcoes: {
     }
     mensagens.push({ role: "user", content: resultados });
   }
-  return { resposta, ferramentas: usadas, uso, rodadas, retidos };
+  return { resposta, ferramentas: usadas, uso, rodadas, retidos, refeita };
 }

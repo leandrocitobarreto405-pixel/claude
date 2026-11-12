@@ -38,6 +38,14 @@ import {
 import { chavesValidas, modulosDaConfig } from "./modulos";
 import { aplicarCamposDoRoteiro } from "./campos-roteiro";
 import { AVISO_PRECO_TRAVADO, precoLiberado, temPreco } from "./preco-depois";
+import {
+  AVISO_ATALHO,
+  AVISO_MOTIVO_JA_FEITO,
+  REFAZER_ATALHO,
+  atalhoDoApressado,
+  jaPerguntouOMotivo,
+} from "./atalho";
+import { chavesVendas } from "./chaves";
 import { chaveTelefone } from "@/lib/avisos";
 import {
   TEXTO_AUDIO_SEM_TRANSCRICAO,
@@ -57,6 +65,7 @@ import {
   diaSP,
   instanteSP,
   passoDaEtapa,
+  comFotoUmaVez,
   primeiraAtendente,
   rotuloDoToque,
   toqueEmAudio,
@@ -811,7 +820,10 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   }
   const d = await dadosConversa(db, tarefa);
   const dados = (tarefa.dados ?? {}) as DadosCadencia;
-  let passo = dados.cadencia ? passoDaEtapa(dados.etapa) : null;
+  let passo = comFotoUmaVez(
+    dados.cadencia ? passoDaEtapa(dados.etapa) : null,
+    chavesVendas(cfg).atalhoApressado,
+  );
   // Contato interno da equipe (marcado pelo admin) não recebe follow-up de cliente.
   const chave = chaveTelefone(d.contato?.normalized_phone);
   if (chave) {
@@ -1537,7 +1549,15 @@ async function conversar(
   empresa.regraRespostas = REGRA_RESPOSTAS;
   empresa.regraPreco = REGRA_PRECO_DEPOIS;
   // Regra nº 1: sem pergunta da empresa respondida pelo cliente, nada de preço nesta resposta.
-  const precoTravado = REGRA_PRECO_DEPOIS && !precoLiberado(hist.mensagens, hist.truncado);
+  // Atalho do apressado (chave por empresa): item + CEP + pedido explícito de preço liberam o
+  // orçamento nesta resposta, sem mais pergunta e sem áudio.
+  const chaves = chavesVendas(cfg);
+  const atalho =
+    chaves.atalhoApressado && !ehFollowup && !pos && !instrucaoExtra
+      ? atalhoDoApressado(hist.mensagens).ativo
+      : false;
+  const precoTravado =
+    REGRA_PRECO_DEPOIS && !atalho && !precoLiberado(hist.mensagens, hist.truncado);
   // Nome do cliente: confirmado (contato/conversa/cadastro) x nome do perfil.
   const nomeCliente = REGRA_NOME
     ? await (
@@ -1573,6 +1593,7 @@ async function conversar(
     midias: new Set(),
     posAtendimento: pos,
     precoTravado,
+    semAudio: atalho,
     modulos: {
       disponiveis: empresa.modulos ?? [],
       carregados: chavesValidas(empresa.modulos ?? [], d.conversa.alice_modulos ?? []),
@@ -1588,6 +1609,10 @@ async function conversar(
     pos ? instrucoesPos(pos) : null,
     instrucaoExtra ?? null,
     precoTravado ? AVISO_PRECO_TRAVADO : null,
+    atalho ? AVISO_ATALHO : null,
+    chaves.atalhoApressado && !atalho && jaPerguntouOMotivo(hist.mensagens)
+      ? AVISO_MOTIVO_JA_FEITO
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1621,6 +1646,8 @@ async function conversar(
   const retidos: string[] = [];
   /** Texto com preço antes do diagnóstico (regra nº 1): não vai. */
   const travados: string[] = [];
+  /** Atalho do apressado: a resposta sem valor é refeita uma vez. */
+  let atalhoRefeito = false;
   let parada: string | null = null;
   let modeloUsado = cfg.modelo;
   let rodadas = 0;
@@ -1673,6 +1700,7 @@ async function conversar(
 
     // O que a IA escreve vai ao cliente, na ordem (menos relatório interno); depois, o que as
     // ferramentas pediram (enviar_mensagem, vídeo, áudio), na ordem das chamadas.
+    const antesDosTextos = saida.length;
     for (const b of resposta.content) {
       if (b.type !== "text" || !b.text.trim()) continue;
       if (textoInterno(b.text, nomeParaChamar)) retidos.push(b.text.trim());
@@ -1682,7 +1710,29 @@ async function conversar(
     const chamadas = resposta.content.filter(
       (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use",
     );
-    if (resposta.stop_reason !== "tool_use" || !chamadas.length) break;
+    if (resposta.stop_reason !== "tool_use" || !chamadas.length) {
+      // Atalho do apressado: resposta final sem o valor (e sem transferência) não vai; a Alice
+      // refaz uma vez. O que as ferramentas já mandaram (aviso e vídeo) fica.
+      if (
+        atalho &&
+        !atalhoRefeito &&
+        !ctx.passagem &&
+        resposta.stop_reason === "end_turn" &&
+        !saida.some((x) => x.tipo === "texto" && temPreco(x.texto))
+      ) {
+        atalhoRefeito = true;
+        retidos.push(
+          ...saida
+            .splice(antesDosTextos)
+            .map((x) => (x.tipo === "texto" ? `[atalho: sem o valor] ${x.texto}` : ""))
+            .filter(Boolean),
+        );
+        mensagens.push({ role: "assistant", content: resposta.content });
+        mensagens.push({ role: "user", content: REFAZER_ATALHO });
+        continue;
+      }
+      break;
+    }
 
     mensagens.push({ role: "assistant", content: resposta.content });
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
@@ -1720,6 +1770,21 @@ async function conversar(
     ferramentas: ferramentasUsadas as never,
     parada,
   };
+
+  if (atalho) {
+    const { registrarEvento } = await import("./avisos.server");
+    await registrarEvento(db as never, {
+      empresa_id: tarefa.empresa_id,
+      tipo: "atalho_apressado",
+      conversa_id: d.conversa.id,
+      crm_lead_id: d.conversa.crm_lead_id,
+      dados: {
+        com_valor: saida.some((x) => x.tipo === "texto" && temPreco(x.texto)),
+        refeita: atalhoRefeito,
+        transferiu: Boolean(ctx.passagem),
+      },
+    });
+  }
 
   const textos = saida.filter((s) => s.tipo === "texto");
   const semNada = saida.filter((s) => !(s.tipo === "texto" && s.texto.trim() === NADA));

@@ -266,9 +266,14 @@ test("Alice fora do ar: push só para o admin, uma vez a cada 15 minutos, só co
       { empresa_id: E, provedor: "ia", causa: "credito", conversas: ["c7", "c8"], fim: null },
     ],
     conversas: [conversa("c1", "pending"), conversa("c9", "pending")],
+    // O dono é o primeiro admin; o segundo admin (a Maria, no caso real) não recebe.
+    usuarios_empresa: [
+      { empresa_id: E, user_id: "dono", papel: "admin", created_at: "2026-10-04T13:00:00Z" },
+      { empresa_id: E, user_id: "maria-admin", papel: "admin", created_at: "2026-10-04T19:00:00Z" },
+    ],
   });
   const { db, tab } = banco(dados());
-  const { a, enviados } = avisador(equipe);
+  const { a, enviados } = avisador([...equipe, { userId: "maria-admin", papel: "admin" }]);
   const r = await avisoForaDoAr(db, new Date("2026-11-12T17:31:00Z"), a);
   assert.deepEqual(r, { empresas: 1, pushes: 1 });
   assert.deepEqual(
