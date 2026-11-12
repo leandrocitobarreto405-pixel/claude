@@ -34,6 +34,14 @@ import {
   type HorarioUtil,
   type MotivoEntrada,
 } from "./furos";
+import {
+  blocoDaConversa,
+  limparResumo,
+  mensagensParaLer,
+  modoDeLeitura,
+  ultimaMensagemEm,
+  type FichaDoResumo,
+} from "./resumo-dia";
 import { primeiroNomeLimpo } from "@/lib/alice/nome";
 import { dataCurta, diaSemanaDe } from "@/lib/feriados";
 import { avaliarVirarOs, planejarAcoes, textoFeitoPelaTatiana } from "./acoes";
@@ -993,7 +1001,21 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     ctx.equipeUnica ? Promise.resolve(null) : donoDoLead(db, emp, leadId, ctx.pessoas),
   ]);
   const fatos = calcularFatos(entrada);
-  let conversa = conversaEmTexto(entrada.mensagens);
+  // Resumo do dia (12/11, custo): com resumo guardado e leitura completa há menos de 7 dias, vai
+  // para a IA o resumo e só o fim da conversa; senão a conversa inteira. A decisão é sempre tomada.
+  const { data: fichaResumo } = await db
+    .from("comercial_analises")
+    .select("resumo_dia, resumo_ate, leitura_completa_em")
+    .eq("empresa_id", emp)
+    .eq("crm_lead_id", leadId)
+    .maybeSingle();
+  const fr = fichaResumo as FichaDoResumo;
+  const modoLeitura = modoDeLeitura(fr, new Date());
+  let conversa = conversaEmTexto(
+    modoLeitura === "incremental"
+      ? mensagensParaLer(entrada.mensagens, fr!.resumo_ate!)
+      : entrada.mensagens,
+  );
   if (conversa.length > MAX_CONVERSA)
     conversa = `[... início omitido ...]\n${conversa.slice(-MAX_CONVERSA)}`;
   const { decisao, custo: c1 } = await pedirDecisao(
@@ -1004,11 +1026,35 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       "NO APP:",
       est.texto,
       "",
-      "CONVERSA:",
-      conversa || "(sem mensagens)",
+      ...blocoDaConversa({
+        modo: modoLeitura,
+        resumo: fr?.resumo_dia ?? null,
+        resumoAte: fr?.resumo_ate ?? null,
+        conversa,
+      }),
     ].join("\n"),
     ctx.opus,
   );
+  // O que gravar do resumo: só quando a IA devolveu um; a releitura completa renova a data dela.
+  const resumoNovo = limparResumo(decisao.resumo);
+  const camposResumo = resumoNovo
+    ? {
+        resumo_dia: resumoNovo,
+        resumo_ate: ultimaMensagemEm(entrada.mensagens) ?? new Date().toISOString(),
+        ...(modoLeitura === "completa" ? { leitura_completa_em: new Date().toISOString() } : {}),
+      }
+    : {};
+  {
+    const r = (noite.resumo ?? {}) as { leituras?: { completas?: number; incrementais?: number } };
+    const l = r.leituras ?? {};
+    noite.resumo = {
+      ...r,
+      leituras:
+        modoLeitura === "completa"
+          ? { ...l, completas: (l.completas ?? 0) + 1 }
+          : { ...l, incrementais: (l.incrementais ?? 0) + 1 },
+    };
+  }
   let custo = c1;
   // Desfecho que tira o lead da leitura só com frase clara do cliente (05/11).
   const conferido = confereDesfecho(
@@ -1293,6 +1339,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
         rever_em: reverEm,
         rever_motivo: reverMotivo,
         ...(fraseDesfecho ? { frase_cliente: fraseDesfecho } : {}),
+        ...camposResumo,
       })
       .eq("id", (ficha as { id: string }).id);
   } else {
@@ -1309,6 +1356,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       rever_em: reverEm,
       rever_motivo: reverMotivo,
       frase_cliente: fraseDesfecho,
+      ...camposResumo,
     });
   }
 

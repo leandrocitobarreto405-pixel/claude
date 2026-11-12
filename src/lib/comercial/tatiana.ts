@@ -4,6 +4,7 @@
  * certo, recado do dia por pessoa e os textos dos pushes. A leitura do banco e as chamadas à IA
  * ficam em noite.server.ts. Nada aqui envia mensagem a cliente.
  */
+import { INSTRUCAO_RESUMO } from "./resumo-dia";
 import { dataCurta } from "@/lib/feriados";
 
 /** Nome que a equipe vê (no código e no banco continua "comercial"/"gerente"). */
@@ -188,6 +189,8 @@ export type DecisaoIA = {
    * AAAA-MM-DD; senão vazio. Sem resposta até o meio da tarde desse dia, vira tarefa P1 (05/11).
    */
   retorno_prometido: string;
+  /** Resumo curto do lead para as próximas noites (resumo do dia, 12/11). */
+  resumo?: string;
   acertos: Array<{
     tipo: Exclude<TipoCobranca, "demora_resposta" | "demora_preco">;
     texto: string;
@@ -245,6 +248,7 @@ export const ESQUEMA_DECISAO = {
     "pediu_ligacao",
     "ligar_quando",
     "retorno_prometido",
+    "resumo",
     "acertos",
   ],
   properties: {
@@ -266,6 +270,7 @@ export const ESQUEMA_DECISAO = {
     pediu_ligacao: { type: "boolean" },
     ligar_quando: s,
     retorno_prometido: s,
+    resumo: s,
     acertos: {
       type: "array",
       items: {
@@ -399,6 +404,8 @@ export function instrucoesDecisao(o: {
     "   data: só em fechou_sem_os e remarcar; senão vazio. proximo_passo: só quando faltou o preço; senão vazio.",
     "   agendamento (só em fechou_sem_os; senão tudo vazio/null): hora combinada (HH:MM) ou periodo (manha/tarde) se só disse o período; nome_completo, cep, numero e complemento do endereço como o cliente escreveu; pagamento pix ou cartao e parcelas se disse. Nunca invente: o que a conversa não disse fica vazio.",
     '   texto: 1 frase carinhosa e objetiva, sem bronca (ex.: "O preço de R$ 320 do sofá foi passado na conversa; falta criar o orçamento no app.").',
+    INSTRUCAO_RESUMO,
+    "Quando vier um RESUMO DO QUE JÁ FOI LIDO, a conversa abaixo dele é só o fim: use o resumo para o que aconteceu antes e não crie acerto para algo que o resumo ou o app mostram resolvido.",
   ].join("\n");
 }
 
