@@ -82,3 +82,14 @@ export function lerClassificacao(texto: string): { classe: ClasseContexto; trech
     return { classe: "segue", trecho: "" };
   }
 }
+
+/**
+ * Falha da IA na leitura antes de um toque automático (12/11): espera 1 h e tenta de novo; se
+ * falhar outra vez, espera 3 h; na terceira falha o toque sai sem a leitura. Devolve os minutos de
+ * espera, ou null quando é hora de deixar o toque sair. `falhasAntes`: quantas vezes já falhou.
+ */
+export function esperaAposFalha(falhasAntes: number): number | null {
+  if (falhasAntes <= 0) return 60;
+  if (falhasAntes === 1) return 180;
+  return null;
+}

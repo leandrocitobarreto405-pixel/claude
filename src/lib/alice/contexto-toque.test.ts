@@ -40,3 +40,11 @@ test("histórico para a IA: só texto, mais antigas primeiro, quem falou", () =>
     "2026-10-20 empresa: Segue o orçamento\n2026-10-22 cliente: Optarei por outra empresa",
   );
 });
+
+test("falha da IA antes do toque: espera 1 h, depois 3 h, e na terceira o toque sai", async () => {
+  const { esperaAposFalha } = await import("./contexto-toque");
+  assert.equal(esperaAposFalha(0), 60);
+  assert.equal(esperaAposFalha(1), 180);
+  assert.equal(esperaAposFalha(2), null);
+  assert.equal(esperaAposFalha(5), null);
+});

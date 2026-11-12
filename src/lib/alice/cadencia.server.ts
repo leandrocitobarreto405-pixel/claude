@@ -45,6 +45,8 @@ export type DadosCadencia = {
   com_orcamento?: boolean;
   /** Espera (classe "aguardando"): toques W1/W2 em vez da sequência normal. */
   espera?: boolean;
+  /** Quantas vezes a leitura de contexto por IA falhou antes deste toque (espera 1 h e 3 h). */
+  contexto_falhas?: number;
 };
 
 const SELECT_LEAD =

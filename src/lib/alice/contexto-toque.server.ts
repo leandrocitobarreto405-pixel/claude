@@ -18,7 +18,23 @@ import {
 
 type Db = SupabaseClient;
 
+type Entrada = {
+  empresaId: string;
+  contatoId: string | null;
+  conversaId: string | null;
+  origem?: OrigemChamada;
+};
+
+/** Só a classificação (falha da IA vira null: quem chama segue sem a leitura). */
 export async function contextoDoCliente(
+  db: Db,
+  o: Entrada,
+): Promise<{ classe: ClasseContexto; trecho: string } | null> {
+  return (await lerContextoDoCliente(db, o)).lido;
+}
+
+/** A classificação e se a IA falhou (para quem quer esperar e tentar de novo). */
+export async function lerContextoDoCliente(
   db: Db,
   o: {
     empresaId: string;
@@ -27,7 +43,7 @@ export async function contextoDoCliente(
     /** De onde veio a leitura (custo por origem em ia_chamadas). */
     origem?: OrigemChamada;
   },
-): Promise<{ classe: ClasseContexto; trecho: string } | null> {
+): Promise<{ lido: { classe: ClasseContexto; trecho: string } | null; falhou: boolean }> {
   const desde = new Date(Date.now() - 60 * 86_400_000).toISOString();
   let q = db
     .from("whatsapp_messages")
@@ -39,7 +55,7 @@ export async function contextoDoCliente(
     .limit(80);
   if (o.contatoId) q = q.eq("whatsapp_contact_id", o.contatoId);
   else if (o.conversaId) q = q.eq("conversa_id", o.conversaId);
-  else return null;
+  else return { lido: null, falhou: false };
   const { data } = await q;
   const msgs = (
     (data ?? []) as Array<{
@@ -55,7 +71,8 @@ export async function contextoDoCliente(
       texto: m.text_content || m.transcricao,
       quando: m.message_timestamp,
     }));
-  if (!msgs.some((m) => m.direcao === "Recebida" && (m.texto ?? "").trim())) return null;
+  if (!msgs.some((m) => m.direcao === "Recebida" && (m.texto ?? "").trim()))
+    return { lido: null, falhou: false };
   // Custo de cada leitura (11/11): uma linha em ia_chamadas, inclusive quando a chamada falha.
   let uso: Uso | null = null;
   const gravarCusto = async () => {
@@ -100,10 +117,10 @@ export async function contextoDoCliente(
     await gravarCusto();
     if (r.stop_reason !== "end_turn") throw new Error(`resposta incompleta (${r.stop_reason})`);
     const texto = r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-    return lerClassificacao(texto);
+    return { lido: lerClassificacao(texto), falhou: false };
   } catch (e) {
     console.error("Contexto do toque: classificação falhou", e instanceof Error ? e.message : e);
     if (!uso) await gravarCusto();
-    return null;
+    return { lido: null, falhou: true };
   }
 }
