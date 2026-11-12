@@ -86,6 +86,7 @@ function pontoDaConversa(c: ConversaResumo): { cor: string; rotulo: string } | n
   if (c.minha) return { cor: "bg-marca", rotulo: "Com você" };
   if (c.classificacao === 2) return { cor: "bg-problema-foreground", rotulo: "Em negociação" };
   if (c.passagem) return { cor: "bg-atencao-foreground", rotulo: c.passagem.motivo };
+  if (c.classificacao === 4) return { cor: "bg-atencao-foreground", rotulo: "Achou caro" };
   return null;
 }
 
