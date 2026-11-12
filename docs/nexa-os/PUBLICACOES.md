@@ -865,6 +865,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `dafe783` | — |
 | 12/11/2026 | Tatiana: lead com mais de 7 dias sem resposta (da última mensagem do cliente ou do orçamento) sai das tarefas de venda para a campanha; bloco "Saíram para a lista de campanha" com o botão Segurar na lista; linha no resumo da manhã | `e1dbf6c` | — |
 | 12/11/2026 | Alice e vendas, fase 1 (chaves desligadas): transferência com prazo e alarme de 5 em 5 minutos, tarefa P1 da manhã fora do horário, bloco "Cliente esperando a equipe", resumo da Alice no topo da conversa, encaixe com prazo, aviso "Alice fora do ar" só para o admin, medição | `48fa961` | `20261228530000_alice_vendas` (rodada pelo dono no SQL Editor em 12/11) |
+| 12/11/2026 | Alice e vendas, fase 2 (chaves desligadas): atalho do apressado, pergunta do motivo e foto pedidas uma vez, combo orçado pela Alice; ensaio com a Alice de verdade (3 conversas, nada enviado); aviso "Alice fora do ar" só para o dono | `be99d7d` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1554,6 +1555,17 @@ até responder, a transferência fora do horário vira a primeira tarefa P1 da m
 push quando a Alice para de responder com cliente esperando (de dia a cada 15 minutos; de noite um
 só e mais um às 7h). O texto do núcleo (encaixe e mensagem da transferência) e as duas chaves da
 Turbine mudam por SQL à parte, com md5 antes e depois, rodado pelo dono.
+
+Alice e vendas, fase 2 (12/11, `be99d7d`): o SQL da fase 1 foi rodado pelo dono no mesmo dia
+(núcleo md5 `0e04e3b72b430b71fbfde19f9b925158`, `alarme_transferencia` e `aviso_fora_do_ar` ligadas
+na Turbine). A fase 2 entra com `atalho_apressado` e `combo_ligado` desligadas: sem a chave nada
+muda. Com elas, quem já disse o item e o CEP e pede o preço recebe o vídeo e o orçamento na mesma
+resposta, sem áudio; a pergunta do motivo e o pedido de foto são feitos uma vez; a Alice orça o
+combo higienização + impermeabilização com 10% (um desconto só por orçamento). O ensaio roda
+sozinho pela varredura, uma conversa por rodada, com os textos novos só na memória; o resultado fica
+em `app_settings` (`alice_ensaio_vendas`). O aviso "Alice fora do ar" passou a ir só para o dono (o
+primeiro admin da empresa). Os textos da fase 2 mudam por SQL à parte, com md5 antes e depois,
+rodado pelo dono depois do ensaio.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
