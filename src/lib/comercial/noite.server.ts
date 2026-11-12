@@ -2633,6 +2633,13 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
         .select("user_id, frase")
         .eq("empresa_id", emp)
         .eq("dia", hoje);
+      // Resumo da manhã: "Vagas abertas" no topo (alarme de vaga na agenda, 11/11).
+      const vagasNoTopo = await (async () => {
+        const { lerVagas } = await import("@/lib/vagas.server");
+        const { linhaDoResumo } = await import("@/lib/vagas");
+        const v = await lerVagas(db, emp);
+        return linhaDoResumo(v.vagas, v.hoje);
+      })().catch(() => null);
       for (const p of pessoas) {
         if (!querReceber("tatiana_tarefas", p.papel, p.pref)) continue;
         // Equipe única: as atendentes recebem o total da equipe.
@@ -2648,6 +2655,7 @@ async function pushesDaTatiana(db: Db, configs: Config[], agora: Date) {
         const t = textoPushTarefas(n, frase, Boolean(cfg.equipe_unica) && p.papel !== "admin");
         if (n > LISTA_GRANDE)
           t.corpo = `Lista grande hoje (${n} tarefas): comece pelas de prioridade alta. ${t.corpo}`;
+        if (vagasNoTopo) t.corpo = `${vagasNoTopo} ${t.corpo}`;
         const id = await registrarUmaVez(
           db as never,
           emp,

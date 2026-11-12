@@ -368,3 +368,14 @@ html [data-sonner-toaster] [data-sonner-toast] [data-close-button]::after {
   position: absolute;
   inset: -8px;
 }
+
+/* Faixa de vaga aberta na agenda: pisca escurecendo (o texto continua legível) para não passar batida. */
+@keyframes pisca-vaga {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(0.7);
+  }
+}

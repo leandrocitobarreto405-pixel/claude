@@ -40,6 +40,7 @@ import { recursoDaRota, temRecurso } from "@/lib/recursos";
 import { RecursoBloqueado } from "@/components/plano/recurso-bloqueado";
 import { SinoNexa } from "@/components/plano/sino-nexa";
 import { AlertaParadaIa } from "@/components/plano/alerta-parada-ia";
+import { FaixaVagas } from "@/components/vagas/faixa-vagas";
 import { limparCacheAnexos } from "@/lib/anexos";
 import { SeletorTema, SeletorTemaPainel } from "@/components/seletor-tema";
 import { intervalo } from "@/lib/ritmo";
@@ -361,6 +362,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {vinculo && !rotaNexa ? <AvisoAssinatura situacao={assinatura} /> : null}
+          {vinculo &&
+          !rotaNexa &&
+          !rotaConversa &&
+          (vinculo.papel === "admin" || vinculo.papel === "atendente") ? (
+            <div className={rotaConversas ? "p-4 pb-0 lg:px-6" : undefined}>
+              <FaixaVagas />
+            </div>
+          ) : null}
           {painelNexa && rotaNexa ? <AlertaParadaIa /> : null}
           <AceiteTermos />
           {carregandoVinculo || trocandoParaPainel || saindoDoPainel ? (
