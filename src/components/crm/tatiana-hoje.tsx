@@ -57,6 +57,7 @@ import {
 import type { DadosNaoSoube } from "@/lib/comercial/alice-nao-soube";
 import { dateTimeBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { tempoDeEspera } from "@/lib/alice/transferencia";
 
 const CHAVE_TATIANA = ["tatiana-hoje"];
 
@@ -100,6 +101,7 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
   if (!d || d.modo === "desligado") return null;
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      {d.transferencias.length ? <ClientesEsperando lista={d.transferencias} /> : null}
       <Card className="min-w-0 gap-2 border-marca/30 bg-marca-claro">
         <p className="text-xs font-bold uppercase tracking-wide text-marca">
           Recado da {NOME_GERENTE}
@@ -542,6 +544,58 @@ function AcertosNoApp({ acertos, admin }: { acertos: Acerto[]; admin: boolean })
 }
 
 /** O que a Tatiana fez sozinha no app (modo ativo) ou faria (teste), com Desfazer em cada item. */
+/**
+ * Transferências da Alice que ninguém respondeu ainda: o cliente ouviu um prazo e está esperando.
+ * Fica no topo, em vermelho, até alguém responder na conversa.
+ */
+function ClientesEsperando({ lista }: { lista: HojeTatiana["transferencias"] }) {
+  return (
+    <Card className="min-w-0 gap-2 border-2 border-problema-foreground/40 bg-problema">
+      <p className="text-sm font-bold uppercase tracking-wide text-problema-foreground">
+        Cliente esperando a equipe ({lista.length})
+      </p>
+      <p className="text-xs text-problema-foreground">
+        A Alice transferiu e disse ao cliente quando alguém responde. Sai daqui quando a equipe
+        responder na conversa.
+      </p>
+      <ul className="flex min-w-0 flex-col gap-2">
+        {lista.map((t) => (
+          <li
+            key={t.id}
+            className="flex min-w-0 flex-col gap-1.5 rounded-botao border border-border bg-card p-3"
+          >
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="min-w-0 font-semibold">{t.nome}</span>
+              {t.telefoneFinal ? (
+                <span className="text-xs text-muted-foreground">final {t.telefoneFinal}</span>
+              ) : null}
+              <span className="ml-auto">
+                <Chip tom="problema">
+                  {t.foraDoHorario && t.minutos === 0
+                    ? "transferido fora do horário"
+                    : `esperando há ${tempoDeEspera(t.minutos)}`}
+                </Chip>
+              </span>
+            </div>
+            <p className="text-sm">
+              <span className="font-semibold">Motivo:</span> {t.motivo}
+            </p>
+            <div>
+              <Link
+                to="/conversas/$conversaId"
+                params={{ conversaId: t.conversaId }}
+                className="inline-flex h-11 items-center gap-2 rounded-botao bg-primary px-4 text-sm font-bold text-primary-foreground"
+              >
+                <MessageCircle aria-hidden className="size-4" /> Abrir conversa
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 /** Leads que saíram das tarefas para a lista de campanha; a equipe pode segurar algum na lista. */
 function SaidasParaCampanha({ saidas }: { saidas: HojeTatiana["saidas"] }) {
   const qc = useQueryClient();

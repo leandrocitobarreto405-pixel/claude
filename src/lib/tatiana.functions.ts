@@ -157,6 +157,8 @@ export type HojeTatiana = {
   /** Equipe única: lista e recado da equipe, sem separar por pessoa. */
   equipeUnica: boolean;
   recado: { frase: string; resumo: string | null } | null;
+  /** Transferências da Alice ainda sem resposta da equipe (alarme do plano "Alice e vendas"). */
+  transferencias: import("@/lib/alice/transferencia.server").TransferenciaNaTela[];
   /** Leads que saíram para a lista de campanha desde ontem à noite (a equipe pode segurar). */
   saidas: import("@/lib/comercial/campanha-saida.server").SaidaRecente[];
   /** Números da semana da equipe toda (nunca por pessoa). */
@@ -207,6 +209,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       feriados: [],
       equipeUnica,
       recado: null,
+      transferencias: [],
       saidas: [],
       semana: null,
       tarefas: [],
@@ -404,6 +407,10 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       feriados,
       equipeUnica,
       recado: recado as HojeTatiana["recado"],
+      transferencias: await (async () => {
+        const { transferenciasAbertas } = await import("@/lib/alice/transferencia.server");
+        return transferenciasAbertas(adm, emp);
+      })().catch(() => []),
       // Saídas para a campanha de ontem e de hoje, para a equipe poder segurar algum.
       saidas: await (async () => {
         const { saidasRecentes } = await import("@/lib/comercial/campanha-saida.server");

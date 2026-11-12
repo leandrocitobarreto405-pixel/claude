@@ -1982,6 +1982,7 @@ async function conversar(
 
   if (ctx.passagem) {
     const { motivo, resumo } = ctx.passagem;
+    const prazo = ctx.passagem.prazo ?? null;
     await enviarMensagem(
       d.conta,
       d.tokenRobo,
@@ -1995,21 +1996,53 @@ async function conversar(
       d.conversa.id,
       "transferida para a equipe",
     );
+    let tarefaDaManha: string | null = null;
     if (d.conversa.crm_lead_id) {
-      const quando = new Date().toISOString();
-      await db.from("crm_followups").insert({
-        empresa_id: tarefa.empresa_id,
-        crm_lead_id: d.conversa.crm_lead_id,
-        conversa_id: d.conversa.id,
-        scheduled_at: quando,
-        responsavel: "equipe",
-        notes: `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`,
-      });
+      // Fora do horário (alarme ligado): a transferência é a primeira tarefa da manhã, P1, na lista
+      // de tarefas da equipe, já com o resumo. No horário, segue o retorno de sempre.
+      const quando = prazo?.foraDoHorario ? prazo.prazoEm : new Date().toISOString();
+      const { motivoDaTarefaDaManha } = await import("./transferencia");
+      const { data: fu } = await db
+        .from("crm_followups")
+        .insert({
+          empresa_id: tarefa.empresa_id,
+          crm_lead_id: d.conversa.crm_lead_id,
+          conversa_id: d.conversa.id,
+          scheduled_at: quando,
+          responsavel: "equipe",
+          notes: `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`.slice(0, 500),
+          ...(prazo?.foraDoHorario
+            ? {
+                origem: "gerente",
+                trilha: "G",
+                etapa: "GX",
+                canal: "equipe",
+                prioridade: 1,
+                tarefa_tipo: "mensagem",
+                motivo: motivoDaTarefaDaManha(motivo, null),
+              }
+            : {}),
+        } as never)
+        .select("id")
+        .maybeSingle();
+      if (prazo?.foraDoHorario) tarefaDaManha = (fu as { id?: string } | null)?.id ?? null;
       await db
         .from("crm_leads")
         .update({ next_follow_up_at: quando })
         .eq("id", d.conversa.crm_lead_id)
         .eq("empresa_id", tarefa.empresa_id);
+    }
+    if (prazo) {
+      const { registrarTransferencia } = await import("./transferencia.server");
+      await registrarTransferencia(db as never, {
+        empresaId: tarefa.empresa_id,
+        conversaId: d.conversa.id,
+        leadId: d.conversa.crm_lead_id ?? null,
+        motivo,
+        resumo,
+        prazo,
+        tarefaId: tarefaDaManha,
+      });
     }
     await mudarSituacao(d.conta, d.tokenRobo, d.conversa.chatwoot_conversation_id, "open");
     await db.from("conversas").update({ status: "open" }).eq("id", d.conversa.id);

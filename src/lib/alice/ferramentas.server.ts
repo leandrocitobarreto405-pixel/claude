@@ -89,7 +89,12 @@ export type ContextoFerramenta = {
   /** Etapas do CRM que a Alice pode usar (status abertos da empresa). */
   etapas: string[];
   /** Preenchido por transferir_para_humano: o processador conclui a passagem depois da resposta. */
-  passagem: { motivo: string; resumo: string } | null;
+  passagem: {
+    motivo: string;
+    resumo: string;
+    /** Prazo dito ao cliente (alarme da transferência ligado); null = sem alarme. */
+    prazo?: import("./transferencia").PrazoDaTransferencia | null;
+  } | null;
   /** Mensagens e mídias pedidas pelas ferramentas (o processador envia na ordem das chamadas). */
   saida: Saida[];
   /** Algum follow-up foi agendado (o processador entrega à fila no fim). */
@@ -2264,12 +2269,39 @@ export async function executarFerramenta(
               e instanceof Error ? e.message : e,
             ),
           );
+        // Alarme da transferência (plano "Alice e vendas", item 7): a Alice só diz "já te retorno"
+        // com prazo, e o prazo vira alarme para a equipe.
+        const cfgAlarme = ctx.cfg as {
+          alarme_transferencia?: boolean | null;
+          transferencia_prazo_min?: number | null;
+          nomes_atendentes?: string | null;
+        };
+        const prazo = cfgAlarme.alarme_transferencia
+          ? await (async () => {
+              const { prazoParaTransferir } = await import("./transferencia.server");
+              return prazoParaTransferir(
+                ctx.admin as never,
+                ctx.empresaId,
+                Number(cfgAlarme.transferencia_prazo_min ?? 10),
+                ctx.agora,
+              );
+            })().catch(() => null)
+          : null;
         ctx.passagem = {
           motivo: p.data.problema_pos_venda
             ? `⚠️ PRIORIDADE (problema no pós-venda): ${p.data.motivo}`
             : p.data.motivo,
           resumo: p.data.resumo,
+          prazo,
         };
+        if (prazo) {
+          const { fraseParaOCliente } = await import("./transferencia");
+          const { primeiraAtendente } = await import("./cadencia");
+          return {
+            conteudo: `Transferência registrada: a equipe assume depois desta resposta. Avise o cliente com esta frase, exatamente assim, e não escreva mais nada depois dela: "${fraseParaOCliente(p.data.motivo, primeiraAtendente(cfgAlarme.nomes_atendentes), prazo)}"`,
+            erro: false,
+          };
+        }
         return {
           conteudo:
             "Transferência registrada: a equipe assume depois desta resposta. Se as instruções pedirem, avise o cliente numa frase curta; senão, não escreva nada.",

@@ -87,6 +87,8 @@ export type ConversaCompleta = ConversaResumo & {
   mensagens: MensagemConversa[];
   /** Histórico do contato com a empresa antes desta conversa (null se não deu para ler). */
   historico: HistoricoContato | null;
+  /** Última transferência da Alice nesta conversa (resumo para a equipe não repetir pergunta). */
+  transferencia: import("@/lib/alice/transferencia.server").ResumoDaAlice | null;
 };
 
 const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado, whatsapp_contact_id,
@@ -430,6 +432,10 @@ export const lerConversa = createServerFn({ method: "GET" })
       ...resumo,
       iaDesligadaNoCliente: Boolean(c.contato?.ia_desligada),
       historico,
+      transferencia: await (async () => {
+        const { resumoDaAlice } = await import("@/lib/alice/transferencia.server");
+        return resumoDaAlice(db as never, context.empresaId as string, c.id);
+      })().catch(() => null),
       mensagens: lista.map((m) => ({
         id: m.id,
         doCliente: m.direction === "Recebida",

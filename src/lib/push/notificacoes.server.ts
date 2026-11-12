@@ -26,6 +26,7 @@ import {
   type EsperaPush,
   type Notificacao,
   type PreferenciasPush,
+  type TipoAlarme,
   type TipoPush,
 } from "./notificacoes";
 import { enviarPush, endpointPermitido } from "./webpush.server";
@@ -83,7 +84,7 @@ export async function registrarUmaVez(
   db: Db,
   empresaId: string,
   userId: string,
-  tipo: TipoPush,
+  tipo: TipoPush | TipoAlarme,
   ref: string,
   titulo: string,
 ): Promise<string | null> {
