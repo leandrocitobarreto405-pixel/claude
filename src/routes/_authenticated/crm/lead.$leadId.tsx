@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader, SectionCard } from "@/components/app-shell";
 import { AliceNoLead } from "@/components/alice-no-lead";
-import { NativeSelect, StatusPill, TemperatureBadge } from "@/components/crm-ui";
+import { NativeSelect, StatusPill, ClassificacaoBadge } from "@/components/crm-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfigOptions, useSalespeople } from "@/lib/data";
 import {
@@ -49,6 +49,7 @@ import { sugerirResumoDoLead } from "@/lib/crm-ai.functions";
 import { MARCOS, etapaInfo } from "@/lib/funil";
 import { STATUS_CLASS, STATUS_LABEL, type QuoteStatus } from "@/lib/quotes";
 import { useServerFn } from "@tanstack/react-start";
+import { useClassificacoes } from "@/lib/classificacao-lead-hook";
 
 export const Route = createFileRoute("/_authenticated/crm/lead/$leadId")({
   head: () => ({
@@ -77,6 +78,7 @@ const MODELOS_MENSAGEM = [
 ];
 
 function LeadDetalhe() {
+  const classes = useClassificacoes();
   const { leadId } = Route.useParams();
   const navigate = useNavigate();
   const invalidate = useCrmInvalidate();
@@ -267,15 +269,10 @@ function LeadDetalhe() {
   async function gerarResumoIA() {
     setGerandoIA(true);
     try {
-      const r = await sugerirResumo({ data: { leadId: lead!.id } });
+      await sugerirResumo({ data: { leadId: lead!.id } });
       toast.success("Sugestão da IA aplicada. Revise e ajuste se precisar.");
       invalidate();
       void leadQuery.refetch();
-      if (r.temperature) {
-        toast.info(
-          `Temperatura sugerida pela IA: ${r.temperature === "QUENTE" ? "Quente" : "Frio"}.`,
-        );
-      }
     } catch (error) {
       toast.error(mensagemDeErro(error, "Não foi possível gerar a sugestão."));
     } finally {
@@ -339,10 +336,8 @@ function LeadDetalhe() {
           <SectionCard title="Dados comerciais" accent="navy">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <StatusPill status={lead.status} />
-              <TemperatureBadge
-                temperature={lead.temperature}
-                suggested={!lead.temperature_confirmed}
-                motivo={lead.temperatura_motivo}
+              <ClassificacaoBadge
+                classificacao={classes[lead.id]}
                 retornoEm={lead.retorno_combinado_em}
               />
               {lead.work_order ? (
@@ -394,21 +389,6 @@ function LeadDetalhe() {
                   value={lead.service_interest ?? ""}
                   onChange={(v) => void salvarCampos({ service_interest: v || null })}
                   options={(servicos ?? []).map((s) => ({ value: s.name, label: s.name }))}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="d-temp">Temperatura</Label>
-                <NativeSelect
-                  id="d-temp"
-                  placeholder="Frio"
-                  value={lead.temperature}
-                  onChange={(v) =>
-                    void salvarCampos({ temperature: v || "FRIO", temperature_confirmed: true })
-                  }
-                  options={[
-                    { value: "FRIO", label: "Frio" },
-                    { value: "QUENTE", label: "Quente" },
-                  ]}
                 />
               </div>
               <div className="grid gap-1.5">

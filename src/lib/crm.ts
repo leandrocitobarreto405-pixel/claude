@@ -209,7 +209,6 @@ export type LeadFilters = {
   from?: string | undefined;
   to?: string | undefined;
   statusId?: string | undefined;
-  temperature?: string | undefined;
   campaignId?: string | undefined;
   salespersonId?: string | undefined;
   originId?: string | undefined;
@@ -232,7 +231,6 @@ export function useCrmLeads(filters: LeadFilters = {}) {
       if (filters.from) q = q.gte("first_contact_date", filters.from);
       if (filters.to) q = q.lte("first_contact_date", filters.to);
       if (filters.statusId) q = q.eq("status_id", filters.statusId);
-      if (filters.temperature) q = q.eq("temperature", filters.temperature);
       if (filters.campaignId) q = q.eq("campaign_id", filters.campaignId);
       if (filters.salespersonId) q = q.eq("salesperson_id", filters.salespersonId);
       if (filters.originId) q = q.eq("sales_origin_id", filters.originId);

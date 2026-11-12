@@ -4,13 +4,15 @@ import { CalendarClock, Flame, MessageSquareText, Target, TrendingUp, Wallet } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionCard } from "@/components/app-shell";
-import { KpiCard, LeadLink, StatusPill, TemperatureBadge } from "@/components/crm-ui";
+import { KpiCard, LeadLink, StatusPill, ClassificacaoBadge } from "@/components/crm-ui";
 import { supabase } from "@/integrations/supabase/client";
 import { CRM_STATUS_KIND, formatPhoneBR, statusMeta, useCrmCatalog } from "@/lib/crm";
 import { brl, currentMonth, dateTimeBR, monthEnd, monthStart, pct } from "@/lib/format";
+import { useClassificacoes } from "@/lib/classificacao-lead-hook";
 
 /** Visão geral do CRM no período (leads, conversão, campanhas). Mostrada na aba Indicadores. */
 export function VisaoGeralCrm() {
+  const classes = useClassificacoes();
   const mes = currentMonth();
   const [de, setDe] = useState(monthStart(mes));
   const [ate, setAte] = useState(monthEnd(mes));
@@ -70,7 +72,7 @@ export function VisaoGeralCrm() {
     const rows = (leads.data ?? []).filter((l) => l.entrada === "receptivo");
     const reativacoes = (leads.data ?? []).length - rows.length;
     const total = rows.length;
-    const quentes = rows.filter((l) => l.temperature === "QUENTE").length;
+    const quentes = rows.filter((l) => classes[l.id] === 2).length;
     const convertidos = rows.filter((l) => l.linked_work_order_id).length;
     const abertos = rows.filter((l) => l.is_open).length;
     const perdidos = rows.filter((l) => {
@@ -97,7 +99,7 @@ export function VisaoGeralCrm() {
       custoPorVenda: convertidos > 0 ? investido / convertidos : 0,
       roi: investido > 0 ? receitaTotal / investido : 0,
     };
-  }, [leads.data, investimentos.data, receita.data, statuses]);
+  }, [leads.data, investimentos.data, receita.data, statuses, classes]);
 
   const porStatus = useMemo(() => {
     const rows = leads.data ?? [];
@@ -171,7 +173,7 @@ export function VisaoGeralCrm() {
         />
         <KpiCard
           icon={Flame}
-          label="Leads quentes"
+          label="Em negociação"
           value={String(resumo.quentes)}
           hint={resumo.total > 0 ? `${pct(resumo.quentes / resumo.total)} do total` : undefined}
           accent="warning"
@@ -279,10 +281,8 @@ export function VisaoGeralCrm() {
                     {l.last_interaction_at ? dateTimeBR(l.last_interaction_at) : "sem interação"}
                   </p>
                 </div>
-                <TemperatureBadge
-                  temperature={l.temperature}
-                  suggested={!l.temperature_confirmed}
-                  motivo={l.temperatura_motivo}
+                <ClassificacaoBadge
+                  classificacao={classes[l.id]}
                   retornoEm={l.retorno_combinado_em}
                 />
               </div>

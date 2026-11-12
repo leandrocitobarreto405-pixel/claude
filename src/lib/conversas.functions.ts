@@ -39,7 +39,8 @@ export type ConversaResumo = {
   ultimaDoCliente: boolean;
   /** Por que a Alice passou para a equipe (só nas que precisam de você). */
   passagem: Passagem | null;
-  temperatura: string | null;
+  /** Classificação da Tatiana (1 a 9), no lugar da temperatura (12/11). */
+  classificacao: number | null;
   etapa: string | null;
   leadId: string | null;
   urlChatwoot: string | null;
@@ -90,7 +91,7 @@ export type ConversaCompleta = ConversaResumo & {
 
 const SELECT_CONVERSA = `id, status, aguardando_desde, ultima_atividade_em, url_chatwoot, crm_lead_id, encerrada_em, responsavel_id, responsavel_nome, assumida_por, assumida_em, nome_confirmado, whatsapp_contact_id,
   contato:whatsapp_contact_id ( profile_name, nome_confirmado, display_phone, normalized_phone, ia_desligada, marketing_optout_em, marketing_optout_origem ),
-  lead:crm_lead_id ( lead_name, temperature, status:status_id ( name ) )`;
+  lead:crm_lead_id ( lead_name, status:status_id ( name ) )`;
 
 type LinhaConversa = {
   id: string;
@@ -117,7 +118,6 @@ type LinhaConversa = {
   } | null;
   lead: {
     lead_name: string | null;
-    temperature: string | null;
     status: { name: string } | null;
   } | null;
 };
@@ -137,6 +137,32 @@ type LinhaMensagem = {
   origem?: string | null;
 };
 
+/** Classificação da Tatiana dos leads (lead → 1 a 9). Falha de leitura: sem selo. */
+async function classificacoes(
+  empresaId: string,
+  leads: Array<string | null>,
+): Promise<Map<string, number>> {
+  const ids = [...new Set(leads.filter((x): x is string => Boolean(x)))];
+  const saida = new Map<string, number>();
+  if (!ids.length) return saida;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data } = await supabaseAdmin
+        .from("comercial_analises" as never)
+        .select("crm_lead_id, caixinha")
+        .eq("empresa_id", empresaId)
+        .in("crm_lead_id", ids.slice(i, i + 200))
+        .not("caixinha", "is", null);
+      for (const l of (data ?? []) as unknown as Array<{ crm_lead_id: string; caixinha: number }>)
+        saida.set(l.crm_lead_id, l.caixinha);
+    }
+  } catch {
+    // sem selo
+  }
+  return saida;
+}
+
 function resumir(
   c: LinhaConversa,
   ultima: LinhaMensagem | undefined,
@@ -144,6 +170,7 @@ function resumir(
   eu: Eu,
   naoLidas = 0,
   nomes: Map<string, string> = new Map(),
+  classificacao: number | null = null,
 ): ConversaResumo {
   const telefone = c.contato?.display_phone || c.contato?.normalized_phone || null;
   const grupo = grupoDaConversa(
@@ -172,7 +199,7 @@ function resumir(
     ultimaMensagem: ultima ? textoDaMensagem(ultima.text_content, ultima.message_type) : null,
     ultimaDoCliente: ultima ? ultima.direction === "Recebida" : Boolean(c.aguardando_desde),
     passagem,
-    temperatura: c.lead?.temperature ?? null,
+    classificacao,
     etapa: c.lead?.status?.name ?? null,
     leadId: c.crm_lead_id,
     urlChatwoot: c.url_chatwoot,
@@ -316,6 +343,10 @@ export const listarConversas = createServerFn({ method: "GET" })
     for (const e of (execs.data ?? []) as Array<{ conversa_id: string; ferramentas: unknown }>) {
       execsPorConversa.set(e.conversa_id, [...(execsPorConversa.get(e.conversa_id) ?? []), e]);
     }
+    const classes = await classificacoes(
+      context.empresaId as string,
+      conversas.map((c) => c.crm_lead_id),
+    );
     return conversas.map((c) =>
       resumir(
         c,
@@ -324,6 +355,7 @@ export const listarConversas = createServerFn({ method: "GET" })
         eu,
         contarNaoLidas(msgsPorConversa.get(c.id) ?? [], lidaEm.get(c.id)),
         nomes,
+        classes.get(c.crm_lead_id ?? "") ?? null,
       ),
     );
   });
@@ -390,6 +422,9 @@ export const lerConversa = createServerFn({ method: "GET" })
       eu,
       0,
       nomes,
+      (await classificacoes(context.empresaId as string, [c.crm_lead_id])).get(
+        c.crm_lead_id ?? "",
+      ) ?? null,
     );
     return {
       ...resumo,
