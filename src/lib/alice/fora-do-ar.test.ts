@@ -62,13 +62,22 @@ test("causa e texto do push", () => {
   );
 });
 
-test("referência: uma a cada 15 minutos de dia, uma por hora de noite", () => {
-  // 14h31 em São Paulo.
-  const a = referenciaDoAviso(new Date("2026-11-12T17:31:00Z"));
-  assert.equal(a, referenciaDoAviso(new Date("2026-11-12T17:44:00Z")));
-  assert.notEqual(a, referenciaDoAviso(new Date("2026-11-12T17:46:00Z")));
-  // 2h05 em São Paulo.
-  const n = referenciaDoAviso(new Date("2026-11-12T05:05:00Z"));
-  assert.equal(n, referenciaDoAviso(new Date("2026-11-12T05:50:00Z")));
-  assert.notEqual(n, referenciaDoAviso(new Date("2026-11-12T06:05:00Z")));
+test("referência: a cada 15 minutos de dia; de noite uma só, e mais uma às 7h", () => {
+  const ref = (iso: string) => referenciaDoAviso(new Date(iso));
+  // Dia (14h31 em São Paulo): muda a cada 15 minutos.
+  assert.equal(ref("2026-11-12T17:31:00Z"), ref("2026-11-12T17:44:00Z"));
+  assert.notEqual(ref("2026-11-12T17:31:00Z"), ref("2026-11-12T17:46:00Z"));
+  // Noite de 12/11 (21h até 6h59 de 13/11): uma referência só.
+  const noite = ref("2026-11-13T00:05:00Z"); // 21h05
+  assert.equal(noite, "fora-do-ar:noite:2026-11-12");
+  assert.equal(noite, ref("2026-11-13T02:40:00Z")); // 23h40
+  assert.equal(noite, ref("2026-11-13T06:10:00Z")); // 3h10
+  assert.equal(noite, ref("2026-11-13T09:59:00Z")); // 6h59
+  assert.notEqual(noite, ref("2026-11-12T23:59:00Z")); // 20h59 ainda é dia
+  // 7h: mais uma, uma vez só.
+  assert.equal(ref("2026-11-13T10:00:00Z"), "fora-do-ar:7h:2026-11-13");
+  assert.equal(ref("2026-11-13T10:00:00Z"), ref("2026-11-13T10:55:00Z"));
+  // 8h: volta o ritmo do dia. A noite seguinte tem outra referência.
+  assert.match(ref("2026-11-13T11:00:00Z"), /^fora-do-ar:15:/);
+  assert.equal(ref("2026-11-14T03:00:00Z"), "fora-do-ar:noite:2026-11-13");
 });

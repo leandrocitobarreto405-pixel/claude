@@ -10,8 +10,6 @@ import { tempoDeEspera } from "./transferencia";
 export const ESPERA_MIN = 10;
 /** O push se repete neste intervalo enquanto a situação durar. */
 export const REPETIR_MIN = 15;
-/** De noite (21h às 8h) o aviso se repete de hora em hora. */
-export const REPETIR_NOITE_MIN = 60;
 /** Só olha o que aconteceu nas últimas horas (o resto já virou assunto da equipe). */
 export const JANELA_HORAS = 3;
 
@@ -93,21 +91,25 @@ export function textoForaDoAr(o: {
   };
 }
 
+const TZ = "America/Sao_Paulo";
 const horaSP = (d: Date) =>
   Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "America/Sao_Paulo",
-      hour: "2-digit",
-      hourCycle: "h23",
-    }).format(d),
+    new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }).format(d),
   );
+const diaSP = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: TZ });
 
 /**
- * Referência do push: uma por empresa a cada 15 minutos entre 8h e 21h; de noite, uma por hora
- * (o registro de envios evita repetir dentro do mesmo intervalo).
+ * Referência do push (o registro de envios não repete a mesma referência para a mesma pessoa):
+ * - de dia (8h às 21h): uma a cada 15 minutos enquanto durar;
+ * - de noite (21h às 7h): uma só por noite, quando acontecer;
+ * - às 7h: mais uma, se continuar fora do ar.
  */
 export function referenciaDoAviso(agora: Date): string {
   const h = horaSP(agora);
-  const min = h >= 8 && h < 21 ? REPETIR_MIN : REPETIR_NOITE_MIN;
-  return `fora-do-ar:${min}:${Math.floor(agora.getTime() / (min * 60_000))}`;
+  if (h >= 8 && h < 21)
+    return `fora-do-ar:15:${Math.floor(agora.getTime() / (REPETIR_MIN * 60_000))}`;
+  if (h === 7) return `fora-do-ar:7h:${diaSP(agora)}`;
+  // A noite leva a data do dia em que começou (21h): de madrugada, o dia anterior.
+  const noite = h >= 21 ? agora : new Date(agora.getTime() - 12 * 3_600_000);
+  return `fora-do-ar:noite:${diaSP(noite)}`;
 }
