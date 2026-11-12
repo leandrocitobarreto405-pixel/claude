@@ -10,6 +10,9 @@ import { PaymentDialog } from "@/components/payment-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { VISIT_SELECT, type VisitRow } from "@/lib/os";
 import { semOsDeTeste } from "@/lib/os-teste";
+import { toast } from "sonner";
+import { cancelarVisitaEmAberto, concluirVisitaSemPagamento } from "@/lib/visita-acoes";
+import { visitaAntiga } from "@/lib/visita-vencida";
 import { useTechnicians } from "@/lib/data";
 import { usePapel } from "@/lib/tenant";
 import { useSession } from "@/lib/session";
@@ -152,6 +155,40 @@ function Servicos() {
     (v) => diasDeAtraso(v.scheduled_date, hoje) > 0,
   ).length;
 
+  // Visitas antigas em aberto (mais de 7 dias, 12/11): um toque por linha para concluir ou cancelar.
+  // Retirada de persiana/tapete fica de fora (segue aberta até a entrega).
+  const podeUmToque = papel === "admin" || papel === "atendente";
+  const antigas = podeUmToque
+    ? listaParaConcluir.filter((v) => !v.retirada && visitaAntiga(v.scheduled_date, hoje))
+    : [];
+  const idsAntigas = new Set(antigas.map((v) => v.id));
+  const [ocupada, setOcupada] = useState<string | null>(null);
+  async function umToque(v: VisitRow, acao: "feita" | "cancelar") {
+    setOcupada(v.id);
+    try {
+      if (acao === "feita") {
+        await concluirVisitaSemPagamento({
+          visitId: v.id,
+          userId: user?.id ?? null,
+          nota: "Visita antiga em aberto: conclusão confirmada pela equipe na lista de Serviços.",
+        });
+        toast.success("Visita concluída.");
+      } else {
+        const r = await cancelarVisitaEmAberto({
+          visitId: v.id,
+          userId: user?.id ?? null,
+          motivo: "Visita antiga em aberto: cancelada pela equipe na lista de Serviços.",
+        });
+        toast.success(r === "os" ? "OS cancelada." : "Visita cancelada.");
+      }
+      recarregar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setOcupada(null);
+    }
+  }
+
   function recarregar() {
     void paraConcluir.refetch();
     void realizados.refetch();
@@ -274,55 +311,112 @@ function Servicos() {
             </p>
           </Card>
         ) : (
-          <ul className="flex flex-col gap-2.5" aria-label="Serviços para concluir">
-            {listaParaConcluir.map((v) => {
-              const atraso = textoAtraso(diasDeAtraso(v.scheduled_date, hoje));
-              return (
-                <Card as="li" key={v.id} className="gap-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-xs font-bold text-muted-foreground">
-                        {atraso.tom === "neutro"
-                          ? "Hoje"
-                          : `${weekdayPT(v.scheduled_date)}, ${dateBR(v.scheduled_date)}`}
-                        {" · "}
-                        {timeBR(v.scheduled_time)}
+          <>
+            {antigas.length ? (
+              <Card className="gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[15px] font-bold">Visitas antigas em aberto</p>
+                  <Chip tom="problema">{antigas.length}</Chip>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Passaram da data há mais de 7 dias e continuam em aberto. Um toque por linha: “Foi
+                  feita” conclui com o valor combinado, sem lançar pagamento; “Cancelar” tira da
+                  agenda.
+                </p>
+                <ul
+                  className="flex flex-col divide-y divide-border"
+                  aria-label="Visitas antigas em aberto"
+                >
+                  {antigas.map((v) => (
+                    <li key={v.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => abrirDetalhes(v)}
+                        className="flex min-w-0 flex-1 basis-56 flex-col text-left"
+                      >
+                        <span className="truncate text-sm font-semibold">
+                          {v.work_order?.customer?.full_name ?? "Cliente"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {[
+                            dateBR(v.scheduled_date),
+                            v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
+                            v.technician?.name ?? "Sem técnico",
+                            comValores ? brl(v.final_value ?? v.visit_value) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </button>
+                      <span className="flex shrink-0 gap-2">
+                        <Botao disabled={ocupada === v.id} onClick={() => void umToque(v, "feita")}>
+                          Foi feita
+                        </Botao>
+                        <Botao
+                          variante="contorno"
+                          disabled={ocupada === v.id}
+                          onClick={() => void umToque(v, "cancelar")}
+                        >
+                          Cancelar
+                        </Botao>
                       </span>
-                      <span className="truncate text-[15px] font-bold leading-snug">
-                        {v.work_order?.customer?.full_name ?? "Cliente"}
-                      </span>
-                      <span className="text-[13px] text-muted-foreground">
-                        {[
-                          v.service_type?.name,
-                          v.upholstery_description || v.upholstery_type?.name,
-                          v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                      <span className="text-[13px] text-muted-foreground">
-                        {[
-                          v.technician?.name ?? "Sem técnico",
-                          comValores ? brl(v.final_value ?? v.visit_value) : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </div>
-                    <Chip tom={atraso.tom} className="shrink-0">
-                      {atraso.rotulo}
-                    </Chip>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Botao variante="neutro" onClick={() => abrirDetalhes(v)}>
-                      Detalhes
-                    </Botao>
-                    <Botao onClick={() => setConcluindo(v)}>Concluir</Botao>
-                  </div>
-                </Card>
-              );
-            })}
-          </ul>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            ) : null}
+            <ul className="flex flex-col gap-2.5" aria-label="Serviços para concluir">
+              {listaParaConcluir
+                .filter((v) => !idsAntigas.has(v.id))
+                .map((v) => {
+                  const atraso = textoAtraso(diasDeAtraso(v.scheduled_date, hoje));
+                  return (
+                    <Card as="li" key={v.id} className="gap-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="text-xs font-bold text-muted-foreground">
+                            {atraso.tom === "neutro"
+                              ? "Hoje"
+                              : `${weekdayPT(v.scheduled_date)}, ${dateBR(v.scheduled_date)}`}
+                            {" · "}
+                            {timeBR(v.scheduled_time)}
+                          </span>
+                          <span className="truncate text-[15px] font-bold leading-snug">
+                            {v.work_order?.customer?.full_name ?? "Cliente"}
+                          </span>
+                          <span className="text-[13px] text-muted-foreground">
+                            {[
+                              v.service_type?.name,
+                              v.upholstery_description || v.upholstery_type?.name,
+                              v.work_order?.os_number ? `OS ${v.work_order.os_number}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                          <span className="text-[13px] text-muted-foreground">
+                            {[
+                              v.technician?.name ?? "Sem técnico",
+                              comValores ? brl(v.final_value ?? v.visit_value) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </div>
+                        <Chip tom={atraso.tom} className="shrink-0">
+                          {atraso.rotulo}
+                        </Chip>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Botao variante="neutro" onClick={() => abrirDetalhes(v)}>
+                          Detalhes
+                        </Botao>
+                        <Botao onClick={() => setConcluindo(v)}>Concluir</Botao>
+                      </div>
+                    </Card>
+                  );
+                })}
+            </ul>
+          </>
         )
       ) : listaRealizados.length === 0 ? (
         <Card className="items-center py-8 text-center">

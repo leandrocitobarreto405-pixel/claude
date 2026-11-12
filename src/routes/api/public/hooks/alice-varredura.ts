@@ -78,6 +78,13 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             );
             return null;
           });
+          // Visita que passou da data sem conclusão nem nova data: tarefa P1 "remarcar" da equipe
+          // (fecha sozinha quando a visita é concluída ou remarcada). Não depende da Tatiana.
+          const { rodarVisitasVencidas } = await import("@/lib/visita-vencida.server");
+          const visitasVencidas = await rodarVisitasVencidas().catch((e) => {
+            console.error("Visita vencida: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Alarme de vaga na agenda: push às 8h30, 10h30, 13h30 e 16h enquanto houver vaga.
           const { rodarAlarmeDeVagas } = await import("@/lib/vagas.server");
           const alarmeDeVagas = await rodarAlarmeDeVagas().catch((e) => {
@@ -140,6 +147,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             temperaturas,
             retornosExpirados,
             servicosNaoConcluidos,
+            visitasVencidas,
             alarmeDeVagas,
             precisaResumo,
             exportacaoGoogle,
