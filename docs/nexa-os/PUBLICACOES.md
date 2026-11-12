@@ -860,6 +860,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: mensagem pronta só no dia da tarefa (tarefa para depois de amanhã fica sem mensagem até a véspera) | `39bef67` | — |
 | 12/11/2026 | Visita "Confirmado" e "Em deslocamento" contam como visita marcada na promoção da agenda (ponto de partida) e nos avisos de serviço atrasado | `b3483c7` | — |
 | 12/11/2026 | Tatiana: resumo do dia (a noite lê o resumo guardado e só o fim da conversa; releitura completa a cada 7 dias) | `f78679f` | `20261228510000_tatiana_resumo_e_lotes` |
+| 12/11/2026 | Marketing: visita "Confirmado" e "Em deslocamento" contam como visita marcada nas listas e na conferência antes do envio (migração rodada pelo conector) | `3077957` | `20261228520000_mkt_visita_confirmada` |
+| 12/11/2026 | Tatiana: lead sem novidade não passa pela IA; tarefa não feita continua na lista com contador; cobrança das não feitas no resumo da manhã; mensagem final escrita na véspera | `c018af2` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1498,6 +1500,25 @@ Agenda: remarcada como agendada (12/11, pedido do dono com "pode publicar depois
 Temperatura, espera na falha da IA e começo da rodada (12/11, "pode publicar temperatura-fora, toque-espera-api e custo-rodada" do dono, prints da temperatura aprovados): merges `dc215d0`, `cb7a27b` e `22e2d45`, sem mudança no banco. (1) Temperatura: `rodarTemperaturas` não chama mais o classificador; só `crm_recalcular_temperaturas`, que continua gravando o retorno combinado (decisão do dono: a rotina fica como está). Leads, Funil, Follow-ups, visão geral do CRM, ficha do lead e Conversas mostram a classificação da Tatiana (`ClassificacaoBadge`, lida por `classificacaoDosLeadsFn` porque a ficha só é aberta ao admin); em Conversas a lista mostra o ponto vermelho para "Em negociação" e âmbar para "Achou caro". Saem o filtro e o campo manual de temperatura, a coluna da importação, o campo `temperatura` de `atualizar_lead` (Alice) e a sugestão do "Resumo com IA". Nenhuma coluna apagada. (2) Antes de um toque automático, se a leitura de contexto falhar, o toque é adiado 1 h, depois 3 h, e na terceira falha sai sem a leitura (`esperaAposFalha`, contador em `dados.contexto_falhas`). (3) Na noite da Tatiana, o primeiro lead de cada rodada vai sozinho e os outros 4 em seguida. Build sem erro.
 
 Custo da noite da Tatiana: mensagem só no dia e resumo do dia (12/11, "pode publicar mensagem-no-dia" e "OK para rodar a migração 20261228510000 ... siga com o resumo do dia" do dono): (1) merge `39bef67`: tarefa da equipe marcada para depois de amanhã nasce sem a mensagem pronta (`tarefaParaDepois`); o lead volta para a leitura na véspera (`rever_em`) e a mensagem sai ali. (2) Merge `b3483c7`: `VISITA_FUTURA` da promoção da agenda e as contagens de serviço atrasado passam a incluir "Confirmado" e "Em deslocamento". A regra "cliente já tem visita marcada" das listas mora em `private.mkt_listas_dados` e `private.mkt_contato_tem_os`; a migração `20261228520000_mkt_visita_confirmada` está ensaiada no ramo `mkt-visita-confirmada` e NÃO foi rodada (aguarda o OK do dono). (3) Migração `20261228510000_tatiana_resumo_e_lotes` rodada pelo conector e registrada (colunas `resumo_dia`, `resumo_ate`, `leitura_completa_em` em `comercial_analises` e `lote_id`, `lote_situacao`, `lote_enviado_em`, `lote_aplicados` em `comercial_noites`; só colunas novas, vazias) e merge `f78679f`: a decisão devolve o campo `resumo`, gravado na ficha; com resumo guardado e leitura completa há menos de 7 dias, vai para a IA o resumo e só o fim da conversa (o que é novo, com no mínimo 12 mensagens). A decisão é tomada em toda leitura; `comercial_noites.resumo.leituras` conta completas e incrementais. Os lotes ainda não foram construídos (as colunas ficam vazias). Base de comparação, noite de 11/11: Turbine US$ 4,31 (134 leads, 53 tarefas), Ecoprime US$ 2,10 (75 leads, 30 tarefas). Build sem erro.
+
+Lead sem novidade não passa pela IA (12/11, `c018af2`): na montagem da noite, o lead que desde a
+última leitura não teve mensagem nova (do cliente ou nossa), novidade no app (orçamento, OS, visita,
+pagamento, desfecho de tarefa) nem "rever em" ou retorno combinado chegando fica fora da leitura e
+vale a mesma decisão. Passam pela IA: lead novo, lead com novidade, follow-up esquecido e a releitura
+completa a cada 7 dias; se a conferência falhar ou vier cortada, o lead passa. A tarefa não some:
+pular não cancela, não substitui e não reescreve; o que ficou sem fazer volta no fim da noite (depois
+da leitura) com o contador ("Pendente de ontem", "Volta há 3 dias"); "esperar" não tira tarefa da
+lista; tarefa de venda há 7 dias na lista sem resposta do cliente sai e o lead fica guardado para
+campanha. O resumo da manhã e o push cobram as não feitas pela lista, sem IA ("3 tarefas de ontem sem
+fazer: ..."). O resumo da noite (`comercial_noites.resumo`) guarda `semNovidade` (quantos pulados, por
+situação, 5 exemplos e por que os outros passaram) e `lista` (tarefas no começo e no fim, novas,
+substituídas, mantidas, que saíram, e a conferência de que a tarefa de cada pulado continua lá).
+Acerto na "mensagem só no dia": a tarefa futura nasce com o rascunho (sem o polimento) e a mensagem
+final é escrita na véspera; sem isso ela chegaria ao dia sem mensagem, porque na véspera a IA via o
+próprio toque marcado e respondia "esperar". O campo `retorno_combinado_em` do lead não serve de
+sinal de novidade (espelha a data da própria tarefa da equipe): vale o follow-up de retorno (trilha
+C) e a data prometida pelo cliente. Banco não muda. Migração `20261228520000` (visita confirmada no
+marketing) rodada pelo conector e conferida no mesmo dia.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
