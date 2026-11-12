@@ -862,7 +862,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: resumo do dia (a noite lê o resumo guardado e só o fim da conversa; releitura completa a cada 7 dias) | `f78679f` | `20261228510000_tatiana_resumo_e_lotes` |
 | 12/11/2026 | Marketing: visita "Confirmado" e "Em deslocamento" contam como visita marcada nas listas e na conferência antes do envio (migração rodada pelo conector) | `3077957` | `20261228520000_mkt_visita_confirmada` |
 | 12/11/2026 | Tatiana: lead sem novidade não passa pela IA; tarefa não feita continua na lista com contador; cobrança das não feitas no resumo da manhã; mensagem final escrita na véspera | `c018af2` | — |
-| 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `PENDENTE` | — |
+| 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `dafe783` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
