@@ -265,8 +265,9 @@ function HorariosBase({ d }: { d: DadosAgendaConfig }) {
       <div className="flex flex-col gap-4 p-4">
         <p className="text-sm text-muted-foreground">
           Os horários em que cada técnico pode começar um serviço, por dia da semana (quantos
-          quiser; domingo é opcional). A Alice só oferece esses horários, e a promoção de dia vago
-          usa os mesmos: um horário base sem atendimento marcado conta como livre. Dia sem horário
+          quiser; domingo é opcional). A Alice só oferece esses horários, e a promoção de dia vago e
+          o alarme de vaga na agenda usam os mesmos: um horário base sem atendimento marcado conta
+          como livre. Sem horário base preenchido, o alarme de vaga fica desligado. Dia sem horário
           não é oferecido.
         </p>
         {ativos.length === 0 ? (
@@ -328,9 +329,75 @@ function HorariosDoTecnico({
   const mudou =
     JSON.stringify([...lista].sort(ordenar)) !== JSON.stringify([...iniciais].sort(ordenar));
 
+  // Preenchimento simples (11/11): dias de atendimento e um horário de manhã e outro de tarde.
+  const [dias, setDias] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [manha, setManha] = useState("09:00");
+  const [tarde, setTarde] = useState("14:00");
+  function aplicarSimples() {
+    const horas = [manha, tarde].filter(Boolean);
+    if (!dias.length || !horas.length) return;
+    setLista([
+      ...lista.filter((h) => !dias.includes(h.diaSemana)),
+      ...dias.flatMap((d) => horas.map((h) => ({ diaSemana: d, hora: h }))),
+    ]);
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-botao border border-border p-3">
       <p className="font-bold">{nome}</p>
+      <fieldset className="flex flex-col gap-2 rounded-md bg-secondary p-3">
+        <legend className="sr-only">Preenchimento simples de {nome}</legend>
+        <p className="text-sm font-semibold">Preenchimento simples</p>
+        <div className="flex flex-wrap gap-1.5">
+          {ORDEM_SEMANA.map((n) => {
+            const ligado = dias.includes(n);
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={ligado}
+                onClick={() => setDias(ligado ? dias.filter((x) => x !== n) : [...dias, n])}
+                className={cn(
+                  "min-h-11 min-w-12 rounded-full border px-3 text-sm font-semibold",
+                  ligado
+                    ? "border-marca bg-marca text-white"
+                    : "border-border bg-background text-muted-foreground",
+                )}
+              >
+                {DIAS[n]}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`hs-manha-${tecnicoId}`}>Manhã (vazio = não atende)</Label>
+            <Input
+              id={`hs-manha-${tecnicoId}`}
+              type="time"
+              className="min-h-11 w-36 bg-background"
+              value={manha}
+              onChange={(e) => setManha(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`hs-tarde-${tecnicoId}`}>Tarde (vazio = não atende)</Label>
+            <Input
+              id={`hs-tarde-${tecnicoId}`}
+              type="time"
+              className="min-h-11 w-36 bg-background"
+              value={tarde}
+              onChange={(e) => setTarde(e.target.value)}
+            />
+          </div>
+          <Botao variante="contorno" onClick={aplicarSimples}>
+            Aplicar aos dias marcados
+          </Botao>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Troca os horários dos dias marcados; confira abaixo e toque em Salvar.
+        </p>
+      </fieldset>
       <ul className="flex flex-col gap-1.5">
         {ORDEM_SEMANA.map((n) => {
           const horas = lista.filter((h) => h.diaSemana === n).sort(ordenar);

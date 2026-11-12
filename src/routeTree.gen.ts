@@ -48,6 +48,7 @@ import { Route as AuthenticatedPromocaoRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRotasRouteImport } from './routes/_authenticated/rotas'
 import { Route as AuthenticatedServicosRouteImport } from './routes/_authenticated/servicos'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedVagasRouteImport } from './routes/_authenticated/vagas'
 import { Route as ApiAnexoTempoRouteImport } from './routes/api/anexo-tempo'
 import { Route as ContadoraIndexRouteImport } from './routes/contadora/index'
 import { Route as ContadoraDespesasRouteImport } from './routes/contadora/despesas'
@@ -310,6 +311,11 @@ const AuthenticatedServicosRoute = AuthenticatedServicosRouteImport.update({
 const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedVagasRoute = AuthenticatedVagasRouteImport.update({
+  id: '/vagas',
+  path: '/vagas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiAnexoTempoRoute = ApiAnexoTempoRouteImport.update({
@@ -707,6 +713,7 @@ export interface FileRoutesByFullPath {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/vagas': typeof AuthenticatedVagasRoute
   '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
@@ -807,6 +814,7 @@ export interface FileRoutesByTo {
   '/rotas': typeof AuthenticatedRotasRoute
   '/servicos': typeof AuthenticatedServicosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/vagas': typeof AuthenticatedVagasRoute
   '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
@@ -911,6 +919,7 @@ export interface FileRoutesById {
   '/_authenticated/rotas': typeof AuthenticatedRotasRoute
   '/_authenticated/servicos': typeof AuthenticatedServicosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/vagas': typeof AuthenticatedVagasRoute
   '/api/anexo-tempo': typeof ApiAnexoTempoRoute
   '/contadora/despesas': typeof ContadoraDespesasRoute
   '/contadora/exportar': typeof ContadoraExportarRoute
@@ -1015,6 +1024,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/vagas'
     | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
@@ -1115,6 +1125,7 @@ export interface FileRouteTypes {
     | '/rotas'
     | '/servicos'
     | '/usuarios'
+    | '/vagas'
     | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
@@ -1218,6 +1229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rotas'
     | '/_authenticated/servicos'
     | '/_authenticated/usuarios'
+    | '/_authenticated/vagas'
     | '/api/anexo-tempo'
     | '/contadora/despesas'
     | '/contadora/exportar'
@@ -1584,6 +1596,13 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/vagas': {
+      id: '/_authenticated/vagas'
+      path: '/vagas'
+      fullPath: '/vagas'
+      preLoaderRoute: typeof AuthenticatedVagasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/anexo-tempo': {
@@ -2072,6 +2091,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRotasRoute: typeof AuthenticatedRotasRoute
   AuthenticatedServicosRoute: typeof AuthenticatedServicosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedVagasRoute: typeof AuthenticatedVagasRoute
   AuthenticatedConfiguracoesAgendaRoute: typeof AuthenticatedConfiguracoesAgendaRoute
   AuthenticatedConfiguracoesAliceLeadsRoute: typeof AuthenticatedConfiguracoesAliceLeadsRoute
   AuthenticatedConfiguracoesDocumentosRoute: typeof AuthenticatedConfiguracoesDocumentosRoute
@@ -2143,6 +2163,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRotasRoute: AuthenticatedRotasRoute,
   AuthenticatedServicosRoute: AuthenticatedServicosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedVagasRoute: AuthenticatedVagasRoute,
   AuthenticatedConfiguracoesAgendaRoute: AuthenticatedConfiguracoesAgendaRoute,
   AuthenticatedConfiguracoesAliceLeadsRoute:
     AuthenticatedConfiguracoesAliceLeadsRoute,
