@@ -23,6 +23,8 @@ import {
 type Db = any;
 
 const HORA_INICIO = "08:00";
+// Fora do horário a tarefa nasceria "de ontem": cria só de dia (fechar sozinha vale sempre).
+const HORA_FIM = "20:00";
 
 type Visita = {
   id: string;
@@ -56,11 +58,11 @@ export async function rodarVisitasVencidas(
   agora = agoraSP(),
 ): Promise<{ criadas: number; fechadas: number; semLead: number }> {
   const saida = { criadas: 0, fechadas: 0, semLead: 0 };
-  if (agora.hora < HORA_INICIO) return saida;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const db = supabaseAdmin as unknown as Db;
 
   saida.fechadas = await fecharResolvidas(db);
+  if (agora.hora < HORA_INICIO || agora.hora >= HORA_FIM) return saida;
 
   const { data: visitas, error } = await db
     .from("visits")
