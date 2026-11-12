@@ -45,6 +45,7 @@ import {
 import {
   RESULTADO_CAMPANHA,
   RESULTADO_MUDOU,
+  SAIDA_PARA_CAMPANHA_LIGADA,
   ehTarefaDeVenda,
   linhaDasNaoFeitas,
   notasDaQueVoltou,
@@ -2133,6 +2134,7 @@ async function mandarParaCampanha(
   t: { id: string; crm_lead_id: string; tarefa_tipo: string | null; created_at: string },
   hoje: string,
 ): Promise<boolean> {
+  if (!SAIDA_PARA_CAMPANHA_LIGADA) return false;
   if (
     !saiParaCampanha({ tipo: t.tarefa_tipo, criadaEm: t.created_at, ultimaDoCliente: null, hoje })
   )

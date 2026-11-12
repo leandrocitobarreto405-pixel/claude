@@ -173,6 +173,13 @@ export const TAREFAS_DE_VENDA = ["mensagem", "ligar", "follow_up_esquecido"] as 
 export const ehTarefaDeVenda = (tipo: string | null | undefined) =>
   (TAREFAS_DE_VENDA as readonly string[]).includes(tipo ?? "mensagem");
 
+/**
+ * Saída automática para a campanha: DESLIGADA (12/11). O dono pediu para trocar a contagem (7 dias
+ * da última mensagem do cliente ou do orçamento, com exceções) e ver a lista antes de aplicar; até
+ * o OK dele, nenhuma tarefa sai da lista sozinha por tempo.
+ */
+export const SAIDA_PARA_CAMPANHA_LIGADA = false;
+
 /** Dias que a tarefa de venda fica na lista sem resposta do cliente antes de ir para a campanha. */
 export const DIAS_NA_LISTA = 7;
 

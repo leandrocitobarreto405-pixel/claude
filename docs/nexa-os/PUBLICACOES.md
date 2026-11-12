@@ -862,6 +862,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: resumo do dia (a noite lê o resumo guardado e só o fim da conversa; releitura completa a cada 7 dias) | `f78679f` | `20261228510000_tatiana_resumo_e_lotes` |
 | 12/11/2026 | Marketing: visita "Confirmado" e "Em deslocamento" contam como visita marcada nas listas e na conferência antes do envio (migração rodada pelo conector) | `3077957` | `20261228520000_mkt_visita_confirmada` |
 | 12/11/2026 | Tatiana: lead sem novidade não passa pela IA; tarefa não feita continua na lista com contador; cobrança das não feitas no resumo da manhã; mensagem final escrita na véspera | `c018af2` | — |
+| 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `PENDENTE` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1519,6 +1520,12 @@ próprio toque marcado e respondia "esperar". O campo `retorno_combinado_em` do 
 sinal de novidade (espelha a data da própria tarefa da equipe): vale o follow-up de retorno (trilha
 C) e a data prometida pelo cliente. Banco não muda. Migração `20261228520000` (visita confirmada no
 marketing) rodada pelo conector e conferida no mesmo dia.
+
+Saída para a campanha desligada (12/11): a regra publicada em `c018af2` contava 7 dias da criação
+da tarefa. O dono pediu para contar da última mensagem do cliente (ou do orçamento enviado, o que
+for mais recente), com exceções (data combinada, P1, OS em aberto, acerto pendente), e para ver a
+lista antes de aplicar. Até o OK dele, `SAIDA_PARA_CAMPANHA_LIGADA = false`: nenhuma tarefa sai da
+lista sozinha por tempo. O resto da regra do "sem novidade" segue igual.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
