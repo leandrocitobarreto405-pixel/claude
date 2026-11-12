@@ -2274,7 +2274,13 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
       return { noite: noite.id, situacao: "parada no teto mensal" };
     }
     const rodada = noite.leads.slice(feitos, feitos + POR_RODADA);
-    const rs = await Promise.allSettled(rodada.map((id) => decidirLead(db, ctx, id)));
+    // Começo da rodada (11/11, custo): o primeiro lead vai sozinho e grava o cache das instruções;
+    // os outros 4 saem juntos depois e já leem do cache (antes os 5 gravavam ao mesmo tempo).
+    const [primeiro, ...resto] = rodada;
+    const rs = [
+      ...(await Promise.allSettled(primeiro ? [decidirLead(db, ctx, primeiro)] : [])),
+      ...(await Promise.allSettled(resto.map((id) => decidirLead(db, ctx, id)))),
+    ];
     for (const r of rs) {
       if (r.status === "fulfilled") custo += r.value;
       else {
