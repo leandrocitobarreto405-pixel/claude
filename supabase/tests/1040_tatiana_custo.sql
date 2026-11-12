@@ -41,8 +41,9 @@ SELECT pg_temp.ok(
 SELECT pg_temp.ok(
   (public.ia_saldo_estimado()->>'consumido_usd')::numeric
     = (public.ia_saldo_estimado()->>'consumido_alice_usd')::numeric
-      + (public.ia_saldo_estimado()->>'consumido_tatiana_usd')::numeric,
-  'consumido = Alice + Tatiana');
+      + (public.ia_saldo_estimado()->>'consumido_tatiana_usd')::numeric
+      + coalesce((public.ia_saldo_estimado()->>'consumido_outros_usd')::numeric, 0),
+  'consumido = Alice + Tatiana + outras chamadas');
 
 -- Consumo por empresa: só a Nexa.
 DO $$
