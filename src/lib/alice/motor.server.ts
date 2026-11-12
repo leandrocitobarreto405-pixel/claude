@@ -66,6 +66,7 @@ import {
   MOTIVO_DO_CONTEXTO,
   ROTULO_CONTEXTO,
   bloqueiaToque,
+  esperaAposFalha,
   ehConcorrencia,
   type ClasseBloqueio,
 } from "./contexto-toque";
@@ -858,12 +859,47 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   // Contexto (27/10): o cliente já disse que fechou com outra empresa, achou mais barato, já fez,
   // não quer ou pediu para parar? O toque não sai e o lead vai para "Sem desfecho".
   if (!passo?.fim) {
-    const { contextoDoCliente } = await import("./contexto-toque.server");
-    const lido = await contextoDoCliente(db as never, {
+    const { lerContextoDoCliente } = await import("./contexto-toque.server");
+    const leitura = await lerContextoDoCliente(db as never, {
       empresaId: tarefa.empresa_id,
       contatoId: d.conversa.whatsapp_contact_id,
       conversaId: d.conversa.id,
     });
+    // Falha da IA (12/11): espera 1 h e tenta de novo, depois 3 h; na terceira o toque sai sem a
+    // leitura. Cada falha fica gravada em ia_chamadas (ok = falso).
+    if (leitura.falhou) {
+      const falhas = Number(dados.contexto_falhas ?? 0);
+      const espera = esperaAposFalha(falhas);
+      if (espera !== null) {
+        const depois = proximoHorarioPermitido(
+          new Date(Date.now() + espera * 60_000),
+          cfg.hora_inicio,
+          cfg.hora_fim,
+        );
+        await db
+          .from("ia_tarefas")
+          .update({
+            situacao: "pendente",
+            executar_apos: depois.toISOString(),
+            enfileirada: false,
+            dados: { ...dados, contexto_falhas: falhas + 1 } as never,
+          })
+          .eq("id", tarefa.id);
+        await db
+          .from("crm_followups")
+          .update({ scheduled_at: depois.toISOString() })
+          .eq("empresa_id", tarefa.empresa_id)
+          .eq("ia_tarefa_id", tarefa.id);
+        const { enfileirarPendentes } = await import("./fila.server");
+        await enfileirarPendentes(db);
+        return {
+          situacao: "adiada",
+          detalhe: `leitura de contexto falhou (${falhas + 1}ª vez): nova tentativa em ${depois.toISOString()}`,
+        };
+      }
+      console.error("Alice: leitura de contexto falhou 3 vezes; o toque sai sem ela", tarefa.id);
+    }
+    const lido = leitura.lido;
     const classe = lido?.classe ?? "segue";
     if (lido && bloqueiaToque(classe))
       return bloquearPorContexto(db, tarefa, d, { classe, trecho: lido.trecho });
