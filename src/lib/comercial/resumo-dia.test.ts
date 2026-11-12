@@ -45,7 +45,9 @@ test("modo de leitura: completa na primeira vez e a cada 7 dias; senão incremen
     leitura_completa_em: completa,
   });
   assert.equal(modoDeLeitura(ficha("2026-11-11T23:30:00Z"), agora), "incremental");
-  assert.equal(modoDeLeitura(ficha("2026-11-06T00:00:00Z"), agora), "incremental");
+  assert.equal(modoDeLeitura(ficha("2026-11-06T02:00:00Z"), agora), "incremental");
+  // A noite não começa sempre no mesmo minuto: 7 dias menos até 2 horas já contam.
+  assert.equal(modoDeLeitura(ficha("2026-11-06T00:00:00Z"), agora), "completa");
   assert.equal(modoDeLeitura(ficha("2026-11-05T23:30:00Z"), agora), "completa");
   assert.equal(modoDeLeitura(ficha("data ruim"), agora), "completa");
 });

@@ -9,6 +9,8 @@ import type { MensagemLead } from "./fatos";
 
 /** De quantos em quantos dias a conversa inteira é relida. */
 export const RELEITURA_DIAS = 7;
+/** A noite não começa sempre no mesmo minuto: 7 dias menos esta folga já contam como 7 dias. */
+export const TOLERANCIA_RELEITURA_MS = 2 * 3_600_000;
 /** Mínimo de mensagens do fim da conversa que sempre vão junto com o resumo. */
 export const CONTEXTO_MINIMO = 12;
 /** Tamanho máximo do resumo guardado. */
@@ -31,7 +33,9 @@ export function modoDeLeitura(ficha: FichaDoResumo, agora: Date): "completa" | "
     return "completa";
   const t = ms(ficha.leitura_completa_em);
   if (Number.isNaN(t) || Number.isNaN(ms(ficha.resumo_ate))) return "completa";
-  return agora.getTime() - t >= RELEITURA_DIAS * 86_400_000 ? "completa" : "incremental";
+  return agora.getTime() - t >= RELEITURA_DIAS * 86_400_000 - TOLERANCIA_RELEITURA_MS
+    ? "completa"
+    : "incremental";
 }
 
 /**
