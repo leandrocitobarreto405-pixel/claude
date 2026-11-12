@@ -338,3 +338,16 @@ export function textoFollowUpEsquecido(vencidoEm: string) {
   const { dia, hm } = partesSP(vencidoEm);
   return `Follow-up marcado para ${dia.split("-").reverse().slice(0, 2).join("/")} ${hm} não foi feito por ninguém.`;
 }
+
+// ---------------------------------------------------------------- mensagem só no dia
+
+/**
+ * A tarefa cai depois de amanhã? (11/11, custo.) Nesse caso a mensagem pronta não é escrita agora:
+ * o lead volta para a leitura na véspera e a mensagem sai com o que aconteceu até lá.
+ */
+export function tarefaParaDepois(quandoIso: string | null | undefined, amanha: string): boolean {
+  if (!quandoIso) return false;
+  const t = Date.parse(quandoIso);
+  if (Number.isNaN(t)) return false;
+  return partesSP(new Date(t)).dia > amanha;
+}
