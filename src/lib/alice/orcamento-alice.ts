@@ -49,6 +49,8 @@ export type LinhaOrcamento = {
   duplaFace?: boolean;
   /** Adicional pós-fechamento (preço fixo, fora do desconto). */
   adicional?: boolean;
+  /** Combo: o serviço desta linha (higienização e impermeabilização do mesmo item). */
+  servico?: Servico;
 };
 
 export function precoDe(item: ItemTabela, servico: Servico): number | null {

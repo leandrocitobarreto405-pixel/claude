@@ -11,6 +11,7 @@ import {
   proximoPasso,
   travaDoLead,
   trilhaDoLead,
+  comFotoUmaVez,
 } from "./cadencia";
 
 test("trilha A: 10 min, 40 min, D1 10h, D1 14h, D2 16h (com oferta) e fim no D3", () => {
@@ -348,4 +349,20 @@ test("B2B nunca recebe a oferta com prazo (A5), mesmo com a oferta ligada", () =
 test("passoDaEtapa conhece os toques da espera (fora da janela usam o modelo de retomada)", () => {
   assert.equal(passoDaEtapa("W1")?.modelo, "fu_retomada_horarios");
   assert.equal(passoDaEtapa("W_FIM")?.fim, true);
+});
+
+test("foto pedida uma vez: com a chave, os toques da trilha B não pedem a foto", () => {
+  const b1 = passoDaEtapa("B1")!;
+  assert.match(b1.guia, /Peça a foto/);
+  assert.equal(comFotoUmaVez(b1, false), b1);
+  const novo = comFotoUmaVez(b1, true);
+  assert.match(novo.guia, /^Não peça a foto de novo\./);
+  assert.match(novo.guia, /tipo e o tamanho/);
+  assert.equal(novo.quando, b1.quando);
+  for (const e of ["B2", "B3", "BE"])
+    assert.equal(/com a foto|Peça a foto/.test(comFotoUmaVez(passoDaEtapa(e), true)!.guia), false);
+  // Trilha A e toques sem texto próprio ficam como estão.
+  const a1 = passoDaEtapa("A1")!;
+  assert.equal(comFotoUmaVez(a1, true), a1);
+  assert.equal(comFotoUmaVez(null, true), null);
 });

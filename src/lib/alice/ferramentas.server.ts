@@ -5,7 +5,12 @@
 import { dataDaGarantia, textoGarantia } from "@/lib/orcamento-garantia";
 import { SUGESTOES_DA_ALICE, sugestaoDaAlice } from "@/lib/sem-desfecho";
 import { linhasPagamento } from "@/lib/texto-pagamento";
-import { rotuloServico, textoQuantidade, unidadeDaCategoria } from "@/lib/unidade";
+import {
+  categoriaDeLimpeza,
+  rotuloServico,
+  textoQuantidade,
+  unidadeDaCategoria,
+} from "@/lib/unidade";
 import type { Categoria } from "@/lib/orcamento-regras";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -30,6 +35,7 @@ import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
 import { RECUSA_PRECO_TRAVADO, temPreco } from "./preco-depois";
+import { RECUSA_AUDIO_NO_ATALHO } from "./atalho";
 import { SEM_ENDERECO, temEnderecoParaOrcamento } from "./cep-obrigatorio";
 import { MAX_CARACTERES_EXPLICACAO, MAX_CARACTERES_TOQUE_AUDIO } from "./voz";
 import {
@@ -39,7 +45,8 @@ import {
   modulosDaConfig,
   type ModuloRoteiro,
 } from "./modulos";
-import { comDuplaFace } from "@/lib/dupla-face";
+import { comDuplaFace, ehColchao } from "@/lib/dupla-face";
+import { chavesVendas } from "./chaves";
 import {
   descontoPermitido,
   lerMarketing,
@@ -119,6 +126,8 @@ export type ContextoFerramenta = {
   devolverEquipe?: string;
   /** Regra nº 1: o cliente ainda não respondeu nenhuma pergunta de diagnóstico (sem orçamento). */
   precoTravado?: boolean;
+  /** Atalho do apressado: nesta resposta não vai áudio (explicação falada nem áudio padrão). */
+  semAudio?: boolean;
   /** Roteiro por serviço: módulos da empresa, os já carregados na conversa e como aplicar campos. */
   modulos?: {
     disponiveis: ModuloRoteiro[];
@@ -220,6 +229,7 @@ const CriarOrcamento = z.object({
   rotulo: z.string().trim().max(40).optional(),
   desconto: z.enum(["campanha", "indicacao", "oferta_followup"]).optional(),
   cupom: z.string().trim().min(3).max(30).optional(),
+  combo: z.boolean().optional(),
 });
 const AdicionalPosFechamento = z.object({
   acao: z.enum(["oferecer", "aceitou", "recusou"]),
@@ -459,6 +469,15 @@ export function ferramentasDisponiveis(
             description:
               "Código do cupom que o cliente mandou (ex.: BLOG50), inclusive o que veio na primeira mensagem. O sistema confere o serviço e o valor; vale um desconto por orçamento (o maior, se também houver campanha/indicação).",
           },
+          ...(chavesVendas(cfg).comboLigado
+            ? {
+                combo: {
+                  type: "boolean",
+                  description:
+                    "true = combo: higienização + impermeabilização dos mesmos itens, num orçamento só, com o desconto do combo (o sistema calcula). Use com servico higienizacao. Só estofados: colchão, tapete e persiana não entram.",
+                },
+              }
+            : {}),
         },
         required: ["servico", "itens"],
         additionalProperties: false,
@@ -1240,6 +1259,18 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const porNome = new Map(itens.map((i) => [normalizarNome(i.nome), i]));
   const { regrasOrcamento } = await import("@/lib/quotes.server");
   const regras = await regrasOrcamento(ctx.admin, ctx.empresaId);
+  // Combo (chave por empresa): higienização + impermeabilização dos mesmos itens, com o desconto do
+  // combo. Sem a chave, o combo continua com a equipe.
+  const chaves = chavesVendas(ctx.cfg);
+  const combo = Boolean(input.combo);
+  if (combo && !chaves.comboLigado) {
+    return {
+      erro: true,
+      texto:
+        'Combo não liberado: higienização + impermeabilização juntas ficam com a equipe. Transfira (motivo "combo").',
+    };
+  }
+  const servicos: Servico[] = combo ? ["higienizacao", "impermeabilizacao"] : [input.servico];
   const escolhidos: LinhaOrcamento[] = [];
   for (const pedido of input.itens) {
     const item = porNome.get(normalizarNome(pedido.item));
@@ -1249,26 +1280,34 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         texto: `Item "${pedido.item}" não está na tabela. Itens válidos: ${itens.map((i) => i.nome).join("; ")}. Se nenhum servir, transfira para a equipe.`,
       };
     }
-    // Preço só pelas regras: tabela + classe/acréscimos da empresa (a Alice não informa valor).
-    const linha = precificar(
-      {
-        item,
-        quantidade: pedido.quantidade,
-        classe: pedido.classe,
-        almofadas_soltas: pedido.almofadas_soltas,
-        muito_encardido: pedido.muito_encardido,
-        dupla_face: pedido.dupla_face,
-      },
-      input.servico,
-      regras,
-    );
-    if (linha === null) {
+    if (combo && (ehColchao(item.categoria ?? item.nome) || categoriaDeLimpeza(item.categoria))) {
       return {
         erro: true,
-        texto: `"${item.nome}" não tem preço de ${input.servico === "higienizacao" ? "higienização" : "impermeabilização"} na tabela (não oferecemos esse serviço para esse item).`,
+        texto: `"${item.nome}" não entra no combo (não fazemos impermeabilização desse item). Faça o combo só com os estofados e, se o cliente quiser, um orçamento à parte para "${item.nome}".`,
       };
     }
-    escolhidos.push(linha);
+    for (const servico of servicos) {
+      // Preço só pelas regras: tabela + classe/acréscimos da empresa (a Alice não informa valor).
+      const linha = precificar(
+        {
+          item,
+          quantidade: pedido.quantidade,
+          classe: pedido.classe,
+          almofadas_soltas: pedido.almofadas_soltas,
+          muito_encardido: pedido.muito_encardido,
+          dupla_face: pedido.dupla_face,
+        },
+        servico,
+        regras,
+      );
+      if (linha === null) {
+        return {
+          erro: true,
+          texto: `"${item.nome}" não tem preço de ${servico === "higienizacao" ? "higienização" : "impermeabilização"} na tabela (não oferecemos esse serviço para esse item).`,
+        };
+      }
+      escolhidos.push(combo ? { ...linha, servico } : linha);
+    }
   }
 
   const lead = await lerLead(ctx);
@@ -1285,6 +1324,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
     regraDesconto = d;
   }
+  // Combo: um desconto só por orçamento. Entre o combo e a campanha/indicação, vale o maior.
+  const outroPct = regraDesconto;
+  const descontoDoCombo =
+    combo && (!regraDesconto || chaves.comboPct >= regraDesconto.pct)
+      ? { pct: chaves.comboPct, rotulo: "Combo higienização + impermeabilização" }
+      : null;
+  if (descontoDoCombo) regraDesconto = descontoDoCombo;
   // Cupom (em reais, do serviço certo). Com campanha/indicação também, vale o maior.
   let cupom: Cupom | null = null;
   if (input.cupom) {
@@ -1350,25 +1396,40 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     Number(ctx.cfg.desconto_pix_percentual),
     taxa.valor,
   );
-  // A condição do último follow-up fica como desconto manual no orçamento (rótulo nas observações).
+  const comboUsado = Boolean(descontoDoCombo) && escolha?.tipo === "pct";
+  // A condição do último follow-up e o combo ficam como desconto manual no orçamento (rótulo nas
+  // observações).
   const tipoDesconto = !desconto
     ? null
-    : cupomUsado || input.desconto === "oferta_followup"
+    : cupomUsado || comboUsado || input.desconto === "oferta_followup"
       ? ("manual" as const)
       : (input.desconto ?? null);
-  const chaveDesconto = cupomUsado ? `cupom:${cupomUsado.codigo}` : tipoDesconto;
+  const chaveDesconto = cupomUsado
+    ? `cupom:${cupomUsado.codigo}`
+    : comboUsado
+      ? "combo"
+      : tipoDesconto;
+  const nomeDoPct = descontoDoCombo
+    ? "combo"
+    : input.desconto === "campanha"
+      ? "campanha"
+      : "indicação";
   const avisoDesconto =
     cupom && regraDesconto
       ? cupomUsado
-        ? `Só um desconto por orçamento: o cupom ${cupomUsado.codigo} é maior que o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} e foi o aplicado.`
-        : `Só um desconto por orçamento: o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
-      : null;
+        ? `Só um desconto por orçamento: o cupom ${cupomUsado.codigo} é maior que o desconto de ${nomeDoPct} e foi o aplicado.${combo ? " No cartão, troque a linha do combo pela do cupom." : ""}`
+        : `Só um desconto por orçamento: o desconto de ${nomeDoPct} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
+      : combo && !descontoDoCombo && outroPct
+        ? `Só um desconto por orçamento: o desconto de ${input.desconto === "campanha" ? "campanha" : "indicação"} é maior que o do combo e foi o aplicado. No cartão, troque a linha do combo por ele.`
+        : combo && outroPct
+          ? "Só um desconto por orçamento: o do combo é o maior e foi o aplicado."
+          : null;
   const val = validade(ctx.agora, ctx.cfg.validade_orcamento_dias);
 
   // O mesmo pedido de novo em 30 minutos (resposta refeita, cliente repetiu) não vira outro
   // orçamento: devolve o que já existe.
   const assinatura = assinaturaOrcamento({
-    servico: input.servico,
+    servico: combo ? "combo" : input.servico,
     desconto: chaveDesconto,
     itens: escolhidos.map((e) => ({
       itemId: e.item.id,
@@ -1427,7 +1488,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         items: escolhidos.map((e) => ({
           tabela_preco_item_id: e.item.id,
           nome_snapshot: e.item.nome,
-          tipo_servico: input.servico,
+          tipo_servico: e.servico ?? input.servico,
           preco_tabela: e.precoTabela,
           preco_sugerido: e.preco,
           preco_aplicado: e.preco,
@@ -1461,14 +1522,36 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     })),
     taxa.valor,
   );
-  const linhas = escolhidos.map(
-    (e, i) =>
-      `• ${
-        unidadeDaCategoria(e.item.categoria) === "m2"
-          ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(finais[i]!.preco_cliente)})`
-          : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${comDuplaFace(e.item.nome, Boolean(e.duplaFace))}`
-      } — ${reais(finais[i]!.subtotal_cliente)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
-  );
+  if (combo && !existente) {
+    const { registrarEvento } = await import("./avisos.server");
+    await registrarEvento(ctx.admin as never, {
+      empresa_id: ctx.empresaId,
+      tipo: "combo_orcado",
+      conversa_id: ctx.conversaId,
+      crm_lead_id: lead?.id ?? null,
+      quote_id: String(salvo.id),
+      dados: { pct: comboUsado ? chaves.comboPct : 0, valor_cheio: bruto, total: cond.total },
+    });
+  }
+  // Combo: uma linha por item, com os dois serviços lado a lado.
+  const linhasDoCombo = combo
+    ? input.itens.map((_, k) => {
+        const h = escolhidos[k * 2]!;
+        const fh = finais[k * 2]!;
+        const fi = finais[k * 2 + 1]!;
+        return `• ${h.quantidade > 1 ? `${h.quantidade}x ` : ""}${h.item.nome}: higienização ${reais(fh.subtotal_cliente)} + impermeabilização ${reais(fi.subtotal_cliente)}${h.rotulos.length ? ` (${h.rotulos.join(" + ")})` : ""}`;
+      })
+    : null;
+  const linhas =
+    linhasDoCombo ??
+    escolhidos.map(
+      (e, i) =>
+        `• ${
+          unidadeDaCategoria(e.item.categoria) === "m2"
+            ? `${e.item.nome} (${textoQuantidade(e.quantidade, "m2")} × ${reais(finais[i]!.preco_cliente)})`
+            : `${e.quantidade > 1 ? `${e.quantidade}x ` : ""}${comDuplaFace(e.item.nome, Boolean(e.duplaFace))}`
+        } — ${reais(finais[i]!.subtotal_cliente)}${e.rotulos.length ? ` (${e.rotulos.join(" + ")})` : ""}`,
+    );
   // Persiana e tapete: prazo de entrega depois da retirada (05/11).
   const { linhasDoPrazo } = await import("@/lib/retirada");
   const prazos = linhasDoPrazo(
@@ -1480,11 +1563,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       existente
         ? `Este mesmo orçamento já existe (criado há pouco) — Nº ${numero}; não criei outro. Use exatamente estes valores:`
         : `Orçamento criado no sistema${input.rotulo ? ` (${input.rotulo})` : ""} — Nº ${numero}. Use exatamente estes valores:`,
-      `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
+      combo
+        ? "Serviço: Higienização + Impermeabilização (combo: use o cartão do combo das instruções)"
+        : `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
       ...linhas,
       ...(desconto
         ? [
-            `Subtotal: ${reais(bruto)}`,
+            `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
             desconto.pct !== null
               ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
               : `${desconto.rotulo}: −${reais(desconto.valor)}`,
@@ -2155,6 +2240,7 @@ export async function executarFerramenta(
         return { conteudo: "Mensagem será enviada neste ponto da conversa.", erro: false };
       }
       case "falar_em_audio": {
+        if (ctx.semAudio) return { conteudo: RECUSA_AUDIO_NO_ATALHO, erro: true };
         if (!ctx.cfg.audio_ativo || !(ctx.cfg.audio_explicacoes || ctx.toqueAudio))
           return { conteudo: "Áudio não liberado: mande em texto.", erro: true };
         const p = EnviarMensagem.safeParse(entrada);
@@ -2178,6 +2264,8 @@ export async function executarFerramenta(
       }
       case "enviar_video":
       case "enviar_audio_padrao": {
+        if (ctx.semAudio && nome === "enviar_audio_padrao")
+          return { conteudo: RECUSA_AUDIO_NO_ATALHO, erro: true };
         const p = EnviarMidia.safeParse(entrada);
         return p.success
           ? r(await enviarMidia(ctx, nome === "enviar_video" ? "video" : "audio", p.data.servico))

@@ -12,6 +12,7 @@ import {
   ETAPAS_ESPERA,
   ETAPAS_EQUIPE,
   CADENCIA,
+  comFotoUmaVez,
   ancoraDoOrcamento,
   mensagemDaSequencia,
   passoDaEtapa,
@@ -27,6 +28,8 @@ import { ehB2B } from "./nome";
 import { proximoHorarioPermitido } from "./regras";
 
 type Db = SupabaseClient<Database>;
+import { chavesVendas } from "./chaves";
+
 type ConfigIa = Database["public"]["Tables"]["ia_configuracoes"]["Row"];
 
 /** Dados guardados na tarefa de follow-up da cadência. */
@@ -165,7 +168,7 @@ export async function seguirCadencia(
     b2b,
   });
   if (!plano) return false;
-  const { passo } = plano;
+  const passo = comFotoUmaVez(plano.passo, chavesVendas(o.cfg).atalhoApressado);
   const ancora = ancoraOrcamento ?? (feitos[0] ? new Date(feitos[0].em) : agora);
   const quando = passo.fim
     ? plano.quando

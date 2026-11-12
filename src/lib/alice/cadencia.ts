@@ -409,6 +409,22 @@ export const PASSO_RETOMADA: Passo = {
   horarios: true,
 };
 
+/**
+ * Foto pedida uma vez só (plano "Alice e vendas", item 2; entra com a chave atalho_apressado): os
+ * toques da trilha B deixam de pedir a foto. O primeiro oferece orçar só com tipo, tamanho e CEP.
+ */
+const GUIA_SEM_FOTO: Record<string, string> = {
+  B1: "Não peça a foto de novo. Diga que, se preferir, o cliente fala só o tipo e o tamanho (ex.: retrátil de 2 módulos, uns 2 metros) e o CEP, e você já passa o orçamento. Termine perguntando se pode ser assim.",
+  B2: "Algo novo sobre o serviço, ligado ao que o cliente contou (ex.: como a higienização resolve o que incomoda, secagem rápida, feito na casa dele), sem pedir foto nem repetir o toque anterior. Termine com uma pergunta simples.",
+  B3: "Bom dia! Traga algo novo (um benefício da higienização ligado ao que o cliente contou, ou a agenda da semana) e diga que, com o tamanho e o CEP, você passa o orçamento hoje (foto só se ele puder). Sem repetir a pergunta do toque anterior.",
+  BE: "Traga algo novo e útil, sem repetir o pedido anterior: deixe o atendimento separado e diga que, quando quiser, com o tamanho e o CEP você passa o orçamento no mesmo dia.",
+};
+
+export function comFotoUmaVez<P extends Passo | null>(passo: P, ligado: boolean): P {
+  const guia = passo && ligado ? GUIA_SEM_FOTO[passo.etapa] : undefined;
+  return guia && passo ? { ...passo, guia } : passo;
+}
+
 export function passoDaEtapa(etapa: string | null | undefined): Passo | null {
   if (!etapa) return null;
   if (etapa === "R") return PASSO_RETOMADA;
