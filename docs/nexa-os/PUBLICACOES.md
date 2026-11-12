@@ -863,6 +863,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Marketing: visita "Confirmado" e "Em deslocamento" contam como visita marcada nas listas e na conferência antes do envio (migração rodada pelo conector) | `3077957` | `20261228520000_mkt_visita_confirmada` |
 | 12/11/2026 | Tatiana: lead sem novidade não passa pela IA; tarefa não feita continua na lista com contador; cobrança das não feitas no resumo da manhã; mensagem final escrita na véspera | `c018af2` | — |
 | 12/11/2026 | Tatiana: saída automática de tarefa para a campanha DESLIGADA até o dono aprovar a regra nova (7 dias da última mensagem do cliente ou do orçamento) e a lista | `dafe783` | — |
+| 12/11/2026 | Tatiana: lead com mais de 7 dias sem resposta (da última mensagem do cliente ou do orçamento) sai das tarefas de venda para a campanha; bloco "Saíram para a lista de campanha" com o botão Segurar na lista; linha no resumo da manhã | `e1dbf6c` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1526,6 +1527,20 @@ da tarefa. O dono pediu para contar da última mensagem do cliente (ou do orçam
 for mais recente), com exceções (data combinada, P1, OS em aberto, acerto pendente), e para ver a
 lista antes de aplicar. Até o OK dele, `SAIDA_PARA_CAMPANHA_LIGADA = false`: nenhuma tarefa sai da
 lista sozinha por tempo. O resto da regra do "sem novidade" segue igual.
+
+Saída para a campanha, regra nova (12/11, `e1dbf6c`): o dono viu a lista dos que sairiam e aprovou. Lead
+com mais de 7 dias sem resposta, contados da última mensagem do cliente ou do orçamento (o mais
+recente), sai das tarefas de venda (mensagem, ligar, follow-up esquecido) e fica guardado para
+campanha, mesmo que a tarefa seja nova e mesmo sem orçamento no app. Não sai: data combinada no
+futuro (retorno combinado, data prometida, data do evento, caixinha 3, "rever em" de data marcada,
+outra tarefa agendada), P1, OS em aberto, acerto do app pendente, quem respondeu ou recebeu
+orçamento nos últimos 7 dias, lead sem mensagem de cliente nem orçamento (não há de onde contar) e
+tarefa segurada pela equipe (marca `[segurada:data]` nas notas, vale 7 dias). A regra roda no fim da
+noite, sobre as tarefas que ficaram sem fazer, sem IA. Em Follow-ups, o bloco "Saíram para a lista
+de campanha" mostra as saídas de ontem e de hoje com o botão Segurar na lista (a tarefa volta para
+hoje e o lead deixa de estar guardado); o resumo da manhã diz quantos saíram. A primeira leva (20 na
+Turbine e 6 na Ecoprime) foi aplicada pelo conector no mesmo dia, com o OK do dono; cinco leads
+ficaram seguros a pedido dele. Banco não muda.
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
