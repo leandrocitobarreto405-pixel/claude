@@ -19,6 +19,7 @@ import {
   textoFollowUpEsquecido,
   textoLeadSite,
   textoPosVenda,
+  tarefaParaDepois,
   textoRemarcar,
   tipoTarefa,
 } from "./furos";
@@ -267,4 +268,16 @@ test("trava da oferta de condição na mensagem pronta (05/11)", async () => {
   assert.equal(textoComDesconto("Consigo fazer por R$ 470 no Pix"), true);
   assert.equal(textoComDesconto("Com os 20% de desconto fica R$ 800"), true);
   assert.equal(textoComDesconto("Oi! Tudo bem?"), false);
+});
+
+test("mensagem só no dia: tarefa para depois de amanhã fica sem mensagem pronta", () => {
+  const amanha = "2026-11-13";
+  // Amanhã (inclusive tarde da noite em São Paulo) escreve a mensagem agora.
+  assert.equal(tarefaParaDepois("2026-11-13T12:00:00Z", amanha), false);
+  assert.equal(tarefaParaDepois("2026-11-14T02:30:00Z", amanha), false);
+  // Depois de amanhã em diante: só na véspera.
+  assert.equal(tarefaParaDepois("2026-11-14T12:00:00Z", amanha), true);
+  assert.equal(tarefaParaDepois("2026-11-20T12:00:00Z", amanha), true);
+  assert.equal(tarefaParaDepois(null, amanha), false);
+  assert.equal(tarefaParaDepois("data ruim", amanha), false);
 });

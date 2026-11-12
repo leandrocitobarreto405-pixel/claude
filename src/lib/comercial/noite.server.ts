@@ -29,6 +29,7 @@ import {
   reverEmIso,
   textoFollowUpEsquecido,
   textoPosVenda,
+  tarefaParaDepois,
   textoRemarcar,
   type HorarioUtil,
   type MotivoEntrada,
@@ -1198,7 +1199,22 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     !ctx.temAlice || decisao.negociacao || ligar || Boolean(esquecidoEm)
       ? "equipe"
       : decisao.responsavel;
-  let mensagem = decisao.mensagem.trim();
+  const quandoPedido =
+    (ligar ? quandoParaIso(decisao.ligar_quando) : null) ?? quandoParaIso(decisao.quando);
+  const quandoBruto =
+    quandoPedido ??
+    (decisao.acao === "chamar" ? new Date(`${ctx.amanha}T09:00:00-03:00`).toISOString() : null);
+  // Tarefa só em dia/hora útil da empresa; o que cair fora vai para o próximo horário útil.
+  const quando =
+    quandoBruto && (decisao.acao === "chamar" || decisao.acao === "agendar")
+      ? proximoHorarioUtil(quandoBruto, ctx.horario)
+      : quandoBruto;
+  // Mensagem só no dia (11/11, custo): tarefa da equipe marcada para depois de amanhã fica sem a
+  // mensagem pronta. Ela é escrita na véspera, quando o lead volta para a leitura (rever_em), já
+  // com o que aconteceu até lá; antes era escrita e polida agora e reescrita na véspera.
+  const soNoDia =
+    responsavel === "equipe" && decisao.acao === "agendar" && tarefaParaDepois(quando, ctx.amanha);
+  let mensagem = soNoDia ? "" : decisao.mensagem.trim();
   if (
     mensagem &&
     responsavel === "equipe" &&
@@ -1228,16 +1244,6 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       decisao.motivo = `${MOTIVO_LACUNA} · ${decisao.motivo}`;
     }
   }
-  const quandoPedido =
-    (ligar ? quandoParaIso(decisao.ligar_quando) : null) ?? quandoParaIso(decisao.quando);
-  const quandoBruto =
-    quandoPedido ??
-    (decisao.acao === "chamar" ? new Date(`${ctx.amanha}T09:00:00-03:00`).toISOString() : null);
-  // Tarefa só em dia/hora útil da empresa; o que cair fora vai para o próximo horário útil.
-  const quando =
-    quandoBruto && (decisao.acao === "chamar" || decisao.acao === "agendar")
-      ? proximoHorarioUtil(quandoBruto, ctx.horario)
-      : quandoBruto;
   // Próxima olhada: chamar → dia seguinte à tarefa; agendar → véspera; esperar → data combinada
   // ou 7 dias; parar → nenhuma. Lead bloqueado não volta.
   const reverEm = est.bloqueado
