@@ -22,8 +22,10 @@ export type Atendimento = {
   telefone: string | null;
   tecnico: string | null;
   valor: number | null;
-  /** Observação curta (reagendamento, OS gerada...). */
+  /** Observação curta (entrega, OS gerada...). */
   nota: string | null;
+  /** Linha discreta do cartão aberto: "remarcado de seg 09/11". */
+  historico?: string | null;
   /** Persiana/tapete (05/11): etapa da retirada no galpão, em horário comercial. */
   etapa?: "Retirada" | "Entrega";
 };
@@ -41,14 +43,36 @@ export function semanaDe(ref: string): { iso: string; curto: string; dia: number
   });
 }
 
-/** Status que já saíram da rota do dia (não contam como "próximo serviço"). */
-const ENCERRADOS = [
-  "Concluído",
-  "Cancelado",
-  "Reagendado",
-  "Reagendado com deslocamento",
-  "Entregue",
-];
+/**
+ * Status que já saíram da rota do dia (não contam como "próximo serviço"). A visita remarcada
+ * ("Reagendado", registros antigos) é um agendamento normal no dia novo: NÃO é encerrada (12/11).
+ */
+const ENCERRADOS = ["Concluído", "Cancelado", "Reagendado com deslocamento", "Entregue"];
+
+/** A visita antiga de um reagendamento com deslocamento: só histórico, não aparece na agenda. */
+export const VISITA_ANTIGA_DO_REAGENDAMENTO = "Reagendado com deslocamento";
+
+/**
+ * Status para mostrar (12/11): visita remarcada aparece como "Agendado", igual às outras. O
+ * histórico ("remarcado de seg 09/11") fica só dentro do cartão aberto e na OS.
+ */
+export function statusParaMostrar(status: string | null | undefined): string {
+  return status === "Reagendado" ? "Agendado" : status || "Agendado";
+}
+
+const SEMANA_CURTA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/** "remarcado de seg 09/11", quando a visita veio de outra data; senão null. */
+export function historicoDaRemarcacao(v: {
+  status?: string | null;
+  scheduled_date: string;
+  original_scheduled_date?: string | null;
+}): string | null {
+  const de = v.original_scheduled_date;
+  if (!de || de === v.scheduled_date || v.status === VISITA_ANTIGA_DO_REAGENDAMENTO) return null;
+  const dia = SEMANA_CURTA[new Date(`${de.slice(0, 10)}T12:00:00Z`).getUTCDay()] ?? "";
+  return `remarcado de ${dia} ${de.slice(8, 10)}/${de.slice(5, 7)}`;
+}
 
 export function encerrado(status: string): boolean {
   return ENCERRADOS.includes(status);
@@ -68,6 +92,7 @@ export function chipDoStatus(status: string): { rotulo: string; tom: TomChip } {
     case "Confirmado":
       return { rotulo: "Confirmado", tom: "sucesso" };
     case "Reagendado":
+      return { rotulo: "Agendado", tom: "neutro" };
     case "Reagendado com deslocamento":
       return { rotulo: "Reagendado", tom: "atencao" };
     case "Cancelado":
@@ -95,7 +120,7 @@ export function idAtual<T extends { id: string; status: string; time: string }>(
 export function contagemPorDia(itens: { date: string; status: string }[]): Map<string, number> {
   const mapa = new Map<string, number>();
   for (const i of itens) {
-    if (i.status === "Cancelado") continue;
+    if (i.status === "Cancelado" || i.status === VISITA_ANTIGA_DO_REAGENDAMENTO) continue;
     mapa.set(i.date, (mapa.get(i.date) ?? 0) + 1);
   }
   return mapa;
@@ -168,11 +193,9 @@ export function deVisita(v: VisitRow): Atendimento {
   const nota =
     v.status === "Reagendado com deslocamento"
       ? `Deslocamento feito · serviço reagendado${v.rescheduled_to_visit_id ? " (novo atendimento criado)" : ""}`
-      : v.rescheduled_from_visit_id
-        ? `Reagendamento${v.original_scheduled_date ? ` de ${dateBR(v.original_scheduled_date)}` : ""}`
-        : v.retirada
-          ? notaDaEntrega(v)
-          : null;
+      : v.retirada
+        ? notaDaEntrega(v)
+        : null;
   return {
     id: `os-${v.id}`,
     tipo: "os",
@@ -193,6 +216,7 @@ export function deVisita(v: VisitRow): Atendimento {
     tecnico: v.technician?.name ?? null,
     valor: Number(v.final_value ?? v.visit_value ?? 0) || null,
     nota,
+    historico: historicoDaRemarcacao(v),
     ...(v.retirada ? { etapa: "Retirada" as const } : {}),
   };
 }

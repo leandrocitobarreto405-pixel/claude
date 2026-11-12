@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chipDoStatus, contagemPorDia, encerrado, idAtual, rotuloDoMes, semanaDe } from "./agenda";
+import {
+  chipDoStatus,
+  contagemPorDia,
+  encerrado,
+  historicoDaRemarcacao,
+  idAtual,
+  rotuloDoMes,
+  semanaDe,
+  statusParaMostrar,
+} from "./agenda";
 import { telLink, wazeLink } from "./format";
 
 test("semanaDe: segunda a domingo da semana do dia", () => {
@@ -41,6 +50,26 @@ test("chipDoStatus: etiquetas curtas e tons", () => {
     tom: "atencao",
   });
   assert.deepEqual(chipDoStatus("Agendado"), { rotulo: "Agendado", tom: "neutro" });
+  assert.deepEqual(chipDoStatus("Reagendado"), { rotulo: "Agendado", tom: "neutro" });
+  assert.equal(statusParaMostrar("Reagendado"), "Agendado");
+  assert.equal(statusParaMostrar("Confirmado"), "Confirmado");
+  assert.equal(
+    historicoDaRemarcacao({
+      status: "Agendado",
+      scheduled_date: "2026-11-18",
+      original_scheduled_date: "2026-11-09",
+    }),
+    "remarcado de seg 09/11",
+  );
+  assert.equal(historicoDaRemarcacao({ status: "Agendado", scheduled_date: "2026-11-18" }), null);
+  assert.equal(
+    historicoDaRemarcacao({
+      status: "Reagendado com deslocamento",
+      scheduled_date: "2026-11-09",
+      original_scheduled_date: "2026-11-09",
+    }),
+    null,
+  );
 });
 
 test("idAtual: hoje abre o primeiro não encerrado; outros dias, nenhum", () => {
@@ -55,7 +84,13 @@ test("idAtual: hoje abre o primeiro não encerrado; outros dias, nenhum", () => 
     idAtual([{ id: "a", status: "Concluído", time: "08:00" }], "2026-10-02", "2026-10-02"),
     null,
   );
-  assert.equal(encerrado("Reagendado"), true);
+  // Visita remarcada é agendamento normal no dia novo: não é encerrada e pode ser a próxima.
+  assert.equal(encerrado("Reagendado"), false);
+  assert.equal(encerrado("Reagendado com deslocamento"), true);
+  assert.equal(
+    idAtual([{ id: "r", status: "Reagendado", time: "09:00" }], "2026-10-02", "2026-10-02"),
+    "r",
+  );
   assert.equal(encerrado("Confirmado"), false);
 });
 

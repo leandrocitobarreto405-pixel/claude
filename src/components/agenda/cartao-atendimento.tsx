@@ -119,6 +119,9 @@ export function CartaoAtendimento({
             {item.nota ? (
               <span className="text-[13px] font-semibold text-atencao-foreground">{item.nota}</span>
             ) : null}
+            {item.historico ? (
+              <span className="text-xs text-muted-foreground">{item.historico}</span>
+            ) : null}
           </div>
 
           {item.etapa === "Entrega" && item.status !== "Entregue" && onEntregue ? (

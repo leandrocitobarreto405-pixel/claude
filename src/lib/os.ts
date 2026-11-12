@@ -1131,7 +1131,8 @@ export async function rescheduleVisit(args: {
         scheduled_date: args.newDate,
         scheduled_time: args.newTime,
         technician_id: args.technicianId,
-        status: "Reagendado",
+        // No dia novo é um agendamento normal (12/11): o histórico fica em original_scheduled_date.
+        status: "Agendado",
         reschedule_type: "no_travel",
         technician_travel_occurred: false,
         preserve_original_route: false,

@@ -1,3 +1,4 @@
+import { historicoDaRemarcacao, statusParaMostrar } from "@/lib/agenda";
 import { mensagemDeErro } from "@/lib/erros";
 import { useQueryClient } from "@tanstack/react-query";
 import { TirarAlice } from "@/components/tirar-alice";
@@ -702,13 +703,18 @@ function OsDetalhe() {
                   <div key={v.id} className="rounded-lg border border-border p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium">{v.service_type?.name ?? "Serviço"}</p>
-                      <span className="text-xs text-muted-foreground">{v.status}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {statusParaMostrar(v.status)}
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {dateBR(v.scheduled_date)}
                       {v.retirada ? "" : ` às ${timeBR(v.scheduled_time)}`}
                       {v.technician?.name ? ` · ${v.technician.name}` : ""}
                     </p>
+                    {historicoDaRemarcacao(v) ? (
+                      <p className="text-xs text-muted-foreground">{historicoDaRemarcacao(v)}</p>
+                    ) : null}
                     <EntregaDaRetirada visita={v} onSalvo={() => void osQuery.refetch()} />
                     <div className="mt-3 overflow-x-auto">
                       <table className="w-full min-w-[420px] text-sm">

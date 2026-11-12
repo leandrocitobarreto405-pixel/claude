@@ -197,7 +197,8 @@ async function remarcarDoFeriado(
     .select("id, work_order_id, scheduled_time, status, work_order:work_order_id ( os_number )")
     .eq("empresa_id", empresaId)
     .eq("scheduled_date", f.data)
-    .not("status", "in", "(Cancelado,Reagendado,Reagendado com deslocamento,Concluído)")
+    // "Reagendado" (remarcada, registros antigos) é agendamento normal: entra na conferência.
+    .not("status", "in", '("Cancelado","Reagendado com deslocamento","Concluído")')
     .limit(50);
   const visitas = (vis ?? []) as unknown as Array<{
     id: string;
