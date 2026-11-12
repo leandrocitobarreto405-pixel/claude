@@ -47,6 +47,7 @@ import {
 } from "./modulos";
 import { comDuplaFace, ehColchao } from "@/lib/dupla-face";
 import { chavesVendas } from "./chaves";
+import { chavesFase4, decisaoForaDaArea, textoDecisaoForaDaArea } from "./vendas-fase4";
 import { parametrosDaConfig } from "./negociacao";
 import {
   descontoPermitido,
@@ -1159,7 +1160,9 @@ async function consultarCep(ctx: ContextoFerramenta, input: z.infer<typeof Consu
       ? "Área atendida: sem limite de distância configurado (dentro da área)."
       : ida <= raio
         ? `Área atendida: DENTRO (limite de ${raio} km).`
-        : `Área atendida: FORA (limite de ${raio} km). Transfira para a equipe.`,
+        : chavesFase4(ctx.cfg).foraAreaRegra
+          ? `Área atendida: FORA (limite de ${raio} km). Antes de encerrar, pergunte o que o cliente quer higienizar e mande criar_orcamento com os itens: o sistema diz se transfere (pedido grande e perto) ou se você se despede. Não diga que está fora da área antes disso.`
+          : `Área atendida: FORA (limite de ${raio} km). Transfira para a equipe.`,
   );
   return linhas.join("\n");
 }
@@ -1357,11 +1360,21 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   let regraDesconto: { pct: number; rotulo: string } | null = null;
   const baseOferta =
     Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
-  let negociado: { valorFinal: number; valorCheio: number } | null = null;
+  // Valor final fixo (substitui os outros descontos, sem Pix por cima): o liberado pelo gestor na
+  // negociação ou o do follow-up 5 novo (fase 4, desconto total de 20%).
+  let negociado: {
+    valorFinal: number;
+    valorCheio: number;
+    rotulo: string;
+    chave: string;
+  } | null = null;
   if (input.desconto === "negociacao") {
     const { valorLiberado } = await import("./negociacao.server");
-    negociado = parametrosDaConfig(ctx.cfg).ligada
+    const liberado = parametrosDaConfig(ctx.cfg).ligada
       ? await valorLiberado(ctx.admin as never, ctx.empresaId, ctx.conversaId)
+      : null;
+    negociado = liberado
+      ? { ...liberado, rotulo: "Desconto especial (autorizado)", chave: "negociacao" }
       : null;
     if (!negociado)
       return {
@@ -1370,7 +1383,17 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           "Não há valor liberado pelo gestor nesta conversa: refaça sem o desconto de negociação.",
       };
   }
-  if (input.desconto === "oferta_followup") {
+  if (input.desconto === "oferta_followup" && chavesFase4(ctx.cfg).followup5) {
+    const { valorDaOferta5 } = await import("./vendas-fase4.server");
+    const o = await valorDaOferta5(ctx.admin as never, ctx.empresaId, ctx.conversaId, ctx.agora);
+    if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
+    negociado = {
+      valorFinal: o.valor,
+      valorCheio: o.cheio,
+      rotulo: "Condição especial (vaga nesta semana)",
+      chave: "oferta_followup",
+    };
+  } else if (input.desconto === "oferta_followup") {
     const o = await ofertaDoFollowup(ctx, baseOferta);
     if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
     regraDesconto = o;
@@ -1426,6 +1449,27 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     escolhidos.filter((e) => !e.adicional).map((e) => e.preco * e.quantidade),
   );
   if (taxa.foraDaArea) {
+    const fase4 = chavesFase4(ctx.cfg);
+    if (fase4.foraAreaRegra) {
+      const decisao = decisaoForaDaArea({
+        kmIda,
+        valorItens,
+        km: fase4.foraAreaKm,
+        pedidoMinimo: fase4.foraAreaPedidoMinimo,
+      });
+      const { registrarEvento } = await import("./avisos.server");
+      await registrarEvento(ctx.admin as never, {
+        empresa_id: ctx.empresaId,
+        tipo: "fora_da_area",
+        conversa_id: ctx.conversaId,
+        crm_lead_id: ctx.leadId,
+        dados: { decisao, km_ida: kmIda },
+      });
+      return {
+        erro: true,
+        texto: textoDecisaoForaDaArea(decisao, kmIda, regras.distancia.limiteKm),
+      };
+    }
     return {
       erro: true,
       texto: `Endereço a ~${kmIda} km da base: fora da área atendida (até ${regras.distancia.limiteKm} km). Não passe valores; transfira para a equipe.`,
@@ -1438,7 +1482,10 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   if (negociado && Math.abs(negociado.valorCheio - baseDesconto) > 1)
     return {
       erro: true,
-      texto: `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`,
+      texto:
+        negociado.chave === "negociacao"
+          ? `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`
+          : `Os itens mudaram desde a condição do follow-up (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): a condição vale para os mesmos itens; refaça sem desconto.`,
     };
   const escolha = negociado ? null : maiorDesconto(baseDesconto, cupom, regraDesconto);
 
@@ -1448,7 +1495,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     negociado
       ? {
           valor: Math.max(0, Math.round((baseDesconto - negociado.valorFinal) * 100) / 100),
-          rotulo: "Desconto especial (autorizado)",
+          rotulo: negociado.rotulo,
         }
       : escolha?.tipo === "cupom"
         ? {
@@ -1474,7 +1521,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         ? input.desconto
         : null;
   const chaveDesconto = negociado
-    ? "negociacao"
+    ? negociado.chave
     : cupomUsado
       ? `cupom:${cupomUsado.codigo}`
       : comboUsado
@@ -2117,6 +2164,21 @@ async function registrarPerda(ctx: ContextoFerramenta, input: z.infer<typeof Reg
   const lead = await lerLead(ctx);
   if (!lead) return { erro: true, texto: "Sem lead nesta conversa." };
   const motivo = input.motivo as MotivoPerda;
+  // Fora da área (fase 4, chave fora_area_regra): o contato fica marcado como não cliente e sem
+  // pós-venda (colunas que já existem; nada muda no Marketing).
+  if (motivo === "Fora da área" && chavesFase4(ctx.cfg).foraAreaRegra && ctx.contatoId) {
+    const { error } = await ctx.admin
+      .from("whatsapp_contacts")
+      .update({
+        nao_cliente_em: ctx.agora.toISOString(),
+        nao_cliente_motivo: "Fora da área",
+        sem_pos_venda: true,
+      } as never)
+      .eq("id", ctx.contatoId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("nao_cliente_em", null);
+    if (error) console.error("Alice: contato fora da área não marcado", error.message);
+  }
   // Orçamento já enviado e sem OS: a Alice só sugere; a equipe confirma em Leads › Sem desfecho.
   const { data: orc } = await ctx.admin
     .from("crm_leads")

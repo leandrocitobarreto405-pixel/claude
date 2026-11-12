@@ -46,6 +46,8 @@ import {
   jaPerguntouOMotivo,
 } from "./atalho";
 import { chavesVendas } from "./chaves";
+import { avisoDaOferta5, chavesFase4, comRetomadaManha } from "./vendas-fase4";
+import { prepararOferta5 } from "./vendas-fase4.server";
 import { AVISO_AUTORIZACAO_PENDENTE, parametrosDaConfig } from "./negociacao";
 import { chaveTelefone } from "@/lib/avisos";
 import {
@@ -825,9 +827,13 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
   // resposta do gestor (ou segue sozinha com o sugerido, no prazo).
   const idAutorizacao = (dados as { autorizacao?: string }).autorizacao;
   if (idAutorizacao) return voltarDaAutorizacao(db, tarefa, cfg, d, idAutorizacao);
-  let passo = comFotoUmaVez(
-    dados.cadencia ? passoDaEtapa(dados.etapa) : null,
-    chavesVendas(cfg).atalhoApressado,
+  const fase4 = chavesFase4(cfg);
+  let passo = comRetomadaManha(
+    comFotoUmaVez(
+      dados.cadencia ? passoDaEtapa(dados.etapa) : null,
+      chavesVendas(cfg).atalhoApressado,
+    ),
+    fase4.retomadaManha,
   );
   // Contato interno da equipe (marcado pelo admin) não recebe follow-up de cliente.
   const chave = chaveTelefone(d.contato?.normalized_phone);
@@ -1047,9 +1053,40 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     await followupParaEquipe(db, tarefa, "fora do horário e da janela de 24 h do WhatsApp");
     return { situacao: "ignorada", detalhe: "fora do horário e da janela de 24 h" };
   }
+  // Follow-up 5 novo (fase 4, chave followup5_novo): desconto total de 20% (piso R$ 200) com o valor
+  // na mensagem, versão pela agenda da semana; já em 20% ou negociado, lembra o valor com prazo. O
+  // valor fica gravado na tarefa para o orçamento, se o cliente aceitar.
+  let oferta5: Awaited<ReturnType<typeof prepararOferta5>> = null;
+  if (passo?.oferta && fase4.followup5) {
+    const nome5 = await primeiroNomeDoLead(db, tarefa.empresa_id, d.conversa.crm_lead_id);
+    oferta5 = await prepararOferta5(db as never, {
+      empresaId: tarefa.empresa_id,
+      leadId: d.conversa.crm_lead_id,
+      nome: nome5,
+      agora,
+      chaves: fase4,
+    });
+    if (oferta5) {
+      const { modelo: _m, ...gravada } = oferta5;
+      await db
+        .from("ia_tarefas")
+        .update({ dados: { ...dados, oferta5: gravada } as never })
+        .eq("id", tarefa.id);
+      passo = {
+        ...passo,
+        oferta: oferta5.tipo === "desconto",
+        guia: oferta5.texto,
+        modelo: oferta5.modelo?.modelo ?? null,
+      };
+    }
+  }
   // Toque de desconto (5 de 5) numa conversa que já teve desconto (05/11): sem oferta nova; só
   // lembra o valor com desconto já passado (fora da janela, vira tarefa da equipe, sem o modelo).
-  if (passo?.oferta && (await conversaJaTeveDesconto(db, tarefa.empresa_id, d.conversa))) {
+  if (
+    !oferta5 &&
+    passo?.oferta &&
+    (await conversaJaTeveDesconto(db, tarefa.empresa_id, d.conversa))
+  ) {
     passo = {
       ...passo,
       oferta: false,
@@ -1058,7 +1095,7 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     };
   }
   if (!dentroDaJanela(ultimaDoCliente, agora)) {
-    if (passo) return toqueForaDaJanela(db, tarefa, cfg, d, passo, dados);
+    if (passo) return toqueForaDaJanela(db, tarefa, cfg, d, passo, dados, oferta5?.modelo ?? null);
     // Retorno combinado fora da janela: o modelo fu_retorno_combinado (ou a equipe, sem ele).
     if (dados.trilha === "C")
       return toqueForaDaJanela(db, tarefa, cfg, d, PASSO_RETORNO_COMBINADO, dados);
@@ -1089,7 +1126,8 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       .maybeSingle();
     toqueAudio = toqueEmAudio({
       etapa: passo.etapa,
-      ligado: cfg.toque_d1_audio,
+      // A retomada da manhã é uma frase só, em texto.
+      ligado: cfg.toque_d1_audio && !passo.retomadaManha,
       audioAtivo: cfg.audio_ativo,
       soTexto: Boolean(d.conversa.alice_so_texto_em),
       audioSemResposta: Boolean(
@@ -1098,19 +1136,21 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
       ),
     });
   }
-  const aviso = passo
-    ? avisoDoToque(passo, cfg, toqueAudio)
-    : [
-        `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
-        dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
-        "O cliente não respondeu desde a última mensagem da empresa. Faça agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só). Se as instruções mandarem fazer algo neste toque (ex.: mandar o orçamento), use as ferramentas normalmente.",
-        `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
-        cfg.cadencia_followup
-          ? "Não agende o próximo toque: o sistema agenda sozinho."
-          : "Se for o caso, agende o próximo toque com agendar_followup.",
-      ]
-        .filter(Boolean)
-        .join(" ");
+  const aviso = oferta5
+    ? avisoDaOferta5(oferta5.texto, oferta5)
+    : passo
+      ? avisoDoToque(passo, cfg, toqueAudio)
+      : [
+          `Hora do follow-up agendado (trilha ${dados.trilha ?? "?"}): ${dados.motivo ?? tarefa.motivo ?? "cliente sem responder"}.`,
+          dados.mensagem_sugerida ? `Sugestão anotada: "${dados.mensagem_sugerida}".` : null,
+          "O cliente não respondeu desde a última mensagem da empresa. Faça agora o toque de follow-up, seguindo as instruções (algo novo, uma pergunta só). Se as instruções mandarem fazer algo neste toque (ex.: mandar o orçamento), use as ferramentas normalmente.",
+          `Se não fizer sentido mandar nada (por exemplo, o atendimento já foi encerrado), responda exatamente ${NADA}.`,
+          cfg.cadencia_followup
+            ? "Não agende o próximo toque: o sistema agenda sozinho."
+            : "Se for o caso, agende o próximo toque com agendar_followup.",
+        ]
+          .filter(Boolean)
+          .join(" ");
   // A trava já passou (ninguém assumiu nem escreveu): a resposta do cliente vem para a Alice.
   if (passo) await voltarParaAliceNoToque(db, d);
   return conversar(db, tarefa, cfg, d, aviso, undefined, { toqueAudio });
@@ -1247,6 +1287,8 @@ async function toqueForaDaJanela(
   d: DadosConversa,
   passo: Passo,
   dados: DadosCadencia,
+  /** Modelo e variáveis já prontos (follow-up 5 novo: nome e valor). */
+  modeloPronto: { modelo: string; valores: string[] } | null = null,
 ): Promise<ResultadoTarefa> {
   const { enviarToqueModelo, seguirCadencia } = await import("./cadencia.server");
   let resultado: ResultadoTarefa;
@@ -1278,7 +1320,11 @@ async function toqueForaDaJanela(
           chatwootConversa: d.conversa.chatwoot_conversation_id,
           nomeCliente,
           passo,
-          ...(retorno ? { modelo: retorno.modelo, valores: retorno.valores } : {}),
+          ...(retorno
+            ? { modelo: retorno.modelo, valores: retorno.valores }
+            : modeloPronto
+              ? { modelo: modeloPronto.modelo, valores: modeloPronto.valores }
+              : {}),
         }).catch((e) => ({
           ok: false as const,
           motivo: `falha ao mandar o modelo: ${e instanceof Error ? e.message : String(e)}`,

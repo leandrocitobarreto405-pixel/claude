@@ -29,6 +29,7 @@ import { proximoHorarioPermitido } from "./regras";
 
 type Db = SupabaseClient<Database>;
 import { chavesVendas } from "./chaves";
+import { chavesFase4 } from "./vendas-fase4";
 
 type ConfigIa = Database["public"]["Tables"]["ia_configuracoes"]["Row"];
 
@@ -90,7 +91,10 @@ export async function seguirCadencia(
   if (travaDoLead(lead)) return false;
   const agora = o.agora ?? new Date();
   const trilha: Trilha = trilhaDoLead(lead);
-  const oferta = Boolean(o.cfg.oferta_followup_ligada && o.cfg.oferta_followup_valor);
+  const fase4 = chavesFase4(o.cfg);
+  // Toque 5 com desconto: a oferta antiga (ligada e com valor) ou o follow-up 5 novo (20% total).
+  const oferta =
+    Boolean(o.cfg.oferta_followup_ligada && o.cfg.oferta_followup_valor) || fase4.followup5;
 
   // Âncora da trilha A: o orçamento atual (novo orçamento, com outro valor, recomeça a trilha).
   const { data: orcamentos } = await db
@@ -166,6 +170,7 @@ export async function seguirCadencia(
     retorno,
     espera: Boolean(o.espera || o.atual?.espera),
     b2b,
+    retomadaManha: fase4.retomadaManha,
   });
   if (!plano) return false;
   const passo = comFotoUmaVez(plano.passo, chavesVendas(o.cfg).atalhoApressado);
@@ -220,7 +225,7 @@ export async function seguirCadencia(
         : `🤖 Fim da trilha ${trilha}: se o cliente não responder, o lead vai para "Orçamentos sem desfecho".`
       : espera
         ? `🤖 Retorno da espera ${passo.etapa} (o cliente pediu um tempo): ${passo.guia}`
-        : `🤖 ${rotuloDoToque(passo.etapa, { atendente: primeiraAtendente(o.cfg.nomes_atendentes) }) ?? `Toque ${passo.etapa} (trilha ${trilha})`}: ${passo.guia}`,
+        : `🤖 ${rotuloDoToque(passo.etapa, { atendente: primeiraAtendente(o.cfg.nomes_atendentes), retomadaManha: fase4.retomadaManha }) ?? `Toque ${passo.etapa} (trilha ${trilha})`}: ${passo.guia}`,
   });
   if (!passo.fim)
     await db
