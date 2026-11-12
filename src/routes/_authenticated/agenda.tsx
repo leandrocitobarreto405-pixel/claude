@@ -49,6 +49,8 @@ import {
   deEntrega,
   deOrcamento,
   deVisita,
+  statusParaMostrar,
+  VISITA_ANTIGA_DO_REAGENDAMENTO,
   idAtual,
   rotuloDoMes,
   semanaDe,
@@ -232,6 +234,8 @@ function Agenda() {
   const doTecnico = useMemo(() => {
     const todos = [
       ...(query.data ?? [])
+        // A visita antiga do reagendamento com deslocamento é só histórico (fica na OS).
+        .filter((v) => v.status !== VISITA_ANTIGA_DO_REAGENDAMENTO)
         .filter((v) => tecnicoVisto === "todos" || v.technician?.id === tecnicoVisto)
         .map(deVisita),
       ...(especial ? [] : (entregasQuery.data ?? []))
@@ -247,7 +251,7 @@ function Agenda() {
   }, [query.data, entregasQuery.data, especial, orcamentosQuery.data, tecnicoVisto, comValores]);
 
   const filtrados = useMemo(
-    () => doTecnico.filter((i) => status === "todos" || i.status === status),
+    () => doTecnico.filter((i) => status === "todos" || statusParaMostrar(i.status) === status),
     [doTecnico, status],
   );
 
@@ -620,7 +624,7 @@ function Agenda() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todas</SelectItem>
-                  {VISIT_STATUSES.map((s) => (
+                  {VISIT_STATUSES.filter((s) => !s.startsWith("Reagendado")).map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
