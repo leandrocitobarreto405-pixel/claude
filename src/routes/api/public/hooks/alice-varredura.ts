@@ -148,8 +148,16 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
                 console.error("Tatiana: falha na passada", e instanceof Error ? e.message : e);
                 return null;
               });
+          // Ensaio da fase 2 de "Alice e vendas" (aprovado pelo dono): uma conversa por rodada, até
+          // as três; nada vai a cliente. Fica por último para não atrasar o resto.
+          const { rodarEnsaioVendasPendente } = await import("@/lib/alice/ensaio-vendas.server");
+          const ensaioVendas = await rodarEnsaioVendasPendente().catch((e) => {
+            console.error("Ensaio Alice e vendas: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           return json({
             ok: true,
+            ensaioVendas,
             encerramento,
             ...fila,
             anuncios,
