@@ -7,6 +7,7 @@ import { BarraResposta } from "@/components/conversas/barra-resposta";
 import { CabecalhoConversa } from "@/components/conversas/cabecalho-conversa";
 import { useVoltarParaLista } from "@/components/conversas/voltar-para-lista";
 import { FaixaColega } from "@/components/conversas/faixa-colega";
+import { ResumoAlice } from "@/components/conversas/resumo-alice";
 import { lerConversa } from "@/lib/conversas.functions";
 import { marcarLidaFn } from "@/lib/caixa-equipe.functions";
 import { useTempoRealConversas } from "@/lib/conversas-tempo-real";
@@ -176,6 +177,11 @@ function Conversa() {
         {colegas.length > 0 || c.posse === "outra" ? (
           <div className="border-b border-border bg-background px-3 py-2">
             <FaixaColega c={c} colegas={colegas} />
+          </div>
+        ) : null}
+        {c.transferencia ? (
+          <div className="border-b border-border bg-background px-3 py-2">
+            <ResumoAlice t={c.transferencia} />
           </div>
         ) : null}
       </div>

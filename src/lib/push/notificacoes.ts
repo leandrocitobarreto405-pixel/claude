@@ -16,6 +16,13 @@ export type TipoPush =
   | "equipe_sem_push"
   | "alerta_gerente";
 
+/**
+ * Alarmes do plano "Alice e vendas" (12/11): não têm chave própria nas preferências; cada um segue
+ * a regra de quem recebe (ver quem chama). Entram só no registro de envios.
+ */
+export type TipoAlarme =
+  "autorizacao_desconto" | "transferencia_alice" | "retorno_combinado" | "alice_fora_do_ar";
+
 export const TIPOS_PUSH: { tipo: TipoPush; rotulo: string; descricao: string; papeis: Papel[] }[] =
   [
     {

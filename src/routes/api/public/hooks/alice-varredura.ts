@@ -85,6 +85,19 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Visita vencida: falha", e instanceof Error ? e.message : e);
             return null;
           });
+          // Transferência da Alice sem resposta: push à equipe de 5 em 5 minutos, no horário de
+          // atendimento, até alguém responder na conversa (só com a chave ligada na empresa).
+          const { rodarAlarmeDeTransferencias } = await import("@/lib/alice/transferencia.server");
+          const transferencias = await rodarAlarmeDeTransferencias().catch((e) => {
+            console.error("Alarme de transferência: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
+          // Alice fora do ar com cliente esperando: push só para o admin (chave por empresa).
+          const { rodarAvisoForaDoAr } = await import("@/lib/alice/fora-do-ar.server");
+          const foraDoAr = await rodarAvisoForaDoAr().catch((e) => {
+            console.error("Alice fora do ar: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Alarme de vaga na agenda: push às 8h30, 10h30, 13h30 e 16h enquanto houver vaga.
           const { rodarAlarmeDeVagas } = await import("@/lib/vagas.server");
           const alarmeDeVagas = await rodarAlarmeDeVagas().catch((e) => {
@@ -149,6 +162,8 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             servicosNaoConcluidos,
             visitasVencidas,
             alarmeDeVagas,
+            transferencias,
+            foraDoAr,
             precisaResumo,
             exportacaoGoogle,
             comercial,
