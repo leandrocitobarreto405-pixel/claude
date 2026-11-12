@@ -34,6 +34,7 @@ export async function rodarTemperaturas(): Promise<{ lidos: number; alterados: n
         empresaId: p.empresa_id,
         contatoId: p.whatsapp_contact_id,
         conversaId: null,
+        origem: "classificador_temperatura",
       });
       if (!lido) continue;
       const agora = new Date().toISOString();

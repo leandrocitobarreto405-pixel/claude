@@ -85,6 +85,12 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             console.error("Visita vencida: falha", e instanceof Error ? e.message : e);
             return null;
           });
+          // Alarme de vaga na agenda: push às 8h30, 10h30, 13h30 e 16h enquanto houver vaga.
+          const { rodarAlarmeDeVagas } = await import("@/lib/vagas.server");
+          const alarmeDeVagas = await rodarAlarmeDeVagas().catch((e) => {
+            console.error("Alarme de vaga: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           // "Precisa de você": resumo do dia no sininho às 10h (só no app).
           const { avisoDasDezPrecisa } = await import("@/lib/precisa-de-voce.server");
           const precisaResumo = await avisoDasDezPrecisa().catch((e) => {
@@ -142,6 +148,7 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
             retornosExpirados,
             servicosNaoConcluidos,
             visitasVencidas,
+            alarmeDeVagas,
             precisaResumo,
             exportacaoGoogle,
             comercial,

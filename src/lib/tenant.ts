@@ -149,6 +149,7 @@ const ROTAS_ATENDENTE = [
   "/listas",
   "/avisos",
   "/promocao",
+  "/vagas",
   "/servico",
   "/indicadores",
   "/notificacoes",

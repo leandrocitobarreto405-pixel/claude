@@ -6,7 +6,8 @@
  * para parar. Falha da IA: o toque segue (registra no log).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MODELO_HAIKU } from "@/lib/comercial/ficha";
+import { MODELO_HAIKU, type Uso } from "@/lib/comercial/ficha";
+import type { OrigemChamada } from "@/lib/ia-chamadas";
 import {
   CLASSES_CONTEXTO,
   INSTRUCAO_CLASSIFICADOR,
@@ -19,7 +20,13 @@ type Db = SupabaseClient;
 
 export async function contextoDoCliente(
   db: Db,
-  o: { empresaId: string; contatoId: string | null; conversaId: string | null },
+  o: {
+    empresaId: string;
+    contatoId: string | null;
+    conversaId: string | null;
+    /** De onde veio a leitura (custo por origem em ia_chamadas). */
+    origem?: OrigemChamada;
+  },
 ): Promise<{ classe: ClasseContexto; trecho: string } | null> {
   const desde = new Date(Date.now() - 60 * 86_400_000).toISOString();
   let q = db
@@ -49,6 +56,18 @@ export async function contextoDoCliente(
       quando: m.message_timestamp,
     }));
   if (!msgs.some((m) => m.direcao === "Recebida" && (m.texto ?? "").trim())) return null;
+  // Custo de cada leitura (11/11): uma linha em ia_chamadas, inclusive quando a chamada falha.
+  let uso: Uso | null = null;
+  const gravarCusto = async () => {
+    const { registrarChamadaIa } = await import("@/lib/ia-chamadas.server");
+    await registrarChamadaIa(db, {
+      empresaId: o.empresaId,
+      origem: o.origem ?? "classificador_toque",
+      modelo: MODELO_HAIKU,
+      uso,
+      referencia: o.conversaId ?? o.contatoId,
+    });
+  };
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("./parada-ia.server");
@@ -77,11 +96,14 @@ export async function contextoDoCliente(
         messages: [{ role: "user", content: historicoParaClassificar(msgs) }],
       }),
     );
+    uso = r.usage;
+    await gravarCusto();
     if (r.stop_reason !== "end_turn") throw new Error(`resposta incompleta (${r.stop_reason})`);
     const texto = r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
     return lerClassificacao(texto);
   } catch (e) {
     console.error("Contexto do toque: classificação falhou", e instanceof Error ? e.message : e);
+    if (!uso) await gravarCusto();
     return null;
   }
 }

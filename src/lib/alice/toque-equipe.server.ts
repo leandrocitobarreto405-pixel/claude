@@ -78,6 +78,15 @@ export async function mensagemDoToqueEquipe(
       }),
     );
     const custo = custoUsd(resp.usage);
+    // O custo desta mensagem não entra em ia_execucoes: grava em ia_chamadas (11/11).
+    const { registrarChamadaIa } = await import("@/lib/ia-chamadas.server");
+    await registrarChamadaIa(db, {
+      empresaId: o.empresaId,
+      origem: "toque_equipe",
+      modelo: MODELO_FICHA,
+      uso: resp.usage,
+      referencia: o.conversaId,
+    });
     if (resp.stop_reason !== "end_turn")
       return { mensagem: mensagemReserva(entrada), custo, reserva: true };
     const texto = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
