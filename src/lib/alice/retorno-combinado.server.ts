@@ -13,6 +13,8 @@ import {
 
 type Db = SupabaseClient;
 
+const MODELO_RETORNO = "claude-haiku-4-5";
+
 export async function fraseDoRetorno(
   db: Db,
   o: {
@@ -62,12 +64,20 @@ export async function fraseDoRetorno(
     const { chamarIa } = await import("./parada-ia.server");
     const r = await chamarIa(() =>
       new Anthropic().messages.create({
-        model: "claude-haiku-4-5",
+        model: MODELO_RETORNO,
         max_tokens: 80,
         system: INSTRUCAO_FRASE_RETORNO,
         messages: [{ role: "user", content: contexto }],
       }),
     );
+    const { registrarChamadaIa } = await import("@/lib/ia-chamadas.server");
+    await registrarChamadaIa(db, {
+      empresaId: o.empresaId,
+      origem: "retorno_combinado",
+      modelo: MODELO_RETORNO,
+      uso: r.usage,
+      referencia: o.conversaId,
+    });
     return limparFraseRetorno(r.content.map((b) => (b.type === "text" ? b.text : "")).join(""));
   } catch (e) {
     console.error("Retorno combinado: frase não gerada", e instanceof Error ? e.message : e);

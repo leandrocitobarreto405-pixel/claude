@@ -336,6 +336,7 @@ async function envioAutomatico(db: Db, cfg: ConfigLeads, agora: Date) {
           empresaId: cfg.empresa_id,
           contatoId: contato.id,
           conversaId: null,
+          origem: "classificador_site",
         });
         // "aguardando" (pediu um tempo) não bloqueia: o cadastro novo no site é um pedido novo.
         if (lido && bloqueiaToque(lido.classe))
