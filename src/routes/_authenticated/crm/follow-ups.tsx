@@ -9,7 +9,7 @@ import { Destino } from "@/components/crm/destino-lead";
 import { LeadsDoSite } from "@/components/crm/leads-do-site";
 import { SemDesfechoLista } from "@/components/crm/sem-desfecho";
 import { TatianaHoje } from "@/components/crm/tatiana-hoje";
-import { LeadLink, TemperatureBadge } from "@/components/crm-ui";
+import { LeadLink, ClassificacaoBadge } from "@/components/crm-ui";
 import { Botao, CabecalhoDeTela, Card, Chip, Recolhido } from "@/components/nexa";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhoneBR, scheduleFollowup, suggestFollowupAt } from "@/lib/crm";
@@ -31,6 +31,7 @@ import {
 import { concluirFollowupEquipeFn, precisaDeVoceFn } from "@/lib/precisa-de-voce.functions";
 import { cn } from "@/lib/utils";
 import { intervalo } from "@/lib/ritmo";
+import { useClassificacoes } from "@/lib/classificacao-lead-hook";
 
 export const Route = createFileRoute("/_authenticated/crm/follow-ups")({
   validateSearch: (s: Record<string, unknown>): { aba?: AbaFollowups } =>
@@ -380,6 +381,7 @@ function horaSP(iso: string) {
 }
 
 function LinhaFollowup({ item, agora }: { item: LinhaFila; agora: Date }) {
+  const classes = useClassificacoes();
   const qc = useQueryClient();
   const concluir = useServerFn(concluirFollowupEquipeFn);
   const [ocupado, setOcupado] = useState(false);
@@ -441,12 +443,7 @@ function LinhaFollowup({ item, agora }: { item: LinhaFila; agora: Date }) {
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {l ? (
-            <TemperatureBadge
-              temperature={l.temperature}
-              suggested={!l.temperature_confirmed}
-              motivo={l.temperatura_motivo}
-              retornoEm={l.retorno_combinado_em}
-            />
+            <ClassificacaoBadge classificacao={classes[l.id]} retornoEm={l.retorno_combinado_em} />
           ) : null}
           {item.conversaId ? (
             <Botao asChild>
@@ -486,6 +483,7 @@ function LinhaSemResposta({
 }: {
   lead: LeadDaFila & { last_interaction_at: string; conversaId: string | null };
 }) {
+  const classes = useClassificacoes();
   const qc = useQueryClient();
   const [ocupado, setOcupado] = useState(false);
   return (
@@ -501,12 +499,7 @@ function LinhaSemResposta({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <TemperatureBadge
-            temperature={l.temperature}
-            suggested={!l.temperature_confirmed}
-            motivo={l.temperatura_motivo}
-            retornoEm={l.retorno_combinado_em}
-          />
+          <ClassificacaoBadge classificacao={classes[l.id]} retornoEm={l.retorno_combinado_em} />
           {l.conversaId ? (
             <Botao asChild>
               <Link to="/conversas/$conversaId" params={{ conversaId: l.conversaId }}>

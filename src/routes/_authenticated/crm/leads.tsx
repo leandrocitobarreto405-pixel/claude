@@ -18,7 +18,7 @@ import { EmptyState, PageHeader } from "@/components/app-shell";
 import { AbasDeRota } from "@/components/nexa";
 import { ABAS_DE_TELA } from "@/lib/menu";
 
-import { LeadLink, NativeSelect, StatusPill, TemperatureBadge } from "@/components/crm-ui";
+import { LeadLink, NativeSelect, StatusPill, ClassificacaoBadge } from "@/components/crm-ui";
 import { useConfigOptions, useSalespeople } from "@/lib/data";
 import {
   CRM_SERVICE_KIND,
@@ -35,7 +35,8 @@ import {
 } from "@/lib/crm";
 import { etapaInfo } from "@/lib/funil";
 import { dateBR, dateTimeBR, todayISO } from "@/lib/format";
-import { ehTemperatura } from "@/lib/temperatura";
+import { useClassificacoes } from "@/lib/classificacao-lead-hook";
+import { OPCOES_CLASSIFICACAO } from "@/lib/classificacao-lead";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/crm/leads")({
@@ -45,13 +46,13 @@ export const Route = createFileRoute("/_authenticated/crm/leads")({
       {
         name: "description",
         content:
-          "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora.",
+          "Lista completa de leads do WhatsApp com filtros por status, classificação, campanha e vendedora.",
       },
       { property: "og:title", content: "Leads do CRM — Nexa OS" },
       {
         property: "og:description",
         content:
-          "Lista completa de leads do WhatsApp com filtros por status, temperatura, campanha e vendedora.",
+          "Lista completa de leads do WhatsApp com filtros por status, classificação, campanha e vendedora.",
       },
     ],
   }),
@@ -70,13 +71,19 @@ function Leads() {
   const { data: origens } = useConfigOptions("sales_origin");
 
   const query = useCrmLeads({ ...filters, search: busca });
-  const leads = query.data ?? [];
+  // Classificação da Tatiana (12/11): selo, filtro e contagem no lugar da temperatura.
+  const classes = useClassificacoes();
+  const [classe, setClasse] = useState("");
+  const leads = useMemo(() => {
+    const todos = query.data ?? [];
+    return classe ? todos.filter((l) => String(classes[l.id] ?? "") === classe) : todos;
+  }, [query.data, classes, classe]);
 
   const resumo = useMemo(() => {
-    const quentes = leads.filter((l) => l.temperature === "QUENTE").length;
+    const quentes = leads.filter((l) => classes[l.id] === 2).length;
     const convertidos = leads.filter((l) => l.linked_work_order_id).length;
     return { total: leads.length, quentes, convertidos };
-  }, [leads]);
+  }, [leads, classes]);
 
   function set(patch: Partial<LeadFilters>) {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -86,7 +93,7 @@ function Leads() {
     <>
       <PageHeader
         title="Leads"
-        description={`${resumo.total} lead(s) · ${resumo.quentes} quente(s) · ${resumo.convertidos} convertido(s) em OS`}
+        description={`${resumo.total} lead(s) · ${resumo.quentes} em negociação · ${resumo.convertidos} convertido(s) em OS`}
         actions={
           <Button className="gap-2" onClick={() => setNovoAberto(true)}>
             <Plus className="size-4" /> Novo lead
@@ -140,17 +147,13 @@ function Leads() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="f-temp">Temperatura</Label>
+            <Label htmlFor="f-temp">Classificação (Tatiana)</Label>
             <NativeSelect
               id="f-temp"
               placeholder="Todas"
-              value={filters.temperature ?? ""}
-              onChange={(v) => set({ temperature: v })}
-              options={[
-                { value: "QUENTE", label: "Quente" },
-                { value: "MORNO", label: "Morno" },
-                { value: "FRIO", label: "Frio" },
-              ]}
+              value={classe}
+              onChange={(v) => setClasse(v)}
+              options={OPCOES_CLASSIFICACAO}
             />
           </div>
           <div className="grid gap-1.5">
@@ -255,7 +258,7 @@ function Leads() {
                   <th className="px-4 py-3">Entrada</th>
                   <th className="px-4 py-3">Lead</th>
                   <th className="px-4 py-3">Estofado / serviço</th>
-                  <th className="px-4 py-3">Temperatura</th>
+                  <th className="px-4 py-3">Classificação</th>
                   <th className="px-4 py-3">Status / etapa</th>
                   <th className="px-4 py-3">Origem</th>
                   <th className="px-4 py-3">Última interação</th>
@@ -277,10 +280,8 @@ function Leads() {
                       <p className="text-xs text-muted-foreground">{l.service_interest ?? "—"}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <TemperatureBadge
-                        temperature={l.temperature}
-                        suggested={!l.temperature_confirmed}
-                        motivo={l.temperatura_motivo}
+                      <ClassificacaoBadge
+                        classificacao={classes[l.id]}
                         retornoEm={l.retorno_combinado_em}
                       />
                     </td>
@@ -327,10 +328,8 @@ function Leads() {
                     <LeadLink id={l.id}>{l.lead_name || "Sem nome"}</LeadLink>
                     <p className="text-xs text-muted-foreground">{formatPhoneBR(l.phone)}</p>
                   </div>
-                  <TemperatureBadge
-                    temperature={l.temperature}
-                    suggested={!l.temperature_confirmed}
-                    motivo={l.temperatura_motivo}
+                  <ClassificacaoBadge
+                    classificacao={classes[l.id]}
                     retornoEm={l.retorno_combinado_em}
                   />
                 </div>
@@ -435,7 +434,6 @@ function NovoLeadDialog({
   const [telefone, setTelefone] = useState("");
   const [estofado, setEstofado] = useState("");
   const [servico, setServico] = useState("");
-  const [temperatura, setTemperatura] = useState("FRIO");
   const [statusId, setStatusId] = useState("");
   const [resumo, setResumo] = useState("");
   const [vendedoraId, setVendedoraId] = useState("");
@@ -480,7 +478,6 @@ function NovoLeadDialog({
         phone: telefone.trim(),
         upholstery: estofado.trim().slice(0, 500) || undefined,
         serviceInterest: servico || undefined,
-        temperature: ehTemperatura(temperatura) ? temperatura : "FRIO",
         statusId: statusId || (statuses?.[0]?.id ?? null),
         summary: resumo.trim().slice(0, 2000) || undefined,
         salespersonId: vendedoraId || null,
@@ -557,20 +554,7 @@ function NovoLeadDialog({
                 options={(servicos ?? []).map((s) => ({ value: s.name, label: s.name }))}
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="n-temp">Temperatura</Label>
-              <NativeSelect
-                id="n-temp"
-                placeholder="Frio"
-                value={temperatura}
-                onChange={setTemperatura}
-                options={[
-                  { value: "FRIO", label: "Frio" },
-                  { value: "MORNO", label: "Morno" },
-                  { value: "QUENTE", label: "Quente" },
-                ]}
-              />
-            </div>
+
             <div className="grid gap-1.5">
               <Label htmlFor="n-status">Status</Label>
               <NativeSelect

@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/app-shell";
 import { AbasDeRota } from "@/components/nexa";
 import { ABAS_DE_TELA } from "@/lib/menu";
 
-import { LeadLink, StatusPill, TemperatureBadge } from "@/components/crm-ui";
+import { LeadLink, StatusPill, ClassificacaoBadge } from "@/components/crm-ui";
 import {
   CRM_STATUS_KIND,
   changeLeadStatus,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/crm";
 import { dateBR } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useClassificacoes } from "@/lib/classificacao-lead-hook";
 
 export const Route = createFileRoute("/_authenticated/crm/funil")({
   head: () => ({
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_authenticated/crm/funil")({
 });
 
 function Funil() {
+  const classes = useClassificacoes();
   const { data: statuses } = useCrmCatalog(CRM_STATUS_KIND);
   const query = useCrmLeads({});
   const invalidate = useCrmInvalidate();
@@ -122,10 +124,8 @@ function Funil() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <LeadLink id={lead.id}>{lead.lead_name || "Sem nome"}</LeadLink>
-                      <TemperatureBadge
-                        temperature={lead.temperature}
-                        suggested={!lead.temperature_confirmed}
-                        motivo={lead.temperatura_motivo}
+                      <ClassificacaoBadge
+                        classificacao={classes[lead.id]}
                         retornoEm={lead.retorno_combinado_em}
                       />
                     </div>

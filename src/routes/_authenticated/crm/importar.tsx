@@ -47,7 +47,6 @@ const CAMPOS = [
   { key: "upholstery_description", label: "Estofado / descrição", required: false },
   { key: "service_interest", label: "Serviço de interesse", required: false },
   { key: "status", label: "Status", required: false },
-  { key: "temperature", label: "Temperatura (Frio/Morno/Quente)", required: false },
   { key: "summary", label: "Resumo da conversa", required: false },
   { key: "notes", label: "Observações", required: false },
 ] as const;
@@ -154,12 +153,6 @@ function ImportarCrm() {
         const status = (statuses ?? []).find(
           (s) => s.name.toLowerCase() === statusNome.toLowerCase(),
         );
-        const temperaturaTexto = get("temperature").toUpperCase();
-        const temperatura = temperaturaTexto.startsWith("Q")
-          ? "QUENTE"
-          : temperaturaTexto.startsWith("M")
-            ? "MORNO"
-            : "FRIO";
         const dataContato =
           (mapa["first_contact_date"] ? excelDate(row[mapa["first_contact_date"]!]) : null) ??
           todayISO();
@@ -184,8 +177,6 @@ function ImportarCrm() {
             summary: get("summary").slice(0, 1500) || null,
             summary_source: "Importação",
             notes: get("notes").slice(0, 1000) || null,
-            temperature: temperatura,
-            temperature_confirmed: Boolean(temperaturaTexto),
             status_id: status?.id ?? null,
             campaign_id: campanhaId || null,
             source_type: "Importação de planilha",

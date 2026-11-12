@@ -22,7 +22,7 @@ export function Avatar({ nome, className }: { nome: string; className?: string }
   );
 }
 
-/** Etiqueta da conversa: motivo da passagem, temperatura/etapa do lead ou situação. */
+/** Etiqueta da conversa: motivo da passagem, classificação da Tatiana/etapa do lead ou situação. */
 export function EtiquetasConversa({ c }: { c: ConversaResumo }) {
   return (
     <>
@@ -70,7 +70,11 @@ function EtiquetasDoGrupo({ c }: { c: ConversaResumo }) {
       ) : c.responsavelNome ? (
         <Chip tom="neutro">Com {c.responsavelNome.split(" ")[0]}</Chip>
       ) : null}
-      {c.temperatura === "QUENTE" ? <Chip tom="problema">Quente</Chip> : null}
+      {c.classificacao === 2 ? (
+        <Chip tom="problema">Em negociação</Chip>
+      ) : c.classificacao === 4 ? (
+        <Chip tom="atencao">Achou caro</Chip>
+      ) : null}
       {c.etapa ? <Chip tom="neutro">{c.etapa}</Chip> : null}
     </>
   );
@@ -80,7 +84,7 @@ function EtiquetasDoGrupo({ c }: { c: ConversaResumo }) {
 function pontoDaConversa(c: ConversaResumo): { cor: string; rotulo: string } | null {
   if (c.passagem?.posVenda) return { cor: "bg-problema-foreground", rotulo: "Pós-venda" };
   if (c.minha) return { cor: "bg-marca", rotulo: "Com você" };
-  if (c.temperatura === "QUENTE") return { cor: "bg-problema-foreground", rotulo: "Quente" };
+  if (c.classificacao === 2) return { cor: "bg-problema-foreground", rotulo: "Em negociação" };
   if (c.passagem) return { cor: "bg-atencao-foreground", rotulo: c.passagem.motivo };
   return null;
 }

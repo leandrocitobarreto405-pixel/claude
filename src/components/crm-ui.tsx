@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { statusMeta } from "@/lib/crm";
-import { rotuloTemperatura, seloRetorno, veioDaIa } from "@/lib/temperatura";
+import { seloRetorno } from "@/lib/temperatura";
+import { rotuloClassificacao, tomClassificacao } from "@/lib/classificacao-lead";
 
 /** Select nativo — evita as travas de menus flutuantes já observadas no app. */
 export function NativeSelect({
@@ -74,19 +75,19 @@ export function StatusPill({
   );
 }
 
-export function TemperatureBadge({
-  temperature,
-  suggested,
-  motivo,
+/**
+ * Selo do lead: "Retorno combinado (dd/mm)" quando há um pendente; senão a classificação da
+ * Tatiana ("Em negociação", "Achou caro"…). Lead que ela ainda não leu fica sem selo.
+ */
+export function ClassificacaoBadge({
+  classificacao,
   retornoEm,
 }: {
-  temperature: string;
-  suggested?: boolean;
-  /** Por que o lead está com essa temperatura (regra por eventos). */
-  motivo?: string | null | undefined;
-  /** Retorno combinado pendente: o selo "Retorno combinado (dd/mm)" vai no lugar. */
+  /** Caixinha da Tatiana (1 a 9) ou nada. */
+  classificacao?: number | null | undefined;
   retornoEm?: string | null | undefined;
 }) {
+  const rotulo = rotuloClassificacao(classificacao);
   const selo = seloRetorno(retornoEm);
   if (selo) {
     return (
@@ -95,29 +96,23 @@ export function TemperatureBadge({
           "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
           selo.vencido ? COLOR_CLASSES["danger"] : COLOR_CLASSES["navy"],
         )}
-        title={`${rotuloTemperatura(temperature)}${motivo ? ` — ${motivo}` : ""}`}
+        title={rotulo ?? undefined}
       >
         {selo.rotulo}
       </span>
     );
   }
-  const cor =
-    temperature === "QUENTE"
-      ? COLOR_CLASSES["danger"]
-      : temperature === "MORNO"
-        ? COLOR_CLASSES["warning"]
-        : COLOR_CLASSES["teal"];
-  const ia = Boolean(suggested) && veioDaIa(motivo);
+  if (!rotulo) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        cor,
+        COLOR_CLASSES[tomClassificacao(classificacao)] ??
+          "border-border bg-secondary text-muted-foreground",
       )}
-      title={ia ? "Sugestão da IA (nenhuma regra decidiu ainda)" : (motivo ?? undefined)}
+      title="Classificação da Tatiana (leitura da noite)"
     >
-      {rotuloTemperatura(temperature)}
-      {ia ? <span className="opacity-70">(IA)</span> : null}
+      {rotulo}
     </span>
   );
 }
