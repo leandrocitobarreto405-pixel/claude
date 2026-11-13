@@ -37,6 +37,32 @@ export const ORIGENS_CHAMADA = [
 ] as const;
 export type OrigemChamada = (typeof ORIGENS_CHAMADA)[number];
 
+/**
+ * Onde mais o custo de cada origem já é somado no saldo estimado (13/11). As que têm tabela ficam
+ * fora de private.ia_chamadas_custo_usd (migração 20261228540000) para não contar em dobro; as que
+ * têm null só existem em ia_chamadas e continuam somadas. Origem nova sem entrada aqui não compila.
+ */
+export const SOMADA_TAMBEM_EM: Record<OrigemChamada, string | null> = {
+  classificador_toque: null,
+  classificador_site: null,
+  classificador_temperatura: null,
+  retorno_combinado: null,
+  toque_equipe: null,
+  alice_conversa: "ia_execucoes",
+  tatiana_noite: "comercial_noites",
+  tatiana_mensagem: "comercial_noites",
+  tatiana_recado: "comercial_noites",
+  tatiana_analise: null,
+  campanha: "comercial_campanhas",
+  classificador_campanha: "comercial_campanhas",
+  base_parada: "comercial_relatorios",
+  plano: "comercial_planos",
+  relatorio: "comercial_relatorios",
+  alice_nao_soube: "comercial_relatorios",
+  ensaio: null,
+  lote: "comercial_noites",
+};
+
 /** Haiku 4.5 (chamadas antigas que ainda não mudaram de modelo), US$ por milhão de tokens. */
 export const PRECO_HAIKU_45: Precos = { entrada: 1, cacheGravar: 1.25, cacheLer: 0.1, saida: 5 };
 
