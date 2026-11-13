@@ -5,6 +5,7 @@
  * Segurança: roda com a chave de serviço; toda consulta filtra pela empresa da tarefa.
  * Em qualquer falha a conversa vai para atendimento humano (o cliente nunca fica sem resposta).
  */
+import { comContextoIa } from "@/lib/ia-contexto.server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -161,6 +162,14 @@ export async function processarTarefa(tarefaId: string): Promise<ResultadoTarefa
     return { situacao: "ignorada", detalhe: "tarefa não está pronta ou já foi feita" };
   }
 
+  // Toda chamada de IA desta tarefa grava o custo em ia_chamadas (13/11).
+  return comContextoIa(
+    { empresaId: tarefa.empresa_id, origem: "alice_conversa", referencia: tarefa.id },
+    () => executarTarefa(db, tarefa),
+  );
+}
+
+async function executarTarefa(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa> {
   try {
     const r =
       tarefa.tipo === "passar_para_humano"

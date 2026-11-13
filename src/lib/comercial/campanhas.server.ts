@@ -176,6 +176,7 @@ async function textosDasRespostas(
 /** Classe de cada resposta pelo Haiku, em lotes. Devolve só as que o modelo classificou. */
 async function classificarPorIa(
   itens: Array<{ id: string; texto: string }>,
+  empresaId?: string,
 ): Promise<{ classes: Map<string, ClasseResposta>; custoUsd: number }> {
   const classes = new Map<string, ClasseResposta>();
   let custo = 0;
@@ -184,27 +185,29 @@ async function classificarPorIa(
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
   for (let i = 0; i < itens.length; i += LOTE_CLASSES) {
     const lote = itens.slice(i, i + LOTE_CLASSES);
-    const resp = await chamarIa(() =>
-      new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
-        model: MODELO_HAIKU,
-        max_tokens: 2_000,
-        output_config: {
-          effort: "low",
-          format: {
-            type: "json_schema",
-            schema: ESQUEMA_CLASSES as unknown as Record<string, unknown>,
+    const resp = await chamarIa(
+      () =>
+        new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
+          model: MODELO_HAIKU,
+          max_tokens: 2_000,
+          output_config: {
+            effort: "low",
+            format: {
+              type: "json_schema",
+              schema: ESQUEMA_CLASSES as unknown as Record<string, unknown>,
+            },
           },
-        },
-        system: instrucoesClasses(),
-        messages: [
-          {
-            role: "user",
-            content: lote
-              .map((it, n) => `${n + 1}. ${it.texto.replace(/\s+/g, " ").slice(0, 240)}`)
-              .join("\n"),
-          },
-        ],
-      }),
+          system: instrucoesClasses(),
+          messages: [
+            {
+              role: "user",
+              content: lote
+                .map((it, n) => `${n + 1}. ${it.texto.replace(/\s+/g, " ").slice(0, 240)}`)
+                .join("\n"),
+            },
+          ],
+        }),
+      { empresaId, origem: "classificador_campanha" },
     );
     custo += custoUsd(resp.usage, PRECO_HAIKU);
     if (resp.stop_reason !== "end_turn") continue;
@@ -279,43 +282,45 @@ async function sugerirProxima(
   const classes = resumoDasClasses(respostas.por_envio);
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 120_000, maxRetries: 1 }).messages.create({
-      model: MODELO_FICHA,
-      max_tokens: 2_500,
-      output_config: {
-        effort: "medium",
-        format: {
-          type: "json_schema",
-          schema: ESQUEMA_SUGESTOES as unknown as Record<string, unknown>,
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 120_000, maxRetries: 1 }).messages.create({
+        model: MODELO_FICHA,
+        max_tokens: 2_500,
+        output_config: {
+          effort: "medium",
+          format: {
+            type: "json_schema",
+            schema: ESQUEMA_SUGESTOES as unknown as Record<string, unknown>,
+          },
         },
-      },
-      system: instrucoesSugestoes(empresaNome),
-      messages: [
-        {
-          role: "user",
-          content: [
-            "CAMPANHA:",
-            descricaoDaCampanha(k),
-            modelos.length ? `Texto dos modelos:\n${modelos.join("\n")}` : "",
-            "",
-            `NÚMEROS (${JANELA_DIAS} dias): ${resumoCurto(numeros)}`,
-            JSON.stringify(numeros),
-            "",
-            `RESPOSTAS POR CLASSE: ${classes.map((c) => `${c.nome} ${c.n}`).join(" · ") || "nenhuma"}${respostas.sem_texto ? ` (sem texto: ${respostas.sem_texto})` : ""}`,
-            respostas.exemplos.length
-              ? `Trechos de respostas (classe: texto):\n${respostas.exemplos.map((e) => `- ${e.classe}: ${e.texto}`).join("\n")}`
-              : "",
-            "",
-            anteriores.length
-              ? `CAMPANHAS ANTERIORES DA EMPRESA:\n${anteriores.map((a) => `- ${a.nome}: ${resumoCurto(a.numeros)}`).join("\n")}`
-              : "CAMPANHAS ANTERIORES: nenhuma acompanhada ainda.",
-          ]
-            .filter((l) => l !== "")
-            .join("\n"),
-        },
-      ],
-    }),
+        system: instrucoesSugestoes(empresaNome),
+        messages: [
+          {
+            role: "user",
+            content: [
+              "CAMPANHA:",
+              descricaoDaCampanha(k),
+              modelos.length ? `Texto dos modelos:\n${modelos.join("\n")}` : "",
+              "",
+              `NÚMEROS (${JANELA_DIAS} dias): ${resumoCurto(numeros)}`,
+              JSON.stringify(numeros),
+              "",
+              `RESPOSTAS POR CLASSE: ${classes.map((c) => `${c.nome} ${c.n}`).join(" · ") || "nenhuma"}${respostas.sem_texto ? ` (sem texto: ${respostas.sem_texto})` : ""}`,
+              respostas.exemplos.length
+                ? `Trechos de respostas (classe: texto):\n${respostas.exemplos.map((e) => `- ${e.classe}: ${e.texto}`).join("\n")}`
+                : "",
+              "",
+              anteriores.length
+                ? `CAMPANHAS ANTERIORES DA EMPRESA:\n${anteriores.map((a) => `- ${a.nome}: ${resumoCurto(a.numeros)}`).join("\n")}`
+                : "CAMPANHAS ANTERIORES: nenhuma acompanhada ainda.",
+            ]
+              .filter((l) => l !== "")
+              .join("\n"),
+          },
+        ],
+      }),
+    { empresaId, origem: "campanha" },
   );
   if (resp.stop_reason !== "end_turn") throw new Error(`sugestões: ${resp.stop_reason}`);
   const r = JSON.parse(resp.content.map((b) => (b.type === "text" ? b.text : "")).join("")) as {
@@ -447,7 +452,7 @@ export async function acompanharCampanhas(
         const itens = precisamTexto
           .filter((e) => textos.has(e.id))
           .map((e) => ({ id: e.id, texto: textos.get(e.id) as string }));
-        const ia = await classificarPorIa(itens);
+        const ia = await classificarPorIa(itens, empresaId);
         custo += ia.custoUsd;
         for (const [id, c] of ia.classes) {
           respostas.por_envio[id] = c;

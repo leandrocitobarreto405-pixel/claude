@@ -2,6 +2,7 @@
  * Roda a Alice de verdade (mesmo modelo, instruções e ferramentas da empresa) numa conversa de
  * ensaio. Nada é enviado nem gravado: cada ferramenta devolve o texto de `respostaDeEnsaio`.
  */
+import { chamarIa } from "./parada-ia.server";
 import Anthropic from "@anthropic-ai/sdk";
 import { COM_FALLBACK, SEM_SISTEMA_NO_MEIO } from "./motor.server";
 import { montarTurnos, type MensagemHistorico, type Uso } from "./prompt";
@@ -27,6 +28,8 @@ export type RespostaEnsaio = {
 };
 
 export async function rodarAliceEnsaio(opcoes: {
+  /** Empresa do ensaio: o custo de cada chamada vai para ia_chamadas (origem "ensaio", 13/11). */
+  empresaId?: string;
   cliente: Anthropic;
   modelo: string;
   esforco: string;
@@ -80,19 +83,23 @@ export async function rodarAliceEnsaio(opcoes: {
   let refeita = false;
   for (let rodada = 0; rodada < 6; rodada++) {
     rodadas++;
-    const r = await opcoes.cliente.beta.messages.create({
-      model: opcoes.modelo,
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: opcoes.esforco as "low" | "medium" | "high" },
-      ...(COM_FALLBACK.includes(opcoes.modelo)
-        ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
-        : {}),
-      ...(opcoes.cacheComoProducao ? { cache_control: { type: "ephemeral" as const } } : {}),
-      system: sistema,
-      tools: opcoes.ferramentas,
-      messages: mensagens,
-    });
+    const r = await chamarIa(
+      () =>
+        opcoes.cliente.beta.messages.create({
+          model: opcoes.modelo,
+          max_tokens: 8000,
+          thinking: { type: "adaptive" },
+          output_config: { effort: opcoes.esforco as "low" | "medium" | "high" },
+          ...(COM_FALLBACK.includes(opcoes.modelo)
+            ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
+            : {}),
+          ...(opcoes.cacheComoProducao ? { cache_control: { type: "ephemeral" as const } } : {}),
+          system: sistema,
+          tools: opcoes.ferramentas,
+          messages: mensagens,
+        }),
+      { empresaId: opcoes.empresaId, origem: "ensaio" },
+    );
     uso.entrada += r.usage.input_tokens;
     uso.saida += r.usage.output_tokens;
     uso.cacheLeitura += r.usage.cache_read_input_tokens ?? 0;

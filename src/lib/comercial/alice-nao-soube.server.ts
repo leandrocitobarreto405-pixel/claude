@@ -218,34 +218,36 @@ export async function analisarNaoSoube(
   ]);
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 280_000, maxRetries: 1 }).messages.create({
-      model: MODELO_OPUS,
-      max_tokens: 12_000,
-      output_config: {
-        effort: "medium",
-        format: {
-          type: "json_schema",
-          schema: ESQUEMA_NAO_SOUBE as unknown as Record<string, unknown>,
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 280_000, maxRetries: 1 }).messages.create({
+        model: MODELO_OPUS,
+        max_tokens: 12_000,
+        output_config: {
+          effort: "medium",
+          format: {
+            type: "json_schema",
+            schema: ESQUEMA_NAO_SOUBE as unknown as Record<string, unknown>,
+          },
         },
-      },
-      system: instrucoesNaoSoube((emp as { nome?: string } | null)?.nome ?? "empresa"),
-      messages: [
-        {
-          role: "user",
-          content: [
-            "ROTEIRO ATUAL DA ALICE:",
-            roteiro.slice(0, 40_000),
-            "",
-            `CASOS DA SEMANA (${casos.length}):`,
-            ...casos.map(
-              (c, i) =>
-                `${i + 1}. final ${c.fim} (${c.dia})\n   Cliente: ${c.pergunta || "-"}\n   Alice: ${c.alice || "-"}\n   Equipe depois: ${c.equipe || "(não respondeu)"}`,
-            ),
-          ].join("\n"),
-        },
-      ],
-    }),
+        system: instrucoesNaoSoube((emp as { nome?: string } | null)?.nome ?? "empresa"),
+        messages: [
+          {
+            role: "user",
+            content: [
+              "ROTEIRO ATUAL DA ALICE:",
+              roteiro.slice(0, 40_000),
+              "",
+              `CASOS DA SEMANA (${casos.length}):`,
+              ...casos.map(
+                (c, i) =>
+                  `${i + 1}. final ${c.fim} (${c.dia})\n   Cliente: ${c.pergunta || "-"}\n   Alice: ${c.alice || "-"}\n   Equipe depois: ${c.equipe || "(não respondeu)"}`,
+              ),
+            ].join("\n"),
+          },
+        ],
+      }),
+    { empresaId, origem: "alice_nao_soube" },
   );
   if (resp.stop_reason !== "end_turn") throw new Error(`não soube: ${resp.stop_reason}`);
   const r = JSON.parse(resp.content.map((b) => (b.type === "text" ? b.text : "")).join("")) as {

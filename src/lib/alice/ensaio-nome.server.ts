@@ -223,6 +223,7 @@ export async function rodarEnsaioNome(db: Db, empresaId: string): Promise<Result
           nomeCliente: c.nome,
         };
         const { resposta, ferramentas: usadas } = await rodarAliceEnsaio({
+          empresaId,
           cliente,
           modelo: cfg.modelo,
           esforco: cfg.esforco,

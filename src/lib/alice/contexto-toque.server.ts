@@ -90,28 +90,30 @@ export async function lerContextoDoCliente(
     const { chamarIa } = await import("./parada-ia.server");
     // Haiku 5.5 (11/11, custo): mesma forma de chamada da decisão da noite (esforço baixo e
     // resposta em JSON pelo esquema); o limite de tokens cobre o raciocínio do modelo.
-    const r = await chamarIa(() =>
-      new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
-        model: MODELO_HAIKU,
-        max_tokens: 2_000,
-        output_config: {
-          effort: "low",
-          format: {
-            type: "json_schema",
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["classe", "trecho"],
-              properties: {
-                classe: { type: "string", enum: [...CLASSES_CONTEXTO] },
-                trecho: { type: "string" },
+    const r = await chamarIa(
+      () =>
+        new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
+          model: MODELO_HAIKU,
+          max_tokens: 2_000,
+          output_config: {
+            effort: "low",
+            format: {
+              type: "json_schema",
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["classe", "trecho"],
+                properties: {
+                  classe: { type: "string", enum: [...CLASSES_CONTEXTO] },
+                  trecho: { type: "string" },
+                },
               },
             },
           },
-        },
-        system: INSTRUCAO_CLASSIFICADOR,
-        messages: [{ role: "user", content: historicoParaClassificar(msgs) }],
-      }),
+          system: INSTRUCAO_CLASSIFICADOR,
+          messages: [{ role: "user", content: historicoParaClassificar(msgs) }],
+        }),
+      { semRegistro: true },
     );
     uso = r.usage;
     await gravarCusto();

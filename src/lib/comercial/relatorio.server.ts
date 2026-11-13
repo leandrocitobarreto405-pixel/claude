@@ -190,60 +190,62 @@ export async function gerarRelatorioComercial(
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 290_000, maxRetries: 1 }).messages.create({
-      model: MODELO_FICHA,
-      max_tokens: 16_000,
-      output_config: {
-        effort: "medium",
-        format: {
-          type: "json_schema",
-          schema: ESQUEMA_RELATORIO as unknown as Record<string, unknown>,
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 290_000, maxRetries: 1 }).messages.create({
+        model: MODELO_FICHA,
+        max_tokens: 16_000,
+        output_config: {
+          effort: "medium",
+          format: {
+            type: "json_schema",
+            schema: ESQUEMA_RELATORIO as unknown as Record<string, unknown>,
+          },
         },
-      },
-      system: instrucoesRelatorio((emp as { nome?: string } | null)?.nome ?? "empresa"),
-      messages: [
-        {
-          role: "user",
-          content: [
-            "NÚMEROS DO SISTEMA:",
-            JSON.stringify(numeros),
-            "",
-            `ATENDIMENTOS ANALISADOS (${compactas.length}), um por linha:`,
-            compactas.map((c) => JSON.stringify(c)).join("\n"),
-            "",
-            ...(avisos.length
-              ? [
-                  `AVISOS DA EQUIPE (${avisos.length}), sinal forte:`,
-                  avisos.map((a) => `${a.codigo} [${a.tipo}] ${a.frase}`).join("\n"),
-                  "",
-                ]
-              : []),
-            ...(o.mes
-              ? [
-                  "MÊS (números do sistema; use como contexto das sugestões, sem repetir):",
-                  ...textoMesRelatorio(o.mes),
-                  "",
-                ]
-              : []),
-            ...(campanhas.length
-              ? [
-                  `CAMPANHAS DE WHATSAPP DA SEMANA (${campanhas.length}), números do sistema:`,
-                  campanhas
-                    .map(
-                      (c) =>
-                        `- ${c.nome}: ${c.resumo}${c.classes.length ? ` · respostas: ${c.classes.map((x) => `${x.nome} ${x.n}`).join(", ")}` : ""}`,
-                    )
-                    .join("\n"),
-                  "",
-                ]
-              : []),
-            "INSTRUÇÕES ATUAIS DA ALICE (só leitura):",
-            textoAlice || "(não encontradas)",
-          ].join("\n"),
-        },
-      ],
-    }),
+        system: instrucoesRelatorio((emp as { nome?: string } | null)?.nome ?? "empresa"),
+        messages: [
+          {
+            role: "user",
+            content: [
+              "NÚMEROS DO SISTEMA:",
+              JSON.stringify(numeros),
+              "",
+              `ATENDIMENTOS ANALISADOS (${compactas.length}), um por linha:`,
+              compactas.map((c) => JSON.stringify(c)).join("\n"),
+              "",
+              ...(avisos.length
+                ? [
+                    `AVISOS DA EQUIPE (${avisos.length}), sinal forte:`,
+                    avisos.map((a) => `${a.codigo} [${a.tipo}] ${a.frase}`).join("\n"),
+                    "",
+                  ]
+                : []),
+              ...(o.mes
+                ? [
+                    "MÊS (números do sistema; use como contexto das sugestões, sem repetir):",
+                    ...textoMesRelatorio(o.mes),
+                    "",
+                  ]
+                : []),
+              ...(campanhas.length
+                ? [
+                    `CAMPANHAS DE WHATSAPP DA SEMANA (${campanhas.length}), números do sistema:`,
+                    campanhas
+                      .map(
+                        (c) =>
+                          `- ${c.nome}: ${c.resumo}${c.classes.length ? ` · respostas: ${c.classes.map((x) => `${x.nome} ${x.n}`).join(", ")}` : ""}`,
+                      )
+                      .join("\n"),
+                    "",
+                  ]
+                : []),
+              "INSTRUÇÕES ATUAIS DA ALICE (só leitura):",
+              textoAlice || "(não encontradas)",
+            ].join("\n"),
+          },
+        ],
+      }),
+    { empresaId: o.empresaId, origem: "relatorio" },
   );
   if (resp.stop_reason === "refusal") throw new Error("a IA recusou o relatório");
   if (resp.stop_reason === "max_tokens") throw new Error("relatório cortado (limite de tokens)");

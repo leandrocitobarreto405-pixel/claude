@@ -20,6 +20,20 @@ export const ORIGENS_CHAMADA = [
   "classificador_temperatura",
   "retorno_combinado",
   "toque_equipe",
+  // 13/11: toda chamada de IA grava aqui (pedido do dono).
+  "alice_conversa",
+  "tatiana_noite",
+  "tatiana_mensagem",
+  "tatiana_recado",
+  "tatiana_analise",
+  "campanha",
+  "classificador_campanha",
+  "base_parada",
+  "plano",
+  "relatorio",
+  "alice_nao_soube",
+  "ensaio",
+  "lote",
 ] as const;
 export type OrigemChamada = (typeof ORIGENS_CHAMADA)[number];
 
@@ -38,10 +52,14 @@ export function linhaDaChamada(o: {
   empresaId: string;
   origem: OrigemChamada;
   modelo: string;
-  uso: Uso | null;
+  uso: (Uso & { cache_creation?: { ephemeral_1h_input_tokens?: number } | null }) | null;
   referencia?: string | null;
 }) {
   const u = o.uso;
+  // Cache de 1 hora custa o dobro da entrada (o custoUsd conta a gravação pelo preço de 5 min).
+  const preco = precoDoModelo(o.modelo);
+  const uma = u?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  const extra1h = (uma * (preco.entrada * 2 - preco.cacheGravar)) / 1_000_000;
   return {
     empresa_id: o.empresaId,
     origem: o.origem,
@@ -50,7 +68,7 @@ export function linhaDaChamada(o: {
     tokens_saida: u?.output_tokens ?? 0,
     tokens_cache_gravados: u?.cache_creation_input_tokens ?? 0,
     tokens_cache_lidos: u?.cache_read_input_tokens ?? 0,
-    custo_usd: u ? custoUsd(u, precoDoModelo(o.modelo)) : 0,
+    custo_usd: u ? Math.round((custoUsd(u, preco) + extra1h) * 1_000_000) / 1_000_000 : 0,
     ok: Boolean(u),
     referencia: o.referencia ? o.referencia.slice(0, 80) : null,
   };

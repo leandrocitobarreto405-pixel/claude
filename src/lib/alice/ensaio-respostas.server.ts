@@ -231,6 +231,7 @@ export async function rodarEnsaioRespostas(
         nomeCliente: { confirmado: c.nome, origem: "perfil", perfil: c.nome, perguntas: 0 },
       };
       const r = await rodarAliceEnsaio({
+        empresaId,
         cliente,
         modelo: cfg!.modelo,
         esforco: cfg!.esforco,

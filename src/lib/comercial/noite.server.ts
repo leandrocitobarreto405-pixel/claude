@@ -7,6 +7,7 @@
  * sugestões) e as da Alice só ficam registradas ("padrão faria × Tatiana decidiu"). Modo
  * "conferencia": só conta os acertos, sem criar nada visível. Nada é enviado a clientes.
  */
+import { comContextoIa } from "@/lib/ia-contexto.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calcularFatos, conversaEmTexto, quemMandou } from "./fatos";
 import {
@@ -1000,35 +1001,37 @@ async function melhorarMensagem(
   const preco = undefined;
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 90_000, maxRetries: 1 }).messages.create({
-      model: MODELO_FICHA,
-      max_tokens: 2_000,
-      output_config: {
-        effort: "low",
-        format: {
-          type: "json_schema",
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["mensagem"],
-            properties: { mensagem: { type: "string" } },
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 90_000, maxRetries: 1 }).messages.create({
+        model: MODELO_FICHA,
+        max_tokens: 2_000,
+        output_config: {
+          effort: "low",
+          format: {
+            type: "json_schema",
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["mensagem"],
+              properties: { mensagem: { type: "string" } },
+            },
           },
         },
-      },
-      system: [
-        "Você escreve a mensagem de WhatsApp que uma vendedora vai copiar e mandar a um cliente de limpeza de estofados. Até 3 frases curtas, tom humano e carinhoso, sem pressão.",
-        'Use o contexto da conversa (cite algo específico); empatia primeiro se o cliente contou um problema; termine com UMA pergunta simples para o cliente responder (ex.: "Conseguiu ver um dia bom para agendarmos?", "Quer que eu já reserve um horário pra você?", "Tem alguma coisa te impedindo de decidir que eu possa ajudar?").',
-        `Nunca ofereça nem prometa desconto, condição melhor ou "ver com a equipe/gestor uma condição". Se a conversa já teve desconto, só lembre o valor com desconto que já foi passado. Ao falar de preço, use o valor da conversa, com o Pix${pixPct ? ` (${String(pixPct).replace(".", ",")}% de desconto)` : ""} quando for o caso. Nunca invente prazo ou horário que não estejam na conversa.`,
-        'Proibido: "ficou alguma dúvida", "passando para saber", "conseguiu decidir", "está aí?", "fico à disposição". Não se apresente com nome.',
-      ].join("\n"),
-      messages: [
-        {
-          role: "user",
-          content: `Motivo do contato: ${motivo}\nRascunho: ${rascunho}\n\nConversa (fim):\n${conversa.slice(-12_000)}`,
-        },
-      ],
-    }),
+        system: [
+          "Você escreve a mensagem de WhatsApp que uma vendedora vai copiar e mandar a um cliente de limpeza de estofados. Até 3 frases curtas, tom humano e carinhoso, sem pressão.",
+          'Use o contexto da conversa (cite algo específico); empatia primeiro se o cliente contou um problema; termine com UMA pergunta simples para o cliente responder (ex.: "Conseguiu ver um dia bom para agendarmos?", "Quer que eu já reserve um horário pra você?", "Tem alguma coisa te impedindo de decidir que eu possa ajudar?").',
+          `Nunca ofereça nem prometa desconto, condição melhor ou "ver com a equipe/gestor uma condição". Se a conversa já teve desconto, só lembre o valor com desconto que já foi passado. Ao falar de preço, use o valor da conversa, com o Pix${pixPct ? ` (${String(pixPct).replace(".", ",")}% de desconto)` : ""} quando for o caso. Nunca invente prazo ou horário que não estejam na conversa.`,
+          'Proibido: "ficou alguma dúvida", "passando para saber", "conseguiu decidir", "está aí?", "fico à disposição". Não se apresente com nome.',
+        ].join("\n"),
+        messages: [
+          {
+            role: "user",
+            content: `Motivo do contato: ${motivo}\nRascunho: ${rascunho}\n\nConversa (fim):\n${conversa.slice(-12_000)}`,
+          },
+        ],
+      }),
+    { origem: "tatiana_mensagem" },
   );
   if (resp.stop_reason !== "end_turn")
     return { mensagem: rascunho, custo: custoUsd(resp.usage, preco) };
@@ -1064,6 +1067,14 @@ type ContextoNoite = {
   /** Próximos dias com horário livre depois de uma data (até 3), pela agenda real. */
   livresDepois: (data: string) => string[];
 };
+
+/** Cada chamada de IA da decisão do lead grava o custo em ia_chamadas (13/11). */
+function decidirNoContexto(db: Db, ctx: ContextoNoite, leadId: string): Promise<number> {
+  return comContextoIa(
+    { empresaId: ctx.noite.empresa_id, origem: "tatiana_noite", referencia: leadId },
+    () => decidirLead(db, ctx, leadId),
+  );
+}
 
 async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<number> {
   const { noite } = ctx;
@@ -2355,39 +2366,44 @@ async function escreverRecados(db: Db, ctx: ContextoNoite) {
     let recado = fallback;
     try {
       const { default: Anthropic } = await import("@anthropic-ai/sdk");
-      const resp = await new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
-        model: MODELO_HAIKU,
-        max_tokens: 1_000,
-        output_config: {
-          effort: "low",
-          format: {
-            type: "json_schema",
-            schema: ESQUEMA_RECADO as unknown as Record<string, unknown>,
-          },
-        },
-        system: instrucoesRecado(),
-        messages: [
-          {
-            role: "user",
-            content: [
-              `Pessoa: ${nome || "(sem nome)"}${g.admin ? " (dona/admin: vê a equipe toda)" : ""}${ctx.equipeUnica ? " (equipe única: o recado é para todas)" : ""}.`,
-              `Tarefas de hoje: ${minhas.length + leadsSite}${resumoPorTipo(minhas, leadsSite)}. Principais: ${
-                minhas
-                  .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
-                  .slice(0, 3)
-                  .map((t) => t.motivo)
-                  .filter(Boolean)
-                  .join("; ") || "nenhuma"
-              }.`,
-              `Acertos no app pendentes: ${meusAcertos}.`,
-              `Vendas (OS criadas) ontem na empresa: ${vendas ?? 0}.`,
-              `Meta do mês: ${linhaMeta ?? "não informada"}`,
-              `Semana da equipe (só como equipe, sem ranking): ${linhaSemana ?? "não informada"}.`,
-              `Frases recentes (não repetir): ${jaDisse.join(" | ") || "nenhuma"}.`,
-            ].join("\n"),
-          },
-        ],
-      });
+      const { chamarIa } = await import("@/lib/alice/parada-ia.server");
+      const resp = await chamarIa(
+        () =>
+          new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
+            model: MODELO_HAIKU,
+            max_tokens: 1_000,
+            output_config: {
+              effort: "low",
+              format: {
+                type: "json_schema",
+                schema: ESQUEMA_RECADO as unknown as Record<string, unknown>,
+              },
+            },
+            system: instrucoesRecado(),
+            messages: [
+              {
+                role: "user",
+                content: [
+                  `Pessoa: ${nome || "(sem nome)"}${g.admin ? " (dona/admin: vê a equipe toda)" : ""}${ctx.equipeUnica ? " (equipe única: o recado é para todas)" : ""}.`,
+                  `Tarefas de hoje: ${minhas.length + leadsSite}${resumoPorTipo(minhas, leadsSite)}. Principais: ${
+                    minhas
+                      .sort((a, b) => (a.prioridade ?? 5) - (b.prioridade ?? 5))
+                      .slice(0, 3)
+                      .map((t) => t.motivo)
+                      .filter(Boolean)
+                      .join("; ") || "nenhuma"
+                  }.`,
+                  `Acertos no app pendentes: ${meusAcertos}.`,
+                  `Vendas (OS criadas) ontem na empresa: ${vendas ?? 0}.`,
+                  `Meta do mês: ${linhaMeta ?? "não informada"}`,
+                  `Semana da equipe (só como equipe, sem ranking): ${linhaSemana ?? "não informada"}.`,
+                  `Frases recentes (não repetir): ${jaDisse.join(" | ") || "nenhuma"}.`,
+                ].join("\n"),
+              },
+            ],
+          }),
+        { empresaId: emp, origem: "tatiana_recado" },
+      );
       custo += custoUsd(resp.usage, PRECO_HAIKU);
       if (resp.stop_reason === "end_turn") {
         const r = JSON.parse(
@@ -2574,8 +2590,8 @@ async function avancarNoite(db: Db, noite: Noite, teto: number): Promise<Record<
     // os outros 4 saem juntos depois e já leem do cache (antes os 5 gravavam ao mesmo tempo).
     const [primeiro, ...resto] = rodada;
     const rs = [
-      ...(await Promise.allSettled(primeiro ? [decidirLead(db, ctx, primeiro)] : [])),
-      ...(await Promise.allSettled(resto.map((id) => decidirLead(db, ctx, id)))),
+      ...(await Promise.allSettled(primeiro ? [decidirNoContexto(db, ctx, primeiro)] : [])),
+      ...(await Promise.allSettled(resto.map((id) => decidirNoContexto(db, ctx, id)))),
     ];
     for (const r of rs) {
       if (r.status === "fulfilled") custo += r.value;

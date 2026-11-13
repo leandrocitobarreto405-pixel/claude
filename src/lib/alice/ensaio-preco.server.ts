@@ -219,6 +219,7 @@ export async function rodarEnsaioPreco(db: Db, empresaId: string): Promise<Ensai
     );
     try {
       const r = await rodarAliceEnsaio({
+        empresaId,
         cliente,
         modelo: cfg.modelo,
         esforco: cfg.esforco,

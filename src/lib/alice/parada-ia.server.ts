@@ -7,6 +7,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { Notificacao } from "@/lib/push/notificacoes";
+import { contextoIa } from "@/lib/ia-contexto.server";
+import type { OrigemChamada } from "@/lib/ia-chamadas";
 import {
   causaDaParadaIa,
   corpoParadaNexa,
@@ -30,13 +32,57 @@ export class ParadaIa extends Error {
 }
 
 /** Chamada à IA: erro de crédito/chave vira ParadaIa (o resto segue como erro comum). */
-export async function chamarIa<T>(fn: () => Promise<T>): Promise<T> {
+export type RegistroIa = {
+  empresaId?: string | undefined;
+  origem?: OrigemChamada;
+  referencia?: string | null;
+  /** Quem chamou já grava o custo sozinho (não grava de novo). */
+  semRegistro?: boolean;
+};
+
+/**
+ * Toda chamada de IA passa por aqui (13/11): o custo vai para ia_chamadas com a empresa e a origem
+ * (da chamada ou do contexto da rodada), inclusive a chamada que falhou (custo zero, ok falso).
+ */
+export async function chamarIa<T>(fn: () => Promise<T>, registro: RegistroIa = {}): Promise<T> {
+  const destino = destinoDoCusto(registro);
   try {
-    return await fn();
+    const r = await fn();
+    const resp = r as { model?: string; usage?: unknown };
+    if (destino && resp?.usage)
+      await gravarCusto(destino, resp.model ?? "desconhecido", resp.usage);
+    return r;
   } catch (e) {
+    if (destino) await gravarCusto(destino, "desconhecido", null);
     const causa = causaDaParadaIa(e);
     if (causa) throw new ParadaIa(causa, e instanceof Error ? e.message.slice(0, 300) : String(e));
     throw e;
+  }
+}
+
+/** Para onde vai o custo da chamada: empresa e origem da chamada ou do contexto; null = não grava. */
+export function destinoDoCusto(
+  registro: RegistroIa,
+): { empresaId: string; origem: OrigemChamada; referencia: string | null } | null {
+  if (registro.semRegistro) return null;
+  const ctx = contextoIa();
+  const empresaId = registro.empresaId ?? ctx?.empresaId;
+  const origem = (registro.origem ?? ctx?.origem) as OrigemChamada | undefined;
+  if (!empresaId || !origem) return null;
+  return { empresaId, origem, referencia: registro.referencia ?? ctx?.referencia ?? null };
+}
+
+async function gravarCusto(
+  destino: { empresaId: string; origem: OrigemChamada; referencia: string | null },
+  modelo: string,
+  uso: unknown,
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { registrarChamadaIa } = await import("@/lib/ia-chamadas.server");
+    await registrarChamadaIa(supabaseAdmin, { ...destino, modelo, uso: uso as never });
+  } catch (e) {
+    console.error("ia_chamadas: custo não gravado", e instanceof Error ? e.message : e);
   }
 }
 
