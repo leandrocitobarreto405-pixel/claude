@@ -47,6 +47,7 @@ import {
 } from "./atalho";
 import { chavesVendas } from "./chaves";
 import {
+  anterioresPendentes,
   avisoDaOferta5,
   chavesFase4,
   comRetomadaManha,
@@ -975,6 +976,41 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     }
     await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
     return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
+  }
+  // Follow-up 5 só depois dos toques anteriores (13/11): com o 3 ou o 4 da equipe ainda pendente,
+  // o 5 espera um dia (e confere de novo).
+  if (passo?.etapa === "A5") {
+    const { data: toques } = await db
+      .from("crm_followups")
+      .select("etapa, status")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("conversa_id", d.conversa.id)
+      .in("etapa", ["A1", "A2", "A3", "A4"])
+      .eq("status", "Pendente")
+      .limit(10);
+    const pendentes = anterioresPendentes((toques ?? []) as never, "A5");
+    if (pendentes.length) {
+      const depois = proximoHorarioPermitido(
+        new Date(Date.now() + 86_400_000),
+        cfg.hora_inicio,
+        cfg.hora_fim,
+      );
+      await db
+        .from("ia_tarefas")
+        .update({ situacao: "pendente", executar_apos: depois.toISOString(), enfileirada: false })
+        .eq("id", tarefa.id);
+      await db
+        .from("crm_followups")
+        .update({ scheduled_at: depois.toISOString() })
+        .eq("empresa_id", tarefa.empresa_id)
+        .eq("ia_tarefa_id", tarefa.id);
+      const { enfileirarPendentes } = await import("./fila.server");
+      await enfileirarPendentes(db);
+      return {
+        situacao: "adiada",
+        detalhe: `follow-up 5 segurado: toque ${pendentes.join(" e ")} da sequência ainda pendente; nova conferência em ${depois.toISOString()}`,
+      };
+    }
   }
   // Retomada das 8h com retorno combinado pendente (13/11): não sai; o retorno fica como está e a
   // sequência continua depois dele.

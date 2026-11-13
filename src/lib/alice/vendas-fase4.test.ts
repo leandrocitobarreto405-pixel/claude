@@ -9,6 +9,7 @@ import {
   deveCobrirRetorno,
   modeloDaOferta5,
   retornoBarraRetomada,
+  anterioresPendentes,
   textoDecisaoForaDaArea,
   textoOferta5,
   textoRetomadaManha,
@@ -292,5 +293,43 @@ test("frase do retorno com o nome de quem marcou", () => {
   assert.equal(
     textoRetornoDaEquipe("Carlos", "Carol"),
     "Oi, Carlos! A Carol me pediu pra te chamar no horário combinado 💙 Conseguiu ver a proposta?",
+  );
+});
+
+test("follow-up 5 espera os toques anteriores (caso do Diego, 13/11)", () => {
+  // Toques 3 e 4 da Maria pendentes: o 5 não sai.
+  assert.deepEqual(
+    anterioresPendentes(
+      [
+        { etapa: "A3", status: "Pendente" },
+        { etapa: "A4", status: "Pendente" },
+      ],
+      "A5",
+    ),
+    ["A3", "A4"],
+  );
+  // Feitos (ou marcados como feitos) e cancelados não seguram.
+  assert.deepEqual(
+    anterioresPendentes(
+      [
+        { etapa: "A3", status: "Concluída" },
+        { etapa: "A4", status: "Cancelada" },
+        { etapa: "A1", status: "Concluída" },
+      ],
+      "A5",
+    ),
+    [],
+  );
+  // Só olha para trás: o próprio 5 ou outras trilhas não contam.
+  assert.deepEqual(
+    anterioresPendentes(
+      [
+        { etapa: "A5", status: "Pendente" },
+        { etapa: "G1", status: "Pendente" },
+        { etapa: "C", status: "Pendente" },
+      ],
+      "A5",
+    ),
+    [],
   );
 });

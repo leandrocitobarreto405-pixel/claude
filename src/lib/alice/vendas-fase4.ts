@@ -284,3 +284,21 @@ export function textoDecisaoForaDaArea(
     ? `${onde} É um pedido grande e perto: transfira para a equipe com o motivo "fora da área, pedido grande" (não diga o valor ao cliente).`
     : `${onde} Não transfira: encerre com educação, sem prometer especialista, com esta mensagem (sem pergunta no fim): "${DESPEDIDA_FORA_DA_AREA}". Depois use registrar_motivo_perda com o motivo "Fora da área".`;
 }
+
+/**
+ * Follow-up 5 só depois dos toques anteriores (regra do dono, 13/11): se algum toque anterior da
+ * sequência (o 3 ou o 4 da equipe, ou outro da trilha A) ainda está pendente, o 5 espera. Toque
+ * cancelado não segura (o cliente respondeu, a equipe assumiu); feito ou marcado como feito libera.
+ */
+export function anterioresPendentes(
+  toques: Array<{ etapa: string | null; status: string | null }>,
+  etapa: string,
+): string[] {
+  const ordem = ["A1", "A2", "A3", "A4", "A5"];
+  const ate = ordem.indexOf(etapa);
+  if (ate <= 0) return [];
+  return toques
+    .filter((t) => t.status === "Pendente" && t.etapa && ordem.indexOf(t.etapa) > -1)
+    .filter((t) => ordem.indexOf(t.etapa!) < ate)
+    .map((t) => t.etapa!);
+}
