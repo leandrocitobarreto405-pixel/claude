@@ -75,6 +75,25 @@ SELECT pg_temp.ok((SELECT saldo = real FROM dia),
          (SELECT saldo FROM dia), (SELECT real FROM dia)));
 SELECT pg_temp.ok(private.ia_chamadas_custo_usd(NULL, '2030-05-10 03:00:00+00', '2030-05-11 03:00:00+00') = 0.296,
   'só o que não está em outra tabela: toque da equipe, classificadores, retorno, análise e ensaio');
+-- Lote da noite: o custo fica só em comercial_noites (0,60 dentro da noite acima) e em
+-- ia_chamadas com a origem "lote". Ele conta uma vez só no saldo.
+SELECT pg_temp.ok(private.tatiana_custo_usd(NULL, '2030-05-10 03:00:00+00', '2030-05-11 03:00:00+00') = 2.570,
+  'Tatiana do dia: noite 1,70 (com o lote) + relatórios 0,75 + plano 0,05 + campanha 0,07');
+SELECT pg_temp.ok((SELECT count(*) FROM public.comercial_lotes WHERE empresa_id = :'A') = 0,
+  'o lote da noite não grava em comercial_lotes');
+-- Se o lote da noite também fosse gravado em comercial_lotes, o saldo passaria da soma real.
+SAVEPOINT lote_em_dobro;
+INSERT INTO public.comercial_lotes (empresa_id, leads, custo_usd, pedido_em) VALUES
+  (:'A', '{10800000-0000-4000-8000-0000000000f1}', 0.600000, '2030-05-11 01:00:00+00');
+SELECT pg_temp.ok(
+  (SELECT coalesce(sum(custo_usd), 0) FROM public.ia_execucoes
+    WHERE created_at >= '2030-05-10 03:00:00+00' AND created_at < '2030-05-11 03:00:00+00')
+  + private.tatiana_custo_usd(NULL, '2030-05-10 03:00:00+00', '2030-05-11 03:00:00+00')
+  + private.ia_chamadas_custo_usd(NULL, '2030-05-10 03:00:00+00', '2030-05-11 03:00:00+00')
+  = (SELECT real FROM dia) + 0.60,
+  'lote gravado nas duas tabelas contaria em dobro (o teste pega)');
+ROLLBACK TO SAVEPOINT lote_em_dobro;
+
 SELECT pg_temp.ok((public.ia_saldo_estimado()->>'consumido_usd')::numeric = round(3.066 + 5, 2),
   'consumido do saldo desde a carga (inclui a chamada do dia seguinte)');
 SELECT pg_temp.ok((public.ia_saldo_estimado()->>'restante_usd')::numeric = round(50 - 8.066, 2),
