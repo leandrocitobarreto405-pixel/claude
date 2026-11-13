@@ -31,6 +31,10 @@ import {
 
 import { itensComDistancia, rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
+import { descontoPorPct } from "@/lib/orcamento-regras";
+
+/** Combo com cupom: desconto a mais no Pix, só se o cliente perguntar (regra do dono, 13/11). */
+export const PIX_COMBO_COM_CUPOM_PCT = 3;
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
@@ -47,6 +51,8 @@ import {
 } from "./modulos";
 import { comDuplaFace, ehColchao } from "@/lib/dupla-face";
 import { chavesVendas } from "./chaves";
+import { chavesFase4, decisaoForaDaArea, textoDecisaoForaDaArea } from "./vendas-fase4";
+import { parametrosDaConfig } from "./negociacao";
 import {
   descontoPermitido,
   lerMarketing,
@@ -227,9 +233,15 @@ const CriarOrcamento = z.object({
   cep: z.string().trim().max(10).optional(),
   endereco: z.string().trim().max(200).optional(),
   rotulo: z.string().trim().max(40).optional(),
-  desconto: z.enum(["campanha", "indicacao", "oferta_followup"]).optional(),
+  desconto: z.enum(["campanha", "indicacao", "oferta_followup", "negociacao"]).optional(),
   cupom: z.string().trim().min(3).max(30).optional(),
   combo: z.boolean().optional(),
+});
+const PedirAutorizacao = z.object({
+  motivo: z.enum(["caro", "concorrente"]),
+  concorrente_valor: z.number().positive().max(100000).optional(),
+  concorrente_nome: z.string().trim().max(120).optional(),
+  frase_cliente: z.string().trim().min(1).max(500),
 });
 const AdicionalPosFechamento = z.object({
   acao: z.enum(["oferecer", "aceitou", "recusou"]),
@@ -460,9 +472,13 @@ export function ferramentasDisponiveis(
           rotulo: { type: "string", description: "Ex.: 'Opção 1'." },
           desconto: {
             type: "string",
-            enum: ["campanha", "indicacao", "oferta_followup"],
-            description:
-              "Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao), ou se o sistema mandou a condição do último follow-up nesta conversa e o cliente quis ver (oferta_followup). O sistema calcula o desconto. Nunca dois juntos.",
+            enum: [
+              "campanha",
+              "indicacao",
+              "oferta_followup",
+              ...(parametrosDaConfig(cfg).ligada ? ["negociacao"] : []),
+            ],
+            description: `Só se consultar_cliente mostrar a condição da campanha válida (campanha) ou indicação/crédito (indicacao), ou se o sistema mandou a condição do último follow-up nesta conversa e o cliente quis ver (oferta_followup).${parametrosDaConfig(cfg).ligada ? " negociacao: só quando o sistema avisar que o gestor liberou um valor (volta da autorização de desconto); o sistema aplica o valor liberado." : ""} O sistema calcula o desconto. Nunca dois juntos.`,
           },
           cupom: {
             type: "string",
@@ -860,8 +876,39 @@ export function ferramentasDisponiveis(
   );
   if (extras.regraNome) lista.push(FERRAMENTA_NOME);
   lista.push(FERRAMENTA_DESCADASTRO);
+  if (parametrosDaConfig(cfg).ligada) lista.push(FERRAMENTA_AUTORIZACAO);
   return lista;
 }
+
+/** Desconto com autorização (plano "Alice e vendas", item 5): a Alice nunca dá desconto sozinha. */
+export const FERRAMENTA_AUTORIZACAO: Anthropic.Beta.BetaTool = {
+  name: "pedir_autorizacao_desconto",
+  description:
+    'Pede ao gestor autorização para um desconto no orçamento já enviado. Use quando o cliente disse "sim" à pergunta "Se eu conseguir um preço melhor pra você, você fecha com a gente?" ou passou o valor da outra empresa. O sistema calcula o valor sugerido (até o teto da empresa), avisa a equipe e devolve a frase exata para o cliente. Não prometa valor e não transfira.',
+  input_schema: {
+    type: "object",
+    properties: {
+      motivo: {
+        type: "string",
+        enum: ["caro", "concorrente"],
+        description:
+          "caro: achou caro ou pediu desconto. concorrente: citou outra empresa ou passou o valor dela.",
+      },
+      concorrente_valor: {
+        type: "number",
+        description: "Quanto a outra empresa fez, em reais (só se o cliente disse).",
+      },
+      concorrente_nome: { type: "string", description: "Nome da outra empresa, se ele disse." },
+      frase_cliente: {
+        type: "string",
+        description:
+          "O que o cliente disse sobre o preço, com as palavras dele (até 300 caracteres).",
+      },
+    },
+    required: ["motivo", "frase_cliente"],
+    additionalProperties: false,
+  },
+};
 
 /** Descadastro de marketing quando o pedido do cliente não foi reconhecido pelo gatilho do banco. */
 export const FERRAMENTA_DESCADASTRO: Anthropic.Beta.BetaTool = {
@@ -1117,7 +1164,9 @@ async function consultarCep(ctx: ContextoFerramenta, input: z.infer<typeof Consu
       ? "Área atendida: sem limite de distância configurado (dentro da área)."
       : ida <= raio
         ? `Área atendida: DENTRO (limite de ${raio} km).`
-        : `Área atendida: FORA (limite de ${raio} km). Transfira para a equipe.`,
+        : chavesFase4(ctx.cfg).foraAreaRegra
+          ? `Área atendida: FORA (limite de ${raio} km). Antes de encerrar, pergunte o que o cliente quer higienizar e mande criar_orcamento com os itens: o sistema diz se transfere (pedido grande e perto) ou se você se despede. Não diga que está fora da área antes disso.`
+          : `Área atendida: FORA (limite de ${raio} km). Transfira para a equipe.`,
   );
   return linhas.join("\n");
 }
@@ -1315,11 +1364,44 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   let regraDesconto: { pct: number; rotulo: string } | null = null;
   const baseOferta =
     Math.round(escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) * 100) / 100;
-  if (input.desconto === "oferta_followup") {
+  // Valor final fixo (substitui os outros descontos, sem Pix por cima): o liberado pelo gestor na
+  // negociação ou o do follow-up 5 novo (fase 4, desconto total de 20%).
+  let negociado: {
+    valorFinal: number;
+    valorCheio: number;
+    rotulo: string;
+    chave: string;
+  } | null = null;
+  if (input.desconto === "negociacao") {
+    const { valorLiberado } = await import("./negociacao.server");
+    const liberado = parametrosDaConfig(ctx.cfg).ligada
+      ? await valorLiberado(ctx.admin as never, ctx.empresaId, ctx.conversaId)
+      : null;
+    negociado = liberado
+      ? { ...liberado, rotulo: "Desconto especial (autorizado)", chave: "negociacao" }
+      : null;
+    if (!negociado)
+      return {
+        erro: true,
+        texto:
+          "Não há valor liberado pelo gestor nesta conversa: refaça sem o desconto de negociação.",
+      };
+  }
+  if (input.desconto === "oferta_followup" && chavesFase4(ctx.cfg).followup5) {
+    const { valorDaOferta5 } = await import("./vendas-fase4.server");
+    const o = await valorDaOferta5(ctx.admin as never, ctx.empresaId, ctx.conversaId, ctx.agora);
+    if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
+    negociado = {
+      valorFinal: o.valor,
+      valorCheio: o.cheio,
+      rotulo: "Condição especial (vaga nesta semana)",
+      chave: "oferta_followup",
+    };
+  } else if (input.desconto === "oferta_followup") {
     const o = await ofertaDoFollowup(ctx, baseOferta);
     if ("erro" in o) return { erro: true, texto: `${o.erro} Refaça sem desconto.` };
     regraDesconto = o;
-  } else if (input.desconto) {
+  } else if (input.desconto && input.desconto !== "negociacao") {
     const d = descontoPermitido(await lerMarketing(ctx), input.desconto);
     if ("erro" in d) return { erro: true, texto: `${d.erro} Refaça sem desconto.` };
     regraDesconto = d;
@@ -1371,6 +1453,27 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     escolhidos.filter((e) => !e.adicional).map((e) => e.preco * e.quantidade),
   );
   if (taxa.foraDaArea) {
+    const fase4 = chavesFase4(ctx.cfg);
+    if (fase4.foraAreaRegra) {
+      const decisao = decisaoForaDaArea({
+        kmIda,
+        valorItens,
+        km: fase4.foraAreaKm,
+        pedidoMinimo: fase4.foraAreaPedidoMinimo,
+      });
+      const { registrarEvento } = await import("./avisos.server");
+      await registrarEvento(ctx.admin as never, {
+        empresa_id: ctx.empresaId,
+        tipo: "fora_da_area",
+        conversa_id: ctx.conversaId,
+        crm_lead_id: ctx.leadId,
+        dados: { decisao, km_ida: kmIda },
+      });
+      return {
+        erro: true,
+        texto: textoDecisaoForaDaArea(decisao, kmIda, regras.distancia.limiteKm),
+      };
+    }
     return {
       erro: true,
       texto: `Endereço a ~${kmIda} km da base: fora da área atendida (até ${regras.distancia.limiteKm} km). Não passe valores; transfira para a equipe.`,
@@ -1379,43 +1482,83 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
   const baseDesconto =
     Math.round((escolhidos.reduce((s, e) => s + e.preco * e.quantidade, 0) + taxa.valor) * 100) /
     100;
-  const escolha = maiorDesconto(baseDesconto, cupom, regraDesconto);
+  // Negociação autorizada: o valor liberado é o final (substitui combo, cupom e campanha).
+  if (negociado && Math.abs(negociado.valorCheio - baseDesconto) > 1)
+    return {
+      erro: true,
+      texto:
+        negociado.chave === "negociacao"
+          ? `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`
+          : `Os itens mudaram desde a condição do follow-up (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): a condição vale para os mesmos itens; refaça sem desconto.`,
+    };
+  // Combo com cupom (regra do dono, 13/11): os dois juntos, sem autorização; o cartão não mostra o
+  // Pix e, se o cliente perguntar, no Pix tem mais 3%.
+  const comboComCupom = Boolean(combo && descontoDoCombo && cupom && !negociado);
+  const valorDoCombo = comboComCupom ? descontoPorPct(baseDesconto, descontoDoCombo!.pct) : 0;
+  const valorDoCupomNoCombo = comboComCupom
+    ? valorDoCupom(cupom!, Math.max(0, baseDesconto - valorDoCombo))
+    : 0;
+  const escolha = negociado
+    ? null
+    : comboComCupom
+      ? ({ tipo: "pct", pct: descontoDoCombo! } as const)
+      : maiorDesconto(baseDesconto, cupom, regraDesconto);
 
-  const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
+  const cupomUsado = comboComCupom ? cupom : escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
-    escolha?.tipo === "cupom"
+    comboComCupom
       ? {
-          valor: valorDoCupom(escolha.cupom, baseDesconto),
-          rotulo: `Cupom ${escolha.cupom.codigo}`,
+          valor: Math.round((valorDoCombo + valorDoCupomNoCombo) * 100) / 100,
+          rotulo: `${descontoDoCombo!.rotulo} (${descontoDoCombo!.pct}%) + cupom ${cupom!.codigo}`,
         }
-      : escolha?.tipo === "pct"
-        ? escolha.pct
-        : null,
+      : negociado
+        ? {
+            valor: Math.max(0, Math.round((baseDesconto - negociado.valorFinal) * 100) / 100),
+            rotulo: negociado.rotulo,
+          }
+        : escolha?.tipo === "cupom"
+          ? {
+              valor: valorDoCupom(escolha.cupom, baseDesconto),
+              rotulo: `Cupom ${escolha.cupom.codigo}`,
+            }
+          : escolha?.tipo === "pct"
+            ? escolha.pct
+            : null,
     ctx.cfg.parcelas_max,
-    Number(ctx.cfg.desconto_pix_percentual),
+    // O valor negociado é o final: sem o Pix por cima. Combo com cupom: sem o Pix no cartão.
+    negociado || comboComCupom ? 0 : Number(ctx.cfg.desconto_pix_percentual),
     taxa.valor,
   );
   const comboUsado = Boolean(descontoDoCombo) && escolha?.tipo === "pct";
-  // A condição do último follow-up e o combo ficam como desconto manual no orçamento (rótulo nas
-  // observações).
+  // A condição do último follow-up, o combo e a negociação ficam como desconto manual no orçamento
+  // (rótulo nas observações).
   const tipoDesconto = !desconto
     ? null
-    : cupomUsado || comboUsado || input.desconto === "oferta_followup"
+    : negociado || cupomUsado || comboUsado || input.desconto === "oferta_followup"
       ? ("manual" as const)
-      : (input.desconto ?? null);
-  const chaveDesconto = cupomUsado
-    ? `cupom:${cupomUsado.codigo}`
-    : comboUsado
-      ? "combo"
-      : tipoDesconto;
+      : input.desconto === "campanha" || input.desconto === "indicacao"
+        ? input.desconto
+        : null;
+  const chaveDesconto = negociado
+    ? negociado.chave
+    : cupomUsado
+      ? `cupom:${cupomUsado.codigo}`
+      : comboUsado
+        ? "combo"
+        : tipoDesconto;
   const nomeDoPct = descontoDoCombo
     ? "combo"
     : input.desconto === "campanha"
       ? "campanha"
       : "indicação";
-  const avisoDesconto =
-    cupom && regraDesconto
+  // Pix do combo com cupom: só se o cliente perguntar (não vai no cartão).
+  const pixDoComboComCupom = comboComCupom
+    ? Math.round(cond.total * (1 - PIX_COMBO_COM_CUPOM_PCT / 100) * 100) / 100
+    : null;
+  const avisoDesconto = comboComCupom
+    ? `Combo com cupom: os dois descontos juntos, e o cartão vai sem a linha do Pix. Se o cliente perguntar do Pix, diga que no Pix tem um desconto a mais: fica ${reais(pixDoComboComCupom!)}. Não ofereça o Pix antes.`
+    : cupom && regraDesconto
       ? cupomUsado
         ? `Só um desconto por orçamento: o cupom ${cupomUsado.codigo} é maior que o desconto de ${nomeDoPct} e foi o aplicado.${combo ? " No cartão, troque a linha do combo pela do cupom." : ""}`
         : `Só um desconto por orçamento: o desconto de ${nomeDoPct} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
@@ -1460,12 +1603,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         cliente_endereco: endereco,
         customer_id: lead?.customer_id ?? null,
         data_servico: null,
-        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct !== null ? `${desconto.pct}% (${reais(desconto.valor)})` : `-${reais(desconto.valor)}`}.` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
+        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct !== null ? `${desconto.pct}% (${reais(desconto.valor)})` : `-${reais(desconto.valor)}`}.` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(pixDoComboComCupom ?? cond.pix)}${pixDoComboComCupom !== null ? ` (${PIX_COMBO_COM_CUPOM_PCT}% a mais, só se o cliente perguntar)` : ""}.`,
         desconto: desconto?.valor ?? 0,
         desconto_tipo: tipoDesconto,
         desconto_pct: desconto?.pct ?? null,
         cupom: cupomUsado?.codigo ?? null,
-        valor_a_vista: cond.pix,
+        valor_a_vista: pixDoComboComCupom ?? cond.pix,
         km_ida_volta: km,
         custo_produtos: 0,
         custo_mao_obra: 0,
@@ -1567,14 +1710,20 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         ? "Serviço: Higienização + Impermeabilização (combo: use o cartão do combo das instruções)"
         : `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
       ...linhas,
-      ...(desconto
+      ...(desconto && comboComCupom
         ? [
-            `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
-            desconto.pct !== null
-              ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
-              : `${desconto.rotulo}: −${reais(desconto.valor)}`,
+            `Valor cheio: ${reais(bruto)}`,
+            `${descontoDoCombo!.rotulo} (${descontoDoCombo!.pct}%): -${reais(valorDoCombo)}`,
+            `Cupom ${cupom!.codigo}: -${reais(valorDoCupomNoCombo)}`,
           ]
-        : []),
+        : desconto
+          ? [
+              `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
+              desconto.pct !== null
+                ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
+                : `${desconto.rotulo}: −${reais(desconto.valor)}`,
+            ]
+          : []),
       ...(taxa.valor > 0
         ? [
             `(Para você, não copie: os preços acima já são os finais para o endereço do cliente, a ~${kmIda} km da base. Nunca fale em taxa, deslocamento, distância ou acréscimo. Se o cliente perguntar sobre deslocamento, diga só que o valor enviado já é o final para o endereço dele. Não diminua nem negocie; se reclamar do valor, siga o roteiro de objeção de preço ou passe para a equipe.)`,
@@ -2046,6 +2195,21 @@ async function registrarPerda(ctx: ContextoFerramenta, input: z.infer<typeof Reg
   const lead = await lerLead(ctx);
   if (!lead) return { erro: true, texto: "Sem lead nesta conversa." };
   const motivo = input.motivo as MotivoPerda;
+  // Fora da área (fase 4, chave fora_area_regra): o contato fica marcado como não cliente e sem
+  // pós-venda (colunas que já existem; nada muda no Marketing).
+  if (motivo === "Fora da área" && chavesFase4(ctx.cfg).foraAreaRegra && ctx.contatoId) {
+    const { error } = await ctx.admin
+      .from("whatsapp_contacts")
+      .update({
+        nao_cliente_em: ctx.agora.toISOString(),
+        nao_cliente_motivo: "Fora da área",
+        sem_pos_venda: true,
+      } as never)
+      .eq("id", ctx.contatoId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("nao_cliente_em", null);
+    if (error) console.error("Alice: contato fora da área não marcado", error.message);
+  }
   // Orçamento já enviado e sem OS: a Alice só sugere; a equipe confirma em Leads › Sem desfecho.
   const { data: orc } = await ctx.admin
     .from("crm_leads")
@@ -2338,6 +2502,26 @@ export async function executarFerramenta(
             "Nota interna registrada para a equipe (o cliente não vê). Continue o atendimento normalmente; não comente com o cliente.",
           erro: false,
         };
+      }
+      case "pedir_autorizacao_desconto": {
+        const p = PedirAutorizacao.safeParse(entrada);
+        if (!p.success) return invalida(p.error);
+        const { pedirAutorizacao } = await import("./negociacao.server");
+        const { nomeConfirmado } = await import("./nome.server");
+        const nome = await nomeConfirmado(ctx.admin, ctx.empresaId, ctx.conversaId, ctx.contatoId);
+        const r = await pedirAutorizacao(
+          ctx.admin as never,
+          {
+            empresaId: ctx.empresaId,
+            conversaId: ctx.conversaId,
+            leadId: ctx.leadId,
+            cfg: ctx.cfg,
+            nomeCliente: nome ? (nome.split(/\s+/)[0] ?? null) : null,
+            agora: ctx.agora,
+          },
+          p.data,
+        );
+        return { conteudo: r.texto, erro: r.erro };
       }
       case "transferir_para_humano": {
         const p = Transferir.safeParse(entrada);

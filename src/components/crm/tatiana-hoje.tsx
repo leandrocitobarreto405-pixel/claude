@@ -25,6 +25,7 @@ import {
   pularTarefaFn,
   segurarNaListaFn,
   resolverAcertoFn,
+  responderAutorizacaoFn,
   type AcaoFeita,
   type Acerto,
   type HojeTatiana,
@@ -101,6 +102,7 @@ export function TatianaHoje({ dados }: { dados?: HojeTatiana }) {
   if (!d || d.modo === "desligado") return null;
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      {d.autorizacoes.length ? <PedidosDeDesconto lista={d.autorizacoes} /> : null}
       {d.transferencias.length ? <ClientesEsperando lista={d.transferencias} /> : null}
       <Card className="min-w-0 gap-2 border-marca/30 bg-marca-claro">
         <p className="text-xs font-bold uppercase tracking-wide text-marca">
@@ -593,6 +595,225 @@ function ClientesEsperando({ lista }: { lista: HojeTatiana["transferencias"] }) 
         ))}
       </ul>
     </Card>
+  );
+}
+
+const brl = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
+const horaSP = (iso: string) =>
+  new Date(iso).toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+const ROTULO_RESPOSTA: Record<string, string> = {
+  autorizado: "Autorizado",
+  outro_valor: "Outro valor autorizado",
+  negado: "Negado",
+  automatico: "A Alice seguiu sozinha (sem resposta no prazo)",
+  assumido: "A equipe assumiu a conversa",
+  cancelado: "Cancelado",
+};
+
+/** Pedidos de desconto da Alice (plano "Alice e vendas", item 5): a equipe responde com um toque. */
+function PedidosDeDesconto({ lista }: { lista: HojeTatiana["autorizacoes"] }) {
+  const pendentes = lista.filter((a) => a.situacao === "pendente");
+  const respondidos = lista.filter((a) => a.situacao !== "pendente");
+  return (
+    <Card
+      id="autorizacoes"
+      className={cn(
+        "min-w-0 gap-2 border-2",
+        pendentes.length ? "border-problema-foreground/40 bg-problema" : "border-border",
+      )}
+    >
+      <p
+        className={cn(
+          "text-sm font-bold uppercase tracking-wide",
+          pendentes.length ? "text-problema-foreground" : "text-muted-foreground",
+        )}
+      >
+        Autorizações de desconto ({pendentes.length})
+      </p>
+      <p
+        className={cn(
+          "text-xs",
+          pendentes.length ? "text-problema-foreground" : "text-muted-foreground",
+        )}
+      >
+        A Alice disse ao cliente que está vendo com o gestor. Responda aqui: ela volta ao cliente
+        com a resposta. Sem resposta no prazo, ela segue com o valor sugerido (nunca quando o
+        cliente tem cupom).
+      </p>
+      <ul className="flex min-w-0 flex-col gap-2">
+        {pendentes.map((a) => (
+          <PedidoDeDesconto key={a.id} a={a} />
+        ))}
+      </ul>
+      {respondidos.length ? (
+        <Recolhido titulo={`Respondidos hoje (${respondidos.length})`}>
+          <ul className="flex min-w-0 flex-col gap-1.5">
+            {respondidos.map((a) => (
+              <li key={a.id} className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
+                <span className="font-semibold">{a.nome}</span>
+                <span className="text-xs text-muted-foreground">
+                  {ROTULO_RESPOSTA[a.situacao] ?? a.situacao}
+                  {a.valorFinal ? `: ${brl(a.valorFinal)}` : ""}
+                  {a.respondidoEm ? ` às ${horaSP(a.respondidoEm)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Recolhido>
+      ) : null}
+    </Card>
+  );
+}
+
+function PedidoDeDesconto({ a }: { a: HojeTatiana["autorizacoes"][number] }) {
+  const qc = useQueryClient();
+  const responder = useServerFn(responderAutorizacaoFn);
+  const [outro, setOutro] = useState(false);
+  const [valor, setValor] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const enviar = async (acao: "autorizar" | "outro_valor" | "negar") => {
+    const v = acao === "outro_valor" ? Number(valor.replace(/\./g, "").replace(",", ".")) : null;
+    if (acao === "outro_valor" && !(v && v > 0)) {
+      toast.error("Digite o valor final, em reais.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await responder({ data: { id: a.id, acao, valor: v } });
+      toast.success(
+        acao === "negar"
+          ? "Negado: a Alice avisa o cliente e mantém o valor."
+          : "Autorizado: a Alice volta ao cliente com o valor.",
+      );
+      await qc.invalidateQueries({ queryKey: CHAVE_TATIANA });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível responder.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+  const prazo = a.segueSozinha && a.prazoEm ? horaSP(a.prazoEm) : null;
+  return (
+    <li className="flex min-w-0 flex-col gap-2 rounded-botao border border-border bg-card p-3">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="min-w-0 font-semibold">{a.nome}</span>
+        {a.telefoneFinal ? (
+          <span className="text-xs text-muted-foreground">final {a.telefoneFinal}</span>
+        ) : null}
+        <span className="ml-auto">
+          <Chip tom="problema">
+            {a.foraDoHorario ? "pedido fora do horário" : `pedido às ${horaSP(a.criadoEm)}`}
+          </Chip>
+        </span>
+      </div>
+      <ul className="text-sm">
+        {a.itens.map((i, k) => (
+          <li key={k}>
+            • {i.quantidade > 1 ? `${i.quantidade}x ` : ""}
+            {i.nome}
+            {a.servico === "combo"
+              ? ` (${i.servico === "impermeabilizacao" ? "impermeabilização" : "higienização"})`
+              : ""}
+          </li>
+        ))}
+      </ul>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+        <dt className="text-muted-foreground">Nosso orçamento</dt>
+        <dd className="font-semibold">
+          {brl(a.valorAtual)}
+          {a.valorAtual !== a.valorCheio ? (
+            <span className="font-normal text-muted-foreground"> (cheio {brl(a.valorCheio)})</span>
+          ) : null}
+        </dd>
+        {a.cupom ? (
+          <>
+            <dt className="text-muted-foreground">Cupom</dt>
+            <dd className="font-semibold text-problema-foreground">
+              Cliente já tem cupom de {brl(a.valorCheio - a.valorAtual)} ({a.cupom})
+            </dd>
+          </>
+        ) : null}
+        {a.concorrenteValor ? (
+          <>
+            <dt className="text-muted-foreground">Concorrente</dt>
+            <dd>
+              {brl(a.concorrenteValor)}
+              {a.concorrenteNome ? ` (${a.concorrenteNome})` : ""}
+            </dd>
+          </>
+        ) : null}
+        {a.distanciaKm !== null ? (
+          <>
+            <dt className="text-muted-foreground">Distância</dt>
+            <dd>{a.distanciaKm.toLocaleString("pt-BR")} km da base</dd>
+          </>
+        ) : null}
+        <dt className="text-muted-foreground">Sugerido</dt>
+        <dd className="font-bold">
+          {brl(a.valorSugerido)} ({a.descontoPct.toLocaleString("pt-BR")}% no total)
+        </dd>
+        {a.faltaParaIgualar ? (
+          <>
+            <dt className="text-muted-foreground">Para igualar</dt>
+            <dd>faltam {brl(a.faltaParaIgualar)} (só com a sua autorização)</dd>
+          </>
+        ) : null}
+      </dl>
+      {a.fraseCliente ? (
+        <p className="rounded-botao bg-background p-2 text-sm italic">“{a.fraseCliente}”</p>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {prazo
+          ? `Sem resposta até ${prazo}, a Alice oferece ${brl(a.valorSugerido)} sozinha.`
+          : "A Alice não segue sozinha neste pedido: ela espera a sua resposta."}
+      </p>
+      {outro ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs font-semibold">
+            Valor final (R$)
+            <input
+              inputMode="decimal"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder={String(a.valorSugerido)}
+              className="h-11 w-36 rounded-botao border border-border bg-background px-3 text-sm"
+            />
+          </label>
+          <Botao disabled={salvando} onClick={() => void enviar("outro_valor")}>
+            Autorizar este valor
+          </Botao>
+          <Botao variante="neutro" disabled={salvando} onClick={() => setOutro(false)}>
+            Voltar
+          </Botao>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Botao disabled={salvando} onClick={() => void enviar("autorizar")}>
+            <Check aria-hidden className="size-4" /> Autorizar {brl(a.valorSugerido)}
+          </Botao>
+          <Botao variante="contorno" disabled={salvando} onClick={() => setOutro(true)}>
+            Outro valor
+          </Botao>
+          {a.conversaId ? (
+            <Link
+              to="/conversas/$conversaId"
+              params={{ conversaId: a.conversaId }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-botao bg-background px-4 text-sm font-semibold"
+            >
+              <MessageCircle aria-hidden className="size-4" /> Abrir conversa
+            </Link>
+          ) : null}
+          <Botao variante="neutro" disabled={salvando} onClick={() => void enviar("negar")}>
+            Negar
+          </Botao>
+        </div>
+      )}
+    </li>
   );
 }
 

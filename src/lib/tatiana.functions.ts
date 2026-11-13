@@ -159,6 +159,8 @@ export type HojeTatiana = {
   recado: { frase: string; resumo: string | null } | null;
   /** Transferências da Alice ainda sem resposta da equipe (alarme do plano "Alice e vendas"). */
   transferencias: import("@/lib/alice/transferencia.server").TransferenciaNaTela[];
+  /** Pedidos de desconto da Alice (abertos e respondidos hoje). */
+  autorizacoes: import("@/lib/alice/negociacao.server").AutorizacaoNaTela[];
   /** Leads que saíram para a lista de campanha desde ontem à noite (a equipe pode segurar). */
   saidas: import("@/lib/comercial/campanha-saida.server").SaidaRecente[];
   /** Números da semana da equipe toda (nunca por pessoa). */
@@ -210,6 +212,7 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       equipeUnica,
       recado: null,
       transferencias: [],
+      autorizacoes: [],
       saidas: [],
       semana: null,
       tarefas: [],
@@ -410,6 +413,10 @@ export const hojeTatianaFn = createServerFn({ method: "GET" })
       transferencias: await (async () => {
         const { transferenciasAbertas } = await import("@/lib/alice/transferencia.server");
         return transferenciasAbertas(adm, emp);
+      })().catch(() => []),
+      autorizacoes: await (async () => {
+        const { autorizacoesNaTela } = await import("@/lib/alice/negociacao.server");
+        return autorizacoesNaTela(adm, emp);
       })().catch(() => []),
       // Saídas para a campanha de ontem e de hoje, para a equipe poder segurar algum.
       saidas: await (async () => {
@@ -1148,4 +1155,32 @@ export const decidirAcaoFn = createServerFn({ method: "POST" })
       agora,
     });
     return { campanhaId: r.campanhaId };
+  });
+
+/** Resposta da equipe a um pedido de desconto da Alice (admin ou atendente). */
+export const responderAutorizacaoFn = createServerFn({ method: "POST" })
+  .middleware([requireEmpresa])
+  .inputValidator((d: { id: string; acao: string; valor?: number | null }) => {
+    if (!["autorizar", "outro_valor", "negar"].includes(d.acao)) throw new Error("Ação inválida.");
+    return {
+      id: uuid(d.id, "Pedido"),
+      acao: d.acao as "autorizar" | "outro_valor" | "negar",
+      valor: d.valor === null || d.valor === undefined ? null : Number(d.valor),
+    };
+  })
+  .handler(async ({ context, data }) => {
+    const { data: papel } = await context.supabase.rpc("meu_papel" as never);
+    if (papel !== "admin" && papel !== "atendente")
+      throw new Error("Só o administrador ou a atendente respondem pedidos de desconto.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { responderAutorizacao } = await import("@/lib/alice/negociacao.server");
+    const r = await responderAutorizacao(supabaseAdmin as unknown as Db, {
+      empresaId: context.empresaId as string,
+      userId: context.userId as string,
+      id: data.id,
+      acao: data.acao,
+      valor: data.valor,
+    });
+    if (!r.ok) throw new Error(r.erro);
+    return r;
   });

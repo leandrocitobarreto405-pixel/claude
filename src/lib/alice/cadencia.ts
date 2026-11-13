@@ -14,6 +14,8 @@
  * Dentro da janela de 24 h a Alice escreve o toque (com o guia); fora dela vai o modelo aprovado da
  * Meta (A3, A4, A5, B3, B4) ou o toque vira tarefa da equipe.
  */
+import { comRetomadaManha } from "./vendas-fase4";
+
 export type Trilha = "A" | "B";
 export type Etapa =
   | "A1"
@@ -56,6 +58,8 @@ export type Passo = {
    * com a mensagem pronta (o 3 com a atendente se apresentando).
    */
   equipe?: boolean;
+  /** Retomada da manhã pela Alice (fase 4, chave retomada_manha_alice): o toque 3 às 8h. */
+  retomadaManha?: boolean;
 };
 
 export const MOTIVO_FIM: Record<Trilha, string> = {
@@ -251,6 +255,8 @@ export type EntradaPlano = {
   espera?: boolean;
   /** Cliente B2B (empresa/condomínio): nunca recebe oferta com prazo. */
   b2b?: boolean;
+  /** Chave retomada_manha_alice: o toque 3 da trilha A sai pela Alice às 8h. */
+  retomadaManha?: boolean;
 };
 
 const HORA = 3_600_000;
@@ -327,7 +333,9 @@ export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } |
     candidatos = espacada.slice(espacada.indexOf(ultimoEspacado) + 1);
   } else {
     // Oferta com prazo só com a oferta ligada e nunca para cliente B2B (empresa/condomínio).
-    const lista = CADENCIA[trilha].filter((p) => !p.oferta || (e.oferta && !e.b2b));
+    const lista = CADENCIA[trilha]
+      .filter((p) => !p.oferta || (e.oferta && !e.b2b))
+      .map((p) => comRetomadaManha(p, Boolean(e.retomadaManha)));
     const idx = Math.max(-1, ...lista.map((p, i) => (feitas.has(p.etapa) ? i : -1)));
     candidatos = lista.slice(idx + 1).filter((p) => !feitas.has(p.etapa));
     if (falouDepois || e.retorno) candidatos = candidatos.filter((p) => !ehMinutos(p));
@@ -343,8 +351,9 @@ export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } |
   let quando = alvo(passo);
   if (passo.etapa === "B2" && emDe("B1")) quando = new Date(emDe("B1")!.getTime() + 30 * 60_000);
   quando = maior(quando, new Date(agora.getTime() + 5 * 60_000));
+  // Cliente conversou hoje: o próximo toque só amanhã (às 10h; a retomada da manhã, às 8h).
   if (falouDepois && e.ultimaDoCliente && diaSP(e.ultimaDoCliente) === diaSP(agora))
-    quando = maior(quando, instanteSP(diaSP(agora), 1, 10));
+    quando = maior(quando, instanteSP(diaSP(agora), 1, passo.retomadaManha ? 8 : 10));
   if (e.retorno) quando = maior(quando, instanteSP(diaSP(e.retorno), 2, 10));
   if (ultimoEspacado) quando = maior(quando, instanteSP(diaSP(emDe(ultimoEspacado.etapa)!), 2, 10));
   if (ultimoToque && !ehMinutos(passo)) {
@@ -553,7 +562,7 @@ export function primeiraAtendente(nomes: string | null | undefined): string | nu
  */
 export function rotuloDoToque(
   etapa: string | null | undefined,
-  o: { atendente?: string | null; alice?: string } = {},
+  o: { atendente?: string | null; alice?: string; retomadaManha?: boolean } = {},
 ): string | null {
   const alice = o.alice ?? "Alice";
   const pessoa = o.atendente || "equipe";
@@ -566,7 +575,8 @@ export function rotuloDoToque(
     if (i === -1) continue;
     const p = lista[i]!;
     const extra = p.oferta ? " · desconto" : "";
-    return `Follow-up ${i + 1} de ${lista.length}${extra} · ${p.equipe ? pessoa : alice}`;
+    const daEquipe = p.equipe && !(o.retomadaManha && p.etapa === "A3");
+    return `Follow-up ${i + 1} de ${lista.length}${extra} · ${daEquipe ? pessoa : alice}`;
   }
   if (etapa === "AE" || etapa === "BE") return `Follow-up extra · ${alice}`;
   if (etapa === "W1" || etapa === "W2") return `Retorno da espera · ${alice}`;

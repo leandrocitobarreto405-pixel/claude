@@ -148,6 +148,21 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
                 console.error("Tatiana: falha na passada", e instanceof Error ? e.message : e);
                 return null;
               });
+          // Pedidos de desconto da Alice: push, Alice seguindo sozinha no prazo e volta ao cliente.
+          const { rodarAutorizacoes } = await import("@/lib/alice/negociacao.server");
+          const autorizacoes = await rodarAutorizacoes().catch((e) => {
+            console.error("Autorizações de desconto: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
+          // Retorno combinado marcado pela equipe e ninguém chamou em 15 min: a Alice chama (só com a
+          // chave retorno_alice_cobre).
+          const { rodarRetornoDaEquipe } = await import("@/lib/alice/vendas-fase4.server");
+          const { supabaseAdmin: dbRetorno } =
+            await import("@/integrations/supabase/client.server");
+          const retornosDaEquipe = await rodarRetornoDaEquipe(dbRetorno as never).catch((e) => {
+            console.error("Retorno da equipe: falha", e instanceof Error ? e.message : e);
+            return null;
+          });
           // Ensaio da fase 2 de "Alice e vendas" (aprovado pelo dono): uma conversa por rodada, até
           // as três; nada vai a cliente. Fica por último para não atrasar o resto.
           const { rodarEnsaioVendasPendente } = await import("@/lib/alice/ensaio-vendas.server");
@@ -158,6 +173,8 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
           return json({
             ok: true,
             ensaioVendas,
+            autorizacoes,
+            retornosDaEquipe,
             encerramento,
             ...fila,
             anuncios,
