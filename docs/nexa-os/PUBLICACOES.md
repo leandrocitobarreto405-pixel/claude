@@ -866,6 +866,8 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Tatiana: lead com mais de 7 dias sem resposta (da última mensagem do cliente ou do orçamento) sai das tarefas de venda para a campanha; bloco "Saíram para a lista de campanha" com o botão Segurar na lista; linha no resumo da manhã | `e1dbf6c` | — |
 | 12/11/2026 | Alice e vendas, fase 1 (chaves desligadas): transferência com prazo e alarme de 5 em 5 minutos, tarefa P1 da manhã fora do horário, bloco "Cliente esperando a equipe", resumo da Alice no topo da conversa, encaixe com prazo, aviso "Alice fora do ar" só para o admin, medição | `48fa961` | `20261228530000_alice_vendas` (rodada pelo dono no SQL Editor em 12/11) |
 | 12/11/2026 | Alice e vendas, fase 2 (chaves desligadas): atalho do apressado, pergunta do motivo e foto pedidas uma vez, combo orçado pela Alice; ensaio com a Alice de verdade (3 conversas, nada enviado); aviso "Alice fora do ar" só para o dono | `be99d7d` | — |
+| 13/11/2026 | Alice e vendas, fases 3 e 4 (chaves desligadas): desconto com autorização (bloco "Autorizações de desconto"), retomada das 8h pela Alice (não sai com retorno combinado), follow-up 5 com 20% e piso de R$ 200, Alice cobrindo o retorno da equipe em 15 min (com o nome de quem marcou), fora da área; regra nova do combo (com cupom: os dois juntos, sem Pix no cartão e 3% a mais no Pix se pedirem; mais desconto no combo vai para a especialista) | `df53c5b` | — |
+| 13/11/2026 | Ensaio de Alice e vendas das fases 3 e 4 e do combo com cupom (7 conversas com a Alice de verdade, nada enviado) | `30f783d` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
@@ -1566,6 +1568,8 @@ sozinho pela varredura, uma conversa por rodada, com os textos novos só na mem�
 em `app_settings` (`alice_ensaio_vendas`). O aviso "Alice fora do ar" passou a ir só para o dono (o
 primeiro admin da empresa). Os textos da fase 2 mudam por SQL à parte, com md5 antes e depois,
 rodado pelo dono depois do ensaio.
+
+13/11: Alice e vendas, fases 3 e 4, publicadas com as chaves desligadas (negociacao_ligada, retomada_manha_alice, followup5_novo, retorno_alice_cobre e fora_area_regra). Regra nova do combo pedida pelo dono: combo com cupom dá os dois descontos juntos, sem autorização, e o cartão vai sem a linha do Pix; se o cliente perguntar, 3% a mais no Pix. Pedido de mais desconto no combo vai para a especialista, sem teto. Correções da fase 4: a retomada das 8h não sai quando o cliente tem retorno combinado, e a frase do retorno usa o nome de quem marcou. Os SQL das fases 2, 3 e 4 foram refeitos em 13/11 (núcleo depois da fase 2 3fcff561…, depois da fase 3 e32d37fc…, depois da fase 4 8e30a6d6…) e só rodam com o OK do dono, na ordem. O ensaio roda pela varredura, uma conversa por rodada, e grava só em app_settings (alice_ensaio_vendas_2).
 
 5º dia útil (23/10, D9): só código, banco não muda e não havia "Comissões a pagar" lançada para
 mudar de data. Pagamentos: out/2026 → 09/11/2026, nov/2026 → 07/12/2026, dez/2026 → 08/01/2027.
