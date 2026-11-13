@@ -46,3 +46,22 @@ test("linha da chamada: custo pelo uso; falha fica sem custo e ok = false", () =
     80,
   );
 });
+
+test("saldo sem dobro: a lista da função no banco é exatamente a das origens somadas em outra tabela", async () => {
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { ORIGENS_CHAMADA, SOMADA_TAMBEM_EM } = await import("./ia-chamadas");
+  const dir = "supabase/migrations";
+  const ultima = readdirSync(dir)
+    .filter((f) =>
+      readFileSync(`${dir}/${f}`, "utf8").includes("FUNCTION private.ia_chamadas_custo_usd"),
+    )
+    .sort()
+    .at(-1)!;
+  const sql = readFileSync(`${dir}/${ultima}`, "utf8");
+  const lista = /origem NOT IN \(([^)]*)\)/.exec(sql)?.[1] ?? "";
+  const noBanco = [...lista.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]).sort();
+  const esperado = ORIGENS_CHAMADA.filter((o) => SOMADA_TAMBEM_EM[o]).sort();
+  assert.deepEqual(noBanco, esperado);
+  // O toque da equipe só existe em ia_chamadas (não entra em ia_execucoes nem em comercial_noites).
+  assert.equal(SOMADA_TAMBEM_EM.toque_equipe, null);
+});
