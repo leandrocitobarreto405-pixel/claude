@@ -81,3 +81,19 @@ test("fora da área sem a chave: o contato não muda", async () => {
   await executarFerramenta(ctx, "registrar_motivo_perda", { motivo: "Fora da área" });
   assert.equal(tabelas["whatsapp_contacts"]![0]!["sem_pos_venda"], false);
 });
+
+test("follow-up 5 novo: itens diferentes do orçamento da oferta pedem refazer com os mesmos itens", async () => {
+  const { ctx, tabelas } = contexto({ followup5_novo: true });
+  comToque5(tabelas, {
+    tipo: "desconto",
+    valor: 208,
+    cheio: 999,
+    vinte: true,
+    comVaga: true,
+    texto: "x",
+  });
+  const r = await executarFerramenta(ctx, "criar_orcamento", pedido);
+  assert.equal(r.erro, true);
+  assert.match(r.conteudo, /refaça com os mesmos itens/);
+  assert.doesNotMatch(r.conteudo, /refaça sem desconto/);
+});

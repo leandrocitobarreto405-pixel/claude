@@ -1489,7 +1489,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
       texto:
         negociado.chave === "negociacao"
           ? `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`
-          : `Os itens mudaram desde a condição do follow-up (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): a condição vale para os mesmos itens; refaça sem desconto.`,
+          : `Os itens mudaram desde a condição do follow-up (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): a condição vale para os mesmos itens do orçamento anterior: refaça com os mesmos itens, sem mudar almofadas, classe nem quantidade, e o mesmo desconto "oferta_followup".`,
     };
   // Combo com cupom (regra do dono, 13/11): os dois juntos, sem autorização; o cartão não mostra o
   // Pix e, se o cliente perguntar, no Pix tem mais 3%.
