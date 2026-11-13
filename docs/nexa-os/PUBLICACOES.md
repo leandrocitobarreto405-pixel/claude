@@ -874,6 +874,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/11/2026 | Follow-up 5 só sai depois dos toques anteriores da sequência (A1 a A4) feitos ou marcados como feitos pela equipe; com algum pendente, ele espera um dia e confere de novo. Follow-up 5 do cliente final 2500 segurado para 14/11 16h (único cliente na situação) | `0764cad` | — |
 | 13/11/2026 | Toda chamada de IA grava o custo em ia_chamadas: conversa da Alice, decisão de cada lead na leitura da noite, mensagem da equipe, recado da manhã, análise da Tatiana, campanhas e classificador, base parada, plano, relatório, Alice não soube e ensaios (inclusive a chamada que falhou, com custo zero) | `69ccb75` | — |
 | 13/11/2026 | Retomada da manhã atrasada (orçamento antigo) vai para as 8h seguintes, em vez de sair à tarde com "bom dia"; na hora do envio, retomada fora das 8h é remarcada. Duas retomadas marcadas para 13/11 14h05 adiadas para 14/11 8h | `30f68a0` | — |
+| 13/11/2026 | Saldo estimado sem contar em dobro: origens de ia_chamadas já somadas em ia_execucoes, comercial_noites (inclusive o lote da noite), comercial_relatorios, comercial_planos ou comercial_campanhas saem da soma das outras chamadas; teste de banco com um dia inteiro (saldo = soma real) e trava das origens no código | `cc33134` | `20261228540000_ia_chamadas_saldo_sem_dobro` (rodada pelo dono no SQL Editor) |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
