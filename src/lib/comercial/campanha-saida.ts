@@ -24,6 +24,27 @@ export const TAREFAS_DE_VENDA = ["mensagem", "ligar", "follow_up_esquecido"] as 
 export const ehTarefaDeVenda = (tipo: string | null | undefined) =>
   (TAREFAS_DE_VENDA as readonly string[]).includes(tipo ?? "mensagem");
 
+/**
+ * A tarefa é mesmo da Tatiana? (13/11) A tarefa da manhã de uma transferência da Alice, a de um
+ * pedido de autorização de desconto à noite e o retorno combinado pela equipe usam a lista da
+ * equipe, mas não são dela: a leitura da Tatiana nunca as cancela nem substitui; só saem quando a
+ * equipe responde.
+ */
+export const MARCA_TRANSFERENCIA = "[transferencia]";
+export function tarefaDaTatiana(t: {
+  origem?: string | null;
+  notes?: string | null;
+  motivo?: string | null;
+}): boolean {
+  if (t.origem !== undefined && t.origem !== "gerente") return false;
+  const notas = t.notes ?? "";
+  const motivo = t.motivo ?? "";
+  if (notas.includes(MARCA_TRANSFERENCIA) || /\btransferiu: /.test(notas)) return false;
+  if (/^A Alice transferiu fora do horário/.test(motivo)) return false;
+  if (notas.includes("[autorizacao:") || /^Pedido de desconto da Alice/.test(motivo)) return false;
+  return true;
+}
+
 export type SinaisDaSaida = {
   tipo: string | null;
   prioridade: number | null;

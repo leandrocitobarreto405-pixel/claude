@@ -2198,7 +2198,8 @@ async function conversar(
           conversa_id: d.conversa.id,
           scheduled_at: quando,
           responsavel: "equipe",
-          notes: `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`.slice(0, 500),
+          notes:
+            `🤖 ${cfg.nome} transferiu: ${motivo}. ${resumo}`.slice(0, 480) + " [transferencia]",
           ...(prazo?.foraDoHorario
             ? {
                 origem: "gerente",

@@ -168,7 +168,7 @@ export function escolherExemplos(pulados: ExemploPulado[]): ExemploPulado[] {
 
 // ---------------------------------------------------------------- a lista de tarefas
 
-export { ehTarefaDeVenda, TAREFAS_DE_VENDA } from "./campanha-saida";
+export { ehTarefaDeVenda, tarefaDaTatiana, TAREFAS_DE_VENDA } from "./campanha-saida";
 
 /**
  * Mensagem só no dia: a tarefa marcada para depois de amanhã nasce com o rascunho da mensagem e

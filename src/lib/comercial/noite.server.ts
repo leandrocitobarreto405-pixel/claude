@@ -45,6 +45,7 @@ import {
 import {
   RESULTADO_MUDOU,
   ehTarefaDeVenda,
+  tarefaDaTatiana,
   linhaDasNaoFeitas,
   notasDaQueVoltou,
   resumoComNaoFeitas,
@@ -1093,7 +1094,7 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
       notes: string | null;
       motivo: string | null;
     }>
-  ).filter((t) => ehTarefaDeVenda(t.tarefa_tipo));
+  ).filter((t) => ehTarefaDeVenda(t.tarefa_tipo) && tarefaDaTatiana(t));
   // Véspera (mensagem só no dia): a tarefa de amanhã ainda está com o rascunho; a IA escreve a
   // mensagem final agora. O toque marcado é a própria tarefa: não vale como trava.
   const daVespera = tarefaDaVespera(
@@ -1496,13 +1497,25 @@ async function decidirLead(db: Db, ctx: ContextoNoite, leadId: string): Promise<
     followupId = deVenda[0].id;
     contarLista("mantidas");
   } else if (pedeTarefa && quando) {
-    await db
+    // Só as tarefas da própria Tatiana são substituídas (transferência e autorização ficam).
+    const { data: anteriores } = await db
       .from("crm_followups")
-      .update({ status: "Cancelada", notes: `substituída pela ${NOME_GERENTE}` })
+      .select("id, notes, motivo")
       .eq("empresa_id", emp)
       .eq("crm_lead_id", leadId)
       .eq("origem", "gerente")
       .eq("status", "Pendente");
+    const substituir = (
+      (anteriores ?? []) as Array<{ id: string; notes: string | null; motivo: string | null }>
+    )
+      .filter((t) => tarefaDaTatiana(t))
+      .map((t) => t.id);
+    if (substituir.length)
+      await db
+        .from("crm_followups")
+        .update({ status: "Cancelada", notes: `substituída pela ${NOME_GERENTE}` })
+        .in("id", substituir)
+        .eq("status", "Pendente");
     const { data: fu } = await db
       .from("crm_followups")
       .insert({

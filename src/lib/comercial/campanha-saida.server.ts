@@ -9,6 +9,7 @@ import {
   SAIDA_PARA_CAMPANHA_LIGADA,
   diasDoResultado,
   ehTarefaDeVenda,
+  tarefaDaTatiana,
   notasDaSegurada,
   resultadoCampanha,
   saiParaCampanha,
@@ -162,7 +163,7 @@ export async function mandarParaCampanha(
 ): Promise<boolean> {
   if (!SAIDA_PARA_CAMPANHA_LIGADA) return false;
   // Antes de consultar o banco: o que já se sabe pela própria tarefa.
-  if (!ehTarefaDeVenda(t.tarefa_tipo) || t.prioridade === 1) return false;
+  if (!ehTarefaDeVenda(t.tarefa_tipo) || t.prioridade === 1 || !tarefaDaTatiana(t)) return false;
   const { saida, ficha } = await avaliarSaida(db, emp, t, agora);
   // Sem ficha não há onde guardar o lead: a tarefa continua na lista.
   if (!saida.sai || !ficha) return false;
