@@ -48,6 +48,8 @@ export async function rodarAliceEnsaio(opcoes: {
    * e a Alice refaz uma vez com este recado.
    */
   refazerSemValor?: string;
+  /** Aviso do sistema no lugar da mensagem do cliente (toque da cadência), como no motor. */
+  aviso?: string;
 }): Promise<RespostaEnsaio> {
   const hist: MensagemHistorico[] = opcoes.historico.map((m) => ({
     direcao: m.de === "cliente" ? "Recebida" : "Enviada",
@@ -56,7 +58,8 @@ export async function rodarAliceEnsaio(opcoes: {
     remetente: m.de === "cliente" ? null : "agent_bot",
     imagens: m.imagem ? [m.imagem] : [],
   }));
-  const turnos0 = montarTurnos(hist) ?? [];
+  // Toque do sistema (follow-up, volta da autorização): o aviso vai como no motor.
+  const turnos0 = montarTurnos(hist, opcoes.aviso) ?? [];
   const turnos = opcoes.prepararTurnos ? opcoes.prepararTurnos(turnos0) : turnos0;
   const noMeio = !SEM_SISTEMA_NO_MEIO.includes(opcoes.modelo);
   const mensagens: Anthropic.Beta.BetaMessageParam[] = noMeio

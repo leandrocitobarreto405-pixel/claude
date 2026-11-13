@@ -165,8 +165,10 @@ export const Route = createFileRoute("/api/public/hooks/alice-varredura")({
           });
           // Ensaio da fase 2 de "Alice e vendas" (aprovado pelo dono): uma conversa por rodada, até
           // as três; nada vai a cliente. Fica por último para não atrasar o resto.
-          const { rodarEnsaioVendasPendente } = await import("@/lib/alice/ensaio-vendas.server");
-          const ensaioVendas = await rodarEnsaioVendasPendente().catch((e) => {
+          // Ensaio das fases 3 e 4 e do combo com cupom (pedido do dono em 13/11); o da fase 2 já
+          // terminou.
+          const { rodarEnsaioVendas2Pendente } = await import("@/lib/alice/ensaio-vendas2.server");
+          const ensaioVendas = await rodarEnsaioVendas2Pendente().catch((e) => {
             console.error("Ensaio Alice e vendas: falha", e instanceof Error ? e.message : e);
             return null;
           });
