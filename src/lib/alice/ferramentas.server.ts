@@ -1718,7 +1718,7 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           ]
         : desconto
           ? [
-              `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
+              `${combo || negociado ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
               desconto.pct !== null
                 ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
                 : `${desconto.rotulo}: −${reais(desconto.valor)}`,
@@ -1730,6 +1730,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           ]
         : []),
       ...(avisoDesconto ? [`(Para você, não copie: ${avisoDesconto})`] : []),
+      // Valor fixo (follow-up 5 ou negociação): o cartão mostra o item, o cheio e a condição (13/11).
+      ...(negociado
+        ? [
+            `(Para você, não copie: no cartão, copie as linhas acima nesta ordem: cada item com o preço, "Valor cheio: ${reais(bruto)}" e "${negociado.rotulo}: −${reais(Math.max(0, Math.round((bruto - cond.total) * 100) / 100))}", e depois o total. Nunca mande só o valor final.)`,
+          ]
+        : []),
       ...(prazos.length
         ? ["Prazo de entrega (copie para o cliente, logo depois dos itens):", ...prazos]
         : []),
