@@ -52,6 +52,7 @@ import {
   avisoDaOferta5,
   chavesFase4,
   comRetomadaManha,
+  retomadaNaHora,
   retornoBarraRetomada,
 } from "./vendas-fase4";
 import { prepararOferta5 } from "./vendas-fase4.server";
@@ -74,6 +75,7 @@ import {
   PASSO_RETORNO_COMBINADO,
   diaSP,
   instanteSP,
+  naHoraDaManha,
   passoDaEtapa,
   comFotoUmaVez,
   primeiraAtendente,
@@ -1020,6 +1022,25 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
         detalhe: `follow-up 5 segurado: toque ${pendentes.join(" e ")} da sequência ainda pendente; nova conferência em ${depois.toISOString()}`,
       };
     }
+  }
+  // Retomada fora da hora das 8h (13/11): não sai com "bom dia" à tarde; volta para as 8h.
+  if (passo?.retomadaManha && !retomadaNaHora(new Date(), cfg.hora_inicio)) {
+    const depois = naHoraDaManha(new Date());
+    await db
+      .from("ia_tarefas")
+      .update({ situacao: "pendente", executar_apos: depois.toISOString(), enfileirada: false })
+      .eq("id", tarefa.id);
+    await db
+      .from("crm_followups")
+      .update({ scheduled_at: depois.toISOString() })
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("ia_tarefa_id", tarefa.id);
+    const { enfileirarPendentes } = await import("./fila.server");
+    await enfileirarPendentes(db);
+    return {
+      situacao: "adiada",
+      detalhe: `retomada fora da hora das 8h: remarcada para ${depois.toISOString()}`,
+    };
   }
   // Retomada das 8h com retorno combinado pendente (13/11): não sai; o retorno fica como está e a
   // sequência continua depois dele.
