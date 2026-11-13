@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CADENCIA, passoDaEtapa, planejarToque, rotuloDoToque } from "./cadencia";
+import { CADENCIA, naHoraDaManha, passoDaEtapa, planejarToque, rotuloDoToque } from "./cadencia";
 import {
   calcularOferta5,
   chavesFase4,
@@ -9,6 +9,7 @@ import {
   deveCobrirRetorno,
   modeloDaOferta5,
   retornoBarraRetomada,
+  retomadaNaHora,
   anterioresPendentes,
   textoDecisaoForaDaArea,
   textoOferta5,
@@ -88,6 +89,47 @@ test("retomada da manhã no planejamento: D1 às 8h, inclusive quando o cliente 
   })!;
   assert.equal(falou.passo.etapa, "A3");
   assert.equal(falou.quando.toISOString(), SP("2026-11-13T08:00:00").toISOString());
+});
+
+test("retomada atrasada (âncora antiga, 13/11): vai para as 8h seguintes, nunca 4 h depois à tarde", () => {
+  // Caso real: âncora em 10/11, toques 1 e 2 feitos, planejado em 13/11 às 10h05.
+  const r = planejarToque({
+    ...base,
+    trilha: "A",
+    agora: SP("2026-11-13T10:05:00"),
+    ancoraOrcamento: SP("2026-11-10T16:02:00"),
+    feitos: [
+      { etapa: "A1", em: SP("2026-11-10T16:10:00").toISOString() },
+      { etapa: "A2", em: SP("2026-11-13T10:05:00").toISOString() },
+    ],
+    retomadaManha: true,
+  })!;
+  assert.equal(r.passo.etapa, "A3");
+  assert.equal(r.quando.toISOString(), SP("2026-11-14T08:00:00").toISOString());
+});
+
+test("hora da manhã: antes das 8h vai para as 8h; das 8h às 8h59 fica; depois, dia seguinte", () => {
+  assert.equal(
+    naHoraDaManha(SP("2026-11-13T06:30:00")).toISOString(),
+    SP("2026-11-13T08:00:00").toISOString(),
+  );
+  assert.equal(
+    naHoraDaManha(SP("2026-11-13T08:05:00")).toISOString(),
+    SP("2026-11-13T08:05:00").toISOString(),
+  );
+  assert.equal(
+    naHoraDaManha(SP("2026-11-13T14:05:00")).toISOString(),
+    SP("2026-11-14T08:00:00").toISOString(),
+  );
+});
+
+test("na hora do envio: a retomada só sai entre 8h e 8h59", () => {
+  assert.equal(retomadaNaHora(SP("2026-11-13T08:00:00")), true);
+  assert.equal(retomadaNaHora(SP("2026-11-13T08:59:00")), true);
+  assert.equal(retomadaNaHora(SP("2026-11-13T14:05:00")), false);
+  assert.equal(retomadaNaHora(SP("2026-11-13T07:59:00")), false);
+  // Empresa que abre às 9h: a retomada pode sair até 9h59 (sem ficar adiando para sempre).
+  assert.equal(retomadaNaHora(SP("2026-11-13T09:10:00"), 9), true);
 });
 
 test("numeração: com a retomada, o 3 é da Alice; o 4 continua da Maria", () => {

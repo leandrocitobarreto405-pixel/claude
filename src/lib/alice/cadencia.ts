@@ -360,6 +360,8 @@ export function planejarToque(e: EntradaPlano): { passo: Passo; quando: Date } |
     const intervalo = passo.fim ? 18 * HORA : 4 * HORA;
     quando = maior(quando, new Date(ultimoToque.getTime() + intervalo));
   }
+  // Retomada da manhã atrasada (13/11): não cai na regra das 4 horas; vai para as próximas 8h.
+  if (passo.retomadaManha) quando = naHoraDaManha(quando);
   return { passo, quando };
 }
 
@@ -471,6 +473,17 @@ const FUSO = "America/Sao_Paulo";
 /** Data (AAAA-MM-DD) do instante em São Paulo. */
 export function diaSP(d: Date): string {
   return d.toLocaleDateString("sv-SE", { timeZone: FUSO });
+}
+
+/**
+ * Retomada da manhã (13/11): o horário vai para a hora das 8h (8h00 a 8h59) do mesmo dia, ou das 8h
+ * do dia seguinte se ela já passou. Nunca sai à tarde com "bom dia".
+ */
+export function naHoraDaManha(d: Date, hora = 8): Date {
+  const ini = instanteSP(diaSP(d), 0, hora);
+  if (d.getTime() < ini.getTime()) return ini;
+  if (d.getTime() < ini.getTime() + HORA) return d;
+  return instanteSP(diaSP(d), 1, hora);
 }
 
 /** Instante de "dia + n, hh:00" em São Paulo (UTC−3, sem horário de verão). */

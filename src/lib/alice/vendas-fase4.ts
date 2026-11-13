@@ -80,6 +80,21 @@ export function comRetomadaManha<P extends Passo | null>(passo: P, ligado: boole
 }
 
 /**
+ * A retomada só sai na hora das 8h (13/11): das 8h00 até antes das 9h, ou até a primeira hora do
+ * atendimento quando a empresa começa depois das 8h. Fora disso ela é remarcada para as 8h.
+ */
+export function retomadaNaHora(agora: Date, horaInicio = 0): boolean {
+  const h = Number(
+    agora.toLocaleString("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }),
+  );
+  return h >= HORA_RETOMADA_MANHA && h < Math.max(HORA_RETOMADA_MANHA + 1, horaInicio + 1);
+}
+
+/**
  * Retomada barrada por retorno combinado (correção do dono, 13/11): se o cliente tem retorno
  * pendente (trilha C da Alice ou retorno marcado pela equipe) a partir de 3 h atrás, a retomada das
  * 8h não sai. O cliente nunca recebe duas mensagens na mesma manhã.
