@@ -870,6 +870,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 13/11/2026 | Ensaio de Alice e vendas das fases 3 e 4 e do combo com cupom (7 conversas com a Alice de verdade, nada enviado) | `30f783d` | — |
 | 13/11/2026 | Follow-up 5 (chave desligada): com itens diferentes do orçamento da oferta, a Alice refaz com os mesmos itens em vez de refazer sem desconto (visto no ensaio) | `a3d651c` | — |
 | 13/11/2026 | Follow-up 5 e negociação: o cartão do orçamento refeito mostra o item com o preço, o valor cheio e a linha da condição (no ensaio saiu só o valor final); conversa a mais no ensaio para conferir | `7e67512` | — |
+| 13/11/2026 | Tatiana não cancela nem substitui tarefa que não é dela: tarefa da manhã de transferência da Alice (marca [transferencia]), pedido de autorização de desconto e retorno combinado pela equipe; a saída para a campanha também não tira essas tarefas. Tarefa da transferência de 12/11 recriada com o OK do dono | `5fc7ec1` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
