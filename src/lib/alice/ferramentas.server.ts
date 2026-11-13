@@ -31,6 +31,10 @@ import {
 
 import { itensComDistancia, rotulosAcrescimo, taxaDeslocamento } from "@/lib/orcamento-regras";
 import { precificar, totalizar, type ItemTabela, type LinhaOrcamento } from "./orcamento-alice";
+import { descontoPorPct } from "@/lib/orcamento-regras";
+
+/** Combo com cupom: desconto a mais no Pix, só se o cliente perguntar (regra do dono, 13/11). */
+export const PIX_COMBO_COM_CUPOM_PCT = 3;
 import { assinaturaOrcamento } from "./agendamento";
 import { conferirCupom, maiorDesconto, valorDoCupom, type Cupom } from "./cupons";
 import { formatarNumeroOrcamento } from "@/lib/numero-orcamento";
@@ -1487,27 +1491,43 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
           ? `Os itens mudaram desde o pedido ao gestor (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): mande o orçamento com os itens do pedido ou peça nova autorização.`
           : `Os itens mudaram desde a condição do follow-up (valor cheio ${reais(baseDesconto)} em vez de ${reais(negociado.valorCheio)}): a condição vale para os mesmos itens; refaça sem desconto.`,
     };
-  const escolha = negociado ? null : maiorDesconto(baseDesconto, cupom, regraDesconto);
+  // Combo com cupom (regra do dono, 13/11): os dois juntos, sem autorização; o cartão não mostra o
+  // Pix e, se o cliente perguntar, no Pix tem mais 3%.
+  const comboComCupom = Boolean(combo && descontoDoCombo && cupom && !negociado);
+  const valorDoCombo = comboComCupom ? descontoPorPct(baseDesconto, descontoDoCombo!.pct) : 0;
+  const valorDoCupomNoCombo = comboComCupom
+    ? valorDoCupom(cupom!, Math.max(0, baseDesconto - valorDoCombo))
+    : 0;
+  const escolha = negociado
+    ? null
+    : comboComCupom
+      ? ({ tipo: "pct", pct: descontoDoCombo! } as const)
+      : maiorDesconto(baseDesconto, cupom, regraDesconto);
 
-  const cupomUsado = escolha?.tipo === "cupom" ? escolha.cupom : null;
+  const cupomUsado = comboComCupom ? cupom : escolha?.tipo === "cupom" ? escolha.cupom : null;
   const { bruto, desconto, cond } = totalizar(
     escolhidos,
-    negociado
+    comboComCupom
       ? {
-          valor: Math.max(0, Math.round((baseDesconto - negociado.valorFinal) * 100) / 100),
-          rotulo: negociado.rotulo,
+          valor: Math.round((valorDoCombo + valorDoCupomNoCombo) * 100) / 100,
+          rotulo: `${descontoDoCombo!.rotulo} (${descontoDoCombo!.pct}%) + cupom ${cupom!.codigo}`,
         }
-      : escolha?.tipo === "cupom"
+      : negociado
         ? {
-            valor: valorDoCupom(escolha.cupom, baseDesconto),
-            rotulo: `Cupom ${escolha.cupom.codigo}`,
+            valor: Math.max(0, Math.round((baseDesconto - negociado.valorFinal) * 100) / 100),
+            rotulo: negociado.rotulo,
           }
-        : escolha?.tipo === "pct"
-          ? escolha.pct
-          : null,
+        : escolha?.tipo === "cupom"
+          ? {
+              valor: valorDoCupom(escolha.cupom, baseDesconto),
+              rotulo: `Cupom ${escolha.cupom.codigo}`,
+            }
+          : escolha?.tipo === "pct"
+            ? escolha.pct
+            : null,
     ctx.cfg.parcelas_max,
-    // O valor negociado é o final: sem o Pix por cima.
-    negociado ? 0 : Number(ctx.cfg.desconto_pix_percentual),
+    // O valor negociado é o final: sem o Pix por cima. Combo com cupom: sem o Pix no cartão.
+    negociado || comboComCupom ? 0 : Number(ctx.cfg.desconto_pix_percentual),
     taxa.valor,
   );
   const comboUsado = Boolean(descontoDoCombo) && escolha?.tipo === "pct";
@@ -1532,8 +1552,13 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
     : input.desconto === "campanha"
       ? "campanha"
       : "indicação";
-  const avisoDesconto =
-    cupom && regraDesconto
+  // Pix do combo com cupom: só se o cliente perguntar (não vai no cartão).
+  const pixDoComboComCupom = comboComCupom
+    ? Math.round(cond.total * (1 - PIX_COMBO_COM_CUPOM_PCT / 100) * 100) / 100
+    : null;
+  const avisoDesconto = comboComCupom
+    ? `Combo com cupom: os dois descontos juntos, e o cartão vai sem a linha do Pix. Se o cliente perguntar do Pix, diga que no Pix tem um desconto a mais: fica ${reais(pixDoComboComCupom!)}. Não ofereça o Pix antes.`
+    : cupom && regraDesconto
       ? cupomUsado
         ? `Só um desconto por orçamento: o cupom ${cupomUsado.codigo} é maior que o desconto de ${nomeDoPct} e foi o aplicado.${combo ? " No cartão, troque a linha do combo pela do cupom." : ""}`
         : `Só um desconto por orçamento: o desconto de ${nomeDoPct} é maior que o cupom ${cupom.codigo} e foi o aplicado.`
@@ -1578,12 +1603,12 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         cliente_endereco: endereco,
         customer_id: lead?.customer_id ?? null,
         data_servico: null,
-        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct !== null ? `${desconto.pct}% (${reais(desconto.valor)})` : `-${reais(desconto.valor)}`}.` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(cond.pix)}.`,
+        observacoes: `Criado pela ${ctx.cfg.nome} (IA)${input.rotulo ? ` — ${input.rotulo}` : ""}.${desconto ? ` ${desconto.rotulo}: ${desconto.pct !== null ? `${desconto.pct}% (${reais(desconto.valor)})` : `-${reais(desconto.valor)}`}.` : ""} Válido até ${val.texto}. Cartão: ${cond.parcelas}x de ${reais(cond.parcela)}; Pix: ${reais(pixDoComboComCupom ?? cond.pix)}${pixDoComboComCupom !== null ? ` (${PIX_COMBO_COM_CUPOM_PCT}% a mais, só se o cliente perguntar)` : ""}.`,
         desconto: desconto?.valor ?? 0,
         desconto_tipo: tipoDesconto,
         desconto_pct: desconto?.pct ?? null,
         cupom: cupomUsado?.codigo ?? null,
-        valor_a_vista: cond.pix,
+        valor_a_vista: pixDoComboComCupom ?? cond.pix,
         km_ida_volta: km,
         custo_produtos: 0,
         custo_mao_obra: 0,
@@ -1685,14 +1710,20 @@ async function criarOrcamento(ctx: ContextoFerramenta, input: z.infer<typeof Cri
         ? "Serviço: Higienização + Impermeabilização (combo: use o cartão do combo das instruções)"
         : `Serviço: ${[...new Set(escolhidos.map((e) => rotuloServico(input.servico, e.item.categoria)))].join(" e ")}`,
       ...linhas,
-      ...(desconto
+      ...(desconto && comboComCupom
         ? [
-            `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
-            desconto.pct !== null
-              ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
-              : `${desconto.rotulo}: −${reais(desconto.valor)}`,
+            `Valor cheio: ${reais(bruto)}`,
+            `${descontoDoCombo!.rotulo} (${descontoDoCombo!.pct}%): -${reais(valorDoCombo)}`,
+            `Cupom ${cupom!.codigo}: -${reais(valorDoCupomNoCombo)}`,
           ]
-        : []),
+        : desconto
+          ? [
+              `${combo ? "Valor cheio" : "Subtotal"}: ${reais(bruto)}`,
+              desconto.pct !== null
+                ? `${desconto.rotulo} (${desconto.pct}%): -${reais(desconto.valor)}`
+                : `${desconto.rotulo}: −${reais(desconto.valor)}`,
+            ]
+          : []),
       ...(taxa.valor > 0
         ? [
             `(Para você, não copie: os preços acima já são os finais para o endereço do cliente, a ~${kmIda} km da base. Nunca fale em taxa, deslocamento, distância ou acréscimo. Se o cliente perguntar sobre deslocamento, diga só que o valor enviado já é o final para o endereço dele. Não diminua nem negocie; se reclamar do valor, siga o roteiro de objeção de preço ou passe para a equipe.)`,

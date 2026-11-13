@@ -8,6 +8,7 @@ import {
   decisaoForaDaArea,
   deveCobrirRetorno,
   modeloDaOferta5,
+  retornoBarraRetomada,
   textoDecisaoForaDaArea,
   textoOferta5,
   textoRetomadaManha,
@@ -248,4 +249,48 @@ test("fora da área: transfere só pedido grande e perto; senão, despedida e mo
   assert.match(t, /infelizmente a gente ainda não atende a sua região/);
   assert.match(t, /registrar_motivo_perda/);
   assert.doesNotMatch(textoDecisaoForaDaArea("transferir", 42, 35), /R\$/);
+});
+
+test("cliente com retorno combinado amanhã às 11h: a retomada das 8h não sai", () => {
+  const agora = SP("2026-11-13T08:00:00");
+  // Retorno combinado pela Alice (trilha C) para as 11h: barra.
+  assert.equal(
+    retornoBarraRetomada(
+      [{ scheduled_at: SP("2026-11-13T11:00:00").toISOString(), trilha: "C" }],
+      agora,
+    ),
+    true,
+  );
+  // Retorno marcado pela equipe (sem trilha) para as 11h: barra também.
+  assert.equal(
+    retornoBarraRetomada(
+      [{ scheduled_at: SP("2026-11-13T11:00:00").toISOString(), trilha: null }],
+      agora,
+    ),
+    true,
+  );
+  // Só os toques da própria sequência (trilha A) pendentes: a retomada sai.
+  assert.equal(
+    retornoBarraRetomada(
+      [{ scheduled_at: SP("2026-11-13T14:00:00").toISOString(), trilha: "A" }],
+      agora,
+    ),
+    false,
+  );
+  // Retorno velho, de ontem, que ficou pendente: não barra.
+  assert.equal(
+    retornoBarraRetomada(
+      [{ scheduled_at: SP("2026-11-12T11:00:00").toISOString(), trilha: "C" }],
+      agora,
+    ),
+    false,
+  );
+  assert.equal(retornoBarraRetomada([], agora), false);
+});
+
+test("frase do retorno com o nome de quem marcou", () => {
+  assert.equal(
+    textoRetornoDaEquipe("Carlos", "Carol"),
+    "Oi, Carlos! A Carol me pediu pra te chamar no horário combinado 💙 Conseguiu ver a proposta?",
+  );
 });

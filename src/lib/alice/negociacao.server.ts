@@ -87,6 +87,10 @@ export function tipoDoDescontoAtual(o: {
   return null;
 }
 
+/** Pedido de mais desconto no combo: vai para a especialista, que decide o valor. */
+export const TEXTO_COMBO_PARA_ESPECIALISTA =
+  'Pedido de desconto no combo não passa pela autorização: transfira para a especialista com o motivo "desconto no combo" (no resumo: itens, valor do orçamento e o que o cliente pediu). Diga ao cliente que vai chamar a especialista para ver a melhor condição pra ele, sem prometer valor nem porcentagem.';
+
 export type EntradaFerramenta = {
   motivo: "caro" | "concorrente";
   concorrente_valor?: number | undefined;
@@ -137,6 +141,10 @@ export async function pedirAutorizacao(
   ]);
   const orc = q as unknown as Orcamento | null;
   if (!orc) return { texto: "Sem orçamento nesta conversa: mande o orçamento antes.", erro: true };
+  // Combo (regra do dono, 13/11): mais desconto no combo vai para a especialista, sem autorização.
+  const servicosDoOrcamento = new Set(orc.quote_items.map((i) => i.tipo_servico));
+  if (servicosDoOrcamento.has("higienizacao") && servicosDoOrcamento.has("impermeabilizacao"))
+    return { texto: TEXTO_COMBO_PARA_ESPECIALISTA, erro: true };
   const ant = (anteriores ?? []) as Array<{
     situacao: string;
     valor_final: number | null;

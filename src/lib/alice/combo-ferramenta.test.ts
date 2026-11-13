@@ -68,22 +68,32 @@ test("combo ligado: os dois serviços no mesmo orçamento, 10% de desconto e Pix
   assert.deepEqual(ev[0]!["dados"], { pct: 10, valor_cheio: 780, total: 702 });
 });
 
-test("combo com cupom: vale só o maior desconto", async () => {
-  // Cupom de R$ 50 contra 10% de R$ 780 (R$ 78): fica o combo.
-  const { ctx } = contexto({ combo_ligado: true, combo_pct: 10 });
+test("combo com cupom (regra de 13/11): os dois juntos, sem Pix no cartão; 3% a mais se pedir", async () => {
+  // 780 cheio; combo 10% = 78; cupom R$ 50; total 652; Pix (só se pedir) 3% = 632,44.
+  const { ctx, tabelas } = contexto({ combo_ligado: true, combo_pct: 10 });
   const r = await executarFerramenta(ctx, "criar_orcamento", { ...pedido, cupom: "BLOG50" });
   assert.equal(r.erro, false, r.conteudo);
   const texto = semNbsp(r.conteudo);
+  assert.match(texto, /Valor cheio: R\$ 780,00/);
   assert.match(texto, /Combo higienização \+ impermeabilização \(10%\): -R\$ 78,00/);
-  assert.match(texto, /o desconto de combo é maior que o cupom BLOG50 e foi o aplicado/);
-  assert.equal(texto.includes("Cupom BLOG50: −"), false);
-  // Com o combo a 5% (R$ 39), o cupom de R$ 50 ganha.
-  const b = contexto({ combo_ligado: true, combo_pct: 5 });
-  const r2 = await executarFerramenta(b.ctx, "criar_orcamento", { ...pedido, cupom: "BLOG50" });
-  const t2 = semNbsp(r2.conteudo);
-  assert.match(t2, /Cupom BLOG50: −R\$ 50,00/);
-  assert.match(t2, /Total com desconto: R\$ 730,00/);
-  assert.match(t2, /troque a linha do combo pela do cupom/);
+  assert.match(texto, /Cupom BLOG50: -R\$ 50,00/);
+  assert.match(texto, /Total com desconto: R\$ 652,00/);
+  // O cartão vai sem a linha do Pix; o valor do Pix fica só para a Alice, se o cliente perguntar.
+  assert.equal(texto.includes("No Pix"), false);
+  assert.match(texto, /no Pix tem um desconto a mais: fica R\$ 632,44/);
+  const q = tabelas["quotes"]![0]!;
+  assert.equal(q["desconto"], 128);
+  assert.equal(q["total"], 652);
+  assert.equal(q["cupom"], "BLOG50");
+  assert.equal(q["valor_a_vista"], 632.44);
+});
+
+test("combo sem cupom: continua 10% e o Pix de 5% no cartão", async () => {
+  const { ctx } = contexto({ combo_ligado: true, combo_pct: 10 });
+  const r = await executarFerramenta(ctx, "criar_orcamento", pedido);
+  const texto = semNbsp(r.conteudo);
+  assert.match(texto, /No Pix \(5% de desconto\): R\$ 666,90/);
+  assert.equal(texto.includes("desconto a mais"), false);
 });
 
 test("combo: item sem impermeabilização (ou colchão) não entra", async () => {

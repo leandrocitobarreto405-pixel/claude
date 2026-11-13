@@ -46,7 +46,12 @@ import {
   jaPerguntouOMotivo,
 } from "./atalho";
 import { chavesVendas } from "./chaves";
-import { avisoDaOferta5, chavesFase4, comRetomadaManha } from "./vendas-fase4";
+import {
+  avisoDaOferta5,
+  chavesFase4,
+  comRetomadaManha,
+  retornoBarraRetomada,
+} from "./vendas-fase4";
 import { prepararOferta5 } from "./vendas-fase4.server";
 import { AVISO_AUTORIZACAO_PENDENTE, parametrosDaConfig } from "./negociacao";
 import { chaveTelefone } from "@/lib/avisos";
@@ -970,6 +975,25 @@ async function fazerFollowup(db: Admin, tarefa: Tarefa): Promise<ResultadoTarefa
     }
     await concluirRepescagem(db, tarefa, `sem desfecho: ${passo.guia}`, false);
     return { situacao: "concluida", detalhe: `fim da trilha ${passo.trilha}: sem desfecho` };
+  }
+  // Retomada das 8h com retorno combinado pendente (13/11): não sai; o retorno fica como está e a
+  // sequência continua depois dele.
+  if (passo?.retomadaManha && d.conversa.crm_lead_id) {
+    const { data: retornos } = await db
+      .from("crm_followups")
+      .select("scheduled_at, trilha")
+      .eq("empresa_id", tarefa.empresa_id)
+      .eq("crm_lead_id", d.conversa.crm_lead_id)
+      .eq("status", "Pendente")
+      .or("trilha.eq.C,trilha.is.null")
+      .limit(20);
+    if (retornoBarraRetomada((retornos ?? []) as never, new Date())) {
+      await cancelarToque(db, tarefa, "retomada das 8h não saiu: o cliente tem retorno combinado");
+      return {
+        situacao: "ignorada",
+        detalhe: "retomada das 8h não saiu: o cliente tem retorno combinado",
+      };
+    }
   }
   // Toque da equipe (05/11, trilha A 3 e 4): a Alice não manda; vira tarefa da atendente com a
   // mensagem pronta e a sequência segue para o próximo toque.

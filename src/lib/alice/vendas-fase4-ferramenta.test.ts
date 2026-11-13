@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { executarFerramenta } from "./ferramentas.server";
 import { contexto } from "./banco-simulado";
 
-const semNbsp = (s: string) => s.replace(/ /g, " ");
+const semNbsp = (s: string) => s.replace(/\u00a0/g, " ");
 const pedido = {
   servico: "higienizacao",
   itens: [{ item: "Sofá comum 3 lugares", quantidade: 1 }],

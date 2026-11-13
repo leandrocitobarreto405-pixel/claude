@@ -283,3 +283,23 @@ test("a equipe respondeu ao cliente na conversa: o pedido sai como assumido", as
   assert.equal(r.assumidas, 1);
   assert.equal(tab("alice_autorizacoes")[0]!["situacao"], "assumido");
 });
+
+test("combo: pedido de desconto vai para a especialista, sem autorização", async () => {
+  const d = dados();
+  d.quotes[0]!.quote_items.push({
+    nome_snapshot: "Sofá comum 3 lugares",
+    quantidade: 1,
+    tipo_servico: "impermeabilizacao",
+  });
+  const { db, tab } = banco(d);
+  const { a, enviados } = avisador();
+  const r = await pedirAutorizacao(db, ctx(db, a), {
+    motivo: "caro",
+    frase_cliente: "faz por menos?",
+  });
+  assert.equal(r.erro, true);
+  assert.match(r.texto, /transfira para a especialista com o motivo "desconto no combo"/);
+  assert.doesNotMatch(r.texto, /12|teto|máxim/);
+  assert.equal(tab("alice_autorizacoes").length, 0);
+  assert.equal(enviados.length, 0);
+});

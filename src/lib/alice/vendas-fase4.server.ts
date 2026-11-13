@@ -168,6 +168,7 @@ type Retorno = {
   conversa_id: string | null;
   scheduled_at: string;
   notes: string | null;
+  assigned_to: string | null;
 };
 
 /**
@@ -191,7 +192,7 @@ export async function rodarRetornoDaEquipe(db: Db, agora = new Date()): Promise<
     const empresaId = String(cfg.empresa_id);
     const { data: lista } = await db
       .from("crm_followups")
-      .select("id, empresa_id, crm_lead_id, conversa_id, scheduled_at, notes")
+      .select("id, empresa_id, crm_lead_id, conversa_id, scheduled_at, notes, assigned_to")
       .eq("empresa_id", empresaId)
       .eq("status", "Pendente")
       .is("origem", null)
@@ -294,7 +295,10 @@ async function cobrirRetorno(
   const { nomeConfirmado } = await import("./nome.server");
   const nomeCompleto = await nomeConfirmado(db as never, r.empresa_id, c.id, c.whatsapp_contact_id);
   const nome = nomeCompleto ? (nomeCompleto.split(/\s+/)[0] ?? null) : null;
-  const atendente = primeiraAtendente(cfg.nomes_atendentes);
+  // Quem marcou o retorno (Maria, Carol...); sem cadastro com nome, a primeira atendente.
+  const atendente =
+    (await nomeDeQuemMarcou(db, r.empresa_id, r.assigned_to)) ??
+    primeiraAtendente(cfg.nomes_atendentes);
   const texto = textoRetornoDaEquipe(nome, atendente);
 
   const { contextoEmpresa } = await import("@/lib/mkt/contexto.server");
@@ -353,4 +357,23 @@ async function cobrirRetorno(
     })
     .eq("id", r.id);
   return true;
+}
+
+/** Primeiro nome de quem marcou o retorno (cadastro da pessoa na equipe). */
+async function nomeDeQuemMarcou(
+  db: Db,
+  empresaId: string,
+  userId: string | null,
+): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const { pessoasDaEmpresa } = await import("@/lib/comercial/noite.server");
+    const pessoa = (await pessoasDaEmpresa(db as never, empresaId)).find(
+      (p) => p.userId === userId,
+    );
+    const primeiro = pessoa?.nome?.trim().split(/\s+/)[0] ?? "";
+    return /^[\p{L}][\p{L}'-]*$/u.test(primeiro) ? primeiro : null;
+  } catch {
+    return null;
+  }
 }

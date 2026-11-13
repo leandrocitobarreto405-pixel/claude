@@ -79,6 +79,21 @@ export function comRetomadaManha<P extends Passo | null>(passo: P, ligado: boole
   };
 }
 
+/**
+ * Retomada barrada por retorno combinado (correção do dono, 13/11): se o cliente tem retorno
+ * pendente (trilha C da Alice ou retorno marcado pela equipe) a partir de 3 h atrás, a retomada das
+ * 8h não sai. O cliente nunca recebe duas mensagens na mesma manhã.
+ */
+export function retornoBarraRetomada(
+  retornos: Array<{ scheduled_at: string; trilha: string | null }>,
+  agora: Date,
+): boolean {
+  const desde = agora.getTime() - 3 * 3_600_000;
+  return retornos.some(
+    (r) => (r.trilha === "C" || r.trilha === null) && Date.parse(r.scheduled_at) >= desde,
+  );
+}
+
 /** Texto exato da retomada (conferência do ensaio e do modelo). */
 export function textoRetomadaManha(nome: string | null, com: "esposa" | "marido" | null) {
   const oi = nome ? `Oi, ${nome}, bom dia!` : "Oi, bom dia!";
