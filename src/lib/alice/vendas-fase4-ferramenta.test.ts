@@ -97,3 +97,23 @@ test("follow-up 5 novo: itens diferentes do orçamento da oferta pedem refazer c
   assert.match(r.conteudo, /refaça com os mesmos itens/);
   assert.doesNotMatch(r.conteudo, /refaça sem desconto/);
 });
+
+test("follow-up 5 novo: o cartão traz o item, o valor cheio e a linha da condição especial", async () => {
+  const c = contexto({ followup5_novo: true });
+  comToque5(c.tabelas, {
+    tipo: "desconto",
+    valor: 208,
+    cheio: 260,
+    vinte: true,
+    comVaga: true,
+    texto: "x",
+  });
+  const r = await executarFerramenta(c.ctx, "criar_orcamento", pedido);
+  assert.equal(r.erro, false, r.conteudo);
+  const t = semNbsp(r.conteudo);
+  assert.match(t, /• Sofá comum 3 lugares — R\$ 260,00/);
+  assert.match(t, /Valor cheio: R\$ 260,00/);
+  assert.match(t, /Condição especial \(vaga nesta semana\): −R\$ 52,00/);
+  assert.match(t, /Total com desconto: R\$ 208,00/);
+  assert.match(t, /Nunca mande só o valor final/);
+});

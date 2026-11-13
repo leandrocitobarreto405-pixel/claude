@@ -86,6 +86,7 @@ type Roteiro = {
     | "retomada"
     | "retomada_marido"
     | "followup5"
+    | "followup5_cartao"
     | "retorno_11h";
   titulo: string;
   nome: string;
@@ -155,6 +156,14 @@ export const CONVERSAS_ENSAIO_2: Roteiro[] = [
   {
     chave: "followup5",
     titulo: "Fase 4: follow-up 5 com 20%",
+    nome: "Ricardo",
+    comOrcamento: true,
+    falas: [{ sistema: "followup5" }, { texto: "Quero ver os horários sim" }],
+  },
+  {
+    // 13/11: no primeiro ensaio o cartão saiu só com o valor final; refeito depois da correção.
+    chave: "followup5_cartao",
+    titulo: "Fase 4: follow-up 5 com 20% (cartão com o item, o cheio e a condição)",
     nome: "Ricardo",
     comOrcamento: true,
     falas: [{ sistema: "followup5" }, { texto: "Quero ver os horários sim" }],
@@ -256,13 +265,26 @@ export function conferirConversa2(
       p.push("não transferiu para a especialista o pedido de desconto no combo");
     if (turnos.some((t) => /12\s?%|teto/i.test(texto(t)))) p.push("falou em teto ou 12%");
   }
-  if (chave === "retomada" || chave === "retomada_marido" || chave === "followup5") {
+  if (
+    chave === "retomada" ||
+    chave === "retomada_marido" ||
+    chave === "followup5" ||
+    chave === "followup5_cartao"
+  ) {
     const s = turnos.find((t) => t.esperado);
     if (!s) p.push("o toque não rodou");
     else if (normal(texto(s)) !== normal(s.esperado!))
       p.push("o toque não saiu exatamente com o texto aprovado");
   }
-  if (chave === "followup5") {
+  if (chave === "followup5_cartao") {
+    const depois = turnos.find((t) => t.cliente.startsWith("Quero ver"));
+    const cartao = texto(depois);
+    if (!/Valor cheio/i.test(cartao)) p.push("o cartão não mostrou o valor cheio");
+    if (!/Condição especial/i.test(cartao))
+      p.push("o cartão não mostrou a linha da condição especial");
+    if (!/•[^\n]*R\$/.test(cartao)) p.push("o cartão não mostrou o item com o preço");
+  }
+  if (chave === "followup5" || chave === "followup5_cartao") {
     const depois = turnos.find((t) => t.cliente.startsWith("Quero ver"));
     if (depois && !/oferta_followup/.test(depois.ferramentas.map((f) => f.entrada).join(" ")))
       p.push("não refez o orçamento com a condição do follow-up");
@@ -469,7 +491,7 @@ export async function rodarConversaEnsaio2(
             `Cupom ${cupom!.codigo}: -${brl(valorCupom)}`,
           ]
         : [
-            `${combo ? "Valor cheio" : "Subtotal"}: ${brl(t.bruto)}`,
+            `${combo || fixo ? "Valor cheio" : "Subtotal"}: ${brl(t.bruto)}`,
             t.desconto.pct !== null
               ? `${t.desconto.rotulo} (${t.desconto.pct}%): -${brl(t.desconto.valor)}`
               : `${t.desconto.rotulo}: −${brl(t.desconto.valor)}`,
@@ -484,6 +506,11 @@ export async function rodarConversaEnsaio2(
       ...(comboComCupom
         ? [
             `(Para você, não copie: Combo com cupom: os dois descontos juntos, e o cartão vai sem a linha do Pix. Se o cliente perguntar do Pix, diga que no Pix tem um desconto a mais: fica ${brl(estado.pix!)}. Não ofereça o Pix antes.)`,
+          ]
+        : []),
+      ...(fixo && t.desconto
+        ? [
+            `(Para você, não copie: no cartão, copie as linhas acima nesta ordem: cada item com o preço, "Valor cheio: ${brl(t.bruto)}" e "${t.desconto.rotulo}: −${brl(t.desconto.valor)}", e depois o total. Nunca mande só o valor final.)`,
           ]
         : []),
       `Total${t.desconto ? " com desconto" : ""}: ${brl(t.cond.total)}`,
@@ -838,6 +865,10 @@ export async function rodarEnsaioVendas2Pendente(
       .maybeSingle();
     let e = (data as { value?: EnsaioVendas2 } | null)?.value ?? null;
     if (!e || e.versao !== VERSAO_ENSAIO_VENDAS_2) e = ensaioNovo(cfg);
+    // Conversa nova no roteiro (mesma versão): entra como pendente, sem refazer as já feitas.
+    for (const c of CONVERSAS_ENSAIO_2)
+      if (!e.conversas.some((x) => x.chave === c.chave))
+        e.conversas.push({ chave: c.chave, titulo: c.titulo, situacao: "pendente", turnos: [] });
     const rodando = e.conversas.find((c) => c.situacao === "rodando");
     if (rodando) {
       if (agora.getTime() - Date.parse(rodando.inicio ?? "") < RODANDO_MAX_MS) continue;
