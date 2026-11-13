@@ -868,6 +868,7 @@ sem enviar, porque o app anterior não sabe preencher o desconto do Pix).
 | 12/11/2026 | Alice e vendas, fase 2 (chaves desligadas): atalho do apressado, pergunta do motivo e foto pedidas uma vez, combo orçado pela Alice; ensaio com a Alice de verdade (3 conversas, nada enviado); aviso "Alice fora do ar" só para o dono | `be99d7d` | — |
 | 13/11/2026 | Alice e vendas, fases 3 e 4 (chaves desligadas): desconto com autorização (bloco "Autorizações de desconto"), retomada das 8h pela Alice (não sai com retorno combinado), follow-up 5 com 20% e piso de R$ 200, Alice cobrindo o retorno da equipe em 15 min (com o nome de quem marcou), fora da área; regra nova do combo (com cupom: os dois juntos, sem Pix no cartão e 3% a mais no Pix se pedirem; mais desconto no combo vai para a especialista) | `df53c5b` | — |
 | 13/11/2026 | Ensaio de Alice e vendas das fases 3 e 4 e do combo com cupom (7 conversas com a Alice de verdade, nada enviado) | `30f783d` | — |
+| 13/11/2026 | Follow-up 5 (chave desligada): com itens diferentes do orçamento da oferta, a Alice refaz com os mesmos itens em vez de refazer sem desconto (visto no ensaio) | `a3d651c` | — |
 
 Agenda dos técnicos (24/10, D11): só código, banco não muda (as tabelas e campos vieram da
 `20261204120000`). Envio automático desligado em todas as empresas; o teste vai só para contato
