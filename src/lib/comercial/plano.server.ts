@@ -290,24 +290,26 @@ export async function gerarPlano(
 
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 120_000, maxRetries: 1 }).messages.create({
-      model: MODELO_FICHA,
-      max_tokens: 3_000,
-      output_config: {
-        effort: "medium",
-        format: {
-          type: "json_schema",
-          schema: ESQUEMA_PLANO as unknown as Record<string, unknown>,
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 120_000, maxRetries: 1 }).messages.create({
+        model: MODELO_FICHA,
+        max_tokens: 3_000,
+        output_config: {
+          effort: "medium",
+          format: {
+            type: "json_schema",
+            schema: ESQUEMA_PLANO as unknown as Record<string, unknown>,
+          },
         },
-      },
-      system: instrucoesPlano(
-        (empresa as { nome?: string } | null)?.nome ?? "empresa",
-        limitePct,
-        travaDias,
-      ),
-      messages: [{ role: "user", content: conteudo }],
-    }),
+        system: instrucoesPlano(
+          (empresa as { nome?: string } | null)?.nome ?? "empresa",
+          limitePct,
+          travaDias,
+        ),
+        messages: [{ role: "user", content: conteudo }],
+      }),
+    { empresaId: emp, origem: "plano" },
   );
   if (resp.stop_reason !== "end_turn") throw new Error(`plano: ${resp.stop_reason}`);
   const r = JSON.parse(resp.content.map((b) => (b.type === "text" ? b.text : "")).join("")) as {

@@ -482,6 +482,7 @@ export async function rodarConversaEnsaio(
       .join("\n");
     try {
       const r = await rodarAliceEnsaio({
+        empresaId,
         cliente,
         modelo: cfg.modelo,
         esforco: cfg.esforco,

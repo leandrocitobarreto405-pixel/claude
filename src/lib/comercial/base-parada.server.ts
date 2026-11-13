@@ -295,33 +295,35 @@ export async function analisarBaseParada(
   });
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const { chamarIa } = await import("@/lib/alice/parada-ia.server");
-  const resp = await chamarIa(() =>
-    new Anthropic({ timeout: 280_000, maxRetries: 1 }).messages.create({
-      model: MODELO_OPUS,
-      max_tokens: 12_000,
-      output_config: {
-        effort: "medium",
-        format: {
-          type: "json_schema",
-          schema: ESQUEMA_BASE_PARADA as unknown as Record<string, unknown>,
+  const resp = await chamarIa(
+    () =>
+      new Anthropic({ timeout: 280_000, maxRetries: 1 }).messages.create({
+        model: MODELO_OPUS,
+        max_tokens: 12_000,
+        output_config: {
+          effort: "medium",
+          format: {
+            type: "json_schema",
+            schema: ESQUEMA_BASE_PARADA as unknown as Record<string, unknown>,
+          },
         },
-      },
-      system: instrucoesBaseParada(empresaNome),
-      messages: [
-        {
-          role: "user",
-          content: [
-            `BASE PARADA EM ${dia}: ${parados.length} leads.`,
-            "",
-            campanhas.length
-              ? `CAMPANHAS DOS ÚLTIMOS 60 DIAS:\n${campanhas.join("\n")}`
-              : "CAMPANHAS DOS ÚLTIMOS 60 DIAS: nenhuma.",
-            "",
-            ...blocos,
-          ].join("\n"),
-        },
-      ],
-    }),
+        system: instrucoesBaseParada(empresaNome),
+        messages: [
+          {
+            role: "user",
+            content: [
+              `BASE PARADA EM ${dia}: ${parados.length} leads.`,
+              "",
+              campanhas.length
+                ? `CAMPANHAS DOS ÚLTIMOS 60 DIAS:\n${campanhas.join("\n")}`
+                : "CAMPANHAS DOS ÚLTIMOS 60 DIAS: nenhuma.",
+              "",
+              ...blocos,
+            ].join("\n"),
+          },
+        ],
+      }),
+    { empresaId, origem: "base_parada" },
   );
   if (resp.stop_reason !== "end_turn") throw new Error(`base parada: ${resp.stop_reason}`);
   const r = JSON.parse(resp.content.map((b) => (b.type === "text" ? b.text : "")).join("")) as {

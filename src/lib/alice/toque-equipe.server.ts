@@ -57,25 +57,27 @@ export async function mensagemDoToqueEquipe(
     const conversa = await fimDaConversa(db, o.empresaId, o.conversaId);
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("./parada-ia.server");
-    const resp = await chamarIa(() =>
-      new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
-        model: MODELO_FICHA,
-        max_tokens: 1_500,
-        output_config: {
-          effort: "low",
-          format: {
-            type: "json_schema",
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["mensagem"],
-              properties: { mensagem: { type: "string" } },
+    const resp = await chamarIa(
+      () =>
+        new Anthropic({ timeout: 60_000, maxRetries: 1 }).messages.create({
+          model: MODELO_FICHA,
+          max_tokens: 1_500,
+          output_config: {
+            effort: "low",
+            format: {
+              type: "json_schema",
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["mensagem"],
+                properties: { mensagem: { type: "string" } },
+              },
             },
           },
-        },
-        system: instrucoesToqueEquipe(entrada),
-        messages: [{ role: "user", content: `Conversa (fim):\n${conversa.slice(-12_000)}` }],
-      }),
+          system: instrucoesToqueEquipe(entrada),
+          messages: [{ role: "user", content: `Conversa (fim):\n${conversa.slice(-12_000)}` }],
+        }),
+      { semRegistro: true },
     );
     const custo = custoUsd(resp.usage);
     // O custo desta mensagem não entra em ia_execucoes: grava em ia_chamadas (11/11).

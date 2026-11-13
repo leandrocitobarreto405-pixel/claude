@@ -412,14 +412,16 @@ export async function analisarLead(
       messages: import("@anthropic-ai/sdk").default.MessageParam[],
       schema: Record<string, unknown>,
     ) =>
-      chamarIa(() =>
-        new Anthropic({ timeout: 170_000, maxRetries: 1 }).messages.create({
-          model: MODELO_FICHA,
-          max_tokens: 16_000,
-          output_config: { effort: "medium", format: { type: "json_schema", schema } },
-          system: sistema,
-          messages,
-        }),
+      chamarIa(
+        () =>
+          new Anthropic({ timeout: 170_000, maxRetries: 1 }).messages.create({
+            model: MODELO_FICHA,
+            max_tokens: 16_000,
+            output_config: { effort: "medium", format: { type: "json_schema", schema } },
+            system: sistema,
+            messages,
+          }),
+        { empresaId: o.empresaId, origem: "tatiana_analise", referencia: o.leadId },
       );
     const resp = await pedir(
       [{ role: "user", content: pedido }],

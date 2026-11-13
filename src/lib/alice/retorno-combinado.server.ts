@@ -62,13 +62,15 @@ export async function fraseDoRetorno(
       .join("\n");
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const { chamarIa } = await import("./parada-ia.server");
-    const r = await chamarIa(() =>
-      new Anthropic().messages.create({
-        model: MODELO_RETORNO,
-        max_tokens: 80,
-        system: INSTRUCAO_FRASE_RETORNO,
-        messages: [{ role: "user", content: contexto }],
-      }),
+    const r = await chamarIa(
+      () =>
+        new Anthropic().messages.create({
+          model: MODELO_RETORNO,
+          max_tokens: 80,
+          system: INSTRUCAO_FRASE_RETORNO,
+          messages: [{ role: "user", content: contexto }],
+        }),
+      { semRegistro: true },
     );
     const { registrarChamadaIa } = await import("@/lib/ia-chamadas.server");
     await registrarChamadaIa(db, {
