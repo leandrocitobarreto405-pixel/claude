@@ -1272,7 +1272,7 @@ async function conversaJaTeveDesconto(
 }
 
 /** Instrução do toque da cadência dentro da janela de 24 h (a Alice escreve, adaptando o guia). */
-function avisoDoToque(
+export function avisoDoToque(
   passo: Passo,
   cfg: NonNullable<Awaited<ReturnType<typeof lerConfig>>>,
   toqueAudio = false,
